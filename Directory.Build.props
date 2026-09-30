@@ -40,10 +40,11 @@
   </PropertyGroup>
 
   <!-- PackageIcon/PackageReadmeFile above only name the files; NuGet still needs them added to the
-       package explicitly, since neither lives inside the project's own directory. One ItemGroup
-       here rather than one per project, which is where curb itself repeats it. -->
+       package explicitly. Unlike curb (one product, one README repeated into every package), each
+       package here is independently installable and covers a genuinely different surface, so each
+       gets its own README.md living next to its .csproj — package-specific, not the repo-wide one. -->
   <ItemGroup Condition="$(MSBuildProjectDirectory.Replace('\','/').Contains('/src/'))">
-    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="README.md" />
+    <None Include="$(MSBuildProjectDirectory)/README.md" Pack="true" PackagePath="README.md" />
     <None Include="$(MSBuildThisFileDirectory)nuget-icon.png" Pack="true" PackagePath="nuget-icon.png" />
   </ItemGroup>
 
