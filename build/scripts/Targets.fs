@@ -53,13 +53,21 @@ let private pristineCheck (arguments:ParseResults<Arguments>) =
 
 let private generatePackages (arguments:ParseResults<Arguments>) =
     let version = currentVersionInformational.Value
-    exec "dotnet" ["pack"; "-c"; "Release"; sprintf "-p:Version=%s" version]
+    // -o is required: UseArtifactsOutput defaults `dotnet pack` to .artifacts/package/release,
+    // not Paths.Output, so validatePackages (which reads Paths.Output) would find nothing there.
+    if not Paths.Output.Exists then Paths.Output.Create()
+    let output = Paths.RootRelative Paths.Output.FullName
+    exec "dotnet" ["pack"; "-c"; "Release"; sprintf "-p:Version=%s" version; "-o"; output]
 
 let private validatePackages (arguments:ParseResults<Arguments>) =
     restoreTools.Value |> ignore
+    // The DLL's baked-in AssemblyInformationalVersion carries the +hash suffix (it is what
+    // generatePackages passed as -p:Version), so validation has to check against the same
+    // value curb itself validates against, not the bare tag version.
+    let version = currentVersionInformational.Value
     let packages = Directory.GetFiles(Paths.Output.FullName, "*.nupkg")
     for package in packages do
-        exec "dotnet" ["nupkg-validator"; package; "-v"; currentVersion.Value]
+        exec "dotnet" ["nupkg-validator"; package; "-v"; version]
 
 let Setup (parsed:ParseResults<Arguments>) (arguments:Arguments) =
     let singleTarget = parsed.TryGetResult SingleTarget |> Option.defaultValue false

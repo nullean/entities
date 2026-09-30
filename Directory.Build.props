@@ -39,6 +39,14 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
+  <!-- PackageIcon/PackageReadmeFile above only name the files; NuGet still needs them added to the
+       package explicitly, since neither lives inside the project's own directory. One ItemGroup
+       here rather than one per project, which is where curb itself repeats it. -->
+  <ItemGroup Condition="$(MSBuildProjectDirectory.Replace('\','/').Contains('/src/'))">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="README.md" />
+    <None Include="$(MSBuildThisFileDirectory)nuget-icon.png" Pack="true" PackagePath="nuget-icon.png" />
+  </ItemGroup>
+
   <!-- tests/ projects -->
   <PropertyGroup Condition="$(MSBuildProjectDirectory.Replace('\','/').Contains('/tests/'))">
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
