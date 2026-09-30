@@ -3,4 +3,24 @@
     <Description>Domain entity constraints: named rules, violation reporting, and safe mutation via Result&lt;T&gt;.</Description>
     <PackageTags>domain entities constraints validation</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Dev-time only: makes the [Constraint] generator run on this project's own compilation.
+         ReferenceOutputAssembly=false keeps the generator's netstandard2.0 assembly out of this
+         package's dependency list entirely; it ships as an analyzer, not a reference. -->
+    <ProjectReference Include="../Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <!-- Packs the generator's own DLL into this package under analyzers/dotnet/cs. A consumer who
+       installs Nullean.Entities (or anything that depends on it, since NuGet analyzer assets flow
+       transitively through PackageReference) gets [Constraint] support without a separate install.
+       @(Analyzer) is populated above by OutputItemType="Analyzer" with the resolved build output
+       path — but it also always carries the SDK's own built-in generators (LibraryImport,
+       GeneratedRegex, ...), so the Filename condition below is required, not decorative, or every
+       package would silently ship the SDK's generators as if this repo owned them. -->
+  <Target Name="PackConstraintGenerator" BeforeTargets="_GetPackageFiles">
+    <ItemGroup>
+      <None Include="@(Analyzer)" Condition="'%(Filename)' == 'Nullean.Entities.SourceGenerators'" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    </ItemGroup>
+  </Target>
 </Project>

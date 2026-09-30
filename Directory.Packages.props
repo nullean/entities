@@ -10,6 +10,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Microsoft.CodeAnalysis.CSharp: the incremental generator behind [Constraint]. netstandard2.0
+         only, and never Microsoft.CodeAnalysis.CSharp.Workspaces — a generator runs inside the host
+         compiler process and only ever needs the syntax/symbol APIs, not a Workspace. -->
+    <!-- Pinned to match the Roslyn compiler version bundled with the pinned SDK (global.json,
+         10.0.100) — a generator built against a newer compiler than the host is running fails
+         with CS9057 at consumption time, so this has to track the SDK, not "latest". -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
     <!-- CsCheck 4.9.1 targets net8.0 and has no dependencies. -->
     <PackageVersion Include="CsCheck" Version="4.9.1" />
     <!-- System.Reactive 7.0.0 and Microsoft.Reactive.Testing 7.0.0. -->

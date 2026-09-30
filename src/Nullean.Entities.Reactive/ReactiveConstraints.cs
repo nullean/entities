@@ -86,7 +86,11 @@ public sealed class MonitoredConstraint<TEvent> : IDisposable
 
 public sealed class ReactiveConstraint<TEvent>
 {
-	internal string? Name { get; set; } // set by [Constraint] source gen or .Named()
+	internal string? Name
+	{
+		get;
+		set;
+	} // set by .Named() only — [Constraint] source gen names via the (nameof(field), field) tuple it passes to ReactiveConstraintSet.From instead, see Attach(events, name, scheduler) below
 	internal Func<IObservable<TEvent>, IScheduler, IObservable<Verdict>> Factory { get; }
 
 	internal ReactiveConstraint(Func<IObservable<TEvent>, IScheduler, IObservable<Verdict>> factory) => Factory = factory;
@@ -265,11 +269,44 @@ public static class Constraints<TEvent>
 				.StartWith(Verdict.Pending)
 		);
 
+	/// <summary>
+	/// Starts a conditional constraint: <c>When(guard).Requires(requirement)</c> is violated the
+	/// first time an event satisfies <paramref name="guard"/> but fails <c>requirement</c>. Unlike
+	/// <see cref="Transitions(Func{TEvent, TEvent, bool})"/>, this only ever looks at the current
+	/// event — there is no "previous" here, so a requirement that needs one belongs in
+	/// <see cref="Transitions(Func{TEvent, TEvent, bool})"/> instead.
+	/// </summary>
+	public static WhenBuilder<TEvent> When(Func<TEvent, bool> guard) => new(guard);
+
 	// ── Temporal operators ────────────────────────────────────────────────
 
 	public static AfterBuilder<TEvent, TTrigger> After<TTrigger>() where TTrigger : TEvent => new();
 }
 #pragma warning restore CA1000
+
+// ── When / Requires ────────────────────────────────────────────────────────────
+
+public sealed class WhenBuilder<TEvent>
+{
+	private readonly Func<TEvent, bool> _guard;
+
+	internal WhenBuilder(Func<TEvent, bool> guard) => _guard = guard;
+
+	/// <summary>
+	/// Violated the first time an event satisfies the guard passed to <c>When</c> but fails
+	/// <paramref name="requirement"/>. Pending until then, Holds forever once satisfied — this
+	/// does not re-arm per event the way an unconditional constraint might read.
+	/// </summary>
+	public ReactiveConstraint<TEvent> Requires(Func<TEvent, bool> requirement) =>
+		new(
+			(events, scheduler) => events
+				.Where(_guard)
+				.Where(e => !requirement(e))
+				.Select(e => Verdict.Violated(scheduler.Now, e!))
+				.Take(1)
+				.StartWith(Verdict.Pending)
+		);
+}
 
 // ── After / Then / Within / UnlessInterruptedBy chain ────────────────────────
 // Builder types. Only the terminal (.Required() / .Within()) returns ReactiveConstraint<TEvent>.

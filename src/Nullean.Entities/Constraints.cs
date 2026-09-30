@@ -74,10 +74,14 @@ public static class ConstraintExtensions
 }
 
 // ── [Constraint] attribute ────────────────────────────────────────────────────
-// Mark a static Constraint<T> field on a partial record. A future source generator
-// bundles all marked fields into a ConstraintSet<T> Constraints property and adds
-// IHaveConstraints<T> to the partial record declaration, so the set is always
-// exhaustive — it cannot drift from the fields actually declared.
+// Mark a static Constraint<T>/ReactiveConstraint<T> field or property on a partial type.
+// Nullean.Entities.SourceGenerators bundles every marked member on that type into a
+// ConstraintSet<T>/ReactiveConstraintSet<T> Constraints property, so the set is always
+// exhaustive — it cannot drift from the members actually declared. If the type IS the T
+// (a partial record/class/struct attaching its own constraints), the generator also adds
+// IHaveConstraints<T> to the partial declaration; a separate "spec" companion class marking
+// someone else's T gets the property without the interface. See
+// src/Nullean.Entities.SourceGenerators/README.md for the full set of rules and diagnostics.
 
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class ConstraintAttribute : Attribute

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Generators run inside the host compiler process, which is netstandard2.0 regardless of
+         the consuming project's own TargetFramework. Overrides the net10.0 set at the repo root. -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <!-- Not installed directly by a consumer; it ships inside Nullean.Entities' nupkg under
+         analyzers/dotnet/cs instead (see Nullean.Entities.csproj). Overrides the repo root default. -->
+    <IsPackable>false</IsPackable>
+    <Description>Roslyn incremental generator for [Constraint]: bundles tagged Constraint&lt;T&gt;/ReactiveConstraint&lt;T&gt; members into an exhaustive set, so it can never silently drift from the fields actually declared.</Description>
+    <!-- Required by Microsoft.CodeAnalysis.Analyzers' own analyzer (RS1036) for any project that
+         ships a generator/analyzer; turns on the stricter generator-authoring rule set. -->
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <!-- RS2008 wants AnalyzerReleases.Shipped/Unshipped.md tracking every diagnostic ID's
+         introduction — real value once this ships a 1.0, but pure overhead for a v1 generator
+         with no consumers yet. Revisit at the first actual release. -->
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

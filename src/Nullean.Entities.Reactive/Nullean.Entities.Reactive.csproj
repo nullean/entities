@@ -7,5 +7,10 @@
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="Microsoft.Reactive.Testing" />
     <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+    <!-- Dev-time only, same reasoning as Nullean.Entities.csproj: makes [Constraint] on a
+         ReactiveConstraint<T> member work when compiling this project's own code/tests/examples.
+         Not packed again here — a consumer gets the generator transitively through the
+         Nullean.Entities dependency above, whose package already embeds it. -->
+    <ProjectReference Include="../Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

@@ -6,5 +6,8 @@
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="Microsoft.Reactive.Testing" />
     <ProjectReference Include="../../src/Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
+    <!-- Dev-time only, so the [Constraint] fixtures below actually get their Constraints property
+         generated when this test project itself is compiled — see Nullean.Entities.Reactive.csproj. -->
+    <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

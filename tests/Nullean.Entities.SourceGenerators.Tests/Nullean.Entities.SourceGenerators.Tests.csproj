@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="AwesomeAssertions" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <!-- Normal reference here, not OutputItemType="Analyzer": these tests drive the generator
+         directly through CSharpGeneratorDriver, not through the compiler's own analyzer pipeline. -->
+    <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" />
+    <!-- So test compilations can reference the real Constraint<T>/ReactiveConstraint<T>/
+         IHaveConstraints<T> types instead of hand-rolled stand-ins. -->
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
+  </ItemGroup>
+</Project>

@@ -38,5 +38,6 @@ let mapNugetToProject =
 // Reactive depends on Entities, CsCheck depends on Reactive, Bogus is standalone).
 let TestProjects =
     [ "tests/Nullean.Entities.Tests"
+      "tests/Nullean.Entities.SourceGenerators.Tests"
       "tests/Nullean.Entities.Reactive.Tests"
       "tests/Nullean.Entities.Bogus.Tests" ]
