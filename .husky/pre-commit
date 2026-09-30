@@ -1,0 +1,5 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+dotnet tool restore --verbosity quiet
+dotnet tool run husky -- run --group pre-commit

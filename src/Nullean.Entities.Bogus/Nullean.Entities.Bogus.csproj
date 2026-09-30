@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Bogus Faker&lt;T&gt; rules as CsCheck Gen&lt;T&gt;s. Seeds stay reproducible; failing cases shrink through CsCheck's size-based mechanism.</Description>
+    <PackageTags>testing property-based cscheck bogus fake generators</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CsCheck" />
+    <PackageReference Include="Bogus" />
+    <PackageReference Include="Soenneker.Utils.AutoBogus" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,39 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <GlobalPackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
+    <!-- Formats every C# project on `dotnet build` (Debug: rewrite, Release: check-and-fail). -->
+    <GlobalPackageReference Include="curb" Version="0.7.3" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- CsCheck 4.9.1 targets net8.0 and has no dependencies. -->
+    <PackageVersion Include="CsCheck" Version="4.9.1" />
+    <!-- System.Reactive 7.0.0 and Microsoft.Reactive.Testing 7.0.0. -->
+    <PackageVersion Include="System.Reactive" Version="7.0.0" />
+    <PackageVersion Include="Microsoft.Reactive.Testing" Version="7.0.0" />
+    <!-- Bogus 35.6.5: realistic fake data generation. -->
+    <PackageVersion Include="Bogus" Version="35.6.5" />
+    <!-- Soenneker.Utils.AutoBogus: maintained AutoBogus fork for net9/10, Bogus >= 35.6.5. -->
+    <PackageVersion Include="Soenneker.Utils.AutoBogus" Version="4.0.966" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Test dependencies -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
+    <PackageVersion Include="TUnit" Version="1.65.0" />
+    <PackageVersion Include="AwesomeAssertions" Version="9.5.0" />
+    <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Build script dependencies -->
+    <PackageVersion Include="Argu" Version="6.2.5" />
+    <PackageVersion Include="Bullseye" Version="6.1.0" />
+    <PackageVersion Include="Proc" Version="0.14.0" />
+    <PackageVersion Include="Fake.Tools.Git" Version="6.1.4" />
+  </ItemGroup>
+</Project>

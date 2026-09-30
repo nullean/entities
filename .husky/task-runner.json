@@ -1,0 +1,12 @@
+{
+  "$schema": "https://alirezanet.github.io/Husky.Net/schema.json",
+  "tasks": [
+    {
+      "name": "dotnet-lint",
+      "group": "pre-commit",
+      "command": "dotnet",
+      "args": ["tool", "run", "curb", "--", "check", ".", "--cache", ".artifacts/curb.cache"],
+      "include": ["**/*.cs"]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>CsCheck property testing integration for Nullean.Entities: reactive scripts, shrinking, and seed replay.</Description>
+    <PackageTags>cscheck property-testing reactive specification</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CsCheck" />
+    <ProjectReference Include="../../src/Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
+  </ItemGroup>
+</Project>

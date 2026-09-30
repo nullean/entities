@@ -1,0 +1,12 @@
+<Solution>
+  <Project Path="build/scripts/scripts.fsproj" />
+  <Project Path="src/Nullean.Entities/Nullean.Entities.csproj" />
+  <Project Path="src/Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
+  <Project Path="src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+  <Project Path="src/Nullean.Entities.Bogus/Nullean.Entities.Bogus.csproj" />
+  <Project Path="tests/Nullean.Entities.Tests/Nullean.Entities.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.Reactive.Tests/Nullean.Entities.Reactive.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.Bogus.Tests/Nullean.Entities.Bogus.Tests.csproj" />
+  <Project Path="examples/Nullean.Entities.Reactive.Examples/Nullean.Entities.Reactive.Examples.csproj" />
+  <Project Path="examples/Nullean.Entities.Bogus.Examples/Nullean.Entities.Bogus.Examples.csproj" />
+</Solution>

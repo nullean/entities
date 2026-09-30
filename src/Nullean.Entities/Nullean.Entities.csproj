@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Domain entity constraints: named rules, violation reporting, and safe mutation via Result&lt;T&gt;.</Description>
+    <PackageTags>domain entities constraints validation</PackageTags>
+  </PropertyGroup>
+</Project>
