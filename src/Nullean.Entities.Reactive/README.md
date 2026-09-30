@@ -75,7 +75,9 @@ never silently drops a constraint that had already settled before something subs
 
 `ConstraintSet<T>.ToReactive()` converts a plain, synchronous `Nullean.Entities` constraint set into
 a `ReactiveConstraintSet<T>` that re-checks every constraint on each event — for constraints that
-were written once and need to run continuously, without the temporal/structural vocabulary above:
+were written once and need to run continuously, without the temporal/structural vocabulary above. A
+point-in-time constraint (`Always`, `When().Requires()`) checks every event on its own; a sequential
+one (`Transitions`) checks each consecutive pair, the same way `ConstraintSet<T>.Apply` would:
 
 ```csharp
 ReactiveConstraintSet<Item> reactive = itemConstraints.ToReactive();

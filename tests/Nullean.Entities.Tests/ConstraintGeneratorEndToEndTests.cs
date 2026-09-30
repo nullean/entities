@@ -12,18 +12,10 @@ namespace Nullean.Entities.Tests;
 internal sealed partial record GeneratedItem(int Value)
 {
 	[Constraint]
-	public static readonly Constraint<GeneratedItem> Positive = new(
-		"Positive",
-		"Value must stay positive.",
-		i => i.Value > 0 ? [] : [Violation.Error("not positive")]
-	);
+	public static readonly Constraint<GeneratedItem> Positive = Constraints<GeneratedItem>.Always(i => i.Value > 0, "not positive");
 
 	[Constraint]
-	public static readonly Constraint<GeneratedItem> Under100 = new(
-		"Under100",
-		"Value must not exceed 100.",
-		i => i.Value <= 100 ? [] : [Violation.Warning("exceeds 100")]
-	);
+	public static readonly Constraint<GeneratedItem> Under100 = Constraints<GeneratedItem>.Check(i => i.Value <= 100 ? [] : [Violation.Warning("exceeds 100")]);
 }
 
 public class SelfAttachedConstraintsTests
@@ -64,18 +56,10 @@ internal sealed record GeneratedOrder(Guid Id, decimal Total, string? PaymentRef
 internal static partial class GeneratedOrderSpec
 {
 	[Constraint]
-	public static readonly Constraint<GeneratedOrder> TotalNonNegative = new(
-		"TotalNonNegative",
-		"Total must not be negative.",
-		o => o.Total >= 0 ? [] : [Violation.Error("negative total")]
-	);
+	public static readonly Constraint<GeneratedOrder> TotalNonNegative = Constraints<GeneratedOrder>.Always(o => o.Total >= 0, "negative total");
 
 	[Constraint]
-	public static readonly Constraint<GeneratedOrder> PaymentRefRequired = new(
-		"PaymentRefRequired",
-		"PaymentRef must be set.",
-		o => o.PaymentRef != null ? [] : [Violation.Error("missing payment ref")]
-	);
+	public static readonly Constraint<GeneratedOrder> PaymentRefRequired = Constraints<GeneratedOrder>.Always(o => o.PaymentRef != null, "missing payment ref");
 }
 
 public class CompanionClassConstraintsTests

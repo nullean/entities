@@ -42,11 +42,11 @@ internal static class GeneratorTestHost
 
 		// Diagnostics from the generator only — outputCompilation's own compile errors (e.g. a test
 		// snippet with a typo) would otherwise drown out the one diagnostic a test cares about.
-		return new GeneratorRun(
-			generatorDiagnostics,
-			driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => (s.HintName, Source: s.SourceText.ToString())).ToImmutableArray(),
-			outputCompilation
-		);
+		ImmutableArray<(string HintName, string Source)> generated =
+		[
+			.. driver.GetRunResult().Results.SelectMany(r => r.GeneratedSources).Select(s => (s.HintName, Source: s.SourceText.ToString())),
+		];
+		return new GeneratorRun(generatorDiagnostics, generated, outputCompilation);
 	}
 }
 

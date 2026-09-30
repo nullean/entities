@@ -504,25 +504,33 @@ public static class ReactiveConstraintSetExtensions
 public static class ConstraintSetReactiveExtensions
 {
 	/// <summary>
-	/// Lifts a synchronous <see cref="ConstraintSet{T}"/> onto a stream: each constraint
-	/// becomes a point-in-time <see cref="ReactiveConstraint{TEvent}"/> that re-evaluates
-	/// its <see cref="Constraint{T}.Check"/> on every event and reports the first violation.
-	/// This does not gain the temporal/structural operators declared directly against
-	/// <see cref="Constraints{TEvent}"/> — those still need to be authored in Reactive terms.
+	/// Lifts a synchronous <see cref="ConstraintSet{T}"/> onto a stream: each constraint becomes a
+	/// <see cref="ReactiveConstraint{TEvent}"/> that re-evaluates on every event and reports the
+	/// first violation. A <see cref="ConstraintKind.PointInTime"/> constraint checks every event on
+	/// its own, exactly like <see cref="ConstraintSet{T}.Validate"/> would; a
+	/// <see cref="ConstraintKind.Sequential"/> one checks each consecutive pair, exactly like
+	/// <see cref="ConstraintSet{T}.Apply"/> would — there is no first "previous" here either, so
+	/// the very first event alone never triggers one. This does not gain the temporal/structural
+	/// operators declared directly against <see cref="Constraints{TEvent}"/> — those still need to
+	/// be authored in Reactive terms.
 	/// </summary>
 	public static ReactiveConstraintSet<T> ToReactive<T>(this ConstraintSet<T> set)
 	{
-		var pairs = set.AsConstraints().Select(c => (c.Id, ToReactiveConstraint(c))).ToArray();
+		var pairs = set.AsConstraints().Select(c => (c.Name!, ToReactiveConstraint(c))).ToArray();
 		return ReactiveConstraintSet.From(pairs);
 	}
 
 	private static ReactiveConstraint<T> ToReactiveConstraint<T>(Constraint<T> constraint) =>
-		new(
-			(events, scheduler) => events
-				.Select(e => constraint.Check(e).ToList())
+		new((events, scheduler) =>
+		{
+			var violationLists = constraint.Kind == ConstraintKind.PointInTime
+				? events.Select(e => constraint.Check(e, e).ToList())
+				: events.Buffer(2, 1).Where(pair => pair.Count == 2).Select(pair => constraint.Check(pair[0], pair[1]).ToList());
+
+			return violationLists
 				.Where(violations => violations.Count > 0)
 				.Select(violations => Verdict.Violated(scheduler.Now, violations))
 				.Take(1)
-				.StartWith(Verdict.Pending)
-		);
+				.StartWith(Verdict.Pending);
+		});
 }

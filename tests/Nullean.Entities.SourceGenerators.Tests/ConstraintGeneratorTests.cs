@@ -22,7 +22,7 @@ public class ConstraintGeneratorShapeTests
 			public partial record Item(int Value)
 			{
 			    [Constraint]
-			    public static readonly Constraint<Item> Positive = new("Positive", "d", i => i.Value > 0 ? [] : [Violation.Error("x")]);
+			    public static readonly Constraint<Item> Positive = Constraints<Item>.Always(i => i.Value > 0, "not positive");
 			}
 			"""
 		);
@@ -31,7 +31,8 @@ public class ConstraintGeneratorShapeTests
 		var source = run.SingleGeneratedSource();
 		source.Should().Contain("global::Nullean.Entities.IHaveConstraints<Item>");
 		source.Should().Contain("global::Nullean.Entities.ConstraintSet<global::Sample.Item>");
-		source.Should().Contain("Positive");
+		source.Should().Contain("global::Nullean.Entities.ConstraintSet.From(");
+		source.Should().Contain("(nameof(Positive), Positive)");
 	}
 
 	[Test]
@@ -48,7 +49,7 @@ public class ConstraintGeneratorShapeTests
 			public static partial class OrderSpec
 			{
 			    [Constraint]
-			    public static readonly Constraint<Order> TotalPositive = new("TotalPositive", "d", o => o.Total > 0 ? [] : [Violation.Error("x")]);
+			    public static readonly Constraint<Order> TotalPositive = Constraints<Order>.Always(o => o.Total > 0, "not positive");
 			}
 			"""
 		);
@@ -98,7 +99,7 @@ public class ConstraintGeneratorShapeTests
 			public record Item(int Value)
 			{
 			    [Constraint]
-			    public static readonly Constraint<Item> Positive = new("Positive", "d", i => []);
+			    public static readonly Constraint<Item> Positive = Constraints<Item>.Check(i => []);
 			}
 			"""
 		);
@@ -119,7 +120,7 @@ public class ConstraintGeneratorShapeTests
 			public partial record Item(int Value)
 			{
 			    [Constraint]
-			    public readonly Constraint<Item> Positive = new("Positive", "d", i => []);
+			    public readonly Constraint<Item> Positive = Constraints<Item>.Check(i => []);
 			}
 			"""
 		);
@@ -161,7 +162,7 @@ public class ConstraintGeneratorShapeTests
 			public partial record Box<T>(T Value)
 			{
 			    [Constraint]
-			    public static readonly Constraint<Box<T>> NotNull = new("NotNull", "d", b => []);
+			    public static readonly Constraint<Box<T>> NotNull = Constraints<Box<T>>.Check(b => []);
 			}
 			"""
 		);
@@ -184,7 +185,7 @@ public class ConstraintGeneratorShapeTests
 			    public partial record Item(int Value)
 			    {
 			        [Constraint]
-			        public static readonly Constraint<Item> Positive = new("Positive", "d", i => []);
+			        public static readonly Constraint<Item> Positive = Constraints<Item>.Check(i => []);
 			    }
 			}
 			"""
@@ -211,7 +212,7 @@ public class ConstraintGeneratorShapeTests
 			public static partial class MixedSpec
 			{
 			    [Constraint]
-			    public static readonly Constraint<Item> SyncOne = new("SyncOne", "d", i => []);
+			    public static readonly Constraint<Item> SyncOne = Constraints<Item>.Check(i => []);
 
 			    [Constraint]
 			    public static readonly ReactiveConstraint<Ev> ReactiveOne = Constraints<Ev>.Always<Ev>(_ => true);
@@ -239,10 +240,10 @@ public class ConstraintGeneratorShapeTests
 			public static partial class MixedSpec
 			{
 			    [Constraint]
-			    public static readonly Constraint<Item> ItemRule = new("ItemRule", "d", i => []);
+			    public static readonly Constraint<Item> ItemRule = Constraints<Item>.Check(i => []);
 
 			    [Constraint]
-			    public static readonly Constraint<Order> OrderRule = new("OrderRule", "d", o => []);
+			    public static readonly Constraint<Order> OrderRule = Constraints<Order>.Check(o => []);
 			}
 			"""
 		);
@@ -267,10 +268,10 @@ public class ConstraintGeneratorShapeTests
 			public partial record Item(int Value)
 			{
 			    [Constraint]
-			    public static readonly Constraint<Item> Good = new("Good", "d", i => []);
+			    public static readonly Constraint<Item> Good = Constraints<Item>.Check(i => []);
 
 			    [Constraint]
-			    public readonly Constraint<Item> Bad = new("Bad", "d", i => []);
+			    public readonly Constraint<Item> Bad = Constraints<Item>.Check(i => []);
 			}
 			"""
 		);

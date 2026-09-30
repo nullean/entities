@@ -17,12 +17,16 @@ emits one `Constraints` property per group:
 - `Constraint<T>` members where the containing type **is** `T` — the domain type declares its own
   rules — get `IHaveConstraints<T>` added to the same partial declaration too, so
   `events.AttachConstraints()` (`Nullean.Entities.Reactive`) just works.
-- `Constraint<T>` members on any other partial type (a companion "spec" class) get a plain
+- `Constraint<T>` members on any other partial type (a companion "spec" class) get the same plain
   `ConstraintSet<T> Constraints` property with no interface — for a `T` you don't own, or when you
-  simply prefer rules declared alongside the type rather than on it.
+  simply prefer rules declared alongside the type rather than on it. Both cases build the property
+  from `ConstraintSet.From((nameof(field), field), ...)`.
 - `ReactiveConstraint<T>` members get a `ReactiveConstraintSet<T> Constraints` property built from
   `ReactiveConstraintSet.From((nameof(field), field), ...)`. There's no reactive equivalent of
   `IHaveConstraints<T>`, so this case never adds an interface.
+
+Both kinds name every member from its own field/property name rather than a string literal typed
+at the declaration site — a constraint's name can never drift from the field that declares it.
 
 ## Why every failure mode is a refused build, not a warning
 

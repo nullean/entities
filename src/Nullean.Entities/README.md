@@ -5,29 +5,34 @@ mutation. No `System.Reactive`, no `CsCheck` — this package has no dependency 
 
 ## The idea
 
-A `Constraint<T>` is a named rule:
+A `Constraint<T>` is a named rule, built through `Constraints<T>` rather than a public constructor:
 
 ```csharp
-var alwaysPositive = new Constraint<Item>(
-    "AlwaysPositive",
-    "Value must stay positive.",
+var alwaysPositive = Constraints<Item>.Always(item => item.Value > 0, "Value must stay positive.");
+```
+
+It lives anywhere — a `static readonly` field, a local variable, a constructor parameter. A
+`ConstraintSet<T>` is an ordered collection of them, named from the tuple you build it with:
+
+```csharp
+var constraints = ConstraintSet.From((nameof(alwaysPositive), alwaysPositive), (nameof(neverOverHundred), neverOverHundred));
+
+IReadOnlyList<Violation> violations = constraints.Validate(new Item(-1));
+// violations[0].ConstraintId == "alwaysPositive"
+```
+
+`Always(predicate, message)` covers the common fixed-message case. `Constraints<T>.Check(check)` is
+the escape hatch for a message built from the value itself:
+
+```csharp
+var alwaysPositive = Constraints<Item>.Check(
     item => item.Value > 0 ? [] : [Violation.Error($"Value {item.Value} is not positive")]
 );
 ```
 
-It lives anywhere — a `static readonly` field, a local variable, a constructor parameter. A
-`ConstraintSet<T>` is an ordered collection of them:
-
-```csharp
-var constraints = ConstraintSet.From(alwaysPositive, neverOverHundred);
-
-IReadOnlyList<Violation> violations = constraints.Validate(new Item(-1));
-// violations[0].ConstraintId == "AlwaysPositive"
-```
-
 ## Safe mutation
 
-`Apply` runs a mutation, checks every constraint against the *result*, and only commits if all of
+`Apply` runs a mutation, checks every constraint against the result, and only commits if all of
 them pass:
 
 ```csharp
@@ -35,7 +40,7 @@ Result<Item> result = constraints.Apply(current, item => item with { Value = ite
 
 var next = result.Match(
     ok => ok,
-    (attempted, violations) => throw new InvalidOperationException(violations[0].Message)
+    violations => throw new InvalidOperationException(violations[0].Message)
 );
 ```
 
@@ -44,22 +49,84 @@ var next = result.Match(
 re-plumbing the constraint set each time:
 
 ```csharp
-var channel = ConstraintChannel.Enforce(new Item(1), constraints);
+var channel = ConstraintChannel.For(new Item(1)).Enforce(constraints);
 channel.Apply(item => item with { Value = 5 });   // Current is now 5
 channel.Apply(item => item with { Value = -1 });  // rejected; Current is still 5
+```
+
+## Exhaustive constraint sets: `[Constraint]`
+
+Tag every `Constraint<T>` field or property that belongs to one type with `[Constraint]`, and
+[`Nullean.Entities.SourceGenerators`](../Nullean.Entities.SourceGenerators) (bundled into this
+package's own nupkg as an analyzer — no separate install) bundles them into a `Constraints`
+property automatically:
+
+```csharp
+public sealed partial record Item(int Value)
+{
+    [Constraint]
+    public static readonly Constraint<Item> AlwaysPositive = Constraints<Item>.Always(i => i.Value > 0, "...");
+
+    [Constraint]
+    public static readonly Constraint<Item> NeverOverHundred = Constraints<Item>.Always(i => i.Value <= 100, "...");
+
+    // Generated: public static ConstraintSet<Item> Constraints { get; } =
+    //     ConstraintSet.From((nameof(AlwaysPositive), AlwaysPositive), (nameof(NeverOverHundred), NeverOverHundred));
+}
+```
+
+A type whose own `[Constraint]` fields target itself also gets `IHaveConstraints<T>` added to its
+partial declaration for free, so `Item.Constraints` and generic code written against
+`IHaveConstraints<T>` both just work. A separate "spec" companion class tagging someone else's type
+gets the plain property with no interface. The set can never drift from the fields actually
+declared — there is no separate list to keep in sync, and adding a field updates it automatically.
+
+Any misused `[Constraint]` member — not static, wrong type, not partial, nested, generic, or an
+inconsistent type argument across members on the same type — refuses to generate anything for that
+type at all, rather than silently generating from the valid subset. See
+[the generator's own README](../Nullean.Entities.SourceGenerators/README.md) for the full rules.
+
+## Sequential constraints: `Transitions`
+
+`Always` and `Check` only ever see the value being checked. A constraint that depends on what the
+value *was* — a legal state-machine transition, a value that must never decrease — needs
+`Transitions`, which only `Apply` (never `Validate`) can run, since a standalone instance has no
+"previous" to compare against:
+
+```csharp
+var validTransitions = Constraints<Order>.Transitions(
+    (prev, next) => (prev.Status, next.Status) switch
+    {
+        (OrderStatus.Pending, OrderStatus.Confirmed) => true,
+        (OrderStatus.Confirmed, OrderStatus.Shipped) => true,
+        (_, OrderStatus.Cancelled) => true,
+        _ => false,
+    },
+    "Illegal order status transition."
+);
+```
+
+`When(guard).Requires(requirement)` adds a conditional constraint — violated only when `guard` is
+true for the value but `requirement` fails:
+
+```csharp
+var paymentRefRequired = Constraints<Order>
+    .When(o => o.Status == OrderStatus.Confirmed)
+    .Requires(o => o.PaymentRef != null, "PaymentRef is required once an order is confirmed.");
 ```
 
 ## `IHaveConstraints<TSelf>`
 
 A type can declare its own constraint set as a static member, using a C# 11 static abstract
-interface member:
+interface member — this is what `[Constraint]` generates for you, but it can be written by hand
+too:
 
 ```csharp
 public sealed partial record Item(int Value) : IHaveConstraints<Item>
 {
-    public static ConstraintSet<Item> Constraints { get; } = ConstraintSet.From(
-        new Constraint<Item>("AlwaysPositive", "...", i => i.Value > 0 ? [] : [Violation.Error("...")])
-    );
+    private static readonly Constraint<Item> AlwaysPositive = Constraints<Item>.Always(i => i.Value > 0, "...");
+
+    public static ConstraintSet<Item> Constraints { get; } = ConstraintSet.From((nameof(AlwaysPositive), AlwaysPositive));
 }
 ```
 

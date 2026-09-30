@@ -256,12 +256,27 @@ public class ReactiveConstraintSetTests
 
 public class ConstraintSetReactiveExtensionsTests
 {
-	private static readonly ConstraintSet<Ev.A> SyncConstraints = ConstraintSet.From(
-		new Constraint<Ev.A>("StaysPositive", "Value must stay positive.", a => a.Value > 0 ? [] : [Violation.Error($"Value {a.Value} is not positive")])
-	);
+	// Fully qualified: Nullean.Entities.Reactive.Tests nests (by dot-name) inside
+	// Nullean.Entities.Reactive, which declares its OWN Constraints<TEvent> — that containing
+	// namespace wins over `using Nullean.Entities;` for an unqualified Constraints<Ev.A>, so the
+	// sync builder needs its namespace spelled out here.
+	private static readonly Constraint<Ev.A> StaysPositive = global::Nullean
+		.Entities
+		.Constraints<Ev.A>
+		.Check(a => a.Value > 0 ? [] : [Violation.Error($"Value {a.Value} is not positive")])
+		.Named("StaysPositive");
+
+	private static readonly ConstraintSet<Ev.A> SyncConstraints = ConstraintSet.From((nameof(StaysPositive), StaysPositive));
+
+	private static readonly Constraint<Ev.A> NeverDecreases = global::Nullean
+		.Entities
+		.Constraints<Ev.A>
+		.Transitions((prev, next) => next.Value >= prev.Value, "decreased");
+
+	private static readonly ConstraintSet<Ev.A> SequentialSyncConstraints = ConstraintSet.From((nameof(NeverDecreases), NeverDecreases));
 
 	[Test]
-	public void ToReactive_lifts_a_synchronous_ConstraintSet_onto_a_stream()
+	public void ToReactive_lifts_a_point_in_time_ConstraintSet_onto_a_stream()
 	{
 		var subject = new Subject<Ev.A>();
 		var running = SyncConstraints.ToReactive().Attach(subject);
@@ -271,5 +286,21 @@ public class ConstraintSetReactiveExtensionsTests
 
 		subject.OnNext(new Ev.A(-1));
 		running["StaysPositive"].Current.IsViolated.Should().BeTrue();
+	}
+
+	[Test]
+	public void ToReactive_lifts_a_sequential_ConstraintSet_by_checking_consecutive_pairs()
+	{
+		var subject = new Subject<Ev.A>();
+		var running = SequentialSyncConstraints.ToReactive().Attach(subject);
+
+		subject.OnNext(new Ev.A(1)); // no previous yet — never triggers alone
+		running["NeverDecreases"].Current.IsViolated.Should().BeFalse();
+
+		subject.OnNext(new Ev.A(5)); // 1 -> 5, fine
+		running["NeverDecreases"].Current.IsViolated.Should().BeFalse();
+
+		subject.OnNext(new Ev.A(2)); // 5 -> 2, decreased
+		running["NeverDecreases"].Current.IsViolated.Should().BeTrue();
 	}
 }

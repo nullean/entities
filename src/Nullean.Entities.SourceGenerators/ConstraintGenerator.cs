@@ -5,11 +5,13 @@
 //
 //   - Constraint<T> members where the containing type IS T get IHaveConstraints<T> added to the
 //     same partial declaration, so `MyType.Constraints` and `events.AttachConstraints()` both
-//     just work — the "domain type declares its own rules" shape.
+//     just work — the "domain type declares its own rules" shape. The property is built from
+//     `ConstraintSet.From((nameof(field), field), ...)`, so a constraint's name can never drift
+//     from the field that declares it.
 //   - Constraint<T> members on any other partial type (a companion "spec" class, T untouched)
-//     get a plain `ConstraintSet<T> Constraints` property with no interface — useful when T isn't
-//     owned by this repo, or the author simply prefers rules declared alongside the type instead
-//     of on it.
+//     get the same plain `ConstraintSet<T> Constraints` property with no interface — useful when
+//     T isn't owned by this repo, or the author simply prefers rules declared alongside the type
+//     instead of on it.
 //   - ReactiveConstraint<T> members get a `ReactiveConstraintSet<T> Constraints` property built
 //     from `ReactiveConstraintSet.From((nameof(field), field), ...)`. There is no reactive
 //     equivalent of IHaveConstraints<T> to attach to, so this case never adds an interface.
@@ -183,7 +185,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			baseList,
 			$"global::Nullean.Entities.ConstraintSet<{typeArgDisplay}>",
 			"global::Nullean.Entities.ConstraintSet.From(",
-			members.Select(m => m.MemberName)
+			members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})")
 		);
 	}
 
