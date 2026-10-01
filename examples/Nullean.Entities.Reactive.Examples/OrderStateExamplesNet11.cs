@@ -22,7 +22,6 @@ using System.Reactive.Subjects;
 using AwesomeAssertions;
 using CsCheck;
 using Nullean.Entities.CsCheck;
-using Nullean.Entities.Reactive;
 using static Nullean.Entities.Reactive.Constraints<Nullean.Entities.Reactive.Examples.OrderStateEventUnion>;
 
 namespace Nullean.Entities.Reactive.Examples;

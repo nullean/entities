@@ -1,12 +1,17 @@
 # Nullean.Entities
 
 C# records let you model the shape of your domain precisely, and unions seal it: add a case and the
-compiler finds every `switch` that needs updating. But the type system stops there. It cannot say
-`Total >= 0`, `a Confirmed order needs lines`, `you can only Ship from Confirmed`, or `every
-confirmed order must close within 48 hours`. Those constraints end up scattered across service
-methods, validators and tests — rewritten in slightly different forms for each context, silently
-drifting apart as the model evolves. Nullean.Entities gives them a home: declare each rule once,
-next to the type it governs, and enforce it at mutations, watch it over live event streams, and hand
+compiler finds every `switch` that needs updating.
+
+But the type system stops there.
+
+It cannot say `Total >= 0`, `a Confirmed order needs lines`, `you can only Ship from Confirmed`, or `every
+confirmed order must close within 48 hours`.
+
+Those constraints end up scattered across service methods, validators and tests, rewritten in slightly different forms for each context, silently
+drifting apart as the model evolves.
+
+Nullean.Entities gives them a home: declare each rule once, next to the type it governs, and enforce it at mutations, watch it over live event streams, and hand
 it to a property tester — the same declaration every time.
 
 ```csharp
@@ -99,6 +104,10 @@ channel.Apply(o => o.Ship()) switch
 ## `Nullean.Entities.Reactive` to enforce constraints over a stream of events
 
 ```csharp
+// using Nullean.Entities;           — for [Constraints] itself
+// using Nullean.Entities.Reactive;  — for ReactiveConstraint<T>
+// using static Nullean.Entities.Reactive.Constraints<OrderEvent>; — see below
+
 // ── What the type system can't say about sequences of OrderEvents ────────
 [Constraints] // same auto-discovery as the sync side — no per-field tag below either
 public static partial class OrderEventSpec
@@ -111,22 +120,30 @@ public static partial class OrderEventSpec
         Cancelled c => c.OrderId,
     };
 
-    // Cancelled orders are never shipped.
-    public static readonly ReactiveConstraint<OrderEvent> NeverShippedAfterCancellation =
-        Constraints<OrderEvent>.Never<Cancelled, Shipped>((c, s) => c.OrderId == s.OrderId);
+    // Cancelled orders are never shipped. Predicate-based (isT1/isT2), not Never<T1,T2> — the
+    // sync and reactive packages each declare their own Constraints<T> (the using static above
+    // picks the reactive one unambiguously once [Constraints], from Nullean.Entities, is also in
+    // scope), and separately, a union case has no inheritance relationship to the union itself, so
+    // "is this a Cancelled" can only ever be a runtime check (e is Cancelled), never a generic
+    // constraint — every operator below has this predicate-based form for exactly that reason.
+    public static readonly ReactiveConstraint<OrderEvent> NeverShippedAfterCancellation = Never(
+        isT1: e => e is Cancelled,
+        isT2: e => e is Shipped,
+        pair:  (c, s) => OrderIdOf(c) == OrderIdOf(s));
 
-    // Confirmed orders close (ship or cancel) within 48 h.
-    public static readonly ReactiveConstraint<OrderEvent> ConfirmedOrdersClose =
-        Constraints<OrderEvent>.After<Confirmed>()
-            .Then<Shipped, Cancelled>(
-                m1: (c, s) => s.OrderId == c.OrderId,
-                m2: (c, ca) => ca.OrderId == c.OrderId)
-            .Within(TimeSpan.FromHours(48))
-            .Required();
+    // Confirmed orders close (ship or cancel) within 48 h. AfterUntil collapses the whole
+    // After<T>().Then().Within() builder into one call, since there's no type parameter for a
+    // union case to hang separate builder steps off.
+    public static readonly ReactiveConstraint<OrderEvent> ConfirmedOrdersClose = AfterUntil(
+        isTrigger: e => e is Confirmed,
+        isNext:    (trigger, next) => next is Shipped or Cancelled && OrderIdOf(trigger) == OrderIdOf(next),
+        window:    TimeSpan.FromHours(48));
 
     // Every confirmed order eventually closes — no deadline, but it must happen.
-    public static readonly ReactiveConstraint<OrderEvent> EveryConfirmedOrderCloses =
-        Constraints<OrderEvent>.Eventually<Shipped>(scope: OrderIdOf, from: e => e is Confirmed);
+    public static readonly ReactiveConstraint<OrderEvent> EveryConfirmedOrderCloses = Eventually(
+        scope:    e => OrderIdOf(e),
+        from:     e => e is Confirmed,
+        isTarget: e => e is Shipped or Cancelled);
 
     // Generated: OrderEventSpec.Constraints (ReactiveConstraintSet<OrderEvent>), from all three
     // fields above and named from them — .Named(...) is for a constraint built outside a
@@ -297,7 +314,7 @@ script.SampleWith(factory, events, spec, coverage: OrderLifecycle.Machine);
 
 | Package | What it adds | Depends on |
 |---|---|---|
-| `Nullean.Entities` | `Constraint<T>`, `ConstraintChannel`, `[Constraint]` source generator | nothing |
+| `Nullean.Entities` | `Constraint<T>`, `ConstraintChannel`, `[Constraint]`/`[Constraints]` source generator | nothing |
 | `Nullean.Entities.Reactive` | `ReactiveConstraint<T>`, temporal operators, live monitoring | `System.Reactive` |
 | `Nullean.Entities.CsCheck` | `Script`, action-sequence testing, Bogus/AutoBogus generators | `CsCheck`, `Bogus` |
 

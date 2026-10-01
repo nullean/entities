@@ -46,7 +46,13 @@ public static class OrderDomainConstraints
 
 	public static readonly ConstraintSet<Order> AddLineStep = ConstraintSet.From((nameof(TotalNeverShrinksOnAddLine), TotalNeverShrinksOnAddLine));
 
-	/// <summary>Pair-valued: a line transfer must not create or destroy quantity across the two halves.</summary>
+	/// <summary>
+	/// Pair-valued: a line transfer must not create or destroy quantity across the two halves.
+	/// A second <c>Constraints&lt;(Order, Order)&gt;</c> <c>using static</c> alongside the one above
+	/// would resolve fine at compile time, but trips a verification bug in curb's using-directive
+	/// sorter for a closed generic argument that is itself a named tuple (CURB0002, caught — not
+	/// silently written) — so this one stays fully qualified instead of chasing a second `using static`.
+	/// </summary>
 	public static readonly Constraint<(Order From, Order To)> QuantityIsConservedAcrossTransfer = Nullean
 		.Entities
 		.Constraints<(Order From, Order To)>
