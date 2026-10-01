@@ -620,6 +620,24 @@ public class ConstraintSetReactiveExtensionsTests
 	}
 
 	[Test]
+	public void ToReactive_gives_time_aware_constraints_the_schedulers_clock()
+	{
+		var scheduler = new TestScheduler();
+		var fresh = global::Nullean.Entities.Constraints<Ev.A>.NotOlderThan(_ => DateTimeOffset.MinValue, TimeSpan.FromTicks(100));
+		var set = ConstraintSet.From((nameof(fresh), fresh));
+		var subject = new Subject<Ev.A>();
+		var running = set.ToReactive().Attach(subject, scheduler);
+
+		scheduler.AdvanceTo(50);
+		subject.OnNext(new Ev.A(1));
+		running["fresh"].Current.IsViolated.Should().BeFalse();
+
+		scheduler.AdvanceTo(200);
+		subject.OnNext(new Ev.A(2));
+		running["fresh"].Current.IsViolated.Should().BeTrue();
+	}
+
+	[Test]
 	public void ToReactive_lifts_a_sequential_ConstraintSet_by_checking_consecutive_pairs()
 	{
 		var subject = new Subject<Ev.A>();

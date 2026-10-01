@@ -768,9 +768,12 @@ public static class ConstraintSetReactiveExtensions
 	private static ReactiveConstraint<T> ToReactiveConstraint<T>(Constraint<T> constraint) =>
 		new((events, scheduler) =>
 		{
+			// Time-aware constraints read "now" from the stream's own scheduler, so virtual time
+			// (HistoricalScheduler under a Script) drives them the same way it drives After().Within().
+			var time = new SchedulerTimeProvider(scheduler);
 			var violationLists = constraint.Kind == ConstraintKind.PointInTime
-				? events.Select(e => constraint.Check(e, e).ToList())
-				: events.Buffer(2, 1).Where(pair => pair.Count == 2).Select(pair => constraint.Check(pair[0], pair[1]).ToList());
+				? events.Select(e => constraint.CheckAt(e, e, time).ToList())
+				: events.Buffer(2, 1).Where(pair => pair.Count == 2).Select(pair => constraint.CheckAt(pair[0], pair[1], time).ToList());
 
 			return violationLists
 				.Where(violations => violations.Count > 0)
@@ -778,4 +781,10 @@ public static class ConstraintSetReactiveExtensions
 				.Take(1)
 				.StartWith(Verdict.Pending);
 		});
+}
+
+/// <summary>A <see cref="TimeProvider"/> whose clock is an Rx <see cref="IScheduler"/>'s.</summary>
+internal sealed class SchedulerTimeProvider(IScheduler scheduler) : TimeProvider
+{
+	public override DateTimeOffset GetUtcNow() => scheduler.Now;
 }

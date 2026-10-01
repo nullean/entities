@@ -145,11 +145,31 @@ public sealed class Constraint<T>
 	/// </summary>
 	public Func<T, T, IEnumerable<Violation>> Check { get; }
 
+	private readonly Func<T, T, TimeProvider, IEnumerable<Violation>> _checkAt;
+
 	internal Constraint(ConstraintKind kind, Func<T, T, IEnumerable<Violation>> check)
 	{
 		Kind = kind;
 		Check = check;
+		_checkAt = (prev, next, _) => check(prev, next);
 	}
+
+	// A time-aware constraint reads "now" from whatever TimeProvider the caller checks it with —
+	// never from a captured one, since constraints are static fields shared by every caller (and by
+	// tests that need to control the clock). Check, which has no provider to offer, uses TimeProvider.System.
+	internal Constraint(ConstraintKind kind, Func<T, T, TimeProvider, IEnumerable<Violation>> checkAt)
+	{
+		Kind = kind;
+		_checkAt = checkAt;
+		Check = (prev, next) => checkAt(prev, next, TimeProvider.System);
+	}
+
+	/// <summary>
+	/// Like <see cref="Check"/>, but time-aware constraints (see <c>Constraints&lt;T&gt;.NotInFuture</c>,
+	/// <c>NotOlderThan</c>, and the <c>Func&lt;T, DateTimeOffset, bool&gt;</c> overload of
+	/// <c>Always</c>) read "now" from <paramref name="time"/>. Other constraints ignore it.
+	/// </summary>
+	public IEnumerable<Violation> CheckAt(T previous, T next, TimeProvider time) => _checkAt(previous, next, time);
 
 	public Constraint<T> Named(string name)
 	{
@@ -192,8 +212,68 @@ public static class Constraints<T>
 	}
 
 	/// <summary>
+	/// Like <see cref="Always(Func{T, bool}, string)"/>, but the predicate also receives "now" from the
+	/// <see cref="TimeProvider"/> the constraint is checked with (<see cref="ConstraintSet{T}.Validate"/>/
+	/// <see cref="ConstraintSet{T}.Apply"/> take one; the default is <see cref="TimeProvider.System"/>).
+	/// A test that passes a <c>FakeTimeProvider</c> controls the clock without touching the rule.
+	/// </summary>
+	public static Constraint<T> Always(Func<T, DateTimeOffset, bool> predicate, string? message = null)
+	{
+		Constraint<T> self = null!;
+		self = new(ConstraintKind.PointInTime, (_, next, time) =>
+		{
+			var now = time.GetUtcNow();
+			return predicate(next, now)
+				? []
+				: [Violation.Error(message ?? $"{self.Name ?? "Constraint"} was violated at {now:O}.") with { Evidence = (next, now) }];
+		});
+		return self;
+	}
+
+	/// <summary>
+	/// Violated when <paramref name="selector"/>'s timestamp is later than "now" — an event cannot
+	/// have happened in the future. <paramref name="tolerance"/> absorbs clock skew between machines.
+	/// </summary>
+	public static Constraint<T> NotInFuture(Func<T, DateTimeOffset> selector, TimeSpan tolerance = default, string? message = null)
+	{
+		Constraint<T> self = null!;
+		self = new(ConstraintKind.PointInTime, (_, next, time) =>
+		{
+			var at = selector(next);
+			var now = time.GetUtcNow();
+			return at <= now + tolerance
+				? []
+				: [Violation.Error(message ?? $"{self.Name ?? "Constraint"}: {at:O} is in the future (now is {now:O}).") with { Evidence = (at, now) }];
+		});
+		return self;
+	}
+
+	/// <summary>
+	/// Violated when <paramref name="selector"/>'s timestamp is more than <paramref name="maxAge"/>
+	/// before "now" — freshness for a reading, token, quote or lock.
+	/// </summary>
+	public static Constraint<T> NotOlderThan(Func<T, DateTimeOffset> selector, TimeSpan maxAge, string? message = null)
+	{
+		Constraint<T> self = null!;
+		self = new(ConstraintKind.PointInTime, (_, next, time) =>
+		{
+			var at = selector(next);
+			var age = time.GetUtcNow() - at;
+			return age <= maxAge
+				? []
+				: [
+					Violation.Error(message ?? $"{self.Name ?? "Constraint"}: {at:O} is {age} old, older than the allowed {maxAge}.") with
+					{
+						Evidence = (at, age)
+					}
+				];
+		});
+		return self;
+	}
+
+	/// <summary>
 	/// Full point-in-time check, for a rule that needs more than one fixed message — e.g. a
-	/// message built from the value itself. <see cref="Always"/> is sugar over this for the common
+	/// message built from the value itself. <see cref="Always(Func{T, bool}, string)"/> is sugar over this for the common
 	/// single-predicate, fixed-message case.
 	/// </summary>
 	public static Constraint<T> Check(Func<T, IEnumerable<Violation>> check) => new(ConstraintKind.PointInTime, (_, next) => check(next));
@@ -250,9 +330,9 @@ public static class Constraints<T>
 	/// gives a different result than applying it once — the standard <c>f(f(x)) == f(x)</c> law.
 	/// Point-in-time: it only needs the value being checked, never a previous one, since
 	/// <paramref name="action"/> itself supplies both "once" and "twice". Naming the quality
-	/// instead of hand-rolling it as an <see cref="Always"/> predicate means a failure reads
+	/// instead of hand-rolling it as an <see cref="Always(Func{T, bool}, string)"/> predicate means a failure reads
 	/// "not idempotent," not the name of a rule that looks unrelated to what actually broke.
-	/// <paramref name="message"/> is optional, same as <see cref="Always"/>.
+	/// <paramref name="message"/> is optional, same as <see cref="Always(Func{T, bool}, string)"/>.
 	/// </summary>
 	public static Constraint<T> Idempotent(Func<T, T> action, string? message = null)
 	{
@@ -297,7 +377,7 @@ public static class Constraints<T>
 	/// than a single entity, since "conserved" usually means "conserved across two halves of a
 	/// transfer," not just across one type's own history — but nothing here requires that; any
 	/// <typeparamref name="T"/> with a quantity that must round-trip a mutation unchanged applies.
-	/// <paramref name="message"/> is optional, same as <see cref="Always"/>/<see cref="Monotonic{TValue}"/>.
+	/// <paramref name="message"/> is optional, same as <see cref="Always(Func{T, bool}, string)"/>/<see cref="Monotonic{TValue}"/>.
 	/// </summary>
 	public static Constraint<T> Conserves<TValue>(Func<T, TValue> selector, string? message = null)
 	{
@@ -326,7 +406,7 @@ public sealed class WhenBuilder<T>
 
 	internal WhenBuilder(Func<T, bool> guard) => _guard = guard;
 
-	/// <summary><paramref name="message"/> is optional, same as <see cref="Constraints{T}.Always"/>.</summary>
+	/// <summary><paramref name="message"/> is optional, same as <see cref="Constraints{T}.Always(Func{T, bool}, string)"/>.</summary>
 	public Constraint<T> Requires(Func<T, bool> requirement, string? message = null)
 	{
 		Constraint<T> self = null!;
@@ -484,12 +564,15 @@ public sealed class ConstraintSet<T>
 	/// <paramref name="instance"/>. <see cref="ConstraintKind.Sequential"/> constraints are
 	/// skipped — a standalone instance has no "previous" to compare against; see <see cref="Apply"/>.
 	/// </summary>
-	public IReadOnlyList<Violation> Validate(T instance) =>
-		[
+	public IReadOnlyList<Violation> Validate(T instance, TimeProvider? time = null)
+	{
+		time ??= TimeProvider.System;
+		return [
 			.. _constraints.Where(c => c.Kind == ConstraintKind.PointInTime).SelectMany(
-				c => c.Check(instance, instance).Select(v => v with { ConstraintId = c.Name })
+				c => c.CheckAt(instance, instance, time).Select(v => v with { ConstraintId = c.Name })
 			),
 		];
+	}
 
 	/// <summary>
 	/// Runs a <paramref name="mutation"/> and checks every constraint over the result —
@@ -499,7 +582,7 @@ public sealed class ConstraintSet<T>
 	/// nothing is also <c>Ok</c> — use <see cref="ApplyDetailed"/> to tell the two apart) or
 	/// <see cref="Result{T}.Fail"/> when any are violated.
 	/// </summary>
-	public Result<T> Apply(T current, Func<T, T> mutation) => ApplyDetailed(current, mutation) switch
+	public Result<T> Apply(T current, Func<T, T> mutation, TimeProvider? time = null) => ApplyDetailed(current, mutation, time) switch
 	{
 		ApplyOutcome<T>.Applied a => new Result<T>.Ok(a.Value),
 		ApplyOutcome<T>.Noop n => new Result<T>.Ok(n.Value),
@@ -513,17 +596,17 @@ public sealed class ConstraintSet<T>
 	/// it (<see cref="ApplyOutcome{T}.Applied"/>), and carries the original value on
 	/// <see cref="ApplyOutcome{T}.Failure"/>.
 	/// </summary>
-	public ApplyOutcome<T> ApplyDetailed(T current, Func<T, T> mutation)
+	public ApplyOutcome<T> ApplyDetailed(T current, Func<T, T> mutation, TimeProvider? time = null)
 	{
 		var next = mutation(current);
 		if (EqualityComparer<T>.Default.Equals(current, next))
 			return new ApplyOutcome<T>.Noop(current);
-		var violations = RunAll(current, next);
+		var violations = RunAll(current, next, time);
 		return violations.Count == 0 ? new ApplyOutcome<T>.Applied(next) : new ApplyOutcome<T>.Failure(current, next, violations);
 	}
 
 	/// <summary>Like <see cref="ApplyDetailed"/>, but throws on <see cref="ApplyOutcome{T}.Failure"/>. Returns the new value for both <see cref="ApplyOutcome{T}.Applied"/> and <see cref="ApplyOutcome{T}.Noop"/>.</summary>
-	public T ApplyOrThrow(T current, Func<T, T> mutation) => ApplyDetailed(current, mutation) switch
+	public T ApplyOrThrow(T current, Func<T, T> mutation, TimeProvider? time = null) => ApplyDetailed(current, mutation, time) switch
 	{
 		ApplyOutcome<T>.Applied a => a.Value,
 		ApplyOutcome<T>.Noop n => n.Value,
@@ -533,8 +616,11 @@ public sealed class ConstraintSet<T>
 
 	// Called by ConstrainedValue<T>.Apply after it has already computed `next` to avoid calling
 	// the mutation twice — the channel needs the value upfront to short-circuit on equality.
-	internal IReadOnlyList<Violation> RunAll(T current, T next) =>
-		[.. _constraints.SelectMany(c => c.Check(current, next).Select(v => v with { ConstraintId = c.Name })),];
+	internal IReadOnlyList<Violation> RunAll(T current, T next, TimeProvider? time)
+	{
+		time ??= TimeProvider.System;
+		return [.. _constraints.SelectMany(c => c.CheckAt(current, next, time).Select(v => v with { ConstraintId = c.Name })),];
+	}
 }
 
 public static class ConstraintSet
@@ -560,13 +646,15 @@ public static class ConstraintSet
 public sealed class ConstrainedValue<T>
 {
 	private readonly ConstraintSet<T> _constraints;
+	private readonly TimeProvider? _time;
 
 	public T Current { get; private set; }
 
-	internal ConstrainedValue(T initial, ConstraintSet<T> constraints)
+	internal ConstrainedValue(T initial, ConstraintSet<T> constraints, TimeProvider? time)
 	{
 		Current = initial;
 		_constraints = constraints;
+		_time = time;
 	}
 
 	/// <summary>
@@ -594,7 +682,7 @@ public sealed class ConstrainedValue<T>
 		{
 			return new ApplyOutcome<T>.Noop(Current);
 		}
-		var violations = _constraints.RunAll(Current, next);
+		var violations = _constraints.RunAll(Current, next, _time);
 		if (violations.Count == 0)
 		{
 			Current = next;
@@ -629,5 +717,7 @@ public readonly struct ConstrainedValueBuilder<T>
 
 	internal ConstrainedValueBuilder(T initial) => _initial = initial;
 
-	public ConstrainedValue<T> Enforce(ConstraintSet<T> constraints) => new(_initial, constraints);
+	/// <param name="constraints">The set every mutation is checked against.</param>
+	/// <param name="time">The clock time-aware constraints read; defaults to <see cref="TimeProvider.System"/>.</param>
+	public ConstrainedValue<T> Enforce(ConstraintSet<T> constraints, TimeProvider? time = null) => new(_initial, constraints, time);
 }

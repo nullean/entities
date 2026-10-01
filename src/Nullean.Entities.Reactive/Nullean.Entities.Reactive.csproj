@@ -5,7 +5,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Reactive" />
-    <PackageReference Include="Microsoft.Reactive.Testing" />
     <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
     <!-- Dev-time only, same reasoning as Nullean.Entities.csproj: makes [Constraint] on a
          ReactiveConstraint<T> member work when compiling this project's own code/tests/examples.
