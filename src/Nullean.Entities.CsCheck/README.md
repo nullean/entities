@@ -58,15 +58,26 @@ checks for it. See [Vacuity](#vacuity--a-green-test-that-proved-nothing).
 If your entity is an immutable record whose methods return the next value (`order.Confirm()`), you
 declared everything a test needs when you wrote its constraints. `[Constraints]` also generates
 `OrderConstraints.Actions` (every public method on `Order` that returns `Order` and takes at most one
-argument), and `.Spec(...)` hands both to CsCheck's state-machine engine:
+argument) and a `OrderConstraints.Instance` that carries both, and `.Spec()` hands them to CsCheck's
+state-machine engine. With nothing else configured, [AutoBogus](#how-autobogus-fills-in-the-blanks)
+supplies the starting orders and the values every action is tried with:
 
 ```csharp
-var spec = OrderConstraints.All
-    .Spec(Order.New(id), OrderConstraints.Actions)
-    .Domain(lineA, lineB)            // the values to try for AddLine(OrderLine)
-    .Domain("A", "B")                // ...and for RemoveLine(string sku)
-    .Boundary(o => o.Lines.Count < 2)
-    .Key(o => (o.Status, string.Join(",", o.Lines.Select(l => l.Sku))));   // what makes two orders "the same state"
+OrderConstraints.Instance.Spec().Exhaustive();                  // zero config
+EntitySpec.For<Order>().Exhaustive();                           // when Order declares its own constraints
+```
+
+Pass a starting state when you have a meaningful one (an *initial state* is just the entity the
+exploration begins from; `Order.New(id)` in the examples is that domain's own factory for an empty
+`Pending` order, nothing the library provides), and override any default:
+
+```csharp
+var spec = OrderConstraints.Instance
+    .Spec(Order.New(id))
+    .Domain(lineA, lineB)                      // values to try for AddLine(OrderLine)
+    .DomainFrom<OrderLine, string>(l => l.Sku) // ...and for RemoveLine(string): the SKUs just added
+    .Limit(collections: 3)                     // explore orders up to 3 lines (default 2)
+    .Key(o => (o.Status, o.Lines.Count));      // what makes two orders "the same state" (default: structural)
 ```
 
 | You want to know | One line | What CsCheck does |
@@ -96,12 +107,14 @@ How the constraints become requirements:
 
 Things to know:
 
-- **A finite domain is the price of a proof.** `Exhaustive` tries each action with each value you list
-  for its argument parameter type, so use two or three representative values, not `Gen.Int`.
-  An action that takes an argument and has no `.Domain<T>(...)` fails with a message naming the call to add.
-- **`Key` and `Boundary` make the space close.** Records holding lists compare by reference, so without
-  a `Key` every state looks new. A counter that can grow forever needs a `Boundary`. If the space does
-  not close, `Exhaustive` says so rather than passing: reaching `maxStates` proves nothing.
+- **A finite domain is the price of a proof.** `Exhaustive` tries each action with each value in its
+  argument type's domain: three distinct AutoBogus values by default, or what you give `.Domain<T>(...)`.
+  Keep it small, the reachable state space grows with it.
+- **The space has to close.** The default `Key` compares public properties structurally (lists element
+  by element), and states holding more than `.Limit(...)` items (default 2, or the start's own size if
+  larger) are checked but not expanded, so "add a line forever" is finite. Numbers that only grow
+  (`Balance + 50`, forever) need a `.Boundary(...)`. If the space does not close, `Exhaustive` says so rather
+  than passing: reaching `maxStates` (default 100,000) proves nothing.
 - **Time is fixed.** Time-aware constraints read a constant clock (`.Clock(...)` to change it), so
   exploration is deterministic.
 - **It finds real bugs in your rules.** Running this against the example domains showed that
@@ -112,6 +125,59 @@ Things to know:
 
 Runnable versions of all of the above: `tests/Nullean.Entities.Examples.Tests/AutoTests/AutoTestExamples.cs`
 and `tests/Nullean.Entities.CsCheck.Tests/EntitySpecTests.cs`.
+
+## Simple property tests
+
+No state machine needed. The constraints are the oracle and AutoBogus supplies the values; CsCheck
+shrinks any failure and prints a seed:
+
+```csharp
+OrderConstraints.All.ForAll(o => o.Cancel().Cancel() == o.Cancel());     // a property over valid orders
+OrderConstraints.All.Preserves(OrderConstraints.Actions);                // every action keeps a valid order valid
+OrderConstraints.All.Probe();                                            // which constraints can this generator break?
+OrderConstraints.All.RejectsInvalid();                                   // invalid values are named and rejected
+```
+
+| Call | Checks | Use it when |
+|---|---|---|
+| `ForAll(property)` | `property` holds for every generated value that satisfies the constraints | You have a rule of your own (`Total == sum of lines`) and want valid inputs for free. |
+| `Preserves(actions)` | From a valid start, any action with any generated argument gives a result that satisfies the constraints (run **raw**, not through `Apply`, which would reject a bad result and so could never show one) | You want the random cousin of `Exhaustive` that also starts from states `New()` never produces. It finds `BankAccount.Withdraw` ignoring the overdraft limit. |
+| `Probe()` | Per point-in-time constraint, how often it held and was violated over 1,000 generated values | A constraint that **never fails** may be a tautology or a derived value; one that **never holds** is a contradiction (or something the generator cannot build) and throws. |
+| `RejectsInvalid()` | Values violating a constraint appear in `Validate` under its name, and `Apply` to them is refused naming it | You want proof every rule is named and enforced. Constraints the generator never violates are listed as unfalsifiable. |
+
+`ForAll` and `Preserves` take `gen:`/`start:` to replace the default, `AutoBogus` filtered by the
+constraints. For a type whose valid values are hard to hit by filtering, use the entities the actions can
+reach instead: `OrderConstraints.Instance.Spec().States()` is a `Gen<Order>` that is valid by construction
+and shrinks to the shortest action sequence.
+
+```csharp
+var orders = OrderConstraints.Instance.Spec().States();
+OrderConstraints.All.ForAll(o => o.Total >= 0, gen: orders);
+```
+
+If `Valid` (the filter behind the defaults) cannot find a valid value it says which constraints did the
+rejecting, not just that a limit was hit.
+
+## How AutoBogus fills in the blanks
+
+[`GenAuto`](#bogusautobogus-generators) routes AutoBogus through CsCheck's `PCG`, so everything it draws is
+reproducible and shrinkable. These are the places this package reaches for it without being asked:
+
+| Where | What is generated | Override with |
+|---|---|---|
+| `Spec()` with no start | Valid entities from fixed seeds, one per distinct combination of enum/bool properties (so one per `OrderStatus`), up to eight | `Spec(start)` or `.From(a, b)` |
+| An action taking an argument | Three distinct values of the argument type | `.Domain<T>(...)`, `.DomainFrom<S, T>(...)` |
+| `ForAll`, `Preserves` | Entities from `GenAuto.Of<T>()`, kept only if valid | `gen:` / `start:` |
+| `Probe`, `RejectsInvalid` | Raw `GenAuto.Of<T>()` values, deliberately unfiltered, so violations can occur | `gen:` / `raw:` |
+
+Two things to know:
+
+- **A random string argument is almost always a no-op.** `RemoveLine(sku)` with an AutoBogus string
+  never matches a line that exists, so the action does nothing and the exploration learns nothing. Use
+  `.DomainFrom<OrderLine, string>(l => l.Sku)` so the argument comes from the state.
+- **Generated data is realistic, not adversarial.** AutoBogus builds plausible values (positive decimals,
+  words), so a constraint like `Balance >= -OverdraftLimit` may never be violated by it. `Probe` and
+  `RejectsInvalid` tell you; `Exhaustive` and `Preserves` still find the bug through the actions.
 
 ## Testing qualities, not just assertions
 

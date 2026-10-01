@@ -556,6 +556,9 @@ public sealed class ConstraintIgnoreAttribute : Attribute
 public interface IHaveConstraints<TSelf> where TSelf : IHaveConstraints<TSelf>
 {
 	static abstract ConstraintSet<TSelf> Constraints { get; }
+
+	/// <summary>The entity's mutations (generated; see <see cref="EntityActions{TEntity}"/>), or null when there are none.</summary>
+	static virtual EntityActions<TSelf>? Actions => null;
 }
 
 // ── IConstraintsFor<T> ────────────────────────────────────────────────────────
@@ -575,6 +578,9 @@ public interface IHaveConstraints<TSelf> where TSelf : IHaveConstraints<TSelf>
 public interface IConstraintsFor<T>
 {
 	ConstraintSet<T> All { get; }
+
+	/// <summary>The entity's mutations (generated; see <see cref="EntityActions{TEntity}"/>), or null when there are none.</summary>
+	EntityActions<T>? Actions => null;
 }
 
 // ── ConstraintSet<T> ──────────────────────────────────────────────────────────

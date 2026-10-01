@@ -197,14 +197,58 @@ public class EntitySpecTests
 	}
 
 	[Test]
-	public void Action_over_an_undeclared_domain_says_what_to_declare()
+	public void Zero_config_spec_generates_starting_states_and_proves_the_door()
 	{
-		var spec = DoorConstraints.All.Spec(Door.New(), new EntityActions<Door>(new EntityAction<Door>("Paint", typeof(string), (d, _) => d)));
+		var report = DoorConstraints.Instance.Spec().Exhaustive();
 
-		var act = () => spec.Exhaustive();
-
-		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Domain<String>");
+		report.Closed.Should().BeTrue();
 	}
+
+	[Test]
+	public void Spec_can_start_from_a_given_state_through_the_generated_Instance() =>
+		DoorConstraints.Instance.Spec(Door.New()).Exhaustive().States.Should().Be(3);
+
+	[Test]
+	public void Self_attached_types_get_a_spec_from_their_own_constraints() =>
+		EntitySpec.For<Lamp>().Exhaustive(requireCoverage: false).Closed.Should().BeTrue();
+
+	[Test]
+	public void Undeclared_argument_domains_are_filled_with_a_few_distinct_AutoBogus_values()
+	{
+		var seen = new HashSet<string>();
+		var actions = new EntityActions<Door>(new EntityAction<Door>("Paint", typeof(string), (d, a) =>
+		{
+			seen.Add((string)a!);
+			return d;
+		}));
+
+		DoorConstraints.All.Spec(Door.New(), actions).Exhaustive(requireCoverage: false);
+
+		seen.Should().HaveCount(3);
+		seen.Should().OnlyContain(v => v.Length > 0);
+	}
+
+	[Test]
+	public void DomainFrom_derives_one_argument_domain_from_another()
+	{
+		var names = new HashSet<string>();
+		var actions = new EntityActions<Door>(new EntityAction<Door>("Number", typeof(int), (d, _) => d), new EntityAction<Door>("Name", typeof(string), (
+			d,
+			a
+		) =>
+		{
+			names.Add((string)a!);
+			return d;
+		}));
+
+		DoorConstraints.All.Spec(Door.New(), actions).Domain(1, 2).DomainFrom<int, string>(n => $"n{n}").Exhaustive(requireCoverage: false);
+
+		names.Should().BeEquivalentTo("n1", "n2");
+	}
+
+	[Test]
+	public void States_yields_only_values_reachable_by_the_actions_and_therefore_valid() =>
+		DoorConstraints.Instance.Spec().States().Sample(d => DoorConstraints.All.Validate(d).Count == 0, iter: 100);
 
 	[Test]
 	public void Key_merges_states_the_default_equality_would_keep_apart()
@@ -213,7 +257,7 @@ public class EntitySpecTests
 
 		Bag Add(Bag b, int n) => new([.. b.Items, n]);
 
-		var byReference = constraints.Spec(new Bag([])).Action("Add", [1, 2], Add).Boundary(b => b.Items.Count < 3);
+		var byReference = constraints.Spec(new Bag([])).Action("Add", [1, 2], Add).Boundary(b => b.Items.Count < 3).Key(b => b);
 		var byContent = constraints
 			.Spec(new Bag([]))
 			.Action("Add", [1, 2], Add)
@@ -243,4 +287,13 @@ internal sealed class DoorImpl
 			_ => State,
 		};
 	}
+}
+
+// Self-attached: the type declares its own constraints, so EntitySpec.For<Lamp>() needs nothing else.
+internal sealed partial record Lamp(bool On)
+{
+	public Lamp Toggle() => this with { On = !On };
+
+	[Constraint]
+	public static readonly Constraint<Lamp> AlwaysAValue = Constraints<Lamp>.Always(l => l.On || !l.On, "a lamp is on or off");
 }

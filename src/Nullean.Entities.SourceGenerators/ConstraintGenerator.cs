@@ -268,7 +268,13 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		// class's own base list, even when the class isn't `static`.
 		var (baseList, nested) = selfAttach
 			? ($" : global::Nullean.Entities.IHaveConstraints<{type.Name}>", null)
-			: (string.Empty, NestedTypeConstraints(type, "global::Nullean.Entities.IConstraintsFor", typeArgDisplay, propertyType));
+			: (string.Empty, NestedTypeConstraints(
+				type,
+				"global::Nullean.Entities.IConstraintsFor",
+				typeArgDisplay,
+				propertyType,
+				ActionsMember(typeArgument, typeArgDisplay) is not null
+			));
 
 		return Emit(
 			type,
@@ -360,10 +366,20 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	/// additionally forwards a plain `Instance` field onto the spec class itself, so a caller can
 	/// write `SpecClass.Instance` without ever needing to know `TypeConstraints` exists.
 	/// </summary>
-	private static string NestedTypeConstraints(INamedTypeSymbol type, string interfaceName, string typeArgDisplay, string propertyType) =>
+	private static string NestedTypeConstraints(
+		INamedTypeSymbol type,
+		string interfaceName,
+		string typeArgDisplay,
+		string propertyType,
+		bool hasActions = false
+	) =>
 		$"public readonly struct TypeConstraints : {interfaceName}<{typeArgDisplay}>\n" + $"    {{\n" +
 		$"        public static readonly TypeConstraints Instance = default;\n" + $"\n" +
-		$"        public {propertyType} All => {type.Name}.All;\n" + $"    }}";
+		$"        public {propertyType} All => {type.Name}.All;\n"
+		// The entity's mutations travel with the instance, so a test project that only sees
+		// `OrderConstraints.Instance` (not the partial class itself) can still enumerate them.
+		+ (hasActions ? $"\n        public global::Nullean.Entities.EntityActions<{typeArgDisplay}>? Actions => {type.Name}.Actions;\n" : "")
+		+ $"    }}";
 
 	private static string Emit(
 		INamedTypeSymbol type,

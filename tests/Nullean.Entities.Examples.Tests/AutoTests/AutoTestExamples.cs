@@ -69,4 +69,44 @@ public class AutoTestExamples
 
 		act.Should().Throw<Exception>().Which.Message.Should().Contain("Withdraw");
 	}
+
+	// ── Zero config: AutoBogus supplies the starting states and the argument values ──────────────────
+
+	[Test]
+	public void Order_zero_config_explores_from_generated_valid_orders() =>
+		OrderConstraints.Instance.Spec().Exhaustive().States.Should().BeGreaterThan(3);
+
+	[Test]
+	public void TrafficLight_zero_config_proves_the_cycle() => TrafficLightConstraints.Instance.Spec().Exhaustive();
+
+	[Test]
+	public void BankAccount_zero_config_preserves_finds_the_unguarded_Withdraw()
+	{
+		var act = () => BankAccountConstraints.All.Preserves(BankAccountConstraints.Actions, iter: 500);
+
+		act.Should().Throw<Exception>().Which.Message.Should().Contain("Withdraw");
+	}
+
+	// ── Simple property tests: no state machine, constraints are the oracle ─────────────────────────
+
+	[Test]
+	public void Order_total_always_equals_its_lines() => OrderConstraints.All.ForAll(o => o.Total == o.Lines.Sum(l => l.Quantity * l.Price), iter: 200);
+
+	[Test]
+	public void Order_cancelling_twice_is_the_same_as_once_for_any_valid_order() =>
+		OrderConstraints.All.ForAll(o => o.Cancel().Cancel() == o.Cancel(), iter: 200);
+
+	[Test]
+	public void Order_every_action_keeps_a_generated_valid_order_valid() => OrderConstraints.All.Preserves(OrderConstraints.Actions, iter: 300);
+
+	[Test]
+	public void TrafficLight_probe_shows_which_rules_a_generator_can_actually_break()
+	{
+		var report = TrafficLightConstraints.All.Probe(throwOnContradiction: false);
+
+		report.Entries.Should().NotBeEmpty();
+	}
+
+	[Test]
+	public void TrafficLight_values_that_break_a_rule_are_named_and_rejected() => TrafficLightConstraints.All.RejectsInvalid();
 }
