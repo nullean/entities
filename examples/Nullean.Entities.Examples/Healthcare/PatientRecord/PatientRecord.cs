@@ -120,9 +120,10 @@ public sealed record PatientRecord(
 			ActiveMedications =
 			[
 				.. ActiveMedications.Select(
-					m => string.Equals(m.DrugName, drugName, StringComparison.OrdinalIgnoreCase)
-						? m with { DiscontinuedOn = DateOnly.FromDateTime(DateTime.UtcNow) }
-						: m
+					m =>
+						string.Equals(m.DrugName, drugName, StringComparison.OrdinalIgnoreCase)
+							? m with { DiscontinuedOn = DateOnly.FromDateTime(DateTime.UtcNow) }
+							: m
 				),
 			],
 		};

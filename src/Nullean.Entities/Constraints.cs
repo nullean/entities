@@ -51,8 +51,7 @@ public abstract record Result<T>
 	// Closes the hierarchy to the two nested records below: a private protected constructor can
 	// only be called from this assembly or a type derived from Result<T>, and every such type here
 	// is sealed, so nothing outside this file can ever add a third case.
-	private protected Result()
-	{ }
+	private protected Result() { }
 
 	public sealed record Ok(T Value) : Result<T>;
 
@@ -86,8 +85,7 @@ public abstract record Result<T>
 
 public abstract record ChannelResult<T>
 {
-	private protected ChannelResult()
-	{ }
+	private protected ChannelResult() { }
 
 	/// <summary>Mutation passed all constraints and <see cref="ConstraintChannel{T}.Current"/> was updated.</summary>
 	public sealed record Applied(T Value) : ChannelResult<T>;
@@ -212,14 +210,15 @@ public static class Constraints<T>
 		Constraint<T> self = null!;
 		self = new(
 			ConstraintKind.Sequential,
-			(prev, next) => isValid(prev, next)
-				? []
-				: [
-					Violation.Error(message ?? $"{self.Name ?? "Constraint"} does not allow the transition from {prev} to {next}.") with
-					{
-						Evidence = (prev, next)
-					}
-				]
+			(prev, next) =>
+				isValid(prev, next)
+					? []
+					: [
+						Violation.Error(message ?? $"{self.Name ?? "Constraint"} does not allow the transition from {prev} to {next}.") with
+						{
+							Evidence = (prev, next)
+						}
+					]
 		);
 		return self;
 	}
@@ -333,9 +332,8 @@ public sealed class WhenBuilder<T>
 		Constraint<T> self = null!;
 		self = new(
 			ConstraintKind.PointInTime,
-			(_, next) => !_guard(next) || requirement(next)
-				? []
-				: [Violation.Error(message ?? $"{self.Name ?? "Constraint"} was violated.") with { Evidence = next }]
+			(_, next) =>
+				!_guard(next) || requirement(next) ? [] : [Violation.Error(message ?? $"{self.Name ?? "Constraint"} was violated.") with { Evidence = next }]
 		);
 		return self;
 	}

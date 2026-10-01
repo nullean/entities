@@ -27,13 +27,18 @@ public class DeterminismTests
 {
 	// The generator shared between tests. Every draw goes through CsCheck's PCG.
 	private static readonly Gen<Order> GenOrder = GenFakerExtensions.Faker<Order>(
-		faker => faker
-			.CustomInstantiator(f => new Order(f.Random.Guid()))
-			.RuleFor(o => o.Email, f => f.Internet.Email())
-			.RuleFor(
-				o => o.Lines,
-				f => f.Make(f.Random.Int(0, 5), () => new OrderLine { Sku = f.Commerce.Ean13(), Quantity = f.Random.Int(1, 20), Price = f.Finance.Amount(), })
-			)
+		faker =>
+			faker
+				.CustomInstantiator(f => new Order(f.Random.Guid()))
+				.RuleFor(o => o.Email, f => f.Internet.Email())
+				.RuleFor(
+					o => o.Lines,
+					f =>
+						f.Make(
+							f.Random.Int(0, 5),
+							() => new OrderLine { Sku = f.Commerce.Ean13(), Quantity = f.Random.Int(1, 20), Price = f.Finance.Amount(), }
+						)
+				)
 	);
 
 	/// <summary>

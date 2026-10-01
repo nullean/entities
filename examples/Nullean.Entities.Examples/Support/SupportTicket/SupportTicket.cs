@@ -57,13 +57,13 @@ public static partial class SupportTicketConstraints
 		.Allow(TicketStatus.Resolved, TicketStatus.Closed)
 		.Allow(TicketStatus.Resolved, TicketStatus.InProgress);
 
-	public static readonly Constraint<SupportTicket> InProgressRequiresAssignee = Constraints<SupportTicket>.When(
-		t => t.Status == TicketStatus.InProgress
-	).Requires(t => t.AssigneeId is not null, "In-progress tickets must be assigned to an agent.");
+	public static readonly Constraint<SupportTicket> InProgressRequiresAssignee = Constraints<SupportTicket>
+		.When(t => t.Status == TicketStatus.InProgress)
+		.Requires(t => t.AssigneeId is not null, "In-progress tickets must be assigned to an agent.");
 
-	public static readonly Constraint<SupportTicket> ResolvedRequiresTimestamp = Constraints<SupportTicket>.When(
-		t => t.Status is TicketStatus.Resolved or TicketStatus.Closed
-	).Requires(t => t.ResolvedAt is not null, "Resolved/closed tickets must have a resolution timestamp.");
+	public static readonly Constraint<SupportTicket> ResolvedRequiresTimestamp = Constraints<SupportTicket>
+		.When(t => t.Status is TicketStatus.Resolved or TicketStatus.Closed)
+		.Requires(t => t.ResolvedAt is not null, "Resolved/closed tickets must have a resolution timestamp.");
 
 	public static readonly Constraint<SupportTicket> TitleNotEmpty = Constraints<SupportTicket>.Always(
 		t => !string.IsNullOrWhiteSpace(t.Title),

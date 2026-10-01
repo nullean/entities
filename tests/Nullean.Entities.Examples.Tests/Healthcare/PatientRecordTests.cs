@@ -220,10 +220,11 @@ public class PatientRecordTests
 	public void Mutant_zero_dose_always_fails_per_entity_check()
 	{
 		var act =
-			() => Gen
-				.Int[1, 10000]
-				.Select(i => new Medication($"Drug{i}", 0, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow)))
-				.Sample(m => MedicationConstraints.Constraints.Validate(m).Count == 0);
+			() =>
+				Gen
+					.Int[1, 10000]
+					.Select(i => new Medication($"Drug{i}", 0, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow)))
+					.Sample(m => MedicationConstraints.Constraints.Validate(m).Count == 0);
 		act.Should().Throw<Exception>();
 	}
 
@@ -232,16 +233,17 @@ public class PatientRecordTests
 	{
 		// Build records where the medication and allergen match — must always produce a violation.
 		var act =
-			() => Gen
-				.Int[1, 10000]
-				.Select(i => $"Drug{i}")
-				.Select(drug =>
-				{
-					var med = new Medication(drug, 100, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow));
-					var allergy = new Allergy(drug, AllergySeverity.Severe);
-					return HealthyOutpatient() with { ActiveMedications = [med], Allergies = [allergy], };
-				})
-				.Sample(r => PatientRecordConstraints.Constraints.Validate(r).Count == 0);
+			() =>
+				Gen
+					.Int[1, 10000]
+					.Select(i => $"Drug{i}")
+					.Select(drug =>
+					{
+						var med = new Medication(drug, 100, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow));
+						var allergy = new Allergy(drug, AllergySeverity.Severe);
+						return HealthyOutpatient() with { ActiveMedications = [med], Allergies = [allergy], };
+					})
+					.Sample(r => PatientRecordConstraints.Constraints.Validate(r).Count == 0);
 
 		act.Should().Throw<Exception>();
 	}

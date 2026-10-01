@@ -309,8 +309,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	/// </summary>
 	private static string NestedTypeConstraints(INamedTypeSymbol type, string interfaceName, string typeArgDisplay, string propertyType) =>
 		$"public readonly struct TypeConstraints : {interfaceName}<{typeArgDisplay}>\n" + $"    {{\n" +
-			$"        public static readonly TypeConstraints Instance = default;\n" + $"\n" +
-			$"        public {propertyType} Constraints => {type.Name}.Constraints;\n" + $"    }}";
+		$"        public static readonly TypeConstraints Instance = default;\n" + $"\n" +
+		$"        public {propertyType} Constraints => {type.Name}.Constraints;\n" + $"    }}";
 
 	private static string Emit(
 		INamedTypeSymbol type,

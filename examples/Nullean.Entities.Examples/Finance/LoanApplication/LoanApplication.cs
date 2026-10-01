@@ -30,14 +30,14 @@ public static partial class LoanApplicationConstraints
 		.Allow(LoanStatus.Submitted, LoanStatus.Withdrawn);
 
 	// Approval requires verified documents.
-	public static readonly Constraint<LoanApplication> ApprovalRequiresDocuments = Constraints<LoanApplication>.When(
-		a => a.Status == LoanStatus.Approved
-	).Requires(a => a.HasRequiredDocs, "Approval requires verified ID and Income documents.");
+	public static readonly Constraint<LoanApplication> ApprovalRequiresDocuments = Constraints<LoanApplication>
+		.When(a => a.Status == LoanStatus.Approved)
+		.Requires(a => a.HasRequiredDocs, "Approval requires verified ID and Income documents.");
 
 	// Approval requires a sufficient credit score.
-	public static readonly Constraint<LoanApplication> ApprovalRequiresCreditScore = Constraints<LoanApplication>.When(
-		a => a.Status == LoanStatus.Approved
-	).Requires(a => a.Applicant.CreditScore >= 650, "Approval requires a credit score of at least 650.");
+	public static readonly Constraint<LoanApplication> ApprovalRequiresCreditScore = Constraints<LoanApplication>
+		.When(a => a.Status == LoanStatus.Approved)
+		.Requires(a => a.Applicant.CreditScore >= 650, "Approval requires a credit score of at least 650.");
 
 	public static readonly Constraint<LoanApplication> PositiveAmount = Constraints<LoanApplication>.Always(
 		a => a.RequestedAmount > 0,

@@ -67,11 +67,11 @@ public static partial class DeploymentPipelineConstraints
 		"Commit SHA must not be empty."
 	);
 
-	public static readonly Constraint<DeploymentPipeline> CompletedPipelineHasTimestamp = Constraints<DeploymentPipeline>.When(
-		p => p.Status is PipelineStatus.Succeeded or PipelineStatus.Failed or PipelineStatus.Cancelled
-	).Requires(p => p.CompletedAt is not null, "Completed pipelines must record a completion timestamp.");
+	public static readonly Constraint<DeploymentPipeline> CompletedPipelineHasTimestamp = Constraints<DeploymentPipeline>
+		.When(p => p.Status is PipelineStatus.Succeeded or PipelineStatus.Failed or PipelineStatus.Cancelled)
+		.Requires(p => p.CompletedAt is not null, "Completed pipelines must record a completion timestamp.");
 
-	public static readonly Constraint<DeploymentPipeline> NoFailedStagesOnSuccess = Constraints<DeploymentPipeline>.When(
-		p => p.Status == PipelineStatus.Succeeded
-	).Requires(p => p.Stages.All(s => s.Status != StageStatus.Failed), "A succeeded pipeline must not have any failed stages.");
+	public static readonly Constraint<DeploymentPipeline> NoFailedStagesOnSuccess = Constraints<DeploymentPipeline>
+		.When(p => p.Status == PipelineStatus.Succeeded)
+		.Requires(p => p.Stages.All(s => s.Status != StageStatus.Failed), "A succeeded pipeline must not have any failed stages.");
 }

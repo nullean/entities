@@ -159,22 +159,23 @@ public class ScriptMetamorphicTests
 		var script = Script.For<Counter>();
 
 		var act =
-			() => script.Metamorphic(
-				() => new Counter(),
-				Gen.Int[1, 50],
-				(counter, a, b) =>
-				{
-					counter.IncrementBy(a);
-					counter.IncrementBy(b);
-				},
-				(counter, a, b) =>
-				{
-					counter.IncrementBy(b);
-					counter.IncrementBy(a);
-				},
-				(x, y) => x.Value == y.Value,
-				iter: 30
-			);
+			() =>
+				script.Metamorphic(
+					() => new Counter(),
+					Gen.Int[1, 50],
+					(counter, a, b) =>
+					{
+						counter.IncrementBy(a);
+						counter.IncrementBy(b);
+					},
+					(counter, a, b) =>
+					{
+						counter.IncrementBy(b);
+						counter.IncrementBy(a);
+					},
+					(x, y) => x.Value == y.Value,
+					iter: 30
+				);
 
 		act.Should().NotThrow();
 	}
@@ -189,23 +190,24 @@ public class ScriptMetamorphicTests
 		var script = Script.For<Counter>();
 
 		var act =
-			() => script.Metamorphic(
-				() => new Counter(),
-				Gen.Int[1, 50],
-				(counter, a, b) =>
-				{
-					counter.IncrementBy(a);
-					counter.IncrementBy(b);
-				},
-				(counter, a, b) =>
-				{
-					counter.IncrementBy(a);
-					counter.IncrementBy(b);
-					counter.Increment(); // the one extra step that breaks confluence
-				},
-				(x, y) => x.Value == y.Value,
-				iter: 10
-			);
+			() =>
+				script.Metamorphic(
+					() => new Counter(),
+					Gen.Int[1, 50],
+					(counter, a, b) =>
+					{
+						counter.IncrementBy(a);
+						counter.IncrementBy(b);
+					},
+					(counter, a, b) =>
+					{
+						counter.IncrementBy(a);
+						counter.IncrementBy(b);
+						counter.Increment(); // the one extra step that breaks confluence
+					},
+					(x, y) => x.Value == y.Value,
+					iter: 10
+				);
 
 		act.Should().Throw<CsCheckException>();
 	}

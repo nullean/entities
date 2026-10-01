@@ -38,15 +38,13 @@ public static partial class PersonConstraints
 		.Allow(EmploymentStatus.OnLeave, EmploymentStatus.Active)
 		.Allow(EmploymentStatus.OnLeave, EmploymentStatus.Terminated);
 
-	public static readonly Constraint<Person> TerminatedHasNoReports = Constraints<Person>.When(p => p.Status == EmploymentStatus.Terminated).Requires(
-		p => p.DirectReportIds.Count == 0,
-		"Terminated employees must not have direct reports."
-	);
+	public static readonly Constraint<Person> TerminatedHasNoReports = Constraints<Person>
+		.When(p => p.Status == EmploymentStatus.Terminated)
+		.Requires(p => p.DirectReportIds.Count == 0, "Terminated employees must not have direct reports.");
 
-	public static readonly Constraint<Person> TerminatedHasNoManager = Constraints<Person>.When(p => p.Status == EmploymentStatus.Terminated).Requires(
-		p => p.ManagerId is null,
-		"Terminated employees must not have a manager."
-	);
+	public static readonly Constraint<Person> TerminatedHasNoManager = Constraints<Person>
+		.When(p => p.Status == EmploymentStatus.Terminated)
+		.Requires(p => p.ManagerId is null, "Terminated employees must not have a manager.");
 }
 
 // Org-level constraints that check graph integrity.
