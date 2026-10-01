@@ -249,20 +249,21 @@ The supported axes today and what's coming:
 | Invariant, Idempotency, Monotonicity, Conservation | ✅ `ConstraintSet<T>.Validate`, `Idempotent`, `Monotonic`, `Conserves` |
 | Absence, Temporal, Liveness | ✅ `Script.SampleWith` + `ReactiveConstraintSet` |
 | Confluence | ✅ `Script.Metamorphic` |
-| Model-based (SUT state vs machine prediction) | ⏳ needs `StateMachine` |
+| Model-based (SUT state vs machine prediction) | 🟡 `StateMachine<TState>.AsConstraint`/`AsReactive` check legality; wiring a prediction into `Script` itself is still open |
 | Parallel / linearizability | ⏳ |
-| Vacancy (every transition exercised) | ⏳ needs `StateMachine` |
+| Vacancy (every transition exercised) | 🟡 `StateMachine<TState>.NewCoverageTracker()` is manual; a `coverage:` parameter on `SampleWith` is still open |
 
 See [Nullean.Entities.CsCheck](src/Nullean.Entities.CsCheck/README.md) for the full API.
 
-## State machines *(coming next)*
+## State machines
 
-`Transitions(...)` already checks individual state-transition rules. What is not yet built is a
-first-class machine — something that proves the declared states form a structurally sound graph and
-then derives all the checks from that one declaration.
+`Transitions(...)` checks individual state-transition rules by hand. `StateMachine<TState>` goes
+further: it proves the declared states form a structurally sound graph, then derives a
+`Constraint<TState>`, a `ReactiveConstraint<TEvent>`, a Mermaid diagram and a CsCheck walk generator
+from that one declaration.
 
-The planned API groups transitions by `From` state, so the declaration reads like a diagram, and
-lives in a companion class:
+The API groups transitions by `From` state, so the declaration reads like a diagram, and lives in
+a companion class:
 
 ```csharp
 public readonly union OrderState(Draft, Placed, Confirmed, Shipped, Cancelled);
@@ -287,7 +288,7 @@ public static partial class OrderLifecycle
 }
 ```
 
-The build refuses to compile if:
+`Define` refuses the machine — throwing `StateMachineDefinitionException` — the moment it's built if:
 
 - any case of `OrderState` is not mentioned in the machine *(NESM001 — exhaustiveness)*
 - any state is unreachable from `Initial` *(NESM002)*
@@ -295,20 +296,43 @@ The build refuses to compile if:
 - any state cannot reach a terminal *(NESM004 — trap)*
 
 These are structural checks; guards are deliberately ignored. Whether a guard actually lets a
-transition fire at runtime is exactly what the property tester answers.
+transition fire at runtime is exactly what `AsConstraint`/`AsReactive` and the property tester
+answer. This happens eagerly, at the static field's own initializer — a misdeclared machine fails
+the moment anything touches it, same as a real compile error in practice, just not one yet: an
+analyzer reporting the same four checks as true build diagnostics, the way `[Constraint]`'s
+NECG001–007 do, is still open. `[StateMachine]` on the field above is reserved for that; applying it
+today costs nothing and marks the intent.
+
+`TState`'s cases are types, not values — `Initial`/`State`/`Terminal`/`To` are all generic over a
+case type, never constrained by `where T : TState`, because a C# 11 union's case types aren't
+subtypes of the union — the same problem `Nullean.Entities.Reactive`'s predicate-based temporal
+operators solve further up this page. It works unchanged whether `OrderState` is a real union, the
+pre-union abstract-record-with-sealed-nested-cases shape, or — trivially — a single type.
 
 From one declaration, everything else derives:
 
 ```csharp
-Constraint<OrderState>         guard   = OrderLifecycle.Machine.AsConstraint();
-ReactiveConstraint<OrderEvent> monitor = OrderLifecycle.Machine.AsReactive(stateOf: e => ...);
-Gen<IReadOnlyList<Step>>       walks   = OrderLifecycle.Machine.Walks();
-string                         diagram = OrderLifecycle.Machine.ToMermaid();
-
-// Once Walks() is available:
-script.SampleWith(factory, events, spec, coverage: OrderLifecycle.Machine);
-// ↑ fails the run if some declared transition was never exercised
+Constraint<OrderState>                           guard   = OrderLifecycle.Machine.AsConstraint();
+ReactiveConstraint<OrderEvent>                    monitor = OrderLifecycle.Machine.AsReactive(stateOf: e => e.State);
+Gen<IReadOnlyList<StateMachineStep<OrderState>>>  walks   = OrderLifecycle.Machine.Walks();
+string                                            diagram = OrderLifecycle.Machine.ToMermaid();
 ```
+
+Coverage is manual for now: `Walks()` generates graph-level walks (by declared state and edge, not
+real values, so guards are ignored the same way the structural checks ignore them), and
+`NewCoverageTracker()` gives a tracker to `Record` real `(from, to)` pairs into as a `Script<TSut>`
+run actually produces them:
+
+```csharp
+var coverage = OrderLifecycle.Machine.NewCoverageTracker();
+// from inside the events: handler, as each event arrives:
+coverage.Record(previousState, nextState);
+// after the run:
+coverage.FullyCovered.Should().BeTrue();
+```
+
+A `coverage:` parameter that wires this into `SampleWith` directly is still open — `Script<TSut>`
+has no notion of "the entity's state" to diff before and after a step yet.
 
 ## Packages
 
