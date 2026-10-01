@@ -21,11 +21,12 @@ public class StateMachineRealizedWalksTests
 	// type-only Walks() cannot evaluate, because it never has a value, only a Type.
 	private static StateMachine<OrderState> BuildMachine() =>
 		StateMachine<OrderState>.Define(
-			m => m
-				.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>(d => d.ItemCount > 0))
-				.State<OrderState.Placed>(s => s.To<OrderState.Shipped>().On("Cancel").To<OrderState.Cancelled>())
-				.Terminal<OrderState.Shipped>()
-				.Terminal<OrderState.Cancelled>()
+			m =>
+				m
+					.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>(d => d.ItemCount > 0))
+					.State<OrderState.Placed>(s => s.To<OrderState.Shipped>().On("Cancel").To<OrderState.Cancelled>())
+					.Terminal<OrderState.Shipped>()
+					.Terminal<OrderState.Cancelled>()
 		);
 
 	[Test]

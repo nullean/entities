@@ -40,11 +40,12 @@ public class StateMachineReactiveExtensionsTests
 
 	private static StateMachine<OrderState> BuildMachine() =>
 		StateMachine<OrderState>.Define(
-			m => m
-				.Initial<OrderState.Draft>(s => s.On("Add").To<OrderState.Placed>())
-				.State<OrderState.Placed>(s => s.On("Confirm").To<OrderState.Confirmed>(when: p => p.Lines > 0))
-				.State<OrderState.Confirmed>(s => s.To<OrderState.Shipped>())
-				.Terminal<OrderState.Shipped>()
+			m =>
+				m
+					.Initial<OrderState.Draft>(s => s.On("Add").To<OrderState.Placed>())
+					.State<OrderState.Placed>(s => s.On("Confirm").To<OrderState.Confirmed>(when: p => p.Lines > 0))
+					.State<OrderState.Confirmed>(s => s.To<OrderState.Shipped>())
+					.Terminal<OrderState.Shipped>()
 		);
 
 	[Test]

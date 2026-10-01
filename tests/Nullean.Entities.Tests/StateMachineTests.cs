@@ -21,12 +21,13 @@ public class StateMachineTests
 
 	private static StateMachine<OrderState> BuildValidMachine() =>
 		StateMachine<OrderState>.Define(
-			m => m
-				.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>())
-				.State<OrderState.Placed>(s => s.On("Confirm").To<OrderState.Confirmed>(when: p => p.Lines > 0).On("Cancel").To<OrderState.Cancelled>())
-				.State<OrderState.Confirmed>(s => s.To<OrderState.Shipped>().On("Cancel").To<OrderState.Cancelled>())
-				.Terminal<OrderState.Shipped>()
-				.Terminal<OrderState.Cancelled>()
+			m =>
+				m
+					.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>())
+					.State<OrderState.Placed>(s => s.On("Confirm").To<OrderState.Confirmed>(when: p => p.Lines > 0).On("Cancel").To<OrderState.Cancelled>())
+					.State<OrderState.Confirmed>(s => s.To<OrderState.Shipped>().On("Cancel").To<OrderState.Cancelled>())
+					.Terminal<OrderState.Shipped>()
+					.Terminal<OrderState.Cancelled>()
 		);
 
 	[Test]
@@ -189,9 +190,10 @@ public class StateMachineTests
 	public void Define_throws_NESM002_when_a_declared_state_has_no_path_from_Initial()
 	{
 		var act =
-			() => StateMachine<UnreachableState>.Define(
-				m => m.Initial<UnreachableState.A>(s => s.To<UnreachableState.B>()).Terminal<UnreachableState.B>().Terminal<UnreachableState.Orphan>()
-			);
+			() =>
+				StateMachine<UnreachableState>.Define(
+					m => m.Initial<UnreachableState.A>(s => s.To<UnreachableState.B>()).Terminal<UnreachableState.B>().Terminal<UnreachableState.Orphan>()
+				);
 		// Orphan is declared (satisfies NESM001) but no edge leads to it.
 
 		act.Should().Throw<StateMachineDefinitionException>().Where(e => e.Code == "NESM002");
@@ -201,9 +203,10 @@ public class StateMachineTests
 	public void Define_throws_NESM002_when_no_Initial_state_is_declared()
 	{
 		var act =
-			() => StateMachine<UnreachableState>.Define(
-				m => m.Terminal<UnreachableState.A>().Terminal<UnreachableState.B>().Terminal<UnreachableState.Orphan>()
-			);
+			() =>
+				StateMachine<UnreachableState>.Define(
+					m => m.Terminal<UnreachableState.A>().Terminal<UnreachableState.B>().Terminal<UnreachableState.Orphan>()
+				);
 
 		act.Should().Throw<StateMachineDefinitionException>().Where(e => e.Code == "NESM002");
 	}
@@ -249,12 +252,14 @@ public class StateMachineTests
 	public void Define_throws_NESM004_when_no_declared_state_can_reach_a_terminal()
 	{
 		var act =
-			() => StateMachine<TrapState>.Define(
-				m => m
-					.Initial<TrapState.A>(s => s.On("Loop").To<TrapState.B>().On("Start").To<TrapState.C>())
-					.State<TrapState.B>(s => s.On("Back").To<TrapState.A>())
-					.State<TrapState.C>(s => s.On("Stay").To<TrapState.C>())
-			);
+			() =>
+				StateMachine<TrapState>.Define(
+					m =>
+						m
+							.Initial<TrapState.A>(s => s.On("Loop").To<TrapState.B>().On("Start").To<TrapState.C>())
+							.State<TrapState.B>(s => s.On("Back").To<TrapState.A>())
+							.State<TrapState.C>(s => s.On("Stay").To<TrapState.C>())
+				);
 		// A, B and C are all reachable from A, but none of them can ever reach a terminal —
 		// B only loops back to A, C only loops to itself, and no Terminal<T>() is declared.
 
@@ -265,12 +270,14 @@ public class StateMachineTests
 	public void Define_does_not_throw_NESM004_when_a_loop_still_has_an_exit_to_a_terminal()
 	{
 		var act =
-			() => StateMachine<TrapState>.Define(
-				m => m
-					.Initial<TrapState.A>(s => s.On("Loop").To<TrapState.B>())
-					.State<TrapState.B>(s => s.On("Back").To<TrapState.A>().On("Finish").To<TrapState.C>())
-					.Terminal<TrapState.C>()
-			);
+			() =>
+				StateMachine<TrapState>.Define(
+					m =>
+						m
+							.Initial<TrapState.A>(s => s.On("Loop").To<TrapState.B>())
+							.State<TrapState.B>(s => s.On("Back").To<TrapState.A>().On("Finish").To<TrapState.C>())
+							.Terminal<TrapState.C>()
+				);
 		// A <-> B loops, but B can also exit to the terminal C — every state can still reach it.
 
 		act.Should().NotThrow();
