@@ -27,6 +27,12 @@ public static class GenAuto
 /// <summary>
 /// A <see cref="Gen{T}"/> backed by <see cref="AutoFaker"/>.
 /// </summary>
+/// <remarks>
+/// See <see cref="Nullean.Entities.CsCheck.FakerGen{T}"/>'s own remarks for why
+/// <c>Faker.IndexFaker</c>/<c>IndexVariable</c> are reset to zero before every draw here too —
+/// AutoFaker generates through the same <see cref="Bogus.Faker"/> hub, so it inherits the same gap
+/// without the same reset.
+/// </remarks>
 internal sealed class AutoFakerGen<T>(Action<AutoFaker>? configure) : Gen<T>, IDisposable
 {
 	private readonly ThreadLocal<(AutoFaker AutoFaker, PcgRandomizer Randomizer)> _local = new(() =>
@@ -43,6 +49,8 @@ internal sealed class AutoFakerGen<T>(Action<AutoFaker>? configure) : Gen<T>, ID
 	{
 		var (autoFaker, randomizer) = _local.Value;
 		randomizer.PcgRandom.Bind(pcg);
+		autoFaker.Faker.IndexFaker = 0;
+		autoFaker.Faker.IndexVariable = 0;
 		var value = autoFaker.Generate<T>();
 		size = randomizer.PcgRandom.Size;
 		return value;

@@ -285,6 +285,18 @@ argument — the two halves of this package compose, not just coexist.
   state you intend to change per call.
 - Only draws that represent real domain data count toward `Size` — a flag or a value that's always
   the same regardless of the input doesn't shrink meaningfully, so it isn't recorded.
+- **Routing `Random` through the PCG is not the whole story.** `Faker.IndexFaker`/`IndexVariable`
+  are separate public counters Bogus increments on every `Generate()` call, independent of
+  `Random` entirely — and since the same `Faker<T>`/`AutoFaker` is reused for every draw on a
+  thread, a rule reading `f.IndexFaker` would otherwise drift across unrelated draws regardless of
+  the PCG state, silently breaking reproducibility for any `configure` that happens to use the
+  well-known Bogus idiom of `f.IndexFaker` as a "the Nth record" sequence. Both are reset to zero
+  before every draw to close that gap — at the cost of `f.IndexFaker` no longer producing a useful
+  sequence, which was never going to survive shrink-and-replay anyway (shrinking retries draws out
+  of call order, not sequence position). `f.IndexGlobal`/`f.UniqueIndex`/`Faker.GlobalUniqueIndex`
+  remain open: they're process-wide statics Bogus itself owns, shared with every other `Faker` in
+  the process, so resetting them here would corrupt unrelated code instead of fixing this
+  generator's — avoid them in `configure` if you need the reproducibility/shrink guarantee to hold.
 
 ## Install
 

@@ -19,24 +19,47 @@ internal sealed class HubFaker<T> : Faker<T> where T : class
 /// Every draw is routed through CsCheck's <see cref="PCG"/>, so seeds are
 /// reproducible and failing cases shrink through CsCheck's size mechanism.
 /// </summary>
+/// <remarks>
+/// Routing <see cref="Randomizer"/> through the <see cref="PCG"/> is not the whole story:
+/// <see cref="Faker.IndexFaker"/>/<see cref="Faker.IndexVariable"/> are separate public counters,
+/// incremented on every <c>Generate()</c> call, and completely independent of the <see cref="Random"/>
+/// source — a rule using <c>f.IndexFaker</c> would otherwise drift across calls regardless of the
+/// PCG state, since the same <see cref="Faker{T}"/> instance is reused for every draw on a thread
+/// (see <see cref="GenFakerExtensions.Faker{T}"/>'s own remarks). Resetting both to zero before
+/// every <c>Generate()</c> makes them a pure function of nothing but "this is one top-level
+/// generate call," restoring the "same PCG state in, same value out" guarantee — at the cost of
+/// <c>f.IndexFaker</c> no longer being useful for the sequential/round-robin idiom it's sometimes
+/// reached for elsewhere, which is inherently incompatible with shrink-and-replay in the first
+/// place (shrinking retries different draws out of call order, not sequence position).
+/// <see cref="Faker.IndexGlobal"/>/<see cref="Faker.UniqueIndex"/>/<see cref="Faker.GlobalUniqueIndex"/>
+/// remain unaddressed: they are process-wide statics Bogus itself owns, shared with every other
+/// <see cref="Faker"/> in the process, so resetting them here would corrupt unrelated code's state
+/// instead of fixing this generator's — a configure that depends on them stays non-reproducible.
+/// </remarks>
 /// <typeparam name="T">The type to generate.</typeparam>
 internal sealed class FakerGen<T>(Func<Faker<T>, Faker<T>> configure) : Gen<T>, IDisposable where T : class
 {
-	private readonly ThreadLocal<(Faker<T> Faker, PcgRandomizer Randomizer)> _local = new(() =>
+	private readonly ThreadLocal<(Faker<T> Faker, Faker Hub, PcgRandomizer Randomizer)> _local = new(() =>
 	{
 		var random = new PcgRandom();
 		var randomizer = new PcgRandomizer(random);
 		var hub = new HubFaker<T>();
 		hub.Hub.Random = randomizer;
 		var faker = configure(hub);
-		return (faker, randomizer);
+		// Captured before `configure` runs so this is the hub Faker regardless of whether
+		// `configure` happens to return the same `hub` instance back (Bogus's fluent API always
+		// does, but nothing in the delegate's signature guarantees it) — IndexFaker/IndexVariable
+		// live on the hub either way, since that's what `f` resolves to inside every RuleFor.
+		return (faker, hub.Hub, randomizer);
 	});
 
 	/// <inheritdoc/>
 	public override T Generate(PCG pcg, Size? min, out Size size)
 	{
-		var (faker, randomizer) = _local.Value;
+		var (faker, hub, randomizer) = _local.Value;
 		randomizer.PcgRandom.Bind(pcg);
+		hub.IndexFaker = 0;
+		hub.IndexVariable = 0;
 		var value = faker.Generate();
 		size = randomizer.PcgRandom.Size;
 		return value;
@@ -61,7 +84,11 @@ public static class GenFakerExtensions
 	///
 	/// One <see cref="Faker{T}"/> per thread is created on first use and reused for all
 	/// subsequent samples on that thread. The <paramref name="configure"/> delegate must be
-	/// pure: do not capture mutable state that you modify on each call.
+	/// pure: do not capture mutable state that you modify on each call. <c>f.IndexFaker</c>/
+	/// <c>f.IndexVariable</c> are reset to zero before every draw for the same reason — see
+	/// <see cref="FakerGen{T}"/>'s own remarks — but <c>f.IndexGlobal</c>/<c>f.UniqueIndex</c> are
+	/// process-wide state Bogus itself owns and are not: avoid them in <paramref name="configure"/>
+	/// if you need this generator's seed-replay/shrink guarantees to hold.
 	/// </remarks>
 	/// <typeparam name="T">The type to generate.</typeparam>
 	/// <param name="configure">
