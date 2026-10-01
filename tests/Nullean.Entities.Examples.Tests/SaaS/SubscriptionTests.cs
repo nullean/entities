@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.SaaS.Subscription;
 
 namespace Nullean.Entities.Examples.Tests.SaaS;
@@ -50,12 +51,18 @@ public class SubscriptionTests
 	}
 
 	[Test]
-	public void CsCheck_seat_count_is_always_positive()
-	{
-		Gen.Int[1, 100].Sample(seats =>
-		{
-			var sub = Trial() with { SeatCount = seats };
-			Constraints.Validate(sub).Should().NotContain(v => v.Message.Contains("Seat count"));
-		});
-	}
+	public void ShouldSatisfy_any_positive_seat_count_is_valid() =>
+		Gen.Int[1, 100].Select(seats => Trial() with { SeatCount = seats }).ShouldSatisfy(Constraints);
+
+	// AddSeats(n) takes any n; SeatCountPositive and FreePlanHasOneSeat reject a bad result at the Apply boundary.
+	[Test]
+	public void AutoTest_enforced_subscriptions_follow_the_lifecycle_and_keep_their_seat_rules() =>
+		SubscriptionConstraints
+			.Instance
+			.Spec()
+			.From(Trial(), Trial() with { Plan = Plan.Free, SeatCount = 1 })
+			.Domain(1, 5)
+			.Key(s => (s.Plan, s.Status, s.CurrentPeriod is null, Math.Min(s.SeatCount, 6)))
+			.Enforced()
+			.Exhaustive();
 }

@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Commerce.Inventory;
 
 namespace Nullean.Entities.Examples.Tests.Commerce;
@@ -37,16 +38,17 @@ public class InventoryTests
 	}
 
 	[Test]
-	public void CsCheck_reserve_then_release_returns_to_original_on_hand()
-	{
-		Gen.Select(Gen.Int[0, 100], Gen.Int[0, 50], (onHand, reserve) => (onHand, reserve: Math.Min(reserve, onHand))).Sample(tuple =>
-		{
-			var (onHand, reserve) = tuple;
-			var item = new StockItem("SKU", onHand, 0);
-			var reserved = item.Reserve(reserve);
-			var released = reserved.Release(reserve);
-			released.Reserved.Should().Be(0);
-			released.OnHand.Should().Be(onHand);
-		});
-	}
+	public void ForAll_reserving_what_is_available_then_releasing_it_restores_the_item() =>
+		Constraints.ForAll(
+			item =>
+			{
+				var quantity = item.Available;
+				return item.Reserve(quantity).Release(quantity) == item;
+			},
+			iter: 200
+		);
+
+	// Reserve/Release/Restock take whatever you give them; the constraints reject a bad result at the Apply boundary.
+	[Test]
+	public void AutoTest_enforced_stock_never_goes_negative_or_over_reserved() => InventoryConstraints.Instance.Spec().Enforced().Exhaustive();
 }

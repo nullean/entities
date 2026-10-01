@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Finance.BankAccount;
 
 namespace Nullean.Entities.Examples.Tests.Finance;
@@ -50,13 +51,26 @@ public class BankAccountTests
 	}
 
 	[Test]
-	public void CsCheck_deposits_always_increase_balance()
+	public void ForAll_depositing_a_positive_amount_increases_the_balance() => Constraints.ForAll(a => a.Deposit(0.01m).Balance > a.Balance, iter: 200);
+
+	// Withdraw() never checks the overdraft limit, and DepositIsMonotonic is in the general set (so Withdraw is always
+	// rejected through Apply). Both are in AUTOTEST_NOTES.md. Enforced models the Apply boundary; Key keeps the space finite.
+	[Test]
+	public void AutoTest_enforced_accounts_never_breach_the_overdraft_limit() =>
+		BankAccountConstraints
+			.Instance
+			.Spec(Active())
+			.Domain(50m, 500m)
+			.Key(a => (a.Status, a.Balance))
+			.Boundary(a => Math.Abs(a.Balance) < 1_000m)
+			.Enforced()
+			.Exhaustive();
+
+	[Test]
+	public void AutoTest_raw_Withdraw_is_found_to_ignore_the_overdraft_limit()
 	{
-		Gen.Decimal[0.01m, 10_000m].Sample(amount =>
-		{
-			var before = Active(100m);
-			var after = before.Deposit(amount);
-			after.Balance.Should().BeGreaterThan(before.Balance);
-		});
+		var act = () => Constraints.Preserves(BankAccountConstraints.Actions, iter: 500);
+
+		act.Should().Throw<Exception>().Which.Message.Should().Contain("Withdraw");
 	}
 }

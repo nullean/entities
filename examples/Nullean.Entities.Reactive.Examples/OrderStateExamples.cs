@@ -147,8 +147,15 @@ public class OrderStateFluentExamples
 		("NeverShippedAfterCancellation", Never<OrderStateEvent.Cancelled, OrderStateEvent.Shipped>((c, s) => c.OrderId == s.OrderId))
 	);
 
+	// A green run only means something if the interesting events happened: without this, a pool/step mix that never
+	// confirms an order would "prove" NeverShippedBeforeConfirmation. SampleWith fails with VacuousPropertyException instead.
+	private static readonly Coverage<OrderStateEvent> Seen = new Coverage<OrderStateEvent>()
+		.Expect("Confirmed", e => e is OrderStateEvent.Confirmed)
+		.Expect("Shipped", e => e is OrderStateEvent.Shipped)
+		.Expect("Cancelled", e => e is OrderStateEvent.Cancelled);
+
 	[Test]
-	public void OrderTransitionsAreValid() => OrderScript.SampleWith(_ => new OrderService(), svc => svc.Events, Spec);
+	public void OrderTransitionsAreValid() => OrderScript.SampleWith(_ => new OrderService(), svc => svc.Events, Spec, Seen);
 }
 
 // ── Constraints class style ───────────────────────────────────────────────────
@@ -167,6 +174,13 @@ public class OrderStateSpecClassExamples
 		.Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)))
 		.Length(3, 20);
 
+	// A green run only means something if the interesting events happened: without this, a pool/step mix that never
+	// confirms an order would "prove" NeverShippedBeforeConfirmation. SampleWith fails with VacuousPropertyException instead.
+	private static readonly Coverage<OrderStateEvent> Seen = new Coverage<OrderStateEvent>()
+		.Expect("Confirmed", e => e is OrderStateEvent.Confirmed)
+		.Expect("Shipped", e => e is OrderStateEvent.Shipped)
+		.Expect("Cancelled", e => e is OrderStateEvent.Cancelled);
+
 	[Test]
-	public void OrderTransitionsAreValid() => OrderScript.SampleWith(_ => new OrderService(), svc => svc.Events, OrderStateSpec.All);
+	public void OrderTransitionsAreValid() => OrderScript.SampleWith(_ => new OrderService(), svc => svc.Events, OrderStateSpec.All, Seen);
 }

@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Finance.Ledger;
 
 namespace Nullean.Entities.Examples.Tests.Finance;
@@ -47,4 +48,8 @@ public class LedgerTests
 		var result = channel.ApplyDetailed(e => e);
 		result.Should().BeOfType<ApplyOutcome<JournalEntry>.Noop>();
 	}
+
+	// AutoBogus cannot build a balanced entry, so there is no valid start: names are still checked in Validate.
+	[Test]
+	public void RejectsInvalid_unbalanced_and_short_entries_are_named() => Constraints.RejectsInvalid();
 }

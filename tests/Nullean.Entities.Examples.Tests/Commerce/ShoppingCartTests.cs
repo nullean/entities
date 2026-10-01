@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Commerce.ShoppingCart;
 
 namespace Nullean.Entities.Examples.Tests.Commerce;
@@ -45,13 +46,14 @@ public class ShoppingCartTests
 	}
 
 	[Test]
-	public void CsCheck_valid_lines_always_pass_validation()
+	public void ShouldSatisfy_carts_built_from_valid_lines_pass_validation()
 	{
 		var genLine = Gen.Select(Gen.String["SKU-"], Gen.Int[1, 100], Gen.Decimal[0.01m, 999m], (sku, qty, price) => new CartLine(sku, qty, price));
 
-		genLine.List[1, 10].Sample(lines =>
-		{
-			Constraints.Validate(new ShoppingCart(lines)).Should().BeEmpty();
-		});
+		genLine.List[1, 10].Select(lines => new ShoppingCart(lines)).ShouldSatisfy(Constraints);
 	}
+
+	// AddLineGrowsTotal sits in the general set, so through Apply Clear() on a non-empty cart is rejected too (see AUTOTEST_NOTES.md).
+	[Test]
+	public void AutoTest_enforced_carts_never_hold_a_bad_line() => ShoppingCartConstraints.Instance.Spec().Enforced().Exhaustive();
 }

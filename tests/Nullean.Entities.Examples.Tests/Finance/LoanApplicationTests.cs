@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Finance.LoanApplication;
 
 namespace Nullean.Entities.Examples.Tests.Finance;
@@ -59,4 +60,7 @@ public class LoanApplicationTests
 		var result = channel.ApplyDetailed(a => a with { Status = LoanStatus.Approved });
 		result.Should().BeOfType<ApplyOutcome<LoanApplication>.Applied>();
 	}
+
+	[Test]
+	public void RejectsInvalid_unsupported_approvals_are_named_and_rejected() => Constraints.RejectsInvalid();
 }

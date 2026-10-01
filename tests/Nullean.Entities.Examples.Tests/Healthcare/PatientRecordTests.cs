@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Healthcare.PatientRecord;
 
 namespace Nullean.Entities.Examples.Tests.Healthcare;
@@ -197,7 +198,7 @@ public class PatientRecordTests
 			(name, dose) => new Medication(name, dose, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow))
 		);
 
-		genMed.Sample(m => MedicationConstraints.All.Validate(m).Count == 0);
+		genMed.ShouldSatisfy(MedicationConstraints.All);
 	}
 
 	[Test]
@@ -213,38 +214,48 @@ public class PatientRecordTests
 			return new VitalSigns(weight, height, systolic, diastolic, hr, rr, temp, DateTimeOffset.UtcNow);
 		});
 
-		genVitals.Sample(v => VitalSignsConstraints.All.Validate(v).Count == 0);
+		genVitals.ShouldSatisfy(VitalSignsConstraints.All);
 	}
 
 	[Test]
 	public void Mutant_zero_dose_always_fails_per_entity_check()
 	{
-		var act =
-			() =>
-				Gen
-					.Int[1, 10000]
-					.Select(i => new Medication($"Drug{i}", 0, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow)))
-					.Sample(m => MedicationConstraints.All.Validate(m).Count == 0);
+		var act = () =>
+			Gen.Int[1, 10000]
+				.Select(i => new Medication($"Drug{i}", 0, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow)))
+				.ShouldSatisfy(MedicationConstraints.All);
 		act.Should().Throw<Exception>();
 	}
 
 	[Test]
 	public void Mutant_cross_entity_allergy_conflict_always_fails_aggregate_check()
 	{
-		// Build records where the medication and allergen match — must always produce a violation.
-		var act =
-			() =>
-				Gen
-					.Int[1, 10000]
-					.Select(i => $"Drug{i}")
-					.Select(drug =>
-					{
-						var med = new Medication(drug, 100, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow));
-						var allergy = new Allergy(drug, AllergySeverity.Severe);
-						return HealthyOutpatient() with { ActiveMedications = [med], Allergies = [allergy], };
-					})
-					.Sample(r => PatientRecordConstraints.All.Validate(r).Count == 0);
+		// Build records where the medication and allergen match: must always produce a violation.
+		var act = () =>
+			Gen.Int[1, 10000]
+				.Select(i => $"Drug{i}")
+				.Select(drug =>
+				{
+					var med = new Medication(drug, 100, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow));
+					return HealthyOutpatient() with { ActiveMedications = [med], Allergies = [new Allergy(drug, AllergySeverity.Severe)] };
+				})
+				.ShouldSatisfy(PatientRecordConstraints.All);
 
 		act.Should().Throw<Exception>();
 	}
+
+	// AutoBogus cannot build a plausible PatientRecord (vitals, lab ranges), so the start is the hand-made fixture, and the
+	// argument values are real: a random drug name would never meet the allergy or duplicate rules.
+	[Test]
+	public void AutoTest_enforced_patient_records_never_hold_an_allergenic_duplicate_or_implausible_entry() =>
+		PatientRecordConstraints
+			.Instance
+			.Spec(HealthyOutpatient())
+			.Domain(Ibuprofen(), Aspirin())
+			.Domain(AspirinAllergy(), new Allergy("Penicillin", AllergySeverity.LifeThreatening))
+			.Domain(NormalVitals())
+			.Domain(NormalGlucose())
+			.Domain("Aspirin")
+			.Enforced()
+			.Exhaustive();
 }

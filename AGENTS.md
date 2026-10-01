@@ -27,7 +27,7 @@ Test projects are TUnit and are run with `dotnet run`, one project at a time (`P
 | `tests/Nullean.Entities.Reactive.Tests` | Reactive operator (typed and predicate-based) + `ToReactive()` bridge + `AnyViolated`/`Violations` tests. |
 | `tests/Nullean.Entities.CsCheck.Tests` | `Script<TSut>`/`SampleWith`/`RunWith`/`Metamorphic` tests against a small `Counter` SUT, plus determinism tests for the Bogus-backed generators (same seed → same object). |
 | `examples/Nullean.Entities.Reactive.Examples` | A ladder from simple to complex: a search box (temporal debounce with `UnlessInterruptedBy`), a retry client (exponential backoff), an order state machine — record-hierarchy events on net10.0 (`OrderStateExamples.cs`) and, on net11.0 only, the identical domain re-expressed with a real C# union and the predicate-based operators (`OrderStateExamplesNet11.cs`, `#if NET11_0_OR_GREATER`) — plus a design sketch (`StateMachineSketch.cs`) comparing four ways to attach constraints to a domain type. |
-| `tests/Nullean.Entities.Examples.Tests/AutoTests` | One-line CsCheck tests (Exhaustive, Commutes, Idempotent, Mermaid...) run against the Order, TrafficLight and BankAccount example domains. |
+| `tests/Nullean.Entities.Examples.Tests` | Every example domain is tested with AutoTest one-liners next to its hand-written `Validate_*`/`Channel_*` tests (`Instance.Spec().Enforced().Exhaustive()`, `ForAll`, `Preserves`, `RejectsInvalid`, ...); `AutoTests/AutoTestExamples.cs` is the showcase. `AUTOTEST_NOTES.md` records what did not convert and what the conversion found in the domains. |
 | `build/scripts` | F# Bullseye build runner. |
 | `build/keys` | Nullean strong-name key — never regenerate, it breaks strong-naming. |
 

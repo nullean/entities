@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.HR.OrgChart;
 
 namespace Nullean.Entities.Examples.Tests.HR;
@@ -59,14 +60,24 @@ public class OrgChartTests
 	}
 
 	[Test]
-	public void CsCheck_linear_chain_has_no_cycles()
-	{
-		Gen.Int[2, 10].Sample(n =>
-		{
-			// P0, P1 → P0, P2 → P1, ... no cycles
-			var people = Enumerable.Range(0, n).Select(i => ActivePerson($"P{i}", i > 0 ? $"P{i - 1}" : null)).ToList();
-			var org = new OrgChart(people);
-			OrgSet.Validate(org).Should().BeEmpty();
-		});
-	}
+	public void ShouldSatisfy_linear_management_chains_are_valid() =>
+		Gen.Int[2, 10]
+			.Select(n => new OrgChart([.. Enumerable.Range(0, n).Select(i => ActivePerson($"P{i}", i > 0 ? $"P{i - 1}" : null))]))
+			.ShouldSatisfy(OrgSet);
+
+	// Kept to one new person on purpose: adding the same id twice makes NoCycles throw (ToDictionary), see AUTOTEST_NOTES.md.
+	[Test]
+	public void AutoTest_enforced_org_chart_never_gains_a_cycle_or_a_missing_manager() =>
+		OrgChartConstraints
+			.Instance
+			.Spec(new OrgChart([ActivePerson("P1")]))
+			.Domain(ActivePerson("P3", "P1"), ActivePerson("P4", "GHOST"))
+			.Limit(collections: 1)
+			.Enforced()
+			.Exhaustive();
+
+	// No action puts a Person on leave, so the OnLeave edges are never taken: requireCoverage is off (see AUTOTEST_NOTES.md).
+	[Test]
+	public void AutoTest_enforced_person_terminated_has_no_reports_or_manager() =>
+		PersonConstraints.Instance.Spec(ActivePerson("P1", "boss").AddReport("P2")).Domain("P2", "boss").Enforced().Exhaustive(requireCoverage: false);
 }

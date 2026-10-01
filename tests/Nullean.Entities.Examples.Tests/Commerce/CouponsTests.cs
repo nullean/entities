@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Commerce.Coupons;
 
 namespace Nullean.Entities.Examples.Tests.Commerce;
@@ -42,13 +43,9 @@ public class CouponsTests
 	}
 
 	[Test]
-	public void CsCheck_standard_coupons_with_no_minimum_always_pass()
-	{
-		Gen.Int[1, 10].Sample(n =>
-		{
-			var coupons = Enumerable.Range(0, n).Select(i => PercentOff($"CODE{i}")).ToList();
-			var cart = new Cart(50m, coupons);
-			Constraints.Validate(cart).Should().BeEmpty();
-		});
-	}
+	public void ShouldSatisfy_carts_with_standard_coupons_and_no_minimum_pass() =>
+		Gen.Int[1, 10].Select(n => new Cart(50m, [.. Enumerable.Range(0, n).Select(i => PercentOff($"CODE{i}"))])).ShouldSatisfy(Constraints);
+
+	[Test]
+	public void RejectsInvalid_carts_breaking_a_coupon_rule_are_named_and_rejected() => Constraints.RejectsInvalid();
 }

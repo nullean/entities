@@ -96,6 +96,7 @@ public sealed class EntitySpec<T>
 	private Func<T, bool>? _boundary;
 	private Func<T, bool>? _terminal;
 	private int _collectionLimit = 2;
+	private bool _enforced;
 	private TimeProvider _clock = new FixedTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
 
 	internal EntitySpec(ConstraintSet<T> constraints, List<T>? starts, EntityActions<T>? actions)
@@ -172,6 +173,21 @@ public sealed class EntitySpec<T>
 	public EntitySpec<T> Limit(int collections)
 	{
 		_collectionLimit = collections;
+		return this;
+	}
+
+	/// <summary>
+	/// Models an entity whose methods are deliberately plain and whose constraints are enforced at the
+	/// boundary, the way <c>ConstraintSet.Apply</c> / <c>ConstrainedValue</c> use them: an action whose result
+	/// violates a constraint is <b>rejected</b> and the entity stays as it was. Without this, every action is
+	/// expected to keep the entity valid on its own (a bug otherwise), which is the right model when the
+	/// methods guard themselves (<c>Order.Ship()</c>) and the wrong one when they do not (<c>BankAccount.Withdraw</c>).
+	/// Enforced, a proof says "no reachable state is invalid, and every listed transition is reachable
+	/// through enforced actions" — the useful part is the coverage and the diagram of the real lifecycle.
+	/// </summary>
+	public EntitySpec<T> Enforced()
+	{
+		_enforced = true;
 		return this;
 	}
 
@@ -273,6 +289,13 @@ public sealed class EntitySpec<T>
 			{
 				largest = report;
 			}
+		}
+		if (requireCoverage && _actions.Count > 0 && largest!.States + largest.Pruned <= 1)
+		{
+			throw new VacuousPropertyException(
+				$"No action changed the entity from any starting state, so nothing was explored.{Environment.NewLine}"
+				+ $"Check the argument domains (.Domain / .DomainFrom) and, with .Enforced(), that the actions can succeed from the start.{Environment.NewLine}{largest}"
+			);
 		}
 		if (requireCoverage && unexercised is { Count: > 0 })
 		{
@@ -437,7 +460,11 @@ public sealed class EntitySpec<T>
 
 	private bool Same(T a, T b) => Wrap(a).Equals(Wrap(b));
 
-	private static T Run(T state, ActionDef action, object? argument) => action.Apply(state, argument);
+	private T Run(T state, ActionDef action, object? argument)
+	{
+		var next = action.Apply(state, argument);
+		return _enforced && ConstraintProperties.ViolationsOf(_constraints, state, next, _clock).Count > 0 ? state : next;
+	}
 
 	private (ActionDef Action, int Index) Find(string name)
 	{
@@ -518,12 +545,12 @@ public sealed class EntitySpec<T>
 			var def = _actions[i];
 			if (def.ArgumentType is null)
 			{
-				spec.Action(def.Name, s => Wrap(def.Apply(s.Value, null)));
+				spec.Action(def.Name, s => Wrap(Run(s.Value, def, null)));
 				continue;
 			}
 			var domain = def.OwnDomain ?? DomainOf(def.ArgumentType);
 			domains[i] = domain;
-			spec.Action(def.Name, domain, (s, a) => Wrap(def.Apply(s.Value, a)));
+			spec.Action(def.Name, domain, (s, a) => Wrap(Run(s.Value, def, a)));
 		}
 
 		var index = 0;

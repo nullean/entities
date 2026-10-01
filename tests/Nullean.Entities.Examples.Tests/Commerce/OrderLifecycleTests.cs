@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Commerce.OrderLifecycle;
 
 namespace Nullean.Entities.Examples.Tests.Commerce;
@@ -57,14 +58,12 @@ public class OrderLifecycleTests
 	}
 
 	[Test]
-	public void CsCheck_total_matches_sum_of_line_subtotals()
-	{
-		var genLine = Gen.Select(Gen.String["SKU"], Gen.Int[1, 50], Gen.Decimal[0.01m, 100m], (sku, qty, price) => new OrderLine(sku, qty, price));
+	public void ForAll_total_matches_sum_of_line_subtotals_for_any_order_the_actions_can_build() =>
+		Constraints.ForAll(order => order.Total == order.Lines.Sum(l => l.Subtotal), gen: OrderConstraints.Instance.Spec().States(), iter: 200);
 
-		genLine.List[1, 10].Sample(lines =>
-		{
-			var order = lines.Aggregate(Order.New(Guid.NewGuid()), (o, l) => o.AddLine(l));
-			order.Total.Should().Be(lines.Sum(l => l.Subtotal));
-		});
-	}
+	[Test]
+	public void AutoTest_every_reachable_order_is_valid_and_every_status_transition_is_reachable() => OrderConstraints.Instance.Spec().Exhaustive();
+
+	[Test]
+	public void AutoTest_every_action_keeps_a_valid_order_valid() => Constraints.Preserves(OrderConstraints.Actions, iter: 300);
 }

@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.DevOps.DeploymentPipeline;
 
 namespace Nullean.Entities.Examples.Tests.DevOps;
@@ -63,4 +64,16 @@ public class DeploymentPipelineTests
 		var result = channel.ApplyDetailed(p => p.Complete());
 		result.Should().BeOfType<ApplyOutcome<DeploymentPipeline>.Applied>();
 	}
+
+	// Complete()/Fail()/Cancel() stamp DateTimeOffset.UtcNow, so every run is a new state; the key looks only at the shape.
+	[Test]
+	public void AutoTest_enforced_pipelines_only_follow_legal_transitions() =>
+		DeploymentPipelineConstraints
+			.Instance
+			.Spec(Queued())
+			.Domain(new PipelineStage("build", StageStatus.Running), new PipelineStage("build", StageStatus.Failed, "boom"))
+			.Domain("boom")
+			.Key(p => (p.Status, p.CompletedAt is null, string.Join(",", p.Stages.Select(st => st.Status))))
+			.Enforced()
+			.Exhaustive();
 }

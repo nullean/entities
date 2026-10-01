@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Support.SupportTicket;
 
 namespace Nullean.Entities.Examples.Tests.Support;
@@ -54,4 +55,10 @@ public class SupportTicketTests
 		var result = channel.ApplyDetailed(t => t);
 		result.Should().BeOfType<ApplyOutcome<SupportTicket>.Noop>();
 	}
+
+	// AwaitingCustomer is a legal state but no action produces it, so those edges are never taken: requireCoverage is
+	// off until the entity grows an action for it (see AUTOTEST_NOTES.md).
+	[Test]
+	public void AutoTest_enforced_tickets_only_follow_legal_transitions() =>
+		SupportTicketConstraints.Instance.Spec(Open()).Enforced().Exhaustive(requireCoverage: false);
 }

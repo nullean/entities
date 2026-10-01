@@ -113,6 +113,14 @@ public class OrderLifecycleEventTests
 		.Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)))
 		.Length(3, 20);
 
+	// A green run only means something if the interesting events happened: without this, a pool/step mix that never
+	// confirms an order would "prove" NeverShippedBeforeConfirmation. SampleWith fails with VacuousPropertyException instead.
+	private static readonly Coverage<OrderEvent> Seen = new Coverage<OrderEvent>()
+		.Expect("Confirmed", e => e is OrderEvent.Confirmed)
+		.Expect("Shipped", e => e is OrderEvent.Shipped)
+		.Expect("Cancelled", e => e is OrderEvent.Cancelled);
+
 	[Test]
-	public void OrderLifecycleSpec_holds_over_random_event_streams() => OrderScript.SampleWith(_ => new OrderService(), svc => svc.Events, OrderEventSpec.All);
+	public void OrderLifecycleSpec_holds_over_random_event_streams() =>
+		OrderScript.SampleWith(_ => new OrderService(), svc => svc.Events, OrderEventSpec.All, Seen);
 }

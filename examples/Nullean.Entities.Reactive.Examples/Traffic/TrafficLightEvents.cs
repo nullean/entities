@@ -85,6 +85,12 @@ public class TrafficLightEventTests
 		.Delays(Gen.Int[0, 100].Select(ms => TimeSpan.FromMilliseconds(ms)))
 		.Length(3, 30);
 
+	// Every leg of the cycle has to be seen, or "the cycle is always legal" was only ever checked on part of it.
+	private static readonly Coverage<SignalChanged> Seen = new Coverage<SignalChanged>()
+		.Expect("Red->Green", e => e.From == TrafficSignal.Red && e.To == TrafficSignal.Green)
+		.Expect("Green->Yellow", e => e.From == TrafficSignal.Green && e.To == TrafficSignal.Yellow)
+		.Expect("Yellow->Red", e => e.From == TrafficSignal.Yellow && e.To == TrafficSignal.Red);
+
 	[Test]
-	public void TrafficLightCycle_is_always_legal() => TrafficScript.SampleWith(_ => new TrafficController(), ctrl => ctrl.Events, TrafficLightSpec.All);
+	public void TrafficLightCycle_is_always_legal() => TrafficScript.SampleWith(_ => new TrafficController(), ctrl => ctrl.Events, TrafficLightSpec.All, Seen);
 }

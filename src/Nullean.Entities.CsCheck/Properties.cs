@@ -105,11 +105,12 @@ public static class ConstraintProperties
 		var violated = names.ToDictionary(n => n, _ => 0);
 		Sample(gen, samples, value =>
 		{
-			foreach (var v in constraints.Validate(value, time))
+			// Once per value: a Check constraint can report several violations for one bad value.
+			foreach (var id in constraints.Validate(value, time).Select(v => v.ConstraintId).Where(id => id is not null).Distinct())
 			{
-				if (v.ConstraintId is { } id && violated.TryGetValue(id, out var count))
+				if (violated.TryGetValue(id!, out var count))
 				{
-					violated[id] = count + 1;
+					violated[id!] = count + 1;
 				}
 			}
 		});
@@ -140,13 +141,13 @@ public static class ConstraintProperties
 	)
 	{
 		var names = PointInTimeNames(constraints).Where(n => constraint is null || n == constraint).ToList();
-		var current = AutoDefaults.ValidStarts(constraints, time, 1)[0];
+		var current = TryValidStart(constraints, time);
 		var checkedCount = names.ToDictionary(n => n, _ => 0);
 		var failures = new List<string>();
 		var seenAll = false;
 		Sample(raw, attempts, value =>
 		{
-			if (seenAll || EqualityComparer<T>.Default.Equals(value, current))
+			if (seenAll || (current is not null && EqualityComparer<T>.Default.Equals(value, current.Value.Value)))
 			{
 				return;
 			}
@@ -154,7 +155,12 @@ public static class ConstraintProperties
 			foreach (var name in names.Where(n => validate.Any(v => v.ConstraintId == n) && checkedCount[n] < 3))
 			{
 				checkedCount[name]++;
-				var apply = constraints.Apply(current, _ => value, time);
+				// Without a valid entity to start from there is nothing for Apply to protect; naming in Validate is still checked.
+				if (current is null)
+				{
+					continue;
+				}
+				var apply = constraints.Apply(current.Value.Value, _ => value, time);
 				if (apply is not Result<T>.Fail fail || !fail.Violations.Any(v => v.ConstraintId == name))
 				{
 					failures.Add($"{name}: {value} violates it, but Apply did not reject the change naming it");
@@ -168,6 +174,18 @@ public static class ConstraintProperties
 	}
 
 	// ── Internals ─────────────────────────────────────────────────────────────
+
+	private static (T Value, bool Present)? TryValidStart<T>(ConstraintSet<T> constraints, TimeProvider? time)
+	{
+		try
+		{
+			return (AutoDefaults.ValidStarts(constraints, time, 1)[0], true);
+		}
+		catch (InvalidOperationException)
+		{
+			return null;
+		}
+	}
 
 	private static List<string> PointInTimeNames<T>(ConstraintSet<T> constraints) =>
 		[.. constraints.AsConstraints().Where(c => c.Kind == ConstraintKind.PointInTime).Select((c, i) => c.Name ?? $"constraint{i}")];

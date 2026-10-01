@@ -156,8 +156,16 @@ public class OrderStateUnionExamples
 		.Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)))
 		.Length(3, 20);
 
+
+	// A green run only means something if the interesting events happened: without this, a pool/step mix that never
+	// confirms an order would "prove" NeverShippedBeforeConfirmation. SampleWith fails with VacuousPropertyException instead.
+	private static readonly Coverage<OrderStateEventUnion> Seen = new Coverage<OrderStateEventUnion>()
+		.Expect("Confirmed", e => e is OrderStateEventCases.Confirmed)
+		.Expect("Shipped", e => e is OrderStateEventCases.Shipped)
+		.Expect("Cancelled", e => e is OrderStateEventCases.Cancelled);
+
 	[Test]
-	public void OrderTransitionsAreValid() => OrderScript.SampleWith(_ => new OrderServiceUnion(), svc => svc.Events, OrderStateSpecUnion.All);
+	public void OrderTransitionsAreValid() => OrderScript.SampleWith(_ => new OrderServiceUnion(), svc => svc.Events, OrderStateSpecUnion.All, Seen);
 
 	[Test]
 	public void SwitchOverTheUnionIsCompilerCheckedExhaustive()

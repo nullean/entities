@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.IoT.Sensor;
 
 namespace Nullean.Entities.Examples.Tests.IoT;
@@ -47,13 +48,10 @@ public class SensorTests
 	}
 
 	[Test]
-	public void CsCheck_readings_within_thresholds_never_warn()
-	{
-		Gen.Double[0.0, 100.0].Sample(value =>
-		{
-			var sensor = Online().AddReading(new SensorReading(value, "°C", DateTimeOffset.UtcNow));
-			var violations = Constraints.Validate(sensor);
-			violations.Should().NotContain(v => v.Severity == Severity.Warning);
-		});
-	}
+	public void ShouldSatisfy_sensors_with_in_range_readings_have_no_violations() =>
+		Gen.Double[0.0, 100.0].Select(value => Online().AddReading(new SensorReading(value, "°C", DateTimeOffset.UtcNow))).ShouldSatisfy(Constraints);
+
+	// Sensors accept any reading; ReadingsWithinThresholds (a Warning) rejects an out-of-range one at the Apply boundary.
+	[Test]
+	public void AutoTest_enforced_sensors_never_hold_an_out_of_range_reading() => SensorConstraints.Instance.Spec().Enforced().Exhaustive();
 }

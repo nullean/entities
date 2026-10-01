@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Basics.DateRange;
 
 namespace Nullean.Entities.Examples.Tests.Basics;
@@ -38,4 +39,8 @@ public class DateRangeTests
 		var result = channel.ApplyDetailed(r => r with { End = new DateOnly(2025, 12, 31) });
 		result.Should().BeOfType<ApplyOutcome<DateRange>.Applied>();
 	}
+
+	// Extend() is deliberately plain: DateRangeConstraints rejects a backwards end at the Apply boundary.
+	[Test]
+	public void AutoTest_enforced_Extend_never_produces_an_inverted_or_shrinking_range() => DateRangeConstraints.Instance.Spec().Enforced().Exhaustive();
 }

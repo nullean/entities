@@ -59,7 +59,7 @@ Every project multi-targets `net10.0;net11.0` (the source generator stays on `ne
 `Monotonic`, `Conserves`, `Eventually<T>`) are implemented and tested on both TFMs — an
 `EntitySpec<T>` (`ConstraintSet<T>.Spec(initial, Actions)`) turns an entity's constraints plus its
 generated `Actions` into one-line `Exhaustive`/`Sample`/`Mermaid`/`Faults`/`Conform`/`Commutes` tests;
-`tests/Nullean.Entities.Examples.Tests/AutoTests` runs them against the example domains.
+`tests/Nullean.Entities.Examples.Tests` runs them against every example domain (see `AUTOTEST_NOTES.md` for what did not convert).
 
 Still open: the spike questions in `AGENTS.md` that gate a 1.0 (shrinking quality, early-exit cost,
 global-lock throughput, `faker.ToGen()` support).

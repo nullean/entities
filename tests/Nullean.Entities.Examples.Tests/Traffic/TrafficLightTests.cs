@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Traffic.TrafficLight;
 
 namespace Nullean.Entities.Examples.Tests.Traffic;
@@ -47,4 +48,14 @@ public class TrafficLightTests
 		channel.ApplyDetailed(t => t.Advance()).Should().BeOfType<ApplyOutcome<TrafficLight>.Applied>(); // Yellow
 		channel.ApplyDetailed(t => t.Advance()).Should().BeOfType<ApplyOutcome<TrafficLight>.Applied>(); // Red again
 	}
+
+	[Test]
+	public void AutoTest_the_light_cycles_through_exactly_three_states_and_every_transition_is_taken() =>
+		TrafficLightConstraints.Instance.Spec(Red()).Exhaustive().States.Should().Be(3);
+
+	[Test]
+	public void AutoTest_advance_always_leaves_a_valid_light() => Constraints.Preserves(TrafficLightConstraints.Actions, iter: 200);
+
+	[Test]
+	public void AutoTest_the_lifecycle_diagram_names_every_signal() => TrafficLightConstraints.Instance.Spec(Red()).Mermaid().Should().Contain("Advance");
 }

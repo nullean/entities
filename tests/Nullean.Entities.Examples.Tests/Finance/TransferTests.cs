@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using CsCheck;
+using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Finance.Transfer;
 
 namespace Nullean.Entities.Examples.Tests.Finance;
@@ -24,20 +25,12 @@ public class TransferTests
 		Constraints.Validate((acc, acc)).Should().NotBeEmpty();
 	}
 
+	// The pair-valued case: no generated Actions (Move is a static function), so the action is declared by hand.
 	[Test]
-	public void CsCheck_move_always_conserves_total()
-	{
-		// Gen.Decimal[min,max] uses an internal Where filter that can exhaust CsCheck's skip budget.
-		// Cast from int for exact, rejection-free generation.
-		var genBal = Gen.Int[10, 500].Select(v => (decimal)v);
-		var genAmount = Gen.Int[0, 50].Select(v => (decimal)v);
-		Gen.Select(genBal, genAmount, (bal, amount) => (bal, amount)).Sample(t =>
-		{
-			var (bal, amount) = t;
-			var from = new Account("DE01", bal);
-			var to = new Account("DE02", 100m);
-			var (newFrom, newTo) = Transfers.Move((from, to), amount);
-			(newFrom.Balance + newTo.Balance).Should().Be(from.Balance + to.Balance);
-		});
-	}
+	public void AutoTest_every_reachable_transfer_conserves_the_total_between_two_distinct_accounts() =>
+		Constraints
+			.Spec((From: new Account("DE01", 200m), To: new Account("DE02", 100m)))
+			.Action("Move", [10m, 50m, 500m], Transfers.Move)
+			.Boundary(pair => Math.Abs(pair.From.Balance) < 2_000m && Math.Abs(pair.To.Balance) < 2_000m)
+			.Exhaustive();
 }

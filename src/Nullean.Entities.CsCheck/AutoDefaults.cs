@@ -14,12 +14,22 @@ internal static class AutoDefaults
 {
 	public const int DomainSize = 3;
 	public const int StartCount = 3;
-	private const int MaxModeStarts = 8;
+	private const int MaxModeStarts = 12;
 	private const int Attempts = 400;
 
 	/// <summary>Up to <paramref name="count"/> distinct AutoBogus values of <paramref name="type"/>, from fixed seeds.</summary>
 	public static object[] Domain(Type type, int count = DomainSize)
 	{
+		// An enum or a bool has a handful of values: try them all instead of three random ones, which
+		// could easily miss the one a guard or a transition is about.
+		if (type.IsEnum)
+		{
+			return [.. Enum.GetValues(type).Cast<object>()];
+		}
+		if (type == typeof(bool))
+		{
+			return [false, true];
+		}
 		try
 		{
 			return (object[])typeof(AutoDefaults).GetMethod(nameof(Draw), BindingFlags.NonPublic | BindingFlags.Static)!.MakeGenericMethod(type).Invoke(
@@ -104,8 +114,23 @@ internal static class AutoDefaults
 			{
 				throw NoValidValues<T>(Attempts, rejections);
 			}
-			var byMode = candidates.GroupBy(c => StructuralKey.Mode(c)).Select(g => g.First()).Take(MaxModeStarts).ToList();
-			return byMode.Count > 1 ? [.. byMode] : [.. candidates.Take(count)];
+			// Keep a candidate when it brings an enum/bool value no earlier start had: with a status enum
+			// that gives one start per status, so no lifecycle edge is out of reach for want of a start.
+			var seen = new HashSet<string>();
+			var covering = new List<T>();
+			foreach (var candidate in candidates)
+			{
+				var fresh = false;
+				foreach (var pair in StructuralKey.Modes(candidate))
+				{
+					fresh |= seen.Add(pair);
+				}
+				if (fresh && covering.Count < MaxModeStarts)
+				{
+					covering.Add(candidate);
+				}
+			}
+			return covering.Count > 1 ? [.. covering] : [.. candidates.Take(count)];
 		}
 		finally
 		{
@@ -166,14 +191,11 @@ internal static class StructuralKey
 		return PropertiesOf(value.GetType()).Select(p => LargestCollection(p.GetValue(value))).DefaultIfEmpty(0).Max();
 	}
 
-	/// <summary>The enum and bool property values of <paramref name="value"/>: which "mode" it is in.</summary>
-	public static string Mode(object? value) =>
+	/// <summary>The enum and bool properties of <paramref name="value"/> as "Name=Value" pairs: which modes it is in.</summary>
+	public static IEnumerable<string> Modes(object? value) =>
 		value is null
-			? ""
-			: string.Join(
-				",",
-				PropertiesOf(value.GetType()).Where(p => p.PropertyType.IsEnum || p.PropertyType == typeof(bool)).Select(p => $"{p.GetValue(value)}")
-			);
+			? []
+			: PropertiesOf(value.GetType()).Where(p => p.PropertyType.IsEnum || p.PropertyType == typeof(bool)).Select(p => $"{p.Name}={p.GetValue(value)}");
 
 	private static bool IsLeaf(object value) =>
 		value is string or decimal or Guid or DateTime or DateTimeOffset or TimeSpan || value.GetType().IsPrimitive || value.GetType().IsEnum;
