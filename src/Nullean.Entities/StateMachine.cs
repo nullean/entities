@@ -94,6 +94,19 @@ public sealed class StateMachine<TState>
 	public bool IsTerminal(Type state) => _states.TryGetValue(state, out var role) && role == StateRole.Terminal;
 
 	/// <summary>
+	/// The inverse of <see cref="Allows"/>'s own unwrapping: builds a <typeparamref name="TState"/>
+	/// value out of <paramref name="caseInstance"/>, an instance of the declared case
+	/// <paramref name="caseType"/>. For the abstract-hierarchy shape <paramref name="caseInstance"/>
+	/// already is a <typeparamref name="TState"/> (an upcast); for a union it calls the
+	/// compiler-generated single-parameter constructor for that case — see
+	/// <see cref="StateMachineRuntime"/>'s own header comment. Exists for
+	/// Nullean.Entities.CsCheck's guard-aware walk generator, which generates a real case instance
+	/// (via <c>GenAuto.Of&lt;TCase&gt;()</c>) and needs it back as a real <typeparamref name="TState"/>
+	/// to evaluate <see cref="StateMachineEdge{TState}.Guard"/> and <see cref="Allows"/> against.
+	/// </summary>
+	public TState Wrap(Type caseType, object caseInstance) => StateMachineRuntime.Wrap<TState>(caseType, caseInstance);
+
+	/// <summary>
 	/// True when <paramref name="from"/> → <paramref name="to"/> matches a declared edge (by the
 	/// values' own runtime types) and that edge's guard, if any, holds for <paramref name="from"/>.
 	/// </summary>
@@ -166,7 +179,7 @@ public sealed class StateMachine<TState>
 			);
 		}
 
-		CheckExhaustive(states);
+		CheckExhaustive(states, edges);
 		CheckReachable(initial, states, edges);
 		CheckNoDeadEnds(states, edges);
 		CheckNoTraps(states, edges);
@@ -174,11 +187,16 @@ public sealed class StateMachine<TState>
 		return new StateMachine<TState>(initial, states, edges);
 	}
 
-	// NESM001: every case of TState must have an explicit Initial/State/Terminal declaration.
-	private static void CheckExhaustive(IReadOnlyDictionary<Type, StateRole> states)
+	// NESM001: every case of TState must have an explicit Initial/State/Terminal declaration — and,
+	// since To<TTo>/On(...).To<TTo> take TTo with no constraint tying it to a declared state at
+	// all, so must every type an edge actually mentions as its From or To. A case discovered on
+	// TState but never declared, and an edge pointing at a type nobody declared, are the same
+	// mistake: something the machine references without ever saying what role it plays.
+	private static void CheckExhaustive(IReadOnlyDictionary<Type, StateRole> states, IReadOnlyList<StateMachineEdge<TState>> edges)
 	{
 		var cases = StateMachineCases.Discover(typeof(TState));
-		var missing = cases.Where(c => !states.ContainsKey(c)).ToArray();
+		var mentioned = edges.SelectMany(e => new[] { e.From, e.To });
+		var missing = cases.Concat(mentioned).Where(c => !states.ContainsKey(c)).Distinct().ToArray();
 		if (missing.Length > 0)
 		{
 			throw new StateMachineDefinitionException(
@@ -351,6 +369,20 @@ internal static class StateMachineRuntime
 	}
 
 	public static Type CaseTypeOf(object value) => Unwrap(value).GetType();
+
+	/// <summary>The inverse of <see cref="Unwrap"/> — see <see cref="StateMachine{TState}.Wrap"/>'s own doc comment.</summary>
+	public static TState Wrap<TState>(Type caseType, object caseInstance)
+	{
+		var stateType = typeof(TState);
+		if (!StateMachineCases.IsUnion(stateType))
+		{
+			return (TState)caseInstance;
+		}
+
+		var constructor = stateType.GetConstructor([caseType]) ??
+			throw new InvalidOperationException($"{stateType.Name} has no single-parameter constructor accepting {caseType.Name}.");
+		return (TState)constructor.Invoke([caseInstance]);
+	}
 }
 
 // ── StateMachineCoverage<TState> ──────────────────────────────────────────────

@@ -163,6 +163,17 @@ public class StateMachineTests
 		act.Should().Throw<StateMachineDefinitionException>().Where(e => e.Code == "NESM001");
 	}
 
+	[Test]
+	public void Define_throws_NESM001_when_an_edge_points_at_a_type_nobody_declared()
+	{
+		// To<TTo> takes no constraint tying TTo to TState at all, so this compiles — DeadEndState.B
+		// is declared via Terminal<B>() below, but the edge from A points at an unrelated type
+		// nobody ever called Initial/State/Terminal on.
+		var act = () => StateMachine<DeadEndState>.Define(m => m.Initial<DeadEndState.A>(s => s.To<string>()).Terminal<DeadEndState.B>());
+
+		act.Should().Throw<StateMachineDefinitionException>().Where(e => e.Code == "NESM001");
+	}
+
 	// ── NESM002: reachability ─────────────────────────────────────────────────
 
 	private abstract record UnreachableState

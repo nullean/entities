@@ -290,7 +290,9 @@ public static partial class OrderLifecycle
 
 `Define` refuses the machine — throwing `StateMachineDefinitionException` — the moment it's built if:
 
-- any case of `OrderState` is not mentioned in the machine *(NESM001 — exhaustiveness)*
+- any case of `OrderState` is not mentioned in the machine, or any edge's `From`/`To` points at a
+  type nobody declared with its own `Initial`/`State`/`Terminal` call — `To<TTo>` takes no
+  `where TTo : OrderState` constraint, so this is the same mistake either way *(NESM001 — exhaustiveness)*
 - any state is unreachable from `Initial` *(NESM002)*
 - any non-terminal state has no outgoing transition *(NESM003 — dead end)*
 - any state cannot reach a terminal *(NESM004 — trap)*
@@ -312,16 +314,23 @@ pre-union abstract-record-with-sealed-nested-cases shape, or — trivially — a
 From one declaration, everything else derives:
 
 ```csharp
-Constraint<OrderState>                           guard   = OrderLifecycle.Machine.AsConstraint();
-ReactiveConstraint<OrderEvent>                    monitor = OrderLifecycle.Machine.AsReactive(stateOf: e => e.State);
-Gen<IReadOnlyList<StateMachineStep<OrderState>>>  walks   = OrderLifecycle.Machine.Walks();
-string                                            diagram = OrderLifecycle.Machine.ToMermaid();
+Constraint<OrderState>                           guard    = OrderLifecycle.Machine.AsConstraint();
+ReactiveConstraint<OrderEvent>                    monitor  = OrderLifecycle.Machine.AsReactive(stateOf: e => e.State);
+Gen<IReadOnlyList<StateMachineStep<OrderState>>>  walks    = OrderLifecycle.Machine.Walks();
+Gen<IReadOnlyList<RealizedStep<OrderState>>>      realized = OrderLifecycle.Machine.RealizedWalks();
+string                                            diagram  = OrderLifecycle.Machine.ToMermaid();
 ```
 
-Coverage is manual for now: `Walks()` generates graph-level walks (by declared state and edge, not
-real values, so guards are ignored the same way the structural checks ignore them), and
-`NewCoverageTracker()` gives a tracker to `Record` real `(from, to)` pairs into as a `Script<TSut>`
-run actually produces them:
+`Walks()` generates graph-level walks — by declared state and edge, not real values, so guards are
+ignored the same way the structural checks ignore them. `RealizedWalks()` closes that gap: it fills
+every state along the way with a real value, via `AutoFaker` (no per-type setup, same as
+`GenAuto.Of<T>()` above), so the `Confirm` guard above (`p => p.Lines.Count > 0`) is checked
+against a real generated `OrderState.Placed`, and a transition is only ever reported live when that
+guard actually holds for it. A walk that reaches a state where every live edge's guard rejects the
+generated value stops there, the same as a true structural dead end.
+
+Coverage is still manual: `NewCoverageTracker()` gives a tracker to `Record` real `(from, to)` pairs
+into as a `Script<TSut>` run actually produces them:
 
 ```csharp
 var coverage = OrderLifecycle.Machine.NewCoverageTracker();
