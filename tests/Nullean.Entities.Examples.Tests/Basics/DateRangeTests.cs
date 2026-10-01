@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.Basics;
 
 public class DateRangeTests
 {
-	private static readonly ConstraintSet<DateRange> Constraints = DateRangeConstraints.Constraints;
+	private static readonly ConstraintSet<DateRange> Constraints = DateRangeConstraints.All;
 
 	private static readonly DateRange Valid = new(new DateOnly(2024, 1, 1), new DateOnly(2024, 12, 31));
 

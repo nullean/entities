@@ -65,15 +65,16 @@ internal static partial class NestedOrderSpec
 		.Entities
 		.Constraints<Order>
 		.Check(
-			o => o.Lines.SelectMany(
-				(line, i) => NestedOrderLine.Constraints.Validate(line).Select(v => v with { Message = $"Line {i}: {v.Message}", Evidence = i })
-			)
+			o =>
+				o.Lines.SelectMany(
+					(line, i) => NestedOrderLine.All.Validate(line).Select(v => v with { Message = $"Line {i}: {v.Message}", Evidence = i })
+				)
 		);
 
 	// A rule that needs TimeProvider can't be a [Constraint] field — those are static and
 	// dependency-free by construction, and TimeProvider is exactly the kind of thing that should be
 	// injected, not hard-coded to TimeProvider.System. Build it by hand and fold it into the
-	// generated set with a small factory instead. `Constraints` (unqualified) below is this class's
+	// generated set with a small factory instead. `All` (unqualified) below is this class's
 	// own generated property — no namespace collision, since it takes no type argument.
 	public static ConstraintSet<Order> WithDeadline(TimeProvider clock)
 	{
@@ -81,13 +82,14 @@ internal static partial class NestedOrderSpec
 			.Entities
 			.Constraints<Order>
 			.Always(
-				o => o.Status != NestedOrderStatus.Confirmed || o.ConfirmedAt is not { } confirmedAt || clock.GetUtcNow() - confirmedAt < TimeSpan.FromHours(
-					48
-				),
+				o =>
+					o.Status != NestedOrderStatus.Confirmed || o.ConfirmedAt is not { } confirmedAt || clock.GetUtcNow() - confirmedAt < TimeSpan.FromHours(
+						48
+					),
 				"A confirmed order must ship within 48 hours of confirmation."
 			);
 
-		return ConstraintSet.From([.. Constraints.AsConstraints().Select(c => (c.Name!, c)), (nameof(shipsWithinDeadline), shipsWithinDeadline)]);
+		return ConstraintSet.From([.. All.AsConstraints().Select(c => (c.Name!, c)), (nameof(shipsWithinDeadline), shipsWithinDeadline)]);
 	}
 }
 
@@ -127,10 +129,10 @@ internal static partial class NestedOrderEventSpec
 
 internal static class GenericDispatch
 {
-	public static IReadOnlyList<Violation> Validate<T>(T value, IConstraintsFor<T> spec) => spec.Constraints.Validate(value);
+	public static IReadOnlyList<Violation> Validate<T>(T value, IConstraintsFor<T> spec) => spec.All.Validate(value);
 
 	public static MonitoredConstraintSet<TEvent> Attach<TEvent>(IObservable<TEvent> events, IReactiveConstraintsFor<TEvent> spec) =>
-		spec.Constraints.Attach(events);
+		spec.All.Attach(events);
 }
 
 // ── Examples ─────────────────────────────────────────────────────────────────

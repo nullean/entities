@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.Finance;
 
 public class LedgerTests
 {
-	private static readonly ConstraintSet<JournalEntry> Constraints = JournalEntryConstraints.Constraints;
+	private static readonly ConstraintSet<JournalEntry> Constraints = JournalEntryConstraints.All;
 
 	private static JournalEntry Balanced() => new(Guid.NewGuid(), EntryStatus.Draft, [new("Cash", 100m, 0m), new("Revenue", 0m, 100m)]);
 

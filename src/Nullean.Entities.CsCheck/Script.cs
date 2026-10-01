@@ -24,8 +24,7 @@ public sealed class Script<TSut>
 	private int _minLength;
 	private int _maxLength = 10;
 
-	internal Script()
-	{ }
+	internal Script() { }
 
 	// Read by ScriptExtensions to build the actual Gen<T> — never by anything outside this
 	// project, so plain `internal` rather than exposing builder state as public API.

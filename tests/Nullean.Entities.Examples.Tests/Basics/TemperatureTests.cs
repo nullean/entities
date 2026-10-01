@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.Basics;
 
 public class TemperatureTests
 {
-	private static readonly ConstraintSet<Temperature> Constraints = TemperatureConstraints.Constraints;
+	private static readonly ConstraintSet<Temperature> Constraints = TemperatureConstraints.All;
 
 	[Test]
 	public void Validate_valid_temperature()

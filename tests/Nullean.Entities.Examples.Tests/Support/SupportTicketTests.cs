@@ -5,7 +5,7 @@ namespace Nullean.Entities.Examples.Tests.Support;
 
 public class SupportTicketTests
 {
-	private static readonly ConstraintSet<SupportTicket> Constraints = SupportTicketConstraints.Constraints;
+	private static readonly ConstraintSet<SupportTicket> Constraints = SupportTicketConstraints.All;
 
 	private static SupportTicket Open() =>
 		new(Guid.NewGuid(), "cust-1", "Issue with login", Priority.Medium, TicketStatus.Open, null, [], DateTimeOffset.UtcNow, null);

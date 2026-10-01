@@ -21,19 +21,19 @@ internal sealed partial record GeneratedItem(int Value)
 public class SelfAttachedConstraintsTests
 {
 	[Test]
-	public void GeneratedType_implements_IHaveConstraints() => GeneratedItem.Constraints.Should().BeAssignableTo<ConstraintSet<GeneratedItem>>();
+	public void GeneratedType_implements_IHaveConstraints() => GeneratedItem.All.Should().BeAssignableTo<ConstraintSet<GeneratedItem>>();
 
 	[Test]
 	public void Generated_Constraints_bundles_every_Constraint_field()
 	{
-		var violations = GeneratedItem.Constraints.Validate(new GeneratedItem(-1));
+		var violations = GeneratedItem.All.Validate(new GeneratedItem(-1));
 		violations.Should().ContainSingle(v => v.ConstraintId == "Positive");
 	}
 
 	[Test]
 	public void Generated_Constraints_reflects_every_field_not_just_the_first()
 	{
-		var violations = GeneratedItem.Constraints.Validate(new GeneratedItem(200));
+		var violations = GeneratedItem.All.Validate(new GeneratedItem(200));
 		violations.Should().ContainSingle(v => v.ConstraintId == "Under100");
 	}
 
@@ -43,9 +43,9 @@ public class SelfAttachedConstraintsTests
 		// Only compiles if the generator really added `: IHaveConstraints<GeneratedItem>` to the
 		// partial declaration — this is the interface-conformance half of the contract, not just
 		// "there happens to be a static property with this name".
-		static ConstraintSet<T> ConstraintsOf<T>() where T : IHaveConstraints<T> => T.Constraints;
+		static ConstraintSet<T> ConstraintsOf<T>() where T : IHaveConstraints<T> => T.All;
 
-		ConstraintsOf<GeneratedItem>().Should().BeSameAs(GeneratedItem.Constraints);
+		ConstraintsOf<GeneratedItem>().Should().BeSameAs(GeneratedItem.All);
 	}
 }
 
@@ -76,7 +76,7 @@ public class CompanionClassConstraintsTests
 	public void Spec_class_bundles_both_fields()
 	{
 		var order = new GeneratedOrder(Guid.NewGuid(), -5m, null);
-		var violations = GeneratedOrderSpec.Constraints.Validate(order);
+		var violations = GeneratedOrderSpec.All.Validate(order);
 
 		violations.Should().HaveCount(2);
 		violations.Select(v => v.ConstraintId).Should().Contain(["TotalNonNegative", "PaymentRefRequired"]);
@@ -86,7 +86,7 @@ public class CompanionClassConstraintsTests
 	public void Spec_class_reports_no_violations_for_a_valid_order()
 	{
 		var order = new GeneratedOrder(Guid.NewGuid(), 10m, "pay-1");
-		GeneratedOrderSpec.Constraints.Validate(order).Should().BeEmpty();
+		GeneratedOrderSpec.All.Validate(order).Should().BeEmpty();
 	}
 
 	[Test]
@@ -95,9 +95,9 @@ public class CompanionClassConstraintsTests
 		// IConstraintsFor<T> is a plain instance interface (not static-abstract, not F-bounded), so
 		// generic code can take a value implementing it directly and infer T from the argument —
 		// no separate TSpec type parameter needed, and no need to know GeneratedOrderSpec exists.
-		static ConstraintSet<T> ConstraintsFor<T>(IConstraintsFor<T> spec) => spec.Constraints;
+		static ConstraintSet<T> ConstraintsFor<T>(IConstraintsFor<T> spec) => spec.All;
 
-		ConstraintsFor(GeneratedOrderSpec.TypeConstraints.Instance).Should().BeSameAs(GeneratedOrderSpec.Constraints);
+		ConstraintsFor(GeneratedOrderSpec.TypeConstraints.Instance).Should().BeSameAs(GeneratedOrderSpec.All);
 	}
 
 	[Test]
@@ -106,6 +106,6 @@ public class CompanionClassConstraintsTests
 		// GeneratedOrderSpec.Instance is the generated top-level shortcut — callers never have to
 		// spell out "TypeConstraints" to get the IConstraintsFor<Order> value.
 		GeneratedOrderSpec.Instance.Should().BeEquivalentTo(GeneratedOrderSpec.TypeConstraints.Instance);
-		GeneratedOrderSpec.Instance.Constraints.Should().BeSameAs(GeneratedOrderSpec.Constraints);
+		GeneratedOrderSpec.Instance.All.Should().BeSameAs(GeneratedOrderSpec.All);
 	}
 }

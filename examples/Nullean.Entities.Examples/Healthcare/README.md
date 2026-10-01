@@ -37,16 +37,16 @@ A clinical record system where a patient's state must satisfy rules at three lev
 
 ## How it is validated
 
-`PatientRecordConstraints.Constraints.Validate(record)` runs everything and returns a flat list of named violations. Because each level tags its violations with context (drug name, test name, timestamp), a caller can display or group them without re-querying the aggregate.
+`PatientRecordConstraints.All.Validate(record)` runs everything and returns a flat list of named violations. Because each level tags its violations with context (drug name, test name, timestamp), a caller can display or group them without re-querying the aggregate.
 
 Each level is also independently testable:
 
 ```csharp
 // Test a single Medication without constructing a full PatientRecord:
-MedicationConstraints.Constraints.Validate(new Medication("", 0, ...)).Should().HaveCount(2);
+MedicationConstraints.All.Validate(new Medication("", 0, ...)).Should().HaveCount(2);
 
 // Test the cross-entity allergy check in isolation:
-PatientRecordConstraints.Constraints.Validate(recordWithAllergyConflict)
+PatientRecordConstraints.All.Validate(recordWithAllergyConflict)
     .Should().ContainSingle(v => v.ConstraintId == "NoAllergicMedications");
 ```
 
@@ -54,4 +54,4 @@ The `ChannelResult<PatientRecord>` pattern is demonstrated for the `AddMedicatio
 
 ## Why nested constraints matter here
 
-Without delegation, the aggregate would re-implement "dose must be positive" and "reference range is valid" inline. Any change to the child-level rule would need to be made in two places. With delegation, `MedicationConstraints.Constraints.Validate(m)` is called once per medication, and the aggregate only adds the context it uniquely has (the drug name in the violation message). The child rules remain unit-testable in isolation.
+Without delegation, the aggregate would re-implement "dose must be positive" and "reference range is valid" inline. Any change to the child-level rule would need to be made in two places. With delegation, `MedicationConstraints.All.Validate(m)` is called once per medication, and the aggregate only adds the context it uniquely has (the drug name in the violation message). The child rules remain unit-testable in isolation.

@@ -60,12 +60,11 @@ public static partial class SubscriptionConstraints
 		"Seat count must be at least 1."
 	);
 
-	public static readonly Constraint<Subscription> FreePlanHasOneSeat = Constraints<Subscription>.When(s => s.Plan == Plan.Free).Requires(
-		s => s.SeatCount == 1,
-		"Free plan is limited to 1 seat."
-	);
+	public static readonly Constraint<Subscription> FreePlanHasOneSeat = Constraints<Subscription>
+		.When(s => s.Plan == Plan.Free)
+		.Requires(s => s.SeatCount == 1, "Free plan is limited to 1 seat.");
 
-	public static readonly Constraint<Subscription> ActiveRequiresBillingPeriod = Constraints<Subscription>.When(
-		s => s.Status == SubscriptionStatus.Active
-	).Requires(s => s.CurrentPeriod is not null, "An active subscription must have a current billing period.");
+	public static readonly Constraint<Subscription> ActiveRequiresBillingPeriod = Constraints<Subscription>
+		.When(s => s.Status == SubscriptionStatus.Active)
+		.Requires(s => s.CurrentPeriod is not null, "An active subscription must have a current billing period.");
 }

@@ -1,15 +1,15 @@
 // Nullean.Entities.SourceGenerators — the [Constraint] generator.
 //
 // Finds every static field/property tagged [Constraint], groups them by containing type, and
-// bundles each group into one generated `Constraints` property:
+// bundles each group into one generated `All` property:
 //
 //   - Constraint<T> members where the containing type IS T get IHaveConstraints<T> added to the
-//     same partial declaration, so `MyType.Constraints` and `events.AttachConstraints()` both
+//     same partial declaration, so `MyType.All` and `events.AttachConstraints()` both
 //     just work — the "domain type declares its own rules" shape. The property is built from
 //     `ConstraintSet.From((nameof(field), field), ...)`, so a constraint's name can never drift
 //     from the field that declares it.
 //   - Constraint<T> members on any other partial type (a companion "spec" class, T untouched) get
-//     the same plain `ConstraintSet<T> Constraints` property, plus a nested
+//     the same plain `ConstraintSet<T> All` property, plus a nested
 //     `TypeConstraints : IConstraintsFor<T>` struct with a singleton `Instance` — never on the spec
 //     class's own base list, even when it isn't `static`, because IConstraintsFor<T> is a plain
 //     instance interface: `SpecClass.TypeConstraints.Instance` is a value a caller can pass around
@@ -18,7 +18,7 @@
 //     spec class itself means a caller never has to spell out `TypeConstraints` at all —
 //     `SpecClass.Instance` is the same value as `SpecClass.TypeConstraints.Instance`.
 //   - ReactiveConstraint<T> members get the same treatment with
-//     `ReactiveConstraintSet<T> Constraints` / a nested `TypeConstraints : IReactiveConstraintsFor<T>`
+//     `ReactiveConstraintSet<T> All` / a nested `TypeConstraints : IReactiveConstraintsFor<T>`
 //     — there is no reactive-native self-attach interface (self-attach for reactive flows through
 //     the sync core's IHaveConstraints<T> + ToReactive() instead), so every declarer goes through
 //     this one path.
@@ -300,7 +300,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	/// A zero-size <c>TypeConstraints</c> struct nested in the spec class, implementing the given
 	/// plain instance <c>I...ConstraintsFor&lt;T&gt;</c> interface and exposing a singleton
 	/// <c>Instance</c>. Never placed on the spec class's own base list — the interface is an
-	/// instance member, and the spec class's `Constraints` is `static`, so the spec class itself
+	/// instance member, and the spec class's `All` is `static`, so the spec class itself
 	/// cannot be made to implement the interface without either an unwanted instantiation or (for
 	/// the usual `static class` shape) CS0714. Nesting means `SpecClass.TypeConstraints.Instance` is
 	/// always available regardless of how the spec class itself is declared. <see cref="Emit"/>
@@ -309,8 +309,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	/// </summary>
 	private static string NestedTypeConstraints(INamedTypeSymbol type, string interfaceName, string typeArgDisplay, string propertyType) =>
 		$"public readonly struct TypeConstraints : {interfaceName}<{typeArgDisplay}>\n" + $"    {{\n" +
-			$"        public static readonly TypeConstraints Instance = default;\n" + $"\n" +
-			$"        public {propertyType} Constraints => {type.Name}.Constraints;\n" + $"    }}";
+		$"        public static readonly TypeConstraints Instance = default;\n" + $"\n" +
+		$"        public {propertyType} All => {type.Name}.All;\n" + $"    }}";
 
 	private static string Emit(
 		INamedTypeSymbol type,
@@ -343,7 +343,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		}
 		sb.AppendLine($"{indent}partial {typeKind} {type.Name}{baseList}");
 		sb.AppendLine($"{indent}{{");
-		sb.AppendLine($"{indent}    public static {propertyType} Constraints {{ get; }} =");
+		sb.AppendLine($"{indent}    public static {propertyType} All {{ get; }} =");
 		sb.AppendLine($"{indent}        {factoryCall}");
 		sb.AppendLine($"{indent}            {argList}");
 		sb.AppendLine($"{indent}        );");
@@ -373,7 +373,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	};
 
 	private static string HintName(INamedTypeSymbol type) =>
-		$"{type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "")}.Constraints.g.cs";
+		$"{type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "")}.All.g.cs";
 
 	private enum ConstraintKind
 	{

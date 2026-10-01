@@ -206,7 +206,7 @@ public sealed record ConstraintSetState(IReadOnlyDictionary<string, Verdict> Ver
 
 public interface IReactiveConstraintsFor<TEvent>
 {
-	ReactiveConstraintSet<TEvent> Constraints { get; }
+	ReactiveConstraintSet<TEvent> All { get; }
 }
 
 // ── Constraints<TEvent> — static builder ──────────────────────────────────────
@@ -240,13 +240,14 @@ public static class Constraints<TEvent>
 	/// </summary>
 	public static ReactiveConstraint<TEvent> Never<T1, T2>(Func<T1, T2, bool> pair) where T1 : TEvent where T2 : TEvent =>
 		new(
-			(events, scheduler) => events
-				.Where(e => e is T1 or T2)
-				.Buffer(2, 1)
-				.Where(buf => buf.Count == 2 && buf[0] is T1 first && buf[1] is T2 second && pair(first, second))
-				.Select(buf => Verdict.Violated(scheduler.Now, (buf[0], buf[1])))
-				.Take(1)
-				.StartWith(Verdict.Pending)
+			(events, scheduler) =>
+				events
+					.Where(e => e is T1 or T2)
+					.Buffer(2, 1)
+					.Where(buf => buf.Count == 2 && buf[0] is T1 first && buf[1] is T2 second && pair(first, second))
+					.Select(buf => Verdict.Violated(scheduler.Now, (buf[0], buf[1])))
+					.Take(1)
+					.StartWith(Verdict.Pending)
 		);
 
 	/// <summary>
@@ -265,11 +266,12 @@ public static class Constraints<TEvent>
 	/// </summary>
 	public static ReactiveConstraint<TEvent> Always<T>(Func<T, bool> predicate) where T : TEvent =>
 		new(
-			(events, scheduler) => WhereType<T>(events)
-				.Where(e => !predicate(e))
-				.Select(e => Verdict.Violated(scheduler.Now, e!))
-				.Take(1)
-				.StartWith(Verdict.Pending)
+			(events, scheduler) =>
+				WhereType<T>(events)
+					.Where(e => !predicate(e))
+					.Select(e => Verdict.Violated(scheduler.Now, e!))
+					.Take(1)
+					.StartWith(Verdict.Pending)
 		);
 
 	/// <summary>
@@ -277,21 +279,22 @@ public static class Constraints<TEvent>
 	/// </summary>
 	public static ReactiveConstraint<TEvent> Transitions(params (Type From, Type To)[] allowed) =>
 		new(
-			(events, scheduler) => events
-				.Buffer(2, 1)
-				.Where(buf =>
-				{
-					if (buf.Count < 2)
+			(events, scheduler) =>
+				events
+					.Buffer(2, 1)
+					.Where(buf =>
 					{
-						return false;
-					}
-					var fromType = buf[0]!.GetType();
-					var toType = buf[1]!.GetType();
-					return !allowed.Any(a => a.From.IsAssignableFrom(fromType) && a.To.IsAssignableFrom(toType));
-				})
-				.Select(buf => Verdict.Violated(scheduler.Now, (buf[0], buf[1])))
-				.Take(1)
-				.StartWith(Verdict.Pending)
+						if (buf.Count < 2)
+						{
+							return false;
+						}
+						var fromType = buf[0]!.GetType();
+						var toType = buf[1]!.GetType();
+						return !allowed.Any(a => a.From.IsAssignableFrom(fromType) && a.To.IsAssignableFrom(toType));
+					})
+					.Select(buf => Verdict.Violated(scheduler.Now, (buf[0], buf[1])))
+					.Take(1)
+					.StartWith(Verdict.Pending)
 		);
 
 	/// <summary>
@@ -300,12 +303,13 @@ public static class Constraints<TEvent>
 	/// </summary>
 	public static ReactiveConstraint<TEvent> Transitions(Func<TEvent, TEvent, bool> isValid) =>
 		new(
-			(events, scheduler) => events
-				.Buffer(2, 1)
-				.Where(buf => buf.Count == 2 && !isValid(buf[0], buf[1]))
-				.Select(buf => Verdict.Violated(scheduler.Now, (buf[0], buf[1])))
-				.Take(1)
-				.StartWith(Verdict.Pending)
+			(events, scheduler) =>
+				events
+					.Buffer(2, 1)
+					.Where(buf => buf.Count == 2 && !isValid(buf[0], buf[1]))
+					.Select(buf => Verdict.Violated(scheduler.Now, (buf[0], buf[1])))
+					.Take(1)
+					.StartWith(Verdict.Pending)
 		);
 
 	// ── Predicate-based counterparts ────────────────────────────────────────
@@ -328,13 +332,14 @@ public static class Constraints<TEvent>
 	/// </summary>
 	public static ReactiveConstraint<TEvent> Never(Func<TEvent, bool> isT1, Func<TEvent, bool> isT2, Func<TEvent, TEvent, bool> pair) =>
 		new(
-			(events, scheduler) => events
-				.Where(e => isT1(e) || isT2(e))
-				.Buffer(2, 1)
-				.Where(buf => buf.Count == 2 && isT1(buf[0]) && isT2(buf[1]) && pair(buf[0], buf[1]))
-				.Select(buf => Verdict.Violated(scheduler.Now, (buf[0], buf[1])))
-				.Take(1)
-				.StartWith(Verdict.Pending)
+			(events, scheduler) =>
+				events
+					.Where(e => isT1(e) || isT2(e))
+					.Buffer(2, 1)
+					.Where(buf => buf.Count == 2 && isT1(buf[0]) && isT2(buf[1]) && pair(buf[0], buf[1]))
+					.Select(buf => Verdict.Violated(scheduler.Now, (buf[0], buf[1])))
+					.Take(1)
+					.StartWith(Verdict.Pending)
 		);
 
 	/// <summary>Predicate-based counterpart to <see cref="NeverTwice{T}"/> — see the remark above.</summary>
@@ -348,12 +353,13 @@ public static class Constraints<TEvent>
 	/// <summary>Predicate-based counterpart to <see cref="Always{T}"/> — see the remark above.</summary>
 	public static ReactiveConstraint<TEvent> Always(Func<TEvent, bool> isRelevant, Func<TEvent, bool> predicate) =>
 		new(
-			(events, scheduler) => events
-				.Where(isRelevant)
-				.Where(e => !predicate(e))
-				.Select(e => Verdict.Violated(scheduler.Now, e!))
-				.Take(1)
-				.StartWith(Verdict.Pending)
+			(events, scheduler) =>
+				events
+					.Where(isRelevant)
+					.Where(e => !predicate(e))
+					.Select(e => Verdict.Violated(scheduler.Now, e!))
+					.Take(1)
+					.StartWith(Verdict.Pending)
 		);
 
 	/// <summary>
@@ -368,32 +374,33 @@ public static class Constraints<TEvent>
 		string? message = null
 	) =>
 		new(
-			(events, scheduler) => Observable.Create<Verdict>(observer =>
-			{
-				var pending = new HashSet<object>();
-				return events.Subscribe(e =>
+			(events, scheduler) =>
+				Observable.Create<Verdict>(observer =>
 				{
-					if (from(e))
+					var pending = new HashSet<object>();
+					return events.Subscribe(e =>
 					{
-						pending.Add(scope(e));
-					}
-					if (isTarget(e))
+						if (from(e))
+						{
+							pending.Add(scope(e));
+						}
+						if (isTarget(e))
+						{
+							pending.Remove(scope(e));
+						}
+					}, observer.OnError, () =>
 					{
-						pending.Remove(scope(e));
-					}
-				}, observer.OnError, () =>
-				{
-					observer.OnNext(
-						pending.Count > 0
-							? Verdict.Violated(
-								scheduler.Now,
-								message ?? $"{pending.Count} instance(s) never reached the target event: {string.Join(", ", pending)}"
-							)
-							: Verdict.Holds
-					);
-					observer.OnCompleted();
-				});
-			}).StartWith(Verdict.Pending)
+						observer.OnNext(
+							pending.Count > 0
+								? Verdict.Violated(
+									scheduler.Now,
+									message ?? $"{pending.Count} instance(s) never reached the target event: {string.Join(", ", pending)}"
+								)
+								: Verdict.Holds
+						);
+						observer.OnCompleted();
+					});
+				}).StartWith(Verdict.Pending)
 		);
 
 	/// <summary>
@@ -413,26 +420,27 @@ public static class Constraints<TEvent>
 		Func<TEvent, bool>? isInterrupt = null
 	) =>
 		new(
-			(events, scheduler) => events
-				.Where(isTrigger)
-				.SelectMany(trigger =>
-				{
-					var nextObs = events.Where(e => isNext(trigger, e)).Select(_ => Verdict.Holds).Take(1);
-					var timeoutObs = Observable.Timer(window, scheduler).Select(
-						_ => Verdict.Violated(scheduler.Now, $"No matching event within {window} after {trigger}")
-					);
-
-					if (isInterrupt is null)
+			(events, scheduler) =>
+				events
+					.Where(isTrigger)
+					.SelectMany(trigger =>
 					{
-						return nextObs.Amb(timeoutObs);
-					}
+						var nextObs = events.Where(e => isNext(trigger, e)).Select(_ => Verdict.Holds).Take(1);
+						var timeoutObs = Observable.Timer(window, scheduler).Select(
+							_ => Verdict.Violated(scheduler.Now, $"No matching event within {window} after {trigger}")
+						);
 
-					var interruptObs = events.Where(isInterrupt).Select(_ => Verdict.Holds).Take(1);
-					return nextObs.Amb(interruptObs).Amb(timeoutObs);
-				})
-				.Where(v => v.IsViolated)
-				.Take(1)
-				.StartWith(Verdict.Pending)
+						if (isInterrupt is null)
+						{
+							return nextObs.Amb(timeoutObs);
+						}
+
+						var interruptObs = events.Where(isInterrupt).Select(_ => Verdict.Holds).Take(1);
+						return nextObs.Amb(interruptObs).Amb(timeoutObs);
+					})
+					.Where(v => v.IsViolated)
+					.Take(1)
+					.StartWith(Verdict.Pending)
 		);
 
 	/// <summary>
@@ -461,32 +469,33 @@ public static class Constraints<TEvent>
 	/// </summary>
 	public static ReactiveConstraint<TEvent> Eventually<T>(Func<TEvent, object> scope, Func<TEvent, bool> from, string? message = null) where T : TEvent =>
 		new(
-			(events, scheduler) => Observable.Create<Verdict>(observer =>
-			{
-				var pending = new HashSet<object>();
-				return events.Subscribe(e =>
+			(events, scheduler) =>
+				Observable.Create<Verdict>(observer =>
 				{
-					if (from(e))
+					var pending = new HashSet<object>();
+					return events.Subscribe(e =>
 					{
-						pending.Add(scope(e));
-					}
-					if (e is T)
+						if (from(e))
+						{
+							pending.Add(scope(e));
+						}
+						if (e is T)
+						{
+							pending.Remove(scope(e));
+						}
+					}, observer.OnError, () =>
 					{
-						pending.Remove(scope(e));
-					}
-				}, observer.OnError, () =>
-				{
-					observer.OnNext(
-						pending.Count > 0
-							? Verdict.Violated(
-								scheduler.Now,
-								message ?? $"{pending.Count} instance(s) never reached {typeof(T).Name}: {string.Join(", ", pending)}"
-							)
-							: Verdict.Holds
-					);
-					observer.OnCompleted();
-				});
-			}).StartWith(Verdict.Pending)
+						observer.OnNext(
+							pending.Count > 0
+								? Verdict.Violated(
+									scheduler.Now,
+									message ?? $"{pending.Count} instance(s) never reached {typeof(T).Name}: {string.Join(", ", pending)}"
+								)
+								: Verdict.Holds
+						);
+						observer.OnCompleted();
+					});
+				}).StartWith(Verdict.Pending)
 		);
 }
 #pragma warning restore CA1000
@@ -506,12 +515,13 @@ public sealed class WhenBuilder<TEvent>
 	/// </summary>
 	public ReactiveConstraint<TEvent> Requires(Func<TEvent, bool> requirement) =>
 		new(
-			(events, scheduler) => events
-				.Where(_guard)
-				.Where(e => !requirement(e))
-				.Select(e => Verdict.Violated(scheduler.Now, e!))
-				.Take(1)
-				.StartWith(Verdict.Pending)
+			(events, scheduler) =>
+				events
+					.Where(_guard)
+					.Where(e => !requirement(e))
+					.Select(e => Verdict.Violated(scheduler.Now, e!))
+					.Take(1)
+					.StartWith(Verdict.Pending)
 		);
 }
 
@@ -520,8 +530,7 @@ public sealed class WhenBuilder<TEvent>
 
 public sealed class AfterBuilder<TEvent, TTrigger> where TTrigger : TEvent
 {
-	internal AfterBuilder()
-	{ }
+	internal AfterBuilder() { }
 
 	public ThenBuilder<TEvent, TTrigger, TNext> Then<TNext>(Func<TTrigger, TNext, bool>? matches = null) where TNext : TEvent => new(matches);
 
@@ -629,9 +638,10 @@ public sealed class WithinBuilder<TEvent, TTrigger, TNext> where TTrigger : TEve
 				.Take(1)
 				.Concat(
 					Observable.Defer(
-						() => required && !anyTrigger
-							? Observable.Return(Verdict.Violated(scheduler.Now, $"Required {typeof(TTrigger).Name} trigger never fired"))
-							: Observable.Empty<Verdict>()
+						() =>
+							required && !anyTrigger
+								? Observable.Return(Verdict.Violated(scheduler.Now, $"Required {typeof(TTrigger).Name} trigger never fired"))
+								: Observable.Empty<Verdict>()
 					)
 				)
 				.StartWith(Verdict.Pending);
@@ -709,9 +719,10 @@ public sealed class WithinBuilder2<TEvent, TTrigger, TNext1, TNext2> where TTrig
 				.Take(1)
 				.Concat(
 					Observable.Defer(
-						() => required && !anyTrigger
-							? Observable.Return(Verdict.Violated(scheduler.Now, $"Required {typeof(TTrigger).Name} trigger never fired"))
-							: Observable.Empty<Verdict>()
+						() =>
+							required && !anyTrigger
+								? Observable.Return(Verdict.Violated(scheduler.Now, $"Required {typeof(TTrigger).Name} trigger never fired"))
+								: Observable.Empty<Verdict>()
 					)
 				)
 				.StartWith(Verdict.Pending);
@@ -724,7 +735,7 @@ public sealed class WithinBuilder2<TEvent, TTrigger, TNext1, TNext2> where TTrig
 public static class ReactiveConstraintSetExtensions
 {
 	/// <summary>
-	/// Attaches the type's own <see cref="IHaveConstraints{TSelf}.Constraints"/> to the
+	/// Attaches the type's own <see cref="IHaveConstraints{TSelf}.All"/> to the
 	/// event stream, converting the synchronous <see cref="ConstraintSet{T}"/> to a
 	/// <see cref="ReactiveConstraintSet{TEvent}"/> first (see <see cref="ConstraintSetReactiveExtensions.ToReactive{T}"/>).
 	/// Only available when TEvent implements IHaveConstraints&lt;TEvent&gt;.
@@ -732,7 +743,7 @@ public static class ReactiveConstraintSetExtensions
 	public static MonitoredConstraintSet<TEvent> AttachConstraints<TEvent>(
 		this IObservable<TEvent> events,
 		IScheduler? scheduler = null
-	) where TEvent : IHaveConstraints<TEvent> => TEvent.Constraints.ToReactive().Attach(events, scheduler);
+	) where TEvent : IHaveConstraints<TEvent> => TEvent.All.ToReactive().Attach(events, scheduler);
 }
 
 public static class ConstraintSetReactiveExtensions

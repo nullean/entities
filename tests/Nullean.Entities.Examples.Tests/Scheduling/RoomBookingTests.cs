@@ -6,8 +6,8 @@ namespace Nullean.Entities.Examples.Tests.Scheduling;
 
 public class RoomBookingTests
 {
-	private static readonly ConstraintSet<TimeSlot> SlotConstraints = TimeSlotConstraints.Constraints;
-	private static readonly ConstraintSet<BookingCalendar> CalConstraints = BookingConstraints.Constraints;
+	private static readonly ConstraintSet<TimeSlot> SlotConstraints = TimeSlotConstraints.All;
+	private static readonly ConstraintSet<BookingCalendar> CalConstraints = BookingConstraints.All;
 
 	private static TimeSlot Slot(int startHour, int endHour) =>
 		new(new DateTimeOffset(2024, 6, 1, startHour, 0, 0, TimeSpan.Zero), new DateTimeOffset(2024, 6, 1, endHour, 0, 0, TimeSpan.Zero));

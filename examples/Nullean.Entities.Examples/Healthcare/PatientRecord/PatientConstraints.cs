@@ -29,10 +29,9 @@ public static partial class MedicationConstraints
 
 	// When a medication has been discontinued, the discontinuation date must not precede the
 	// prescription date — a common data-entry error in clinical systems.
-	public static readonly Constraint<Medication> DiscontinuationAfterPrescription = Constraints<Medication>.When(m => m.DiscontinuedOn.HasValue).Requires(
-		m => m.DiscontinuedOn!.Value >= m.PrescribedOn,
-		"Discontinuation date cannot be before the prescription date."
-	);
+	public static readonly Constraint<Medication> DiscontinuationAfterPrescription = Constraints<Medication>
+		.When(m => m.DiscontinuedOn.HasValue)
+		.Requires(m => m.DiscontinuedOn!.Value >= m.PrescribedOn, "Discontinuation date cannot be before the prescription date.");
 }
 
 [Constraints]
@@ -97,9 +96,9 @@ public static partial class PatientRecordConstraints
 	public static readonly Constraint<PatientRecord> AllMedicationsValid = Constraints<PatientRecord>.Check(
 		record =>
 			[
-				.. record.ActiveMedications.SelectMany(
-					m => MedicationConstraints.Constraints.Validate(m).Select(v => v with { Message = $"Medication '{m.DrugName}': {v.Message}" })
-				),
+				.. record
+					.ActiveMedications
+					.SelectMany(m => MedicationConstraints.All.Validate(m).Select(v => v with { Message = $"Medication '{m.DrugName}': {v.Message}" })),
 			]
 	);
 
@@ -138,9 +137,9 @@ public static partial class PatientRecordConstraints
 	public static readonly Constraint<PatientRecord> AllLabResultsValid = Constraints<PatientRecord>.Check(
 		record =>
 			[
-				.. record.RecentLabResults.SelectMany(
-					l => LabResultConstraints.Constraints.Validate(l).Select(v => v with { Message = $"Lab '{l.TestName}': {v.Message}" })
-				),
+				.. record
+					.RecentLabResults
+					.SelectMany(l => LabResultConstraints.All.Validate(l).Select(v => v with { Message = $"Lab '{l.TestName}': {v.Message}" })),
 			]
 	);
 
@@ -148,20 +147,22 @@ public static partial class PatientRecordConstraints
 	public static readonly Constraint<PatientRecord> AllVitalSignsPlausible = Constraints<PatientRecord>.Check(
 		record =>
 			[
-				.. record.VitalHistory.SelectMany(
-					v => VitalSignsConstraints.Constraints.Validate(v).Select(viol => viol with { Message = $"Vitals at {v.RecordedAt:u}: {viol.Message}" })
-				),
+				.. record
+					.VitalHistory
+					.SelectMany(
+						v => VitalSignsConstraints.All.Validate(v).Select(viol => viol with { Message = $"Vitals at {v.RecordedAt:u}: {viol.Message}" })
+					),
 			]
 	);
 
 	// Admitted patients must have vital signs recorded within the past 4 hours — a liveness
 	// requirement that is meaningless for outpatients (step-gated with When).
-	public static readonly Constraint<PatientRecord> AdmittedPatientsHaveRecentVitals = Constraints<PatientRecord>.When(
-		r => r.Status == PatientStatus.Admitted
-	).Requires(
-		r => r.VitalHistory.Any(v => (DateTimeOffset.UtcNow - v.RecordedAt).TotalHours <= 4),
-		"Admitted patients must have vital signs recorded within the last 4 hours."
-	);
+	public static readonly Constraint<PatientRecord> AdmittedPatientsHaveRecentVitals = Constraints<PatientRecord>
+		.When(r => r.Status == PatientStatus.Admitted)
+		.Requires(
+			r => r.VitalHistory.Any(v => (DateTimeOffset.UtcNow - v.RecordedAt).TotalHours <= 4),
+			"Admitted patients must have vital signs recorded within the last 4 hours."
+		);
 
 	// Diagnosis ICD codes must not be blank — a code-only check; full ICD validation is
 	// out of scope but the constraint structure would be identical.
@@ -182,7 +183,7 @@ public static partial class PatientRecordConstraints
 }
 
 // Step set for status-change mutations (Admit, Discharge).
-// Use this set — not PatientRecordConstraints.Constraints — when changing patient status.
+// Use this set — not PatientRecordConstraints.All — when changing patient status.
 public static class PatientRecordStepConstraints
 {
 	public static readonly ConstraintSet<PatientRecord> StatusChangeStep = ConstraintSet.From(

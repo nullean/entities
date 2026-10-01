@@ -57,7 +57,7 @@ public class ConstraintGeneratorShapeTests
 		run.Diagnostics.Should().BeEmpty();
 		var source = run.SingleGeneratedSource();
 		source.Should().NotContain("IHaveConstraints");
-		// IConstraintsFor<T> is a plain instance interface, and OrderSpec's own `Constraints` is
+		// IConstraintsFor<T> is a plain instance interface, and OrderSpec's own `All` is
 		// static either way — the interface never lands on the spec class's own base list.
 		source.Should().NotContain("partial class OrderSpec :");
 		source.Should().Contain("struct TypeConstraints : global::Nullean.Entities.IConstraintsFor<global::Sample.Order>");
@@ -90,8 +90,8 @@ public class ConstraintGeneratorShapeTests
 		run.Diagnostics.Should().BeEmpty();
 		var source = run.SingleGeneratedSource();
 		// Unlike the old static-abstract design, a non-static spec class still gets the interface
-		// nested rather than directly implemented — IConstraintsFor<T>.Constraints is an instance
-		// member, and OrderSpec.Constraints is (and stays) static regardless of whether OrderSpec
+		// nested rather than directly implemented — IConstraintsFor<T>.All is an instance
+		// member, and OrderSpec.All is (and stays) static regardless of whether OrderSpec
 		// itself is `static`.
 		source.Should().NotContain("partial class OrderSpec :");
 		source.Should().Contain("struct TypeConstraints : global::Nullean.Entities.IConstraintsFor<global::Sample.Order>");

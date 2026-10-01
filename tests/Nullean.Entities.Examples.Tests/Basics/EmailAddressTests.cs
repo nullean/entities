@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.Basics;
 
 public class EmailAddressTests
 {
-	private static readonly ConstraintSet<EmailAddress> Constraints = EmailConstraints.Constraints;
+	private static readonly ConstraintSet<EmailAddress> Constraints = EmailConstraints.All;
 
 	[Test]
 	public void Validate_valid_email()

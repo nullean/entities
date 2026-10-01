@@ -27,14 +27,14 @@ public class PatientRecordTests
 	[Test]
 	public void Medication_valid_has_no_violations()
 	{
-		MedicationConstraints.Constraints.Validate(Aspirin()).Should().BeEmpty();
+		MedicationConstraints.All.Validate(Aspirin()).Should().BeEmpty();
 	}
 
 	[Test]
 	public void Medication_empty_drug_name_is_invalid()
 	{
 		var med = new Medication("", 100, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow));
-		var violations = MedicationConstraints.Constraints.Validate(med);
+		var violations = MedicationConstraints.All.Validate(med);
 		violations.Should().ContainSingle(v => v.ConstraintId == "DrugNameNotEmpty");
 	}
 
@@ -42,7 +42,7 @@ public class PatientRecordTests
 	public void Medication_zero_dose_is_invalid()
 	{
 		var med = new Medication("Aspirin", 0, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow));
-		MedicationConstraints.Constraints.Validate(med).Should().ContainSingle(v => v.ConstraintId == "DosePositive");
+		MedicationConstraints.All.Validate(med).Should().ContainSingle(v => v.ConstraintId == "DosePositive");
 	}
 
 	[Test]
@@ -50,34 +50,34 @@ public class PatientRecordTests
 	{
 		var today = DateOnly.FromDateTime(DateTime.UtcNow);
 		var med = new Medication("Aspirin", 100, DosageUnit.Mg, Frequency.Daily, today, today.AddDays(-1));
-		MedicationConstraints.Constraints.Validate(med).Should().ContainSingle(v => v.ConstraintId == "DiscontinuationAfterPrescription");
+		MedicationConstraints.All.Validate(med).Should().ContainSingle(v => v.ConstraintId == "DiscontinuationAfterPrescription");
 	}
 
 	[Test]
 	public void LabResult_inverted_reference_range_is_invalid()
 	{
 		var lab = new LabResult("Glucose", 5.5, "mmol/L", 10.0, 3.9, DateTimeOffset.UtcNow);
-		LabResultConstraints.Constraints.Validate(lab).Should().ContainSingle(v => v.ConstraintId == "ReferenceRangeValid");
+		LabResultConstraints.All.Validate(lab).Should().ContainSingle(v => v.ConstraintId == "ReferenceRangeValid");
 	}
 
 	[Test]
 	public void VitalSigns_valid_has_no_violations()
 	{
-		VitalSignsConstraints.Constraints.Validate(NormalVitals()).Should().BeEmpty();
+		VitalSignsConstraints.All.Validate(NormalVitals()).Should().BeEmpty();
 	}
 
 	[Test]
 	public void VitalSigns_systolic_below_diastolic_is_invalid()
 	{
 		var transposed = NormalVitals() with { SystolicBp = 70, DiastolicBp = 120 };
-		VitalSignsConstraints.Constraints.Validate(transposed).Should().ContainSingle(v => v.ConstraintId == "SystolicAboveDiastolic");
+		VitalSignsConstraints.All.Validate(transposed).Should().ContainSingle(v => v.ConstraintId == "SystolicAboveDiastolic");
 	}
 
 	[Test]
 	public void VitalSigns_implausible_heart_rate_is_invalid()
 	{
 		var bad = NormalVitals() with { HeartRateBpm = 5 };
-		VitalSignsConstraints.Constraints.Validate(bad).Should().ContainSingle(v => v.ConstraintId == "HeartRatePlausible");
+		VitalSignsConstraints.All.Validate(bad).Should().ContainSingle(v => v.ConstraintId == "HeartRatePlausible");
 	}
 
 	// ── Level 2: aggregate collection rules ───────────────────────────────────
@@ -85,7 +85,7 @@ public class PatientRecordTests
 	[Test]
 	public void Aggregate_valid_outpatient_has_no_violations()
 	{
-		PatientRecordConstraints.Constraints.Validate(HealthyOutpatient()).Should().BeEmpty();
+		PatientRecordConstraints.All.Validate(HealthyOutpatient()).Should().BeEmpty();
 	}
 
 	[Test]
@@ -94,7 +94,7 @@ public class PatientRecordTests
 		var badMed = new Medication("", 0, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow));
 		var record = HealthyOutpatient() with { ActiveMedications = [badMed] };
 
-		var violations = PatientRecordConstraints.Constraints.Validate(record);
+		var violations = PatientRecordConstraints.All.Validate(record);
 
 		violations.Should().NotBeEmpty();
 		violations.Should().AllSatisfy(v => v.Message.Should().StartWith("Medication '':"));
@@ -105,7 +105,7 @@ public class PatientRecordTests
 	{
 		var record = HealthyOutpatient() with { ActiveMedications = [Aspirin(), Aspirin()] };
 
-		PatientRecordConstraints.Constraints.Validate(record).Should().ContainSingle(v => v.ConstraintId == "NoDuplicateActiveMedications");
+		PatientRecordConstraints.All.Validate(record).Should().ContainSingle(v => v.ConstraintId == "NoDuplicateActiveMedications");
 	}
 
 	// ── Level 3: cross-entity constraint ─────────────────────────────────────
@@ -115,7 +115,7 @@ public class PatientRecordTests
 	{
 		var record = HealthyOutpatient() with { Allergies = [AspirinAllergy()] };
 
-		var violations = PatientRecordConstraints.Constraints.Validate(record);
+		var violations = PatientRecordConstraints.All.Validate(record);
 
 		violations.Should().ContainSingle(v => v.ConstraintId == "NoAllergicMedications");
 		violations.Single(v => v.ConstraintId == "NoAllergicMedications").Message.Should().Contain("Aspirin");
@@ -128,7 +128,7 @@ public class PatientRecordTests
 
 		var stopped = record.Discontinue("Aspirin");
 
-		PatientRecordConstraints.Constraints.Validate(stopped).Should().NotContain(v => v.ConstraintId == "NoAllergicMedications");
+		PatientRecordConstraints.All.Validate(stopped).Should().NotContain(v => v.ConstraintId == "NoAllergicMedications");
 	}
 
 	[Test]
@@ -137,7 +137,7 @@ public class PatientRecordTests
 		var penicillinAllergy = new Allergy("Penicillin", AllergySeverity.LifeThreatening);
 		var record = HealthyOutpatient() with { Allergies = [penicillinAllergy] };
 
-		PatientRecordConstraints.Constraints.Validate(record).Should().NotContain(v => v.ConstraintId == "NoAllergicMedications");
+		PatientRecordConstraints.All.Validate(record).Should().NotContain(v => v.ConstraintId == "NoAllergicMedications");
 	}
 
 	// ── Channel: mutations are guarded ────────────────────────────────────────
@@ -145,7 +145,7 @@ public class PatientRecordTests
 	[Test]
 	public void Channel_Applied_on_adding_a_non_allergenic_medication()
 	{
-		var channel = ConstraintChannel.For(HealthyOutpatient()).Enforce(PatientRecordConstraints.Constraints);
+		var channel = ConstraintChannel.For(HealthyOutpatient()).Enforce(PatientRecordConstraints.All);
 
 		channel.Apply(r => r.AddMedication(Ibuprofen())).Should().BeOfType<ChannelResult<PatientRecord>.Applied>();
 	}
@@ -154,7 +154,7 @@ public class PatientRecordTests
 	public void Channel_Failure_when_adding_a_medication_matching_an_allergen()
 	{
 		var record = HealthyOutpatient() with { Allergies = [AspirinAllergy()] };
-		var channel = ConstraintChannel.For(record).Enforce(PatientRecordConstraints.Constraints);
+		var channel = ConstraintChannel.For(record).Enforce(PatientRecordConstraints.All);
 
 		// Aspirin is already in the record, but allergy was added via 'with' — adding Aspirin again
 		// would also fail; here we test that the existing record with the conflict fails on Apply.
@@ -197,7 +197,7 @@ public class PatientRecordTests
 			(name, dose) => new Medication(name, dose, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow))
 		);
 
-		genMed.Sample(m => MedicationConstraints.Constraints.Validate(m).Count == 0);
+		genMed.Sample(m => MedicationConstraints.All.Validate(m).Count == 0);
 	}
 
 	[Test]
@@ -213,17 +213,18 @@ public class PatientRecordTests
 			return new VitalSigns(weight, height, systolic, diastolic, hr, rr, temp, DateTimeOffset.UtcNow);
 		});
 
-		genVitals.Sample(v => VitalSignsConstraints.Constraints.Validate(v).Count == 0);
+		genVitals.Sample(v => VitalSignsConstraints.All.Validate(v).Count == 0);
 	}
 
 	[Test]
 	public void Mutant_zero_dose_always_fails_per_entity_check()
 	{
 		var act =
-			() => Gen
-				.Int[1, 10000]
-				.Select(i => new Medication($"Drug{i}", 0, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow)))
-				.Sample(m => MedicationConstraints.Constraints.Validate(m).Count == 0);
+			() =>
+				Gen
+					.Int[1, 10000]
+					.Select(i => new Medication($"Drug{i}", 0, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow)))
+					.Sample(m => MedicationConstraints.All.Validate(m).Count == 0);
 		act.Should().Throw<Exception>();
 	}
 
@@ -232,16 +233,17 @@ public class PatientRecordTests
 	{
 		// Build records where the medication and allergen match — must always produce a violation.
 		var act =
-			() => Gen
-				.Int[1, 10000]
-				.Select(i => $"Drug{i}")
-				.Select(drug =>
-				{
-					var med = new Medication(drug, 100, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow));
-					var allergy = new Allergy(drug, AllergySeverity.Severe);
-					return HealthyOutpatient() with { ActiveMedications = [med], Allergies = [allergy], };
-				})
-				.Sample(r => PatientRecordConstraints.Constraints.Validate(r).Count == 0);
+			() =>
+				Gen
+					.Int[1, 10000]
+					.Select(i => $"Drug{i}")
+					.Select(drug =>
+					{
+						var med = new Medication(drug, 100, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow));
+						var allergy = new Allergy(drug, AllergySeverity.Severe);
+						return HealthyOutpatient() with { ActiveMedications = [med], Allergies = [allergy], };
+					})
+					.Sample(r => PatientRecordConstraints.All.Validate(r).Count == 0);
 
 		act.Should().Throw<Exception>();
 	}

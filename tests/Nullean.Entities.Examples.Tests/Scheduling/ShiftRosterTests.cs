@@ -5,8 +5,8 @@ namespace Nullean.Entities.Examples.Tests.Scheduling;
 
 public class ShiftRosterTests
 {
-	private static readonly ConstraintSet<Employee> EmpConstraints = EmployeeConstraints.Constraints;
-	private static readonly ConstraintSet<Roster> RosterConstraints_ = RosterConstraints.Constraints;
+	private static readonly ConstraintSet<Employee> EmpConstraints = EmployeeConstraints.All;
+	private static readonly ConstraintSet<Roster> RosterConstraints_ = RosterConstraints.All;
 
 	private static Shift Shift(int dayOfMonth, int startHour, int endHour) =>
 		new(new DateTimeOffset(2024, 6, dayOfMonth, startHour, 0, 0, TimeSpan.Zero), new DateTimeOffset(2024, 6, dayOfMonth, endHour, 0, 0, TimeSpan.Zero));
