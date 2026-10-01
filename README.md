@@ -37,9 +37,10 @@ public readonly union OrderEvent(Placed, Confirmed, Shipped, Cancelled);
 | Every state is reachable, none is a dead end | ❌ | Model checking | `StateMachine` *(coming)* |
 
 These are runtime checks, not compile-time ones — but declared once, named, and next to the type.
-`[Constraint]` makes the *set* exhaustive at build time: add a field and forget to tag it, and the
-build refuses. `ConstraintChannel` turns "parse, don't validate" into **"apply, don't mutate"**: an
-invalid next state is never committed, so it never reaches downstream code.
+`[Constraints]` makes the *set* exhaustive at build time: tag the class once, and every static rule
+field declared on it is picked up automatically — add one and forget nothing, because there is
+nothing left to forget. `ConstraintChannel` turns "parse, don't validate" into **"apply, don't
+mutate"**: an invalid next state is never committed, so it never reaches downstream code.
 
 ## Have `Nullean.Entities` say/enforce it in its stead
 
@@ -47,30 +48,33 @@ invalid next state is never committed, so it never reaches downstream code.
 // A switch over OrderEvent that omits any case won't build.
 
 // ── What the type system can't say about Order ───────────────────────────
+[Constraints] // every static Constraint<Order> field below is found automatically — no per-field tag
 public static partial class OrderConstraints
 {
-    // Total >= 0
-    [Constraint] public static readonly Constraint<Order> TotalNeverNegative =
-        Constraints<Order>.Always(o => o.Total >= 0, "Order total can't be negative.");
+    // Total >= 0. message is optional: omitted, a violation names the constraint itself
+    // ("TotalNeverNegative was violated.") and attaches the offending Order as evidence.
+    public static readonly Constraint<Order> TotalNeverNegative = Constraints<Order>.Always(o => o.Total >= 0);
 
     // A Confirmed order has at least one line.
-    [Constraint] public static readonly Constraint<Order> ConfirmedOrdersHaveLines =
-        Constraints<Order>.When(o => o.Status == OrderStatus.Confirmed)
-                          .Requires(o => o.Lines.Count > 0, "Confirm requires at least one line.");
+    public static readonly Constraint<Order> ConfirmedOrdersHaveLines = Constraints<Order>
+        .When(o => o.Status == OrderStatus.Confirmed)
+        .Requires(o => o.Lines.Count > 0, "Confirm requires at least one line.");
 
     // Cancel twice = cancel once.
-    [Constraint] public static readonly Constraint<Order> CancelIsIdempotent =
-        Constraints<Order>.Idempotent(o => o.Cancel(), "Cancel must be idempotent.");
+    public static readonly Constraint<Order> CancelIsIdempotent = Constraints<Order>.Idempotent(o => o.Cancel());
 
-    // You can only Ship a Confirmed order.
-    [Constraint] public static readonly Constraint<Order> LegalTransitions =
-        Constraints<Order>.Transitions(
-            (prev, next) => (prev.Status, next.Status) is
-                (Pending, Confirmed) or (Confirmed, Shipped) or
-                (Pending or Confirmed, Cancelled),
-            "Illegal status transition.");
-    // Generated: OrderConstraints.Constraints (ConstraintSet<Order>)
-    // Forget [Constraint] on a field, or target the wrong type — the build fails, not a warning.
+    // You can only Ship a Confirmed order — one Allow(from, to) per legal arc, instead of a
+    // hand-written tuple pattern-match that is easy to get backwards or miss a case in.
+    public static readonly Constraint<Order> LegalTransitions = Constraints<Order>
+        .Transitions(o => o.Status)
+        .Allow(OrderStatus.Pending, OrderStatus.Confirmed)
+        .Allow(OrderStatus.Confirmed, OrderStatus.Shipped)
+        .Allow(OrderStatus.Pending, OrderStatus.Cancelled)
+        .Allow(OrderStatus.Confirmed, OrderStatus.Cancelled);
+
+    // Generated: OrderConstraints.Constraints (ConstraintSet<Order>), from all four fields above.
+    // Add a fifth Constraint<Order> field and it joins the set on the next build with no extra
+    // step; make the type non-partial, or target the wrong type, and the build still fails outright.
 }
 ```
 
@@ -86,8 +90,9 @@ var channel = ConstraintChannel.For(order).Enforce(OrderConstraints.Constraints)
 
 channel.Apply(o => o.Ship()) switch
 {
-    Result<Order>.Ok(var shipped)       => Save(shipped),
-    Result<Order>.Fail(_, var problems) => Reject(problems),   // order is unchanged
+    ChannelResult<Order>.Applied(var shipped)       => Save(shipped),
+    ChannelResult<Order>.Noop(var current)          => /* already shipped */ _ = current,
+    ChannelResult<Order>.Failure(_, var problems)   => Reject(problems),   // order is unchanged
 };
 ```
 
@@ -95,6 +100,7 @@ channel.Apply(o => o.Ship()) switch
 
 ```csharp
 // ── What the type system can't say about sequences of OrderEvents ────────
+[Constraints] // same auto-discovery as the sync side — no per-field tag below either
 public static partial class OrderEventSpec
 {
     private static Guid OrderIdOf(OrderEvent e) => e switch
@@ -106,27 +112,25 @@ public static partial class OrderEventSpec
     };
 
     // Cancelled orders are never shipped.
-    [Constraint] public static readonly ReactiveConstraint<OrderEvent> NeverShippedAfterCancellation =
-        Constraints<OrderEvent>.Never<Cancelled, Shipped>((c, s) => c.OrderId == s.OrderId)
-            .Named(nameof(NeverShippedAfterCancellation));
+    public static readonly ReactiveConstraint<OrderEvent> NeverShippedAfterCancellation =
+        Constraints<OrderEvent>.Never<Cancelled, Shipped>((c, s) => c.OrderId == s.OrderId);
 
     // Confirmed orders close (ship or cancel) within 48 h.
-    [Constraint] public static readonly ReactiveConstraint<OrderEvent> ConfirmedOrdersClose =
+    public static readonly ReactiveConstraint<OrderEvent> ConfirmedOrdersClose =
         Constraints<OrderEvent>.After<Confirmed>()
             .Then<Shipped, Cancelled>(
                 m1: (c, s) => s.OrderId == c.OrderId,
                 m2: (c, ca) => ca.OrderId == c.OrderId)
             .Within(TimeSpan.FromHours(48))
-            .Required()
-            .Named(nameof(ConfirmedOrdersClose));
+            .Required();
 
     // Every confirmed order eventually closes — no deadline, but it must happen.
-    [Constraint] public static readonly ReactiveConstraint<OrderEvent> EveryConfirmedOrderCloses =
-        Constraints<OrderEvent>.Eventually<Shipped>(
-            scope: OrderIdOf,
-            from:  e => e is Confirmed)
-            .Named(nameof(EveryConfirmedOrderCloses));
-    // Generated: OrderEventSpec.Constraints (ReactiveConstraintSet<OrderEvent>)
+    public static readonly ReactiveConstraint<OrderEvent> EveryConfirmedOrderCloses =
+        Constraints<OrderEvent>.Eventually<Shipped>(scope: OrderIdOf, from: e => e is Confirmed);
+
+    // Generated: OrderEventSpec.Constraints (ReactiveConstraintSet<OrderEvent>), from all three
+    // fields above and named from them — .Named(...) is for a constraint built outside a
+    // [Constraints] type, which has no field name of its own to borrow.
 }
 ```
 

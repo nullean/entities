@@ -80,6 +80,36 @@ public abstract record Result<T>
 	};
 }
 
+// ── ChannelResult<T> ──────────────────────────────────────────────────────────
+// The three-way result of ConstraintChannel<T>.Apply. Carries T in every case so
+// a caller can pattern-match uniformly without extracting the value first.
+
+public abstract record ChannelResult<T>
+{
+	private protected ChannelResult()
+	{ }
+
+	/// <summary>Mutation passed all constraints and <see cref="ConstraintChannel{T}.Current"/> was updated.</summary>
+	public sealed record Applied(T Value) : ChannelResult<T>;
+
+	/// <summary>
+	/// Mutation produced the same value (by <see cref="EqualityComparer{T}.Default"/>), so no
+	/// constraints were run and nothing was committed. Carries the unchanged value so the caller
+	/// can pattern-match uniformly.
+	/// </summary>
+	public sealed record Noop(T Value) : ChannelResult<T>;
+
+	/// <summary>
+	/// One or more constraints were violated. <see cref="ConstraintChannel{T}.Current"/> is
+	/// unchanged. Carries what it was at the time of the failed attempt.
+	/// </summary>
+	public sealed record Failure(T Current, IReadOnlyList<Violation> Violations) : ChannelResult<T>;
+
+	public bool IsApplied => this is Applied;
+	public bool IsNoop => this is Noop;
+	public bool IsFailure => this is Failure;
+}
+
 // ── ConstraintKind ────────────────────────────────────────────────────────────
 
 public enum ConstraintKind
@@ -146,9 +176,22 @@ public enum MonotonicDirection
 #pragma warning disable CA1000
 public static class Constraints<T>
 {
-	/// <summary>Violated whenever <paramref name="predicate"/> is false for the value being checked.</summary>
-	public static Constraint<T> Always(Func<T, bool> predicate, string message) =>
-		new(ConstraintKind.PointInTime, (_, next) => predicate(next) ? [] : [Violation.Error(message)]);
+	/// <summary>
+	/// Violated whenever <paramref name="predicate"/> is false for the value being checked.
+	/// <paramref name="message"/> is optional: omitted, the violation names the constraint itself
+	/// (whatever <see cref="Constraint{T}.Named"/>/the generator's <c>(nameof(field), field)</c>
+	/// gave it) and attaches the offending value as <see cref="Violation.Evidence"/> — pass
+	/// <paramref name="message"/> for hand-written, user-facing prose instead.
+	/// </summary>
+	public static Constraint<T> Always(Func<T, bool> predicate, string? message = null)
+	{
+		Constraint<T> self = null!;
+		self = new(
+			ConstraintKind.PointInTime,
+			(_, next) => predicate(next) ? [] : [Violation.Error(message ?? $"{self.Name ?? "Constraint"} was violated.") with { Evidence = next }]
+		);
+		return self;
+	}
 
 	/// <summary>
 	/// Full point-in-time check, for a rule that needs more than one fixed message — e.g. a
@@ -161,9 +204,25 @@ public static class Constraints<T>
 	/// Violated whenever <paramref name="isValid"/> is false for the (previous, next) pair produced
 	/// by a mutation. Only <see cref="ConstraintSet{T}.Apply"/> runs these —
 	/// <see cref="ConstraintSet{T}.Validate"/> has no previous value to offer a standalone instance.
+	/// <paramref name="message"/> is optional — omitted, the default names both the constraint and
+	/// the actual (previous, next) pair that broke it.
 	/// </summary>
-	public static Constraint<T> Transitions(Func<T, T, bool> isValid, string message) =>
-		new(ConstraintKind.Sequential, (prev, next) => isValid(prev, next) ? [] : [Violation.Error(message)]);
+	public static Constraint<T> Transitions(Func<T, T, bool> isValid, string? message = null)
+	{
+		Constraint<T> self = null!;
+		self = new(
+			ConstraintKind.Sequential,
+			(prev, next) => isValid(prev, next)
+				? []
+				: [
+					Violation.Error(message ?? $"{self.Name ?? "Constraint"} does not allow the transition from {prev} to {next}.") with
+					{
+						Evidence = (prev, next)
+					}
+				]
+		);
+		return self;
+	}
 
 	/// <summary>Full sequential check over the (previous, next) pair — see <see cref="Transitions"/>.</summary>
 	public static Constraint<T> CheckTransition(Func<T, T, IEnumerable<Violation>> check) => new(ConstraintKind.Sequential, check);
@@ -176,20 +235,39 @@ public static class Constraints<T>
 	public static WhenBuilder<T> When(Func<T, bool> guard) => new(guard);
 
 	/// <summary>
+	/// Starts a declarative transition allow-list: <c>Transitions(selector).Allow(a, b).Allow(c, d)</c>
+	/// is violated when <paramref name="selector"/>'s (previous, next) pair isn't one of the allowed
+	/// edges — one edge per line, instead of hand-writing a tuple pattern-match over
+	/// <see cref="Transitions(Func{T, T, bool}, string)"/> and risking a missed or backwards case.
+	/// The right choice whenever the thing moving through states is a single comparable value (an
+	/// enum, usually); reach for the predicate-based overload instead when the legality of a
+	/// transition depends on more than just the two state values (e.g. a quantity carried on the
+	/// event).
+	/// </summary>
+	public static TransitionBuilder<T, TState> Transitions<TState>(Func<T, TState> selector) => new(selector);
+
+	/// <summary>
 	/// Violated whenever applying <paramref name="action"/> twice from the value being checked
 	/// gives a different result than applying it once — the standard <c>f(f(x)) == f(x)</c> law.
 	/// Point-in-time: it only needs the value being checked, never a previous one, since
 	/// <paramref name="action"/> itself supplies both "once" and "twice". Naming the quality
 	/// instead of hand-rolling it as an <see cref="Always"/> predicate means a failure reads
 	/// "not idempotent," not the name of a rule that looks unrelated to what actually broke.
+	/// <paramref name="message"/> is optional, same as <see cref="Always"/>.
 	/// </summary>
-	public static Constraint<T> Idempotent(Func<T, T> action, string message) =>
-		new(ConstraintKind.PointInTime, (_, next) =>
+	public static Constraint<T> Idempotent(Func<T, T> action, string? message = null)
+	{
+		Constraint<T> self = null!;
+		self = new(ConstraintKind.PointInTime, (_, next) =>
 		{
 			var once = action(next);
 			var twice = action(once);
-			return EqualityComparer<T>.Default.Equals(once, twice) ? [] : [Violation.Error(message) with { Evidence = (once, twice) }];
+			return EqualityComparer<T>.Default.Equals(once, twice)
+				? []
+				: [Violation.Error(message ?? $"{self.Name ?? "Constraint"} is not idempotent.") with { Evidence = (once, twice) }];
 		});
+		return self;
+	}
 
 	/// <summary>
 	/// Violated whenever <paramref name="selector"/>'s value moves the wrong way across a
@@ -220,14 +298,26 @@ public static class Constraints<T>
 	/// than a single entity, since "conserved" usually means "conserved across two halves of a
 	/// transfer," not just across one type's own history — but nothing here requires that; any
 	/// <typeparamref name="T"/> with a quantity that must round-trip a mutation unchanged applies.
+	/// <paramref name="message"/> is optional, same as <see cref="Always"/>/<see cref="Monotonic{TValue}"/>.
 	/// </summary>
-	public static Constraint<T> Conserves<TValue>(Func<T, TValue> selector, string message) =>
-		new(ConstraintKind.Sequential, (prev, next) =>
+	public static Constraint<T> Conserves<TValue>(Func<T, TValue> selector, string? message = null)
+	{
+		Constraint<T> self = null!;
+		self = new(ConstraintKind.Sequential, (prev, next) =>
 		{
 			var before = selector(prev);
 			var after = selector(next);
-			return EqualityComparer<TValue>.Default.Equals(before, after) ? [] : [Violation.Error(message) with { Evidence = (before, after) }];
+			return EqualityComparer<TValue>.Default.Equals(before, after)
+				? []
+				: [
+					Violation.Error(message ?? $"{self.Name ?? "Constraint"} did not conserve its value (was {before}, became {after}).") with
+					{
+						Evidence = (before, after)
+					}
+				];
 		});
+		return self;
+	}
 }
 #pragma warning restore CA1000
 
@@ -237,8 +327,63 @@ public sealed class WhenBuilder<T>
 
 	internal WhenBuilder(Func<T, bool> guard) => _guard = guard;
 
-	public Constraint<T> Requires(Func<T, bool> requirement, string message) =>
-		new(ConstraintKind.PointInTime, (_, next) => !_guard(next) || requirement(next) ? [] : [Violation.Error(message)]);
+	/// <summary><paramref name="message"/> is optional, same as <see cref="Constraints{T}.Always"/>.</summary>
+	public Constraint<T> Requires(Func<T, bool> requirement, string? message = null)
+	{
+		Constraint<T> self = null!;
+		self = new(
+			ConstraintKind.PointInTime,
+			(_, next) => !_guard(next) || requirement(next)
+				? []
+				: [Violation.Error(message ?? $"{self.Name ?? "Constraint"} was violated.") with { Evidence = next }]
+		);
+		return self;
+	}
+}
+
+// ── TransitionBuilder<T, TState> ───────────────────────────────────────────────
+// Declarative counterpart to Constraints<T>.Transitions(Func<T, T, bool>) — see that overload's
+// own doc comment for when to reach for which.
+
+/// <summary>
+/// Built only through <see cref="Constraints{T}.Transitions{TState}"/>. Implicitly converts to
+/// <see cref="Constraint{T}"/>, so it never needs an explicit terminal call — assigning it (or
+/// handing it to <see cref="ConstraintSet.From{T}"/>) is enough, the same as every other
+/// <c>Constraints&lt;T&gt;</c> builder result.
+/// </summary>
+public sealed class TransitionBuilder<T, TState>
+{
+	private readonly Func<T, TState> _selector;
+	private readonly List<(TState From, TState To)> _allowed = [];
+
+	internal TransitionBuilder(Func<T, TState> selector) => _selector = selector;
+
+	/// <summary>Adds one allowed edge. Call once per legal transition; order doesn't matter.</summary>
+	public TransitionBuilder<T, TState> Allow(TState from, TState to)
+	{
+		_allowed.Add((from, to));
+		return this;
+	}
+
+#pragma warning disable CA1000
+	public static implicit operator Constraint<T>(TransitionBuilder<T, TState> builder) => builder.Build();
+#pragma warning restore CA1000
+
+	private Constraint<T> Build()
+	{
+		var selector = _selector;
+		var allowed = _allowed.ToArray();
+		Constraint<T> self = null!;
+		self = new(ConstraintKind.Sequential, (prev, next) =>
+		{
+			var from = selector(prev);
+			var to = selector(next);
+			return allowed.Any(edge => EqualityComparer<TState>.Default.Equals(edge.From, from) && EqualityComparer<TState>.Default.Equals(edge.To, to))
+				? []
+				: [Violation.Error($"{self.Name ?? "Constraint"} does not allow the transition from {from} to {to}.") with { Evidence = (from, to) }];
+		});
+		return self;
+	}
 }
 
 // ── [Constraint] attribute ────────────────────────────────────────────────────
@@ -253,6 +398,42 @@ public sealed class WhenBuilder<T>
 
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class ConstraintAttribute : Attribute
+{
+}
+
+// ── [Constraints] attribute ───────────────────────────────────────────────────
+// Mark a partial type itself, instead of tagging every member one at a time: the generator
+// bundles every static Constraint<T>/ReactiveConstraint<TEvent> field or property declared
+// directly on the type, with no [Constraint] needed on any of them. The two opt-in styles are
+// mutually exclusive per type in effect, not merely in convention: a type carrying [Constraints]
+// is read in auto-discovery mode, so any [Constraint] tags its own members also happen to carry
+// become redundant rather than additive — they are not double-counted, since auto-discovery
+// already finds every eligible member whether or not it is individually tagged. Reach for
+// [Constraint] instead when a type has a static Constraint<T>/ReactiveConstraint<TEvent> member
+// that must NOT be in the generated set (e.g. a private building block combined into a public
+// rule rather than standing on its own) and tagging everything else individually is preferable to
+// adding [ConstraintIgnore] to the one exception.
+
+/// <summary>
+/// Marks a partial type for automatic constraint discovery: every static
+/// <see cref="Constraint{T}"/>/<c>ReactiveConstraint&lt;TEvent&gt;</c> field or property declared
+/// directly on this type is bundled into the generated <c>Constraints</c> set, with no need to tag
+/// each one with <see cref="ConstraintAttribute"/> individually. Mark a member that should be
+/// excluded despite matching with <see cref="ConstraintIgnoreAttribute"/>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+public sealed class ConstraintsAttribute : Attribute
+{
+}
+
+/// <summary>
+/// Excludes a static <see cref="Constraint{T}"/>/<c>ReactiveConstraint&lt;TEvent&gt;</c> member
+/// from a <see cref="ConstraintsAttribute"/>-tagged type's automatic discovery. Has no effect on a
+/// type using the per-member <see cref="ConstraintAttribute"/> opt-in instead — there, simply not
+/// tagging the member already excludes it.
+/// </summary>
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+public sealed class ConstraintIgnoreAttribute : Attribute
 {
 }
 
@@ -322,12 +503,17 @@ public sealed class ConstraintSet<T>
 	public Result<T> Apply(T current, Func<T, T> mutation)
 	{
 		var next = mutation(current);
-		var violations = _constraints.SelectMany(c => c.Check(current, next).Select(v => v with { ConstraintId = c.Name })).ToList();
+		var violations = RunAll(current, next);
 		return violations.Count == 0 ? new Result<T>.Ok(next) : new Result<T>.Fail(next, violations);
 	}
 
 	/// <summary>Like <see cref="Apply"/>, but throws on the first violated constraint.</summary>
 	public T ApplyOrThrow(T current, Func<T, T> mutation) => Apply(current, mutation).Unwrap();
+
+	// Called by ConstraintChannel<T>.Apply after it has already computed `next` to avoid calling
+	// the mutation twice — the channel needs the value upfront to short-circuit on equality.
+	internal IReadOnlyList<Violation> RunAll(T current, T next) =>
+		[.. _constraints.SelectMany(c => c.Check(current, next).Select(v => v with { ConstraintId = c.Name })),];
 }
 
 public static class ConstraintSet
@@ -363,21 +549,38 @@ public sealed class ConstraintChannel<T>
 	}
 
 	/// <summary>
-	/// Apply <paramref name="mutation"/> if every constraint passes; otherwise return the
-	/// violations without updating <see cref="Current"/>.
+	/// Applies <paramref name="mutation"/> if every constraint passes and the value actually
+	/// changed; otherwise returns <see cref="ChannelResult{T}.Noop"/> or
+	/// <see cref="ChannelResult{T}.Failure"/> without updating <see cref="Current"/>.
 	/// </summary>
-	public Result<T> Apply(Func<T, T> mutation)
+	public ChannelResult<T> Apply(Func<T, T> mutation)
 	{
-		var result = _constraints.Apply(Current, mutation);
-		if (result is Result<T>.Ok ok)
+		var next = mutation(Current);
+		if (EqualityComparer<T>.Default.Equals(Current, next))
 		{
-			Current = ok.Value;
+			return new ChannelResult<T>.Noop(Current);
 		}
-		return result;
+		var violations = _constraints.RunAll(Current, next);
+		if (violations.Count == 0)
+		{
+			Current = next;
+			return new ChannelResult<T>.Applied(next);
+		}
+		return new ChannelResult<T>.Failure(Current, violations);
 	}
 
-	/// <summary>Like <see cref="Apply"/>, but throws on the first violated constraint.</summary>
-	public T ApplyOrThrow(Func<T, T> mutation) => Apply(mutation).Unwrap();
+	/// <summary>
+	/// Like <see cref="Apply"/>, but throws on <see cref="ChannelResult{T}.Failure"/>.
+	/// Returns the current value for both <see cref="ChannelResult{T}.Applied"/> and
+	/// <see cref="ChannelResult{T}.Noop"/> — a no-op is not an error.
+	/// </summary>
+	public T ApplyOrThrow(Func<T, T> mutation) => Apply(mutation) switch
+	{
+		ChannelResult<T>.Applied a => a.Value,
+		ChannelResult<T>.Noop n => n.Value,
+		ChannelResult<T>.Failure f => throw new InvalidOperationException($"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
+		_ => throw new UnreachableException(),
+	};
 }
 
 public static class ConstraintChannel
