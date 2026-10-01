@@ -424,12 +424,13 @@ public static class Constraints<TEvent>
 
 					if (isInterrupt is null)
 					{
-						return nextObs.Amb(timeoutObs).Take(1);
+						return nextObs.Amb(timeoutObs);
 					}
 
 					var interruptObs = events.Where(isInterrupt).Select(_ => Verdict.Holds).Take(1);
-					return nextObs.Amb(interruptObs).Amb(timeoutObs).Take(1);
+					return nextObs.Amb(interruptObs).Amb(timeoutObs);
 				})
+				.Where(v => v.IsViolated)
 				.Take(1)
 				.StartWith(Verdict.Pending)
 		);
@@ -572,30 +573,36 @@ public sealed class WithinBuilder<TEvent, TTrigger, TNext> where TTrigger : TEve
 	/// Lifts the temporal obligation when TInterrupt fires before the Then-event.
 	/// Result is Holds (obligation removed), not Pending.
 	/// </summary>
-	public ReactiveConstraint<TEvent> UnlessInterruptedBy<TInterrupt>() where TInterrupt : TEvent => BuildFactory<TInterrupt>(withInterrupt: true);
+	public ReactiveConstraint<TEvent> UnlessInterruptedBy<TInterrupt>() where TInterrupt : TEvent =>
+		BuildFactory<TInterrupt>(withInterrupt: true, required: false);
 
 	/// <summary>
 	/// If the trigger fires but the Then-event does not arrive within the window,
 	/// the constraint is Violated. Without Required(), a trigger that never fires
 	/// leaves the constraint Pending (vacuously Holds).
+	/// With Required(), a trigger that never fires is also a Violation.
 	/// </summary>
-	public ReactiveConstraint<TEvent> Required() => BuildFactory<TEvent>(withInterrupt: false);
+	public ReactiveConstraint<TEvent> Required() => BuildFactory<TEvent>(withInterrupt: false, required: true);
 
 	// Implicit conversion so you can assign directly to ReactiveConstraint<TEvent>
 	// without calling .Required() — vacuous-Holds semantics by default.
 #pragma warning disable CA1000
-	public static implicit operator ReactiveConstraint<TEvent>(WithinBuilder<TEvent, TTrigger, TNext> b) => b.BuildFactory<TEvent>(withInterrupt: false);
+	public static implicit operator ReactiveConstraint<TEvent>(WithinBuilder<TEvent, TTrigger, TNext> b) =>
+		b.BuildFactory<TEvent>(withInterrupt: false, required: false);
 #pragma warning restore CA1000
 
-	private ReactiveConstraint<TEvent> BuildFactory<TInterrupt>(bool withInterrupt) where TInterrupt : TEvent
+	private ReactiveConstraint<TEvent> BuildFactory<TInterrupt>(bool withInterrupt, bool required) where TInterrupt : TEvent
 	{
 		var window = _window;
 		var matches = _matches;
 
-		return new ReactiveConstraint<TEvent>(
-			(events, scheduler) => events
+		return new ReactiveConstraint<TEvent>((events, scheduler) =>
+		{
+			var anyTrigger = false;
+			return events
 				.Where(e => e is TTrigger)
 				.Select(e => (TTrigger)(object)e!)
+				.Do(_ => anyTrigger = true)
 				.SelectMany(trigger =>
 				{
 					var nextObs = events
@@ -611,16 +618,24 @@ public sealed class WithinBuilder<TEvent, TTrigger, TNext> where TTrigger : TEve
 
 					if (!withInterrupt)
 					{
-						return nextObs.Amb(timeoutObs).Take(1);
+						return nextObs.Amb(timeoutObs);
 					}
 
 					var interruptObs = events.Where(e => e is TInterrupt).Select(e => (TInterrupt)(object)e!).Select(_ => Verdict.Holds).Take(1);
 
-					return nextObs.Amb(interruptObs).Amb(timeoutObs).Take(1);
+					return nextObs.Amb(interruptObs).Amb(timeoutObs);
 				})
+				.Where(v => v.IsViolated)
 				.Take(1)
-				.StartWith(Verdict.Pending)
-		);
+				.Concat(
+					Observable.Defer(
+						() => required && !anyTrigger
+							? Observable.Return(Verdict.Violated(scheduler.Now, $"Required {typeof(TTrigger).Name} trigger never fired"))
+							: Observable.Empty<Verdict>()
+					)
+				)
+				.StartWith(Verdict.Pending);
+		});
 	}
 }
 
@@ -637,25 +652,30 @@ public sealed class WithinBuilder2<TEvent, TTrigger, TNext1, TNext2> where TTrig
 		_m2 = m2;
 	}
 
-	public ReactiveConstraint<TEvent> UnlessInterruptedBy<TInterrupt>() where TInterrupt : TEvent => BuildFactory<TInterrupt>(withInterrupt: true);
+	public ReactiveConstraint<TEvent> UnlessInterruptedBy<TInterrupt>() where TInterrupt : TEvent =>
+		BuildFactory<TInterrupt>(withInterrupt: true, required: false);
 
-	public ReactiveConstraint<TEvent> Required() => BuildFactory<TEvent>(withInterrupt: false);
+	/// <inheritdoc cref="WithinBuilder{TEvent,TTrigger,TNext}.Required"/>
+	public ReactiveConstraint<TEvent> Required() => BuildFactory<TEvent>(withInterrupt: false, required: true);
 
 #pragma warning disable CA1000
 	public static implicit operator ReactiveConstraint<TEvent>(WithinBuilder2<TEvent, TTrigger, TNext1, TNext2> b) =>
-		b.BuildFactory<TEvent>(withInterrupt: false);
+		b.BuildFactory<TEvent>(withInterrupt: false, required: false);
 #pragma warning restore CA1000
 
-	private ReactiveConstraint<TEvent> BuildFactory<TInterrupt>(bool withInterrupt) where TInterrupt : TEvent
+	private ReactiveConstraint<TEvent> BuildFactory<TInterrupt>(bool withInterrupt, bool required) where TInterrupt : TEvent
 	{
 		var window = _window;
 		var m1 = _m1;
 		var m2 = _m2;
 
-		return new ReactiveConstraint<TEvent>(
-			(events, scheduler) => events
+		return new ReactiveConstraint<TEvent>((events, scheduler) =>
+		{
+			var anyTrigger = false;
+			return events
 				.Where(e => e is TTrigger)
 				.Select(e => (TTrigger)(object)e!)
+				.Do(_ => anyTrigger = true)
 				.SelectMany(trigger =>
 				{
 					var next1Obs = events
@@ -678,16 +698,24 @@ public sealed class WithinBuilder2<TEvent, TTrigger, TNext1, TNext2> where TTrig
 
 					if (!withInterrupt)
 					{
-						return next1Obs.Amb(next2Obs).Amb(timeoutObs).Take(1);
+						return next1Obs.Amb(next2Obs).Amb(timeoutObs);
 					}
 
 					var interruptObs = events.Where(e => e is TInterrupt).Select(e => (TInterrupt)(object)e!).Select(_ => Verdict.Holds).Take(1);
 
-					return next1Obs.Amb(next2Obs).Amb(interruptObs).Amb(timeoutObs).Take(1);
+					return next1Obs.Amb(next2Obs).Amb(interruptObs).Amb(timeoutObs);
 				})
+				.Where(v => v.IsViolated)
 				.Take(1)
-				.StartWith(Verdict.Pending)
-		);
+				.Concat(
+					Observable.Defer(
+						() => required && !anyTrigger
+							? Observable.Return(Verdict.Violated(scheduler.Now, $"Required {typeof(TTrigger).Name} trigger never fired"))
+							: Observable.Empty<Verdict>()
+					)
+				)
+				.StartWith(Verdict.Pending);
+		});
 	}
 }
 
