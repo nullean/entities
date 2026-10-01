@@ -52,10 +52,10 @@ public class OrgChartTests
 	public void Channel_Applied_on_terminate_removes_reports_and_manager()
 	{
 		var person = ActivePerson("P1", "boss").AddReport("P2");
-		var channel = ConstraintChannel.For(person).Enforce(PersonSet);
-		var result = channel.Apply(p => p.Terminate());
-		result.Should().BeOfType<ChannelResult<Person>.Applied>();
-		((ChannelResult<Person>.Applied)result).Value.DirectReportIds.Should().BeEmpty();
+		var channel = ConstrainedValue.For(person).Enforce(PersonSet);
+		var result = channel.ApplyDetailed(p => p.Terminate());
+		result.Should().BeOfType<ApplyOutcome<Person>.Applied>();
+		((ApplyOutcome<Person>.Applied)result).Value.DirectReportIds.Should().BeEmpty();
 	}
 
 	[Test]

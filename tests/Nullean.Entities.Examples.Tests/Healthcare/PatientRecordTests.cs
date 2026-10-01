@@ -145,24 +145,24 @@ public class PatientRecordTests
 	[Test]
 	public void Channel_Applied_on_adding_a_non_allergenic_medication()
 	{
-		var channel = ConstraintChannel.For(HealthyOutpatient()).Enforce(PatientRecordConstraints.All);
+		var channel = ConstrainedValue.For(HealthyOutpatient()).Enforce(PatientRecordConstraints.All);
 
-		channel.Apply(r => r.AddMedication(Ibuprofen())).Should().BeOfType<ChannelResult<PatientRecord>.Applied>();
+		channel.ApplyDetailed(r => r.AddMedication(Ibuprofen())).Should().BeOfType<ApplyOutcome<PatientRecord>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Failure_when_adding_a_medication_matching_an_allergen()
 	{
 		var record = HealthyOutpatient() with { Allergies = [AspirinAllergy()] };
-		var channel = ConstraintChannel.For(record).Enforce(PatientRecordConstraints.All);
+		var channel = ConstrainedValue.For(record).Enforce(PatientRecordConstraints.All);
 
 		// Aspirin is already in the record, but allergy was added via 'with' — adding Aspirin again
 		// would also fail; here we test that the existing record with the conflict fails on Apply.
-		var result = channel.Apply(
+		var result = channel.ApplyDetailed(
 			r => r.AddMedication(new Medication("Aspirin", 500, DosageUnit.Mg, Frequency.TwiceDaily, DateOnly.FromDateTime(DateTime.UtcNow)))
 		);
 
-		result.Should().BeOfType<ChannelResult<PatientRecord>.Failure>();
+		result.Should().BeOfType<ApplyOutcome<PatientRecord>.Failure>();
 		channel.Current.Should().Be(record); // unchanged
 	}
 
@@ -170,18 +170,18 @@ public class PatientRecordTests
 	public void Channel_Failure_on_invalid_status_transition()
 	{
 		var discharged = HealthyOutpatient() with { Status = PatientStatus.Discharged };
-		var channel = ConstraintChannel.For(discharged).Enforce(PatientRecordStepConstraints.StatusChangeStep);
+		var channel = ConstrainedValue.For(discharged).Enforce(PatientRecordStepConstraints.StatusChangeStep);
 
 		// Discharged → Admitted is not allowed
-		channel.Apply(r => r.Admit()).Should().BeOfType<ChannelResult<PatientRecord>.Failure>();
+		channel.ApplyDetailed(r => r.Admit()).Should().BeOfType<ApplyOutcome<PatientRecord>.Failure>();
 	}
 
 	[Test]
 	public void Channel_Applied_on_Outpatient_to_Admitted()
 	{
-		var channel = ConstraintChannel.For(HealthyOutpatient()).Enforce(PatientRecordStepConstraints.StatusChangeStep);
+		var channel = ConstrainedValue.For(HealthyOutpatient()).Enforce(PatientRecordStepConstraints.StatusChangeStep);
 
-		channel.Apply(r => r.Admit()).Should().BeOfType<ChannelResult<PatientRecord>.Applied>();
+		channel.ApplyDetailed(r => r.Admit()).Should().BeOfType<ApplyOutcome<PatientRecord>.Applied>();
 	}
 
 	// ── CsCheck properties ────────────────────────────────────────────────────

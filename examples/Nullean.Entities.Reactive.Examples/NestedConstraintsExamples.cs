@@ -67,7 +67,7 @@ internal static partial class NestedOrderSpec
 		.Check(
 			o =>
 				o.Lines.SelectMany(
-					(line, i) => NestedOrderLine.All.Validate(line).Select(v => v with { Message = $"Line {i}: {v.Message}", Evidence = i })
+					(line, i) => NestedOrderLine.Constraints.Validate(line).Select(v => v with { Message = $"Line {i}: {v.Message}", Evidence = i })
 				)
 		);
 

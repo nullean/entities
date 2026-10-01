@@ -4,7 +4,9 @@
 // bundles each group into one generated `All` property:
 //
 //   - Constraint<T> members where the containing type IS T get IHaveConstraints<T> added to the
-//     same partial declaration, so `MyType.All` and `events.AttachConstraints()` both
+//     same partial declaration, so `MyType.Constraints` (not `All` — that name is for companion
+//     classes, where `OrderConstraints.All` reads right and `OrderConstraints.Constraints` would
+//     stutter) and `events.AttachConstraints()` both
 //     just work — the "domain type declares its own rules" shape. The property is built from
 //     `ConstraintSet.From((nameof(field), field), ...)`, so a constraint's name can never drift
 //     from the field that declares it.
@@ -272,6 +274,9 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			type,
 			baseList,
 			propertyType,
+			// Self-attach is read as `Order.Constraints.Apply(...)`; a companion spec class is
+			// `OrderConstraints.All` — "OrderConstraints.Constraints" would stutter.
+			selfAttach ? "Constraints" : "All",
 			"global::Nullean.Entities.ConstraintSet.From(",
 			members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})"),
 			nested
@@ -290,6 +295,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			type,
 			baseList: "",
 			propertyType,
+			"All",
 			"global::Nullean.Entities.Reactive.ReactiveConstraintSet.From(",
 			members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})"),
 			nested
@@ -316,6 +322,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		INamedTypeSymbol type,
 		string baseList,
 		string propertyType,
+		string propertyName,
 		string factoryCall,
 		IEnumerable<string> args,
 		string? nestedType = null
@@ -343,7 +350,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		}
 		sb.AppendLine($"{indent}partial {typeKind} {type.Name}{baseList}");
 		sb.AppendLine($"{indent}{{");
-		sb.AppendLine($"{indent}    public static {propertyType} All {{ get; }} =");
+		sb.AppendLine($"{indent}    public static {propertyType} {propertyName} {{ get; }} =");
 		sb.AppendLine($"{indent}        {factoryCall}");
 		sb.AppendLine($"{indent}            {argList}");
 		sb.AppendLine($"{indent}        );");
@@ -373,7 +380,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	};
 
 	private static string HintName(INamedTypeSymbol type) =>
-		$"{type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "")}.All.g.cs";
+		$"{type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "")}.Constraints.g.cs";
 
 	private enum ConstraintKind
 	{

@@ -120,7 +120,7 @@ public static partial class ScriptExtensions
 		Func<TSut, IObservable<TEvent>> events,
 		long iter = -1,
 		string? seed = null
-	) where TEvent : IHaveConstraints<TEvent> => script.SampleWith(factory, events, TEvent.All.ToReactive(), iter, seed);
+	) where TEvent : IHaveConstraints<TEvent> => script.SampleWith(factory, events, TEvent.Constraints.ToReactive(), iter, seed);
 
 	// RunWith: exposes the whole run as an event stream (strand 3). Scope, deliberately: this
 	// drives one CsCheck.Sample call (so generation, shrinking and seed replay are all real) and
@@ -174,7 +174,7 @@ public static partial class ScriptExtensions
 		Func<IScheduler, TSut> factory,
 		Func<TSut, IObservable<TEvent>> events,
 		long iter = 1_000
-	) where TEvent : IHaveConstraints<TEvent> => script.RunWith(factory, events, TEvent.All.ToReactive(), iter);
+	) where TEvent : IHaveConstraints<TEvent> => script.RunWith(factory, events, TEvent.Constraints.ToReactive(), iter);
 
 	/// <summary>
 	/// Confluence: two generated values <c>a</c>, <c>b</c>, applied to two fresh instances via

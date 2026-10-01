@@ -79,29 +79,29 @@ public abstract record Result<T>
 	};
 }
 
-// ── ChannelResult<T> ──────────────────────────────────────────────────────────
-// The three-way result of ConstraintChannel<T>.Apply. Carries T in every case so
+// ── ApplyOutcome<T> ───────────────────────────────────────────────────────────
+// The three-way outcome of ApplyDetailed on ConstraintSet<T> / ConstrainedValue<T>. Carries T in every case so
 // a caller can pattern-match uniformly without extracting the value first.
 
-public abstract record ChannelResult<T>
+public abstract record ApplyOutcome<T>
 {
-	private protected ChannelResult() { }
+	private protected ApplyOutcome() { }
 
-	/// <summary>Mutation passed all constraints and <see cref="ConstraintChannel{T}.Current"/> was updated.</summary>
-	public sealed record Applied(T Value) : ChannelResult<T>;
+	/// <summary>Mutation passed all constraints and <see cref="ConstrainedValue{T}.Current"/> was updated.</summary>
+	public sealed record Applied(T Value) : ApplyOutcome<T>;
 
 	/// <summary>
 	/// Mutation produced the same value (by <see cref="EqualityComparer{T}.Default"/>), so no
 	/// constraints were run and nothing was committed. Carries the unchanged value so the caller
 	/// can pattern-match uniformly.
 	/// </summary>
-	public sealed record Noop(T Value) : ChannelResult<T>;
+	public sealed record Noop(T Value) : ApplyOutcome<T>;
 
 	/// <summary>
-	/// One or more constraints were violated. <see cref="ConstraintChannel{T}.Current"/> is
+	/// One or more constraints were violated. <see cref="ConstrainedValue{T}.Current"/> is
 	/// unchanged. Carries what it was at the time of the failed attempt.
 	/// </summary>
-	public sealed record Failure(T Current, IReadOnlyList<Violation> Violations) : ChannelResult<T>;
+	public sealed record Failure(T Current, T Attempted, IReadOnlyList<Violation> Violations) : ApplyOutcome<T>;
 
 	public bool IsApplied => this is Applied;
 	public bool IsNoop => this is Noop;
@@ -441,7 +441,7 @@ public sealed class ConstraintIgnoreAttribute : Attribute
 
 public interface IHaveConstraints<TSelf> where TSelf : IHaveConstraints<TSelf>
 {
-	static abstract ConstraintSet<TSelf> All { get; }
+	static abstract ConstraintSet<TSelf> Constraints { get; }
 }
 
 // ── IConstraintsFor<T> ────────────────────────────────────────────────────────
@@ -495,29 +495,43 @@ public sealed class ConstraintSet<T>
 	/// Runs a <paramref name="mutation"/> and checks every constraint over the result —
 	/// <see cref="ConstraintKind.PointInTime"/> constraints against the result alone,
 	/// <see cref="ConstraintKind.Sequential"/> ones against the (<paramref name="current"/>, result)
-	/// pair. Returns <see cref="ChannelResult{T}.Noop"/> when the mutation produces the same value,
-	/// <see cref="ChannelResult{T}.Applied"/> when all constraints pass, or
-	/// <see cref="ChannelResult{T}.Failure"/> (carrying the original value) when any are violated.
+	/// pair. Returns <see cref="Result{T}.Ok"/> when all constraints pass (a mutation that changes
+	/// nothing is also <c>Ok</c> — use <see cref="ApplyDetailed"/> to tell the two apart) or
+	/// <see cref="Result{T}.Fail"/> when any are violated.
 	/// </summary>
-	public ChannelResult<T> Apply(T current, Func<T, T> mutation)
+	public Result<T> Apply(T current, Func<T, T> mutation) => ApplyDetailed(current, mutation) switch
 	{
-		var next = mutation(current);
-		if (EqualityComparer<T>.Default.Equals(current, next))
-			return new ChannelResult<T>.Noop(current);
-		var violations = RunAll(current, next);
-		return violations.Count == 0 ? new ChannelResult<T>.Applied(next) : new ChannelResult<T>.Failure(current, violations);
-	}
-
-	/// <summary>Like <see cref="Apply"/>, but throws on <see cref="ChannelResult{T}.Failure"/>. Returns the new value for both <see cref="ChannelResult{T}.Applied"/> and <see cref="ChannelResult{T}.Noop"/>.</summary>
-	public T ApplyOrThrow(T current, Func<T, T> mutation) => Apply(current, mutation) switch
-	{
-		ChannelResult<T>.Applied a => a.Value,
-		ChannelResult<T>.Noop n => n.Value,
-		ChannelResult<T>.Failure f => throw new InvalidOperationException($"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
+		ApplyOutcome<T>.Applied a => new Result<T>.Ok(a.Value),
+		ApplyOutcome<T>.Noop n => new Result<T>.Ok(n.Value),
+		ApplyOutcome<T>.Failure f => new Result<T>.Fail(f.Attempted, f.Violations),
 		_ => throw new UnreachableException(),
 	};
 
-	// Called by ConstraintChannel<T>.Apply after it has already computed `next` to avoid calling
+	/// <summary>
+	/// Like <see cref="Apply"/>, but distinguishes a mutation that produced the same value
+	/// (<see cref="ApplyOutcome{T}.Noop"/> — no constraints are run) from one that actually changed
+	/// it (<see cref="ApplyOutcome{T}.Applied"/>), and carries the original value on
+	/// <see cref="ApplyOutcome{T}.Failure"/>.
+	/// </summary>
+	public ApplyOutcome<T> ApplyDetailed(T current, Func<T, T> mutation)
+	{
+		var next = mutation(current);
+		if (EqualityComparer<T>.Default.Equals(current, next))
+			return new ApplyOutcome<T>.Noop(current);
+		var violations = RunAll(current, next);
+		return violations.Count == 0 ? new ApplyOutcome<T>.Applied(next) : new ApplyOutcome<T>.Failure(current, next, violations);
+	}
+
+	/// <summary>Like <see cref="ApplyDetailed"/>, but throws on <see cref="ApplyOutcome{T}.Failure"/>. Returns the new value for both <see cref="ApplyOutcome{T}.Applied"/> and <see cref="ApplyOutcome{T}.Noop"/>.</summary>
+	public T ApplyOrThrow(T current, Func<T, T> mutation) => ApplyDetailed(current, mutation) switch
+	{
+		ApplyOutcome<T>.Applied a => a.Value,
+		ApplyOutcome<T>.Noop n => n.Value,
+		ApplyOutcome<T>.Failure f => throw new InvalidOperationException($"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
+		_ => throw new UnreachableException(),
+	};
+
+	// Called by ConstrainedValue<T>.Apply after it has already computed `next` to avoid calling
 	// the mutation twice — the channel needs the value upfront to short-circuit on equality.
 	internal IReadOnlyList<Violation> RunAll(T current, T next) =>
 		[.. _constraints.SelectMany(c => c.Check(current, next).Select(v => v with { ConstraintId = c.Name })),];
@@ -540,67 +554,80 @@ public static class ConstraintSet
 	}
 }
 
-// ── ConstraintChannel<T> ──────────────────────────────────────────────────────
+// ── ConstrainedValue<T> ──────────────────────────────────────────────────────
 // A channel that holds a current value and enforces a constraint set on each mutation.
 
-public sealed class ConstraintChannel<T>
+public sealed class ConstrainedValue<T>
 {
 	private readonly ConstraintSet<T> _constraints;
 
 	public T Current { get; private set; }
 
-	internal ConstraintChannel(T initial, ConstraintSet<T> constraints)
+	internal ConstrainedValue(T initial, ConstraintSet<T> constraints)
 	{
 		Current = initial;
 		_constraints = constraints;
 	}
 
 	/// <summary>
-	/// Applies <paramref name="mutation"/> if every constraint passes and the value actually
-	/// changed; otherwise returns <see cref="ChannelResult{T}.Noop"/> or
-	/// <see cref="ChannelResult{T}.Failure"/> without updating <see cref="Current"/>.
+	/// Applies <paramref name="mutation"/> if every constraint passes, updating <see cref="Current"/>;
+	/// otherwise returns <see cref="Result{T}.Fail"/> and leaves it unchanged. A mutation that
+	/// changes nothing is <c>Ok</c> — see <see cref="ApplyDetailed"/> to detect it.
 	/// </summary>
-	public ChannelResult<T> Apply(Func<T, T> mutation)
+	public Result<T> Apply(Func<T, T> mutation) => ApplyDetailed(mutation) switch
+	{
+		ApplyOutcome<T>.Applied a => new Result<T>.Ok(a.Value),
+		ApplyOutcome<T>.Noop n => new Result<T>.Ok(n.Value),
+		ApplyOutcome<T>.Failure f => new Result<T>.Fail(f.Attempted, f.Violations),
+		_ => throw new UnreachableException(),
+	};
+
+	/// <summary>
+	/// Like <see cref="Apply"/>, but reports whether the value actually
+	/// changed; otherwise returns <see cref="ApplyOutcome{T}.Noop"/> or
+	/// <see cref="ApplyOutcome{T}.Failure"/> without updating <see cref="Current"/>.
+	/// </summary>
+	public ApplyOutcome<T> ApplyDetailed(Func<T, T> mutation)
 	{
 		var next = mutation(Current);
 		if (EqualityComparer<T>.Default.Equals(Current, next))
 		{
-			return new ChannelResult<T>.Noop(Current);
+			return new ApplyOutcome<T>.Noop(Current);
 		}
 		var violations = _constraints.RunAll(Current, next);
 		if (violations.Count == 0)
 		{
 			Current = next;
-			return new ChannelResult<T>.Applied(next);
+			return new ApplyOutcome<T>.Applied(next);
 		}
-		return new ChannelResult<T>.Failure(Current, violations);
+		return new ApplyOutcome<T>.Failure(Current, next, violations);
 	}
 
 	/// <summary>
-	/// Like <see cref="Apply"/>, but throws on <see cref="ChannelResult{T}.Failure"/>.
-	/// Returns the current value for both <see cref="ChannelResult{T}.Applied"/> and
-	/// <see cref="ChannelResult{T}.Noop"/> — a no-op is not an error.
+	/// Like <see cref="ApplyDetailed"/>, but throws on <see cref="ApplyOutcome{T}.Failure"/>.
+	/// Returns the current value for both <see cref="ApplyOutcome{T}.Applied"/> and
+	/// <see cref="ApplyOutcome{T}.Noop"/> — a no-op is not an error.
 	/// </summary>
-	public T ApplyOrThrow(Func<T, T> mutation) => Apply(mutation) switch
+	public T ApplyOrThrow(Func<T, T> mutation) => ApplyDetailed(mutation) switch
 	{
-		ChannelResult<T>.Applied a => a.Value,
-		ChannelResult<T>.Noop n => n.Value,
-		ChannelResult<T>.Failure f => throw new InvalidOperationException($"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
+		ApplyOutcome<T>.Applied a => a.Value,
+		ApplyOutcome<T>.Noop n => n.Value,
+		ApplyOutcome<T>.Failure f => throw new InvalidOperationException($"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
 		_ => throw new UnreachableException(),
 	};
 }
 
-public static class ConstraintChannel
+public static class ConstrainedValue
 {
-	public static ConstraintChannelBuilder<T> For<T>(T initial) => new(initial);
+	public static ConstrainedValueBuilder<T> For<T>(T initial) => new(initial);
 }
 
-/// <summary>Intermediate builder from <see cref="ConstraintChannel.For{T}"/> — call <see cref="Enforce"/> to finish.</summary>
-public readonly struct ConstraintChannelBuilder<T>
+/// <summary>Intermediate builder from <see cref="ConstrainedValue.For{T}"/> — call <see cref="Enforce"/> to finish.</summary>
+public readonly struct ConstrainedValueBuilder<T>
 {
 	private readonly T _initial;
 
-	internal ConstraintChannelBuilder(T initial) => _initial = initial;
+	internal ConstrainedValueBuilder(T initial) => _initial = initial;
 
-	public ConstraintChannel<T> Enforce(ConstraintSet<T> constraints) => new(_initial, constraints);
+	public ConstrainedValue<T> Enforce(ConstraintSet<T> constraints) => new(_initial, constraints);
 }

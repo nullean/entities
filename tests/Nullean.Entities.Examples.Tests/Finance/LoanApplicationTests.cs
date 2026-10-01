@@ -29,34 +29,34 @@ public class LoanApplicationTests
 	[Test]
 	public void Channel_Applied_on_submit()
 	{
-		var channel = ConstraintChannel.For(Draft()).Enforce(Constraints);
-		var result = channel.Apply(a => a with { Status = LoanStatus.Submitted });
-		result.Should().BeOfType<ChannelResult<LoanApplication>.Applied>();
+		var channel = ConstrainedValue.For(Draft()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(a => a with { Status = LoanStatus.Submitted });
+		result.Should().BeOfType<ApplyOutcome<LoanApplication>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Failure_on_approve_without_documents()
 	{
 		var submitted = Draft() with { Status = LoanStatus.Submitted };
-		var channel = ConstraintChannel.For(submitted).Enforce(Constraints);
-		var result = channel.Apply(a => a with { Status = LoanStatus.Approved });
-		result.Should().BeOfType<ChannelResult<LoanApplication>.Failure>();
+		var channel = ConstrainedValue.For(submitted).Enforce(Constraints);
+		var result = channel.ApplyDetailed(a => a with { Status = LoanStatus.Approved });
+		result.Should().BeOfType<ApplyOutcome<LoanApplication>.Failure>();
 	}
 
 	[Test]
 	public void Channel_Failure_on_illegal_transition_Draft_to_Approved()
 	{
-		var channel = ConstraintChannel.For(Draft()).Enforce(Constraints);
-		var result = channel.Apply(a => a with { Status = LoanStatus.Approved });
-		result.Should().BeOfType<ChannelResult<LoanApplication>.Failure>();
+		var channel = ConstrainedValue.For(Draft()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(a => a with { Status = LoanStatus.Approved });
+		result.Should().BeOfType<ApplyOutcome<LoanApplication>.Failure>();
 	}
 
 	[Test]
 	public void Channel_Applied_on_approve_with_valid_docs_and_credit()
 	{
 		var submitted = Draft() with { Status = LoanStatus.Submitted, Documents = [Doc("ID"), Doc("Income")] };
-		var channel = ConstraintChannel.For(submitted).Enforce(Constraints);
-		var result = channel.Apply(a => a with { Status = LoanStatus.Approved });
-		result.Should().BeOfType<ChannelResult<LoanApplication>.Applied>();
+		var channel = ConstrainedValue.For(submitted).Enforce(Constraints);
+		var result = channel.ApplyDetailed(a => a with { Status = LoanStatus.Approved });
+		result.Should().BeOfType<ApplyOutcome<LoanApplication>.Applied>();
 	}
 }

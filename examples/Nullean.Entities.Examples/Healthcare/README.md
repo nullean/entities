@@ -50,7 +50,7 @@ PatientRecordConstraints.All.Validate(recordWithAllergyConflict)
     .Should().ContainSingle(v => v.ConstraintId == "NoAllergicMedications");
 ```
 
-The `ChannelResult<PatientRecord>` pattern is demonstrated for the `AddMedication` and `Admit` mutations — invalid state is never committed.
+The `ApplyOutcome<PatientRecord>` pattern is demonstrated for the `AddMedication` and `Admit` mutations — invalid state is never committed.
 
 ## Why nested constraints matter here
 

@@ -36,9 +36,9 @@ public class CouponsTests
 	[Test]
 	public void Channel_Applied_when_adding_a_valid_coupon()
 	{
-		var channel = ConstraintChannel.For(new Cart(100m, [])).Enforce(Constraints);
-		var result = channel.Apply(c => c with { AppliedCoupons = [PercentOff("PCT10")] });
-		result.Should().BeOfType<ChannelResult<Cart>.Applied>();
+		var channel = ConstrainedValue.For(new Cart(100m, [])).Enforce(Constraints);
+		var result = channel.ApplyDetailed(c => c with { AppliedCoupons = [PercentOff("PCT10")] });
+		result.Should().BeOfType<ApplyOutcome<Cart>.Applied>();
 	}
 
 	[Test]

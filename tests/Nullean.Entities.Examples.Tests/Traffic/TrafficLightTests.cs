@@ -25,26 +25,26 @@ public class TrafficLightTests
 	[Test]
 	public void Channel_Applied_on_legal_Red_to_Green()
 	{
-		var channel = ConstraintChannel.For(Red()).Enforce(Constraints);
-		var result = channel.Apply(t => t.Advance());
-		result.Should().BeOfType<ChannelResult<TrafficLight>.Applied>();
+		var channel = ConstrainedValue.For(Red()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(t => t.Advance());
+		result.Should().BeOfType<ApplyOutcome<TrafficLight>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Failure_on_illegal_Red_to_Yellow()
 	{
-		var channel = ConstraintChannel.For(Red()).Enforce(Constraints);
-		var result = channel.Apply(t => t with { Signal = Signal.Yellow });
-		result.Should().BeOfType<ChannelResult<TrafficLight>.Failure>();
+		var channel = ConstrainedValue.For(Red()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(t => t with { Signal = Signal.Yellow });
+		result.Should().BeOfType<ApplyOutcome<TrafficLight>.Failure>();
 	}
 
 	[Test]
 	public void Full_cycle_Red_Green_Yellow_Red_all_Applied()
 	{
-		var channel = ConstraintChannel.For(Red()).Enforce(Constraints);
+		var channel = ConstrainedValue.For(Red()).Enforce(Constraints);
 
-		channel.Apply(t => t.Advance()).Should().BeOfType<ChannelResult<TrafficLight>.Applied>(); // Green
-		channel.Apply(t => t.Advance()).Should().BeOfType<ChannelResult<TrafficLight>.Applied>(); // Yellow
-		channel.Apply(t => t.Advance()).Should().BeOfType<ChannelResult<TrafficLight>.Applied>(); // Red again
+		channel.ApplyDetailed(t => t.Advance()).Should().BeOfType<ApplyOutcome<TrafficLight>.Applied>(); // Green
+		channel.ApplyDetailed(t => t.Advance()).Should().BeOfType<ApplyOutcome<TrafficLight>.Applied>(); // Yellow
+		channel.ApplyDetailed(t => t.Advance()).Should().BeOfType<ApplyOutcome<TrafficLight>.Applied>(); // Red again
 	}
 }

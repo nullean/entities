@@ -31,17 +31,17 @@ public class ShoppingCartTests
 	[Test]
 	public void Channel_Applied_when_adding_a_valid_line()
 	{
-		var channel = ConstraintChannel.For(new ShoppingCart([])).Enforce(Constraints);
-		var result = channel.Apply(c => c.AddLine(LineA));
-		result.Should().BeOfType<ChannelResult<ShoppingCart>.Applied>();
+		var channel = ConstrainedValue.For(new ShoppingCart([])).Enforce(Constraints);
+		var result = channel.ApplyDetailed(c => c.AddLine(LineA));
+		result.Should().BeOfType<ApplyOutcome<ShoppingCart>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Noop_when_clearing_an_empty_cart()
 	{
-		var channel = ConstraintChannel.For(new ShoppingCart([])).Enforce(Constraints);
-		var result = channel.Apply(c => c.Clear());
-		result.Should().BeOfType<ChannelResult<ShoppingCart>.Noop>();
+		var channel = ConstrainedValue.For(new ShoppingCart([])).Enforce(Constraints);
+		var result = channel.ApplyDetailed(c => c.Clear());
+		result.Should().BeOfType<ApplyOutcome<ShoppingCart>.Noop>();
 	}
 
 	[Test]

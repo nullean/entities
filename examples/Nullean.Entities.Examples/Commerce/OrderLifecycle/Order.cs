@@ -21,7 +21,7 @@ public sealed record OrderLine(string Sku, int Quantity, decimal Price)
 /// <summary>
 /// Immutable order value. Every mutation is a pure function returning the next value —
 /// illegal transitions are no-ops (return the same value) so Cancel is idempotent and
-/// ChannelResult.Noop fires whenever nothing changed.
+/// ApplyOutcome.Noop fires whenever nothing changed.
 /// </summary>
 public sealed record Order(Guid Id, OrderStatus Status, IReadOnlyList<OrderLine> Lines)
 {

@@ -30,30 +30,30 @@ public class OrderLifecycleTests
 	[Test]
 	public void Channel_Applied_on_legal_Confirm_transition()
 	{
-		var channel = ConstraintChannel.For(PendingOrder().AddLine(Line)).Enforce(Constraints);
-		var result = channel.Apply(o => o.Confirm());
-		result.Should().BeOfType<ChannelResult<Order>.Applied>();
+		var channel = ConstrainedValue.For(PendingOrder().AddLine(Line)).Enforce(Constraints);
+		var result = channel.ApplyDetailed(o => o.Confirm());
+		result.Should().BeOfType<ApplyOutcome<Order>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Noop_when_cancelling_already_cancelled_order()
 	{
 		var cancelled = Order.New(Guid.NewGuid()).Cancel();
-		var channel = ConstraintChannel.For(cancelled).Enforce(Constraints);
+		var channel = ConstrainedValue.For(cancelled).Enforce(Constraints);
 		// Cancel on a Cancelled order returns same value → Noop
-		var result = channel.Apply(o => o.Cancel());
-		result.Should().BeOfType<ChannelResult<Order>.Noop>();
+		var result = channel.ApplyDetailed(o => o.Cancel());
+		result.Should().BeOfType<ApplyOutcome<Order>.Noop>();
 	}
 
 	[Test]
 	public void Channel_Failure_on_illegal_Ship_from_Pending()
 	{
-		var channel = ConstraintChannel.For(PendingOrder().AddLine(Line)).Enforce(Constraints);
+		var channel = ConstrainedValue.For(PendingOrder().AddLine(Line)).Enforce(Constraints);
 		// Pending → Shipped skips Confirmed — transition constraint should reject
 		var shipped = PendingOrder().AddLine(Line) with { Status = OrderStatus.Shipped };
-		var channel2 = ConstraintChannel.For(PendingOrder().AddLine(Line)).Enforce(Constraints);
-		var result = channel2.Apply(_ => shipped);
-		result.Should().BeOfType<ChannelResult<Order>.Failure>();
+		var channel2 = ConstrainedValue.For(PendingOrder().AddLine(Line)).Enforce(Constraints);
+		var result = channel2.ApplyDetailed(_ => shipped);
+		result.Should().BeOfType<ApplyOutcome<Order>.Failure>();
 	}
 
 	[Test]

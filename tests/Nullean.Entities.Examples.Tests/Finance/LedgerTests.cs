@@ -34,17 +34,17 @@ public class LedgerTests
 	public void Channel_Failure_when_modifying_posted_entry()
 	{
 		var posted = Balanced() with { Status = EntryStatus.Posted };
-		var channel = ConstraintChannel.For(posted).Enforce(Constraints);
-		var result = channel.Apply(e => e with { Lines = [new("Cash", 200m, 0m), new("Rev", 0m, 200m)] });
-		result.Should().BeOfType<ChannelResult<JournalEntry>.Failure>();
+		var channel = ConstrainedValue.For(posted).Enforce(Constraints);
+		var result = channel.ApplyDetailed(e => e with { Lines = [new("Cash", 200m, 0m), new("Rev", 0m, 200m)] });
+		result.Should().BeOfType<ApplyOutcome<JournalEntry>.Failure>();
 	}
 
 	[Test]
 	public void Channel_Noop_when_no_change_to_posted_entry()
 	{
 		var posted = Balanced() with { Status = EntryStatus.Posted };
-		var channel = ConstraintChannel.For(posted).Enforce(Constraints);
-		var result = channel.Apply(e => e);
-		result.Should().BeOfType<ChannelResult<JournalEntry>.Noop>();
+		var channel = ConstrainedValue.For(posted).Enforce(Constraints);
+		var result = channel.ApplyDetailed(e => e);
+		result.Should().BeOfType<ApplyOutcome<JournalEntry>.Noop>();
 	}
 }

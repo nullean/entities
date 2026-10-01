@@ -35,18 +35,18 @@ public class SubscriptionTests
 	[Test]
 	public void Channel_Applied_on_activate()
 	{
-		var channel = ConstraintChannel.For(Trial()).Enforce(Constraints);
-		var result = channel.Apply(s => s.Activate(Period));
-		result.Should().BeOfType<ChannelResult<Subscription>.Applied>();
+		var channel = ConstrainedValue.For(Trial()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(s => s.Activate(Period));
+		result.Should().BeOfType<ApplyOutcome<Subscription>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Failure_on_illegal_transition_Active_to_Expired()
 	{
 		var active = Trial().Activate(Period);
-		var channel = ConstraintChannel.For(active).Enforce(Constraints);
-		var result = channel.Apply(s => s.Expire());
-		result.Should().BeOfType<ChannelResult<Subscription>.Failure>();
+		var channel = ConstrainedValue.For(active).Enforce(Constraints);
+		var result = channel.ApplyDetailed(s => s.Expire());
+		result.Should().BeOfType<ApplyOutcome<Subscription>.Failure>();
 	}
 
 	[Test]

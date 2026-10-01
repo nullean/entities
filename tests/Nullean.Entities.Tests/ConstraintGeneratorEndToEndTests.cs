@@ -21,19 +21,19 @@ internal sealed partial record GeneratedItem(int Value)
 public class SelfAttachedConstraintsTests
 {
 	[Test]
-	public void GeneratedType_implements_IHaveConstraints() => GeneratedItem.All.Should().BeAssignableTo<ConstraintSet<GeneratedItem>>();
+	public void GeneratedType_implements_IHaveConstraints() => GeneratedItem.Constraints.Should().BeAssignableTo<ConstraintSet<GeneratedItem>>();
 
 	[Test]
 	public void Generated_Constraints_bundles_every_Constraint_field()
 	{
-		var violations = GeneratedItem.All.Validate(new GeneratedItem(-1));
+		var violations = GeneratedItem.Constraints.Validate(new GeneratedItem(-1));
 		violations.Should().ContainSingle(v => v.ConstraintId == "Positive");
 	}
 
 	[Test]
 	public void Generated_Constraints_reflects_every_field_not_just_the_first()
 	{
-		var violations = GeneratedItem.All.Validate(new GeneratedItem(200));
+		var violations = GeneratedItem.Constraints.Validate(new GeneratedItem(200));
 		violations.Should().ContainSingle(v => v.ConstraintId == "Under100");
 	}
 
@@ -43,9 +43,9 @@ public class SelfAttachedConstraintsTests
 		// Only compiles if the generator really added `: IHaveConstraints<GeneratedItem>` to the
 		// partial declaration — this is the interface-conformance half of the contract, not just
 		// "there happens to be a static property with this name".
-		static ConstraintSet<T> ConstraintsOf<T>() where T : IHaveConstraints<T> => T.All;
+		static ConstraintSet<T> ConstraintsOf<T>() where T : IHaveConstraints<T> => T.Constraints;
 
-		ConstraintsOf<GeneratedItem>().Should().BeSameAs(GeneratedItem.All);
+		ConstraintsOf<GeneratedItem>().Should().BeSameAs(GeneratedItem.Constraints);
 	}
 }
 

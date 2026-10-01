@@ -26,16 +26,16 @@ public class DateRangeTests
 	[Test]
 	public void Channel_Failure_when_end_moves_backward()
 	{
-		var channel = ConstraintChannel.For(Valid).Enforce(Constraints);
-		var result = channel.Apply(r => r with { End = new DateOnly(2023, 1, 1) });
-		result.Should().BeOfType<ChannelResult<DateRange>.Failure>();
+		var channel = ConstrainedValue.For(Valid).Enforce(Constraints);
+		var result = channel.ApplyDetailed(r => r with { End = new DateOnly(2023, 1, 1) });
+		result.Should().BeOfType<ApplyOutcome<DateRange>.Failure>();
 	}
 
 	[Test]
 	public void Channel_Applied_when_end_moves_forward()
 	{
-		var channel = ConstraintChannel.For(Valid).Enforce(Constraints);
-		var result = channel.Apply(r => r with { End = new DateOnly(2025, 12, 31) });
-		result.Should().BeOfType<ChannelResult<DateRange>.Applied>();
+		var channel = ConstrainedValue.For(Valid).Enforce(Constraints);
+		var result = channel.ApplyDetailed(r => r with { End = new DateOnly(2025, 12, 31) });
+		result.Should().BeOfType<ApplyOutcome<DateRange>.Applied>();
 	}
 }

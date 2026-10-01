@@ -44,7 +44,7 @@ public readonly union OrderEvent(Placed, Confirmed, Shipped, Cancelled);
 These are runtime checks, not compile-time ones — but declared once, named, and next to the type.
 `[Constraints]` makes the *set* exhaustive at build time: tag the class once, and every static rule
 field declared on it is picked up automatically — add one and forget nothing, because there is
-nothing left to forget. `ConstraintChannel` turns "parse, don't validate" into **"apply, don't
+nothing left to forget. `ConstrainedValue` turns "parse, don't validate" into **"apply, don't
 mutate"**: an invalid next state is never committed, so it never reaches downstream code.
 
 ## Have `Nullean.Entities` say/enforce it in its stead
@@ -91,14 +91,17 @@ if every constraint passes — violations are returned, nothing is left in an in
 IReadOnlyList<Violation> problems = OrderConstraints.All.Validate(order);
 
 // Guarded mutation: only commit if every constraint passes.
-var channel = ConstraintChannel.For(order).Enforce(OrderConstraints.All);
+var channel = ConstrainedValue.For(order).Enforce(OrderConstraints.All);
 
-channel.Apply(o => o.Ship()) switch
+// Apply returns Result<Order>: Ok(newValue) or Fail(attempted, violations).
+// Need to know whether anything actually changed? ApplyDetailed adds a Noop case.
+channel.ApplyDetailed(o => o.Ship()) switch
 {
-    ChannelResult<Order>.Applied(var shipped)       => Save(shipped),
-    ChannelResult<Order>.Noop(var current)          => /* already shipped */ _ = current,
-    ChannelResult<Order>.Failure(_, var problems)   => Reject(problems),   // order is unchanged
+    ApplyOutcome<Order>.Applied(var shipped)                => Save(shipped),
+    ApplyOutcome<Order>.Noop(var current)                   => /* already shipped */ _ = current,
+    ApplyOutcome<Order>.Failure(_, _, var problems)         => Reject(problems),   // order is unchanged
 };
+
 ```
 
 ## `Nullean.Entities.Reactive` to enforce constraints over a stream of events
@@ -314,7 +317,7 @@ script.SampleWith(factory, events, spec, coverage: OrderLifecycle.Machine);
 
 | Package | What it adds | Depends on |
 |---|---|---|
-| `Nullean.Entities` | `Constraint<T>`, `ConstraintChannel`, `[Constraint]`/`[Constraints]` source generator | nothing |
+| `Nullean.Entities` | `Constraint<T>`, `ConstrainedValue`, `[Constraint]`/`[Constraints]` source generator | nothing |
 | `Nullean.Entities.Reactive` | `ReactiveConstraint<T>`, temporal operators, live monitoring | `System.Reactive` |
 | `Nullean.Entities.CsCheck` | `Script`, action-sequence testing, Bogus/AutoBogus generators | `CsCheck`, `Bogus` |
 

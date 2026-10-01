@@ -55,12 +55,14 @@ var next = result.Match(
 );
 ```
 
-`ApplyOrThrow` is the same thing without the `Match`. `ConstraintChannel<T>` wraps a single mutable
+`Apply` treats a mutation that changes nothing as `Ok`. When "nothing happened" matters (skip a
+save, skip an audit event), `ApplyDetailed` returns an `ApplyOutcome<T>` — `Applied`, `Noop` or
+`Failure` — instead. `ApplyOrThrow` is `Apply` without the `Match`. `ConstrainedValue<T>` wraps a single mutable
 `Current` value behind the same `Apply` semantics, so a caller can keep proposing mutations without
 re-plumbing the constraint set each time:
 
 ```csharp
-var channel = ConstraintChannel.For(new Item(1)).Enforce(constraints);
+var channel = ConstrainedValue.For(new Item(1)).Enforce(constraints);
 channel.Apply(item => item with { Value = 5 });   // Current is now 5
 channel.Apply(item => item with { Value = -1 });  // rejected; Current is still 5
 ```

@@ -42,25 +42,25 @@ public class DeploymentPipelineTests
 	[Test]
 	public void Channel_Applied_on_start()
 	{
-		var channel = ConstraintChannel.For(Queued()).Enforce(Constraints);
-		var result = channel.Apply(p => p.Start());
-		result.Should().BeOfType<ChannelResult<DeploymentPipeline>.Applied>();
+		var channel = ConstrainedValue.For(Queued()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(p => p.Start());
+		result.Should().BeOfType<ApplyOutcome<DeploymentPipeline>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Failure_on_illegal_Queued_to_Succeeded_transition()
 	{
-		var channel = ConstraintChannel.For(Queued()).Enforce(Constraints);
-		var result = channel.Apply(p => p.Complete());
-		result.Should().BeOfType<ChannelResult<DeploymentPipeline>.Failure>();
+		var channel = ConstrainedValue.For(Queued()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(p => p.Complete());
+		result.Should().BeOfType<ApplyOutcome<DeploymentPipeline>.Failure>();
 	}
 
 	[Test]
 	public void Channel_Applied_on_Running_to_Succeeded()
 	{
 		var running = Queued().Start();
-		var channel = ConstraintChannel.For(running).Enforce(Constraints);
-		var result = channel.Apply(p => p.Complete());
-		result.Should().BeOfType<ChannelResult<DeploymentPipeline>.Applied>();
+		var channel = ConstrainedValue.For(running).Enforce(Constraints);
+		var result = channel.ApplyDetailed(p => p.Complete());
+		result.Should().BeOfType<ApplyOutcome<DeploymentPipeline>.Applied>();
 	}
 }

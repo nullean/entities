@@ -23,7 +23,7 @@ Moving an amount between two accounts, modelled as a constraint over the `(From,
 - The sum of both balances must be unchanged by the move (`Conserves`).
 - An account cannot transfer to itself.
 
-`ChannelResult.Noop` fires on a zero-amount transfer — no constraints run, nothing is committed. Tests include a mutant (`LeakyMove` that creates money) to prove `Conserves` actually fires.
+`ApplyOutcome.Noop` fires on a zero-amount transfer — no constraints run, nothing is committed. Tests include a mutant (`LeakyMove` that creates money) to prove `Conserves` actually fires.
 
 ---
 

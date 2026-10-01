@@ -31,25 +31,25 @@ public class TemperatureTests
 	[Test]
 	public void Channel_Applied_on_valid_mutation()
 	{
-		var channel = ConstraintChannel.For(new Temperature(20)).Enforce(Constraints);
-		var result = channel.Apply(t => t with { Celsius = 100 });
-		result.Should().BeOfType<ChannelResult<Temperature>.Applied>();
+		var channel = ConstrainedValue.For(new Temperature(20)).Enforce(Constraints);
+		var result = channel.ApplyDetailed(t => t with { Celsius = 100 });
+		result.Should().BeOfType<ApplyOutcome<Temperature>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Noop_on_same_value()
 	{
-		var channel = ConstraintChannel.For(new Temperature(20)).Enforce(Constraints);
-		var result = channel.Apply(t => t);
-		result.Should().BeOfType<ChannelResult<Temperature>.Noop>();
+		var channel = ConstrainedValue.For(new Temperature(20)).Enforce(Constraints);
+		var result = channel.ApplyDetailed(t => t);
+		result.Should().BeOfType<ApplyOutcome<Temperature>.Noop>();
 	}
 
 	[Test]
 	public void Channel_Failure_on_invalid_mutation()
 	{
-		var channel = ConstraintChannel.For(new Temperature(20)).Enforce(Constraints);
-		var result = channel.Apply(_ => new Temperature(-300));
-		result.Should().BeOfType<ChannelResult<Temperature>.Failure>();
+		var channel = ConstrainedValue.For(new Temperature(20)).Enforce(Constraints);
+		var result = channel.ApplyDetailed(_ => new Temperature(-300));
+		result.Should().BeOfType<ApplyOutcome<Temperature>.Failure>();
 	}
 
 	[Test]

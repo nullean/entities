@@ -26,27 +26,27 @@ public class BankAccountTests
 	[Test]
 	public void Channel_Applied_on_deposit()
 	{
-		var channel = ConstraintChannel.For(Active()).Enforce(Constraints);
-		var result = channel.Apply(a => a.Deposit(50m));
-		result.Should().BeOfType<ChannelResult<BankAccount>.Applied>();
+		var channel = ConstrainedValue.For(Active()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(a => a.Deposit(50m));
+		result.Should().BeOfType<ApplyOutcome<BankAccount>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Failure_on_frozen_status_change()
 	{
 		var frozen = Active().Freeze();
-		var channel = ConstraintChannel.For(frozen).Enforce(Constraints);
-		var result = channel.Apply(a => a with { Status = AccountStatus.Closed });
-		result.Should().BeOfType<ChannelResult<BankAccount>.Failure>();
+		var channel = ConstrainedValue.For(frozen).Enforce(Constraints);
+		var result = channel.ApplyDetailed(a => a with { Status = AccountStatus.Closed });
+		result.Should().BeOfType<ApplyOutcome<BankAccount>.Failure>();
 	}
 
 	[Test]
 	public void Channel_Noop_on_freeze_already_frozen_account()
 	{
 		var frozen = Active().Freeze();
-		var channel = ConstraintChannel.For(frozen).Enforce(Constraints);
-		var result = channel.Apply(a => a.Freeze());
-		result.Should().BeOfType<ChannelResult<BankAccount>.Noop>();
+		var channel = ConstrainedValue.For(frozen).Enforce(Constraints);
+		var result = channel.ApplyDetailed(a => a.Freeze());
+		result.Should().BeOfType<ApplyOutcome<BankAccount>.Noop>();
 	}
 
 	[Test]

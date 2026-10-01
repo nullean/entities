@@ -41,9 +41,9 @@ public class SensorTests
 	[Test]
 	public void Channel_Applied_on_add_reading_within_range()
 	{
-		var channel = ConstraintChannel.For(Online()).Enforce(Constraints);
-		var result = channel.Apply(s => s.AddReading(new SensorReading(50.0, "°C", DateTimeOffset.UtcNow)));
-		result.Should().BeOfType<ChannelResult<Sensor>.Applied>();
+		var channel = ConstrainedValue.For(Online()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(s => s.AddReading(new SensorReading(50.0, "°C", DateTimeOffset.UtcNow)));
+		result.Should().BeOfType<ApplyOutcome<Sensor>.Applied>();
 	}
 
 	[Test]

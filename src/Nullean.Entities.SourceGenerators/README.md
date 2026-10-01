@@ -24,13 +24,13 @@ Two independent discovery pipelines feed the same grouping/validation/emission p
   type is silently dropped by that same filter, with no diagnostic, since it was never going to be
   auto-discovered either way and `[Constraint]` is simply inert once `[Constraints]` is present.
 
-The merged member list groups by containing type, and emits one `Constraints` property per group:
+The merged member list groups by containing type, and emits one static property per group — `Constraints` when the type constrains itself (`Order.Constraints.Apply(...)`), `All` on a companion class (`OrderConstraints.All.Validate(...)`; `OrderConstraints.Constraints` would stutter):
 
 - `Constraint<T>` members where the containing type **is** `T` — the domain type declares its own
   rules — get `IHaveConstraints<T>` (F-bounded, static-abstract) added to the same partial
   declaration too, so `events.AttachConstraints()` (`Nullean.Entities.Reactive`) just works.
 - `Constraint<T>` members on any other partial type (a companion "spec" class) get the same plain
-  `ConstraintSet<T> Constraints` property, plus a nested `TypeConstraints` struct implementing
+  `ConstraintSet<T> All` property, plus a nested `TypeConstraints` struct implementing
   `IConstraintsFor<T>` — a plain *instance* interface, unlike `IHaveConstraints<T>`, so
   `SpecClass.TypeConstraints.Instance` is a value generic code can take as a parameter (inferring
   `T` from it) rather than only a type to constrain on. It's nested, never on the spec class's own

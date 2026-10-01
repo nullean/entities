@@ -33,25 +33,25 @@ public class SupportTicketTests
 	[Test]
 	public void Channel_Applied_on_assign()
 	{
-		var channel = ConstraintChannel.For(Open()).Enforce(Constraints);
-		var result = channel.Apply(t => t.Assign("agent-1"));
-		result.Should().BeOfType<ChannelResult<SupportTicket>.Applied>();
+		var channel = ConstrainedValue.For(Open()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(t => t.Assign("agent-1"));
+		result.Should().BeOfType<ApplyOutcome<SupportTicket>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Failure_on_illegal_Open_to_Resolved_transition()
 	{
-		var channel = ConstraintChannel.For(Open()).Enforce(Constraints);
+		var channel = ConstrainedValue.For(Open()).Enforce(Constraints);
 		var resolved = Open() with { Status = TicketStatus.Resolved, ResolvedAt = DateTimeOffset.UtcNow };
-		var result = channel.Apply(_ => resolved);
-		result.Should().BeOfType<ChannelResult<SupportTicket>.Failure>();
+		var result = channel.ApplyDetailed(_ => resolved);
+		result.Should().BeOfType<ApplyOutcome<SupportTicket>.Failure>();
 	}
 
 	[Test]
 	public void Channel_Noop_when_no_mutation()
 	{
-		var channel = ConstraintChannel.For(Open()).Enforce(Constraints);
-		var result = channel.Apply(t => t);
-		result.Should().BeOfType<ChannelResult<SupportTicket>.Noop>();
+		var channel = ConstrainedValue.For(Open()).Enforce(Constraints);
+		var result = channel.ApplyDetailed(t => t);
+		result.Should().BeOfType<ApplyOutcome<SupportTicket>.Noop>();
 	}
 }

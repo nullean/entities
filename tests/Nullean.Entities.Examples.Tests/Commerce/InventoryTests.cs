@@ -23,17 +23,17 @@ public class InventoryTests
 	[Test]
 	public void Channel_Applied_on_restock()
 	{
-		var channel = ConstraintChannel.For(new StockItem("A", 10, 0)).Enforce(Constraints);
-		var result = channel.Apply(s => s.Restock(5));
-		result.Should().BeOfType<ChannelResult<StockItem>.Applied>();
+		var channel = ConstrainedValue.For(new StockItem("A", 10, 0)).Enforce(Constraints);
+		var result = channel.ApplyDetailed(s => s.Restock(5));
+		result.Should().BeOfType<ApplyOutcome<StockItem>.Applied>();
 	}
 
 	[Test]
 	public void Channel_Failure_when_reserving_more_than_available()
 	{
-		var channel = ConstraintChannel.For(new StockItem("A", 5, 0)).Enforce(Constraints);
-		var result = channel.Apply(s => s.Reserve(10));
-		result.Should().BeOfType<ChannelResult<StockItem>.Failure>();
+		var channel = ConstrainedValue.For(new StockItem("A", 5, 0)).Enforce(Constraints);
+		var result = channel.ApplyDetailed(s => s.Reserve(10));
+		result.Should().BeOfType<ApplyOutcome<StockItem>.Failure>();
 	}
 
 	[Test]
