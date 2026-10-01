@@ -8,6 +8,51 @@ Two things, both [CsCheck](https://github.com/AnthonyLloyd/CsCheck) integration:
 through CsCheck's own `PCG` instead of Bogus's default `Random`. The two share a package because
 they're the two ways this repo drives CsCheck; nothing below requires using both together.
 
+## New to property testing?
+
+A normal test picks inputs by hand and checks the output. A **property test** states a rule that
+must hold for *every* input, then lets a library generate hundreds of inputs hunting for one that
+breaks it. [CsCheck](https://github.com/AnthonyLloyd/CsCheck) is that library, and it adds three
+things worth knowing:
+
+- **Shrinking.** When it finds a failure it keeps simplifying the input until it is the smallest one
+  that still fails, so you get "Place, Ship" instead of a 40-step walk.
+- **Seeds.** Every failure prints a seed. Pass it back (`seed: "..."`) and the exact failing run replays.
+- **Virtual time.** Under this package, delays between steps advance a fake clock instead of sleeping,
+  so a 72-hour deadline tests in milliseconds.
+
+The rules here are the **constraints you already declared** on your domain (`Nullean.Entities`,
+`Nullean.Entities.Reactive`). You do not write assertions. You describe what the system *can do*
+(a `Script<TSut>` of steps) and hand over the constraints. The package does the rest:
+
+```csharp
+// 1. Steps the system can take. Arguments are generated (and shrunk) each time a step is picked.
+var script = Script.For<OrderService>()
+    .Step("Place",   OrderIds, (svc, id) => svc.Place(id))
+    .Step("Confirm", OrderIds, (svc, id) => svc.Confirm(id))
+    .Step("Ship",    OrderIds, (svc, id) => svc.Ship(id));
+
+// 2. Run random walks of those steps and check every constraint on the resulting events.
+script.SampleWith(_ => new OrderService(), svc => svc.Events, OrderStateSpec.All);
+```
+
+`OrderIds` is a small pool of IDs (see the next section for why it must be small). If a walk
+violates a constraint, the test fails with the shrunk walk and the seed.
+
+### Why the ID pool matters
+
+`Gen.Guid` looks like the obvious choice for an ID, and it makes this test pass without testing
+anything: a random GUID never matches an order that `Place` created, so `Confirm` and `Ship` are
+silent no-ops and `NeverShippedWithoutConfirmation` is never exercised. Use a handful of IDs so steps
+collide:
+
+```csharp
+static readonly Gen<Guid> OrderIds = Gen.Int[1, 3].Select(i => new Guid(i, 0, 0, new byte[8]));
+```
+
+That a green test can prove nothing is the most common property-testing mistake, so the package
+checks for it. See [Vacuity](#vacuity--a-green-test-that-proved-nothing).
+
 ## Testing qualities, not just assertions
 
 Every CsCheck testing style still needs something to assert. The usual answer is a fresh predicate
@@ -20,8 +65,8 @@ different terminal call on the same spec.
 |---|---|---|---|
 | Absent | `Sample` | `Never<T1,T2>` | Built — `Nullean.Entities.Reactive` |
 | Temporal | `Sample` | `After().Then().Within()` | Built — `Nullean.Entities.Reactive` |
-| Vacancy, weak | `Sample` + `classify` | coverage table | Built — CsCheck's own `classify` |
-| Vacancy, proved | `Spec.Exhaustive`/`Reachable` | — | Needs a pure state machine; separate topic |
+| Vacuity, sampled | `SampleWith(..., Coverage)` | `Coverage<TEvent>.Expect` | Built — this package |
+| Vacuity, proved | `Spec.Exhaustive`/`Reachable` | — | Needs a pure state machine; separate topic |
 | Liveness, unbounded | `Sample` | `Eventually<T>` | Built — `Nullean.Entities.Reactive` |
 | Idempotency | `Sample` | `Idempotent(action)` | Built — `Nullean.Entities` |
 | Monotonicity | `Sample`, step-scoped | `Monotonic(selector, direction)` | Built — `Nullean.Entities` |
@@ -32,8 +77,9 @@ different terminal call on the same spec.
 
 ```csharp
 var script = Script.For<OrderService>()
-    .Step("Confirm", Gen.Guid, (svc, id) => svc.Confirm(id))
-    .Step("Ship", Gen.Guid, (svc, id) => svc.Ship(id));
+    .Step("Place", OrderIds, (svc, id) => svc.Place(id))
+    .Step("Confirm", OrderIds, (svc, id) => svc.Confirm(id))
+    .Step("Ship", OrderIds, (svc, id) => svc.Ship(id));
 
 script.SampleWith(_ => new OrderService(), svc => svc.Events, OrderStateSpec.All);
 ```
@@ -43,59 +89,99 @@ CsCheck-specific to write beyond the script's own steps.
 
 ### Temporal — the same walk, with generated delays
 
-```csharp
-var script = Script.For<OrderService>()
-    .Step("Confirm", Gen.Guid, (svc, id) => svc.Confirm(id))
-    .Step("Ship", Gen.Guid, (svc, id) => svc.Ship(id))
-    .Delays(Gen.Int[0, 72 * 3600].Select(s => TimeSpan.FromSeconds(s)));
+Deadlines ("a confirmed order ships or is cancelled within 60 seconds", "a retry waits at least 2 seconds") are
+where hand-written tests are weakest: you pick one delay and hope. Add `.Delays(...)` and CsCheck
+picks them, including ones you would not have thought to try:
 
-script.SampleWith(_ => new OrderService(), svc => svc.Events, OrderStateSpec.All);
+```csharp
+// The rule, declared once on the domain (Nullean.Entities.Reactive):
+public static readonly ReactiveConstraint<OrderStateEvent> ConfirmedEventuallyTerminates =
+    After<OrderStateEvent.Confirmed>()
+        .Then<OrderStateEvent.Shipped, OrderStateEvent.Cancelled>(
+            m1: (confirmed, shipped) => shipped.OrderId == confirmed.OrderId,
+            m2: (confirmed, cancelled) => cancelled.OrderId == confirmed.OrderId)
+        .Within(TimeSpan.FromSeconds(60));
+
+// The test: the same steps, plus a generated pause before every step.
+var script = Script.For<OrderService>()
+    .Step("Place", OrderIds, (svc, id) => svc.Place(id))
+    .Step("Confirm", OrderIds, (svc, id) => svc.Confirm(id))
+    .Step("Ship", OrderIds, (svc, id) => svc.Ship(id))
+    .Delays(Gen.Int[0, 72 * 3600].Select(s => TimeSpan.FromSeconds(s)))
+    .Length(2, 12);
+
+script.SampleWith(scheduler => new OrderService(scheduler), svc => svc.Events, OrderStateSpec.All);
 ```
 
-Generated delays eventually land past the 60-second deadline `ConfirmedEventuallyTerminates` allows
-and shrink to the smallest violating gap.
+What happens under the hood:
 
-### Vacancy — coverage today, proof later
+- **The clock is virtual.** `SampleWith` hands your factory an Rx `HistoricalScheduler`. Before each
+  step it advances that scheduler by the step's generated delay, so a 72-hour gap costs nothing.
+- **Your SUT must use that scheduler for time.** Pass it to anything that waits or timestamps
+  (`Observable.Timer(..., scheduler)`, `scheduler.Now`). A SUT that calls `DateTime.UtcNow` or
+  `Task.Delay` is invisible to virtual time and the deadline can never be missed. Time-aware
+  constraints from the core package (`NotInFuture`, `NotOlderThan`, `Always((x, now) => ...)`) read the
+  same virtual clock when attached with `ToReactive()`.
+- **Delays shrink.** A failure reports the smallest gap that still breaks the deadline, e.g. 61
+  seconds rather than 41 hours.
+- **A pending deadline at the end of a run is not a violation.** Delays apply *before* each step, never
+  after the last one, so an obligation still open when the walk ends stays `Pending`. If you want
+  the final deadline checked, end the script with a step whose pre-delay is long enough to cross it
+  (a no-op `Step("Wait", _ => { })` works) or use `Eventually<T>` for unbounded liveness.
+- **Pick a delay range that straddles the deadline.** `Gen.Int[0, 5]` against a 60-second deadline
+  can never fail, which is a vacuous test again. `Coverage` (next section) is how you catch it.
 
-`Script<TSut>`/`SampleWith` drive CsCheck's boolean `Sample` overload — the string-`classify`
-overload needs a `Gen<T>` built by hand instead, so vacancy checking builds its own generator rather
-than going through the script:
+### Vacuity — a green test that proved nothing
+
+A constraint like `NeverShippedWithoutConfirmation` passes trivially if no run ever ships. The
+same goes for `After<Confirmed>().Then<Shipped, Cancelled>().Within(60s)` when no run ever confirms. Green
+means "no violation found", which is only evidence if the interesting events happened. Name the
+events that must show up and `SampleWith` fails the test when they do not:
 
 ```csharp
-var seenOutcomes = new HashSet<string>();
+var coverage = new Coverage<OrderStateEvent>()
+    .Expect("Confirmed", e => e is OrderStateEvent.Confirmed)                  // seen in at least one run
+    .Expect("Shipped",   e => e is OrderStateEvent.Shipped, minPercentOfRuns: 5) // and in 5%+ of runs
+    .Expect("Cancelled", e => e is OrderStateEvent.Cancelled);
 
-GenSteps.Sample(
-    steps =>
-    {
-        using var service = new OrderService();
-        var reached = new HashSet<string>();
-        using var subscription = service.Events.Subscribe(e => reached.Add(e switch
-        {
-            OrderEvent.Shipped => "Shipped",
-            OrderEvent.Cancelled => "Cancelled",
-            _ => null!,
-        }));
-
-        Apply(service, steps); // Place/AddLine/Confirm/Ship/Cancel over a small pool of order IDs
-
-        var classification = reached.Count == 0 ? "neither" : string.Join("+", reached.OrderBy(x => x, StringComparer.Ordinal));
-        seenOutcomes.Add(classification);
-        return classification;
-    },
+script.SampleWith(
+    scheduler => new OrderService(scheduler),
+    svc => svc.Events,
+    OrderStateSpec.All,
+    coverage,
     writeLine: Console.WriteLine
 );
-
-seenOutcomes.Should().Contain("Shipped");
-seenOutcomes.Should().Contain("Cancelled");
 ```
 
-The coverage table (from `writeLine`) shows whether `Shipped`/`Cancelled` were reached at all
-across the sample — that is what makes a constraint like `NeverShippedWithoutConfirmation` meaningful
-rather than vacuously true because the interesting case never arose. That's "not seen in N runs,"
-not "provably unreachable" — a real finding either way, but proving unreachability needs
-`Reachable`/`Exhaustive` against a pure state machine, which is a separate, explicit design (see the
-reminder at the end of this section). Full runnable version:
-`examples/Nullean.Entities.CsCheck.Examples/OrderDomainExamples.cs`'s `OrderCoverageExamples`.
+`writeLine` prints how often each event occurred:
+
+```
+Coverage over 100 runs:
+  Confirmed                          61 runs (61.0%)
+  Shipped                            23 runs (23.0%)
+  Cancelled                          34 runs (34.0%)
+```
+
+If an expectation is not met the test throws `VacuousPropertyException` naming it, even though no
+constraint was violated:
+
+```
+The sample passed vacuously: "Shipped" never occurred.
+Widen the script (more steps, a longer Length, different Delays) or fix the generator so these events are reachable.
+```
+
+Rules of thumb:
+
+- Add one `Expect` for the **trigger** of every temporal constraint (`Confirmed` for
+  `After<Confirmed>()...`) and one for the **thing it forbids or promises** (`Shipped`).
+- Use `minPercentOfRuns` when rare is not good enough. A deadline test that crosses the deadline in
+  2% of runs is thin evidence.
+- A real violation still fails as a normal CsCheck failure with a shrunk walk and seed. Coverage
+  is only checked once the sample otherwise passes.
+- Coverage is skipped when you pass `seed:`. Replaying one seed is a single run, too few to judge.
+- This is "not seen in N runs", not "provably unreachable". Proving a state unreachable needs an
+  exhaustive search over a pure state machine, which is a separate design (see the note at the end
+  of this section).
 
 ### Liveness — unconditional, unlike `After().Then().Within()`
 
@@ -187,8 +273,9 @@ that doesn't" — shrunk down to the smallest such pair, the same as every other
 ```csharp
 var script = Script.For<OrderService>()
     .Step("Place", Gen.Guid, (svc, id) => svc.Place(id))
-    .Step("Confirm", Gen.Guid, (svc, id) => svc.Confirm(id))
-    .Step("Ship", Gen.Guid, (svc, id) => svc.Ship(id))
+    .Step("Place", OrderIds, (svc, id) => svc.Place(id))
+    .Step("Confirm", OrderIds, (svc, id) => svc.Confirm(id))
+    .Step("Ship", OrderIds, (svc, id) => svc.Ship(id))
     .Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)))
     .Length(1, 20); // default 0–10 if omitted
 ```
@@ -308,6 +395,8 @@ dotnet add package Nullean.Entities.CsCheck
 
 - [Source & full documentation](https://github.com/nullean/entities) — see `AGENTS.md` for what's
   built and what's still open here.
+- [CsCheck](https://github.com/AnthonyLloyd/CsCheck) — the property-testing library underneath:
+  generators, shrinking, seeds.
 - [Nullean.Entities.Reactive](https://www.nuget.org/packages/Nullean.Entities.Reactive) — the
   constraint sets `Script<TSut>` will check against a generated run.
 - License: MIT

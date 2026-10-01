@@ -96,6 +96,22 @@ public static partial class ScriptExtensions
 		return !monitored.AnyViolated;
 	}
 
+	private static bool RunAndCheck<TSut, TEvent>(
+		ScriptRun<TSut> run,
+		Func<TSut, IObservable<TEvent>> events,
+		ReactiveConstraintSet<TEvent> constraints,
+		CoverageTally<TEvent> tally
+	)
+	{
+		var source = events(run.Sut);
+		var seen = tally.NewRun();
+		using var subscription = source.Subscribe(e => tally.Observe(seen, e));
+		var monitored = constraints.Attach(source, run.Scheduler);
+		run.Execute();
+		tally.Complete(seen);
+		return !monitored.AnyViolated;
+	}
+
 	private static string? ExtractSeed(string exceptionMessage)
 	{
 		var match = SeedPattern().Match(exceptionMessage);
@@ -111,6 +127,32 @@ public static partial class ScriptExtensions
 		long iter = -1,
 		string? seed = null
 	) => BuildGen(script, factory).Sample(run => RunAndCheck(run, events, constraints), seed: seed, iter: iter, print: run => run.Print());
+
+	/// <summary>
+	/// <see cref="SampleWith{TSut, TEvent}(Script{TSut}, Func{IScheduler, TSut}, Func{TSut, IObservable{TEvent}}, ReactiveConstraintSet{TEvent}, long, string)"/>
+	/// that also refuses to pass vacuously: once the sample succeeds, every
+	/// <see cref="Coverage{TEvent}.Expect"/>ed event must have been produced, otherwise
+	/// <see cref="VacuousPropertyException"/> is thrown. Skipped when <paramref name="seed"/> is
+	/// given — replaying one seed is a single run, too small a sample to judge coverage by.
+	/// </summary>
+	public static void SampleWith<TSut, TEvent>(
+		this Script<TSut> script,
+		Func<IScheduler, TSut> factory,
+		Func<TSut, IObservable<TEvent>> events,
+		ReactiveConstraintSet<TEvent> constraints,
+		Coverage<TEvent> coverage,
+		long iter = -1,
+		string? seed = null,
+		Action<string>? writeLine = null
+	)
+	{
+		var tally = new CoverageTally<TEvent>(coverage);
+		BuildGen(script, factory).Sample(run => RunAndCheck(run, events, constraints, tally), seed: seed, iter: iter, print: run => run.Print());
+		if (seed is null)
+		{
+			tally.Verify(writeLine);
+		}
+	}
 
 	// Convenience overload: event type carries its own constraints (IHaveConstraints<TEvent>).
 	// The C# 11 static-abstract constraint eliminates the separate constraints argument.
