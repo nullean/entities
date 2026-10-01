@@ -171,6 +171,34 @@ public sealed class Constraint<T>
 	/// </summary>
 	public IEnumerable<Violation> CheckAt(T previous, T next, TimeProvider time) => _checkAt(previous, next, time);
 
+	/// <summary>
+	/// Set by <c>When(guard).Requires(...)</c>: the condition under which this constraint has anything
+	/// to say. A test driver can ask "was the guard ever true?" to tell a constraint that held from one
+	/// that was never exercised.
+	/// </summary>
+	public Func<T, bool>? Guard { get; private set; }
+
+	/// <summary>
+	/// Set by <c>Transitions(selector).Allow(...)</c>: names the state a value is in (<see cref="StateOf"/>)
+	/// and every legal edge (<see cref="Edges"/>), so a test driver can check each edge is reachable.
+	/// </summary>
+	public Func<T, string>? StateOf { get; private set; }
+
+	public IReadOnlyList<(string From, string To)>? Edges { get; private set; }
+
+	internal Constraint<T> WithGuard(Func<T, bool> guard)
+	{
+		Guard = guard;
+		return this;
+	}
+
+	internal Constraint<T> WithEdges(Func<T, string> stateOf, IReadOnlyList<(string From, string To)> edges)
+	{
+		StateOf = stateOf;
+		Edges = edges;
+		return this;
+	}
+
 	public Constraint<T> Named(string name)
 	{
 		Name = name;
@@ -415,7 +443,7 @@ public sealed class WhenBuilder<T>
 			(_, next) =>
 				!_guard(next) || requirement(next) ? [] : [Violation.Error(message ?? $"{self.Name ?? "Constraint"} was violated.") with { Evidence = next }]
 		);
-		return self;
+		return self.WithGuard(_guard);
 	}
 }
 
@@ -456,11 +484,17 @@ public sealed class TransitionBuilder<T, TState>
 		{
 			var from = selector(prev);
 			var to = selector(next);
+			// Staying in the same state is not a transition: a mutation that changes some other field
+			// (AddLine on a Pending order) must not be rejected for leaving the status alone.
+			if (EqualityComparer<TState>.Default.Equals(from, to))
+			{
+				return [];
+			}
 			return allowed.Any(edge => EqualityComparer<TState>.Default.Equals(edge.From, from) && EqualityComparer<TState>.Default.Equals(edge.To, to))
 				? []
 				: [Violation.Error($"{self.Name ?? "Constraint"} does not allow the transition from {from} to {to}.") with { Evidence = (from, to) }];
 		});
-		return self;
+		return self.WithEdges(v => $"{selector(v)}", [.. allowed.Select(e => ($"{e.From}", $"{e.To}"))]);
 	}
 }
 
@@ -510,7 +544,7 @@ public sealed class ConstraintsAttribute : Attribute
 /// type using the per-member <see cref="ConstraintAttribute"/> opt-in instead — there, simply not
 /// tagging the member already excludes it.
 /// </summary>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method)]
 public sealed class ConstraintIgnoreAttribute : Attribute
 {
 }

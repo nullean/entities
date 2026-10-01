@@ -57,9 +57,9 @@ Every project multi-targets `net10.0;net11.0` (the source generator stays on `ne
 `AGENTS.md`'s multi-targeting section for the `LangVersion`/union-constraint findings behind it.
 `Script<TSut>`, `SampleWith`/`RunWith`/`Metamorphic`, and the new constraint shapes (`Idempotent`,
 `Monotonic`, `Conserves`, `Eventually<T>`) are implemented and tested on both TFMs — an
-`Order`/`OrderLine`/`OrderEvent` domain in `examples/Nullean.Entities.CsCheck.Examples` exercises
-every testing quality (absence, temporal, liveness, idempotency, monotonicity, conservation,
-confluence) end to end.
+`EntitySpec<T>` (`ConstraintSet<T>.Spec(initial, Actions)`) turns an entity's constraints plus its
+generated `Actions` into one-line `Exhaustive`/`Sample`/`Mermaid`/`Faults`/`Conform`/`Commutes` tests;
+`tests/Nullean.Entities.Examples.Tests/AutoTests` runs them against the example domains.
 
 Still open: the spike questions in `AGENTS.md` that gate a 1.0 (shrinking quality, early-exit cost,
 global-lock throughput, `faker.ToGen()` support).

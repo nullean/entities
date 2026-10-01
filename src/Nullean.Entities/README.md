@@ -197,7 +197,8 @@ var paymentRefRequired = Constraints<Order>
 Hand-writing a `switch` of legal `(prev, next)` pairs works, but it's tedious and easy to get wrong
 (a missed case, a backwards tuple) once there are more than two or three. `Transitions<TState>`
 takes a selector and an explicit allow-list instead — one `Allow(from, to)` per legal edge, violated
-on anything not in it:
+on any change of the selected value that is not in it. A mutation that leaves the selected value
+alone (adding a line to a `Pending` order) is not a transition and is never rejected:
 
 ```csharp
 var legalTransitions = Constraints<Order>

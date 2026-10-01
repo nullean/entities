@@ -9,6 +9,7 @@
     <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="CsCheck" />
     <ProjectReference Include="../../examples/Nullean.Entities.Examples/Nullean.Entities.Examples.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
     <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
     <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" />

@@ -279,8 +279,55 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			selfAttach ? "Constraints" : "All",
 			"global::Nullean.Entities.ConstraintSet.From(",
 			members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})"),
-			nested
+			nested,
+			ActionsMember(typeArgument, typeArgDisplay)
 		);
+	}
+
+	/// <summary>
+	/// An `Actions` property listing every public instance method on T that returns T and takes zero
+	/// or one by-value argument — the entity's mutations as plain data (EntityActions&lt;T&gt;), so a
+	/// test driver can walk its reachable states without reflection. Null when there are none.
+	/// [ConstraintIgnore] on a method excludes it; methods with two or more parameters are not
+	/// representable as a single-argument action and are skipped.
+	/// </summary>
+	private static string? ActionsMember(ITypeSymbol typeArgument, string typeArgDisplay)
+	{
+		var entries = new List<string>();
+		foreach (var method in typeArgument.GetMembers().OfType<IMethodSymbol>())
+		{
+			if (method.MethodKind != MethodKind.Ordinary
+				|| method.IsStatic
+				|| method.IsImplicitlyDeclared
+				|| method.IsGenericMethod
+				|| method.DeclaredAccessibility != Accessibility.Public
+				|| method.Parameters.Length > 1
+				|| !SymbolEqualityComparer.Default.Equals(method.ReturnType, typeArgument)
+				|| method.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnoreAttributeMetadataName))
+			{
+				continue;
+			}
+			if (method.Parameters.Length == 1 && (method.Parameters[0].RefKind != RefKind.None || method.Parameters[0].Type.IsRefLikeType))
+			{
+				continue;
+			}
+
+			var name = method.Name;
+			if (method.Parameters.Length == 0)
+			{
+				entries.Add($"new global::Nullean.Entities.EntityAction<{typeArgDisplay}>(\"{name}\", null, (x, _) => x.{name}())");
+			}
+			else
+			{
+				var argDisplay = method.Parameters[0].Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+				entries.Add(
+					$"new global::Nullean.Entities.EntityAction<{typeArgDisplay}>(\"{name}\", typeof({argDisplay}), (x, a) => x.{name}(({argDisplay})a!))"
+				);
+			}
+		}
+		return entries.Count == 0
+			? null
+			: $"public static global::Nullean.Entities.EntityActions<{typeArgDisplay}> Actions {{ get; }} = new(\n            {string.Join(",\n            ", entries)}\n        );";
 	}
 
 	private static string GenerateReactive(INamedTypeSymbol type, ITypeSymbol typeArgument, ImmutableArray<MemberInfo> members)
@@ -325,7 +372,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		string propertyName,
 		string factoryCall,
 		IEnumerable<string> args,
-		string? nestedType = null
+		string? nestedType = null,
+		string? actionsMember = null
 	)
 	{
 		var ns = type.ContainingNamespace.IsGlobalNamespace ? null : type.ContainingNamespace.ToDisplayString();
@@ -354,6 +402,11 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		sb.AppendLine($"{indent}        {factoryCall}");
 		sb.AppendLine($"{indent}            {argList}");
 		sb.AppendLine($"{indent}        );");
+		if (actionsMember is not null)
+		{
+			sb.AppendLine();
+			sb.AppendLine($"{indent}    {actionsMember}");
+		}
 		if (nestedType is not null)
 		{
 			sb.AppendLine();

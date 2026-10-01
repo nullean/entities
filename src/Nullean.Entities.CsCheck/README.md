@@ -53,6 +53,66 @@ static readonly Gen<Guid> OrderIds = Gen.Int[1, 3].Select(i => new Guid(i, 0, 0,
 That a green test can prove nothing is the most common property-testing mistake, so the package
 checks for it. See [Vacuity](#vacuity--a-green-test-that-proved-nothing).
 
+## One line per test style
+
+If your entity is an immutable record whose methods return the next value (`order.Confirm()`), you
+declared everything a test needs when you wrote its constraints. `[Constraints]` also generates
+`OrderConstraints.Actions` (every public method on `Order` that returns `Order` and takes at most one
+argument), and `.Spec(...)` hands both to CsCheck's state-machine engine:
+
+```csharp
+var spec = OrderConstraints.All
+    .Spec(Order.New(id), OrderConstraints.Actions)
+    .Domain(lineA, lineB)            // the values to try for AddLine(OrderLine)
+    .Domain("A", "B")                // ...and for RemoveLine(string sku)
+    .Boundary(o => o.Lines.Count < 2)
+    .Key(o => (o.Status, string.Join(",", o.Lines.Select(l => l.Sku))));   // what makes two orders "the same state"
+```
+
+| You want to know | One line | What CsCheck does |
+|---|---|---|
+| Can any sequence of actions break a constraint? | `spec.Exhaustive()` | Visits **every** reachable state and step. Passing is a proof, not a sample. Failing gives the shortest counterexample. |
+| Did that proof exercise anything? | (built into `Exhaustive`) | Fails if a `When` guard is never true or an `Allow`ed transition is never taken. |
+| The state space is too big to close | `spec.Sample()` | Random walks, shrunk to the shortest failing walk. |
+| What does the lifecycle look like? | `spec.Mermaid()` | The reachable state graph as a Mermaid diagram. |
+| Did behaviour change by accident? | `spec.Snapshot(expected)` | Hashes the state graph (pass `0`, copy the value from the failure). |
+| Are my constraints strong enough? | `spec.Faults()` | Mutation testing: breaks each action in turn; a break nothing catches is a missing constraint. |
+| Does a real implementation match the entity? | `spec.Conform(() => new Repo(), (r, step) => r.Apply(step), (r, expected) => r.Get() == expected)` | Same walks drive both, compared after every step. |
+| Does the order of two actions matter? | `spec.Commutes("AddLine", "AddLine")` | From every reachable state, for every argument pair. |
+| Is an action repeatable? | `spec.Idempotent("Cancel")` | `f(f(x)) == f(x)` from every reachable state. |
+| Does a rule hold for one action only? | `.StepScoped("AddLine", OrderStepConstraints.AddLineStep)` | Attaches e.g. `Monotonic` to that action instead of the whole type. |
+| Does my factory/parser only produce valid values? | `gen.ShouldSatisfy(OrderConstraints.All)` | Generates, validates, shrinks to the smallest invalid value. |
+| Valid test data for another test | `gen.Valid(OrderConstraints.All)` | A generator filtered by the constraints. |
+| Is a service race-free? | `script.SampleParallelWith(factory, svc => svc.Events, spec)` | Runs steps concurrently; constraints must hold however they interleave. |
+
+How the constraints become requirements:
+
+| Constraint | Checked as |
+|---|---|
+| `Always`, `Check`, `Idempotent`, `NotInFuture`, `NotOlderThan` | holds in every reachable state |
+| `Transitions`, `Monotonic`, `Conserves`, `CheckTransition` | holds over every step (a step that changes nothing is skipped, exactly as `Apply` treats a `Noop`) |
+| `When(guard).Requires(...)` | holds whenever the guard is true, **and** the guard must be true somewhere |
+| `Transitions(selector).Allow(a, b)` | every other change is rejected, **and** each listed edge must be taken somewhere |
+
+Things to know:
+
+- **A finite domain is the price of a proof.** `Exhaustive` tries each action with each value you list
+  for its argument parameter type, so use two or three representative values, not `Gen.Int`.
+  An action that takes an argument and has no `.Domain<T>(...)` fails with a message naming the call to add.
+- **`Key` and `Boundary` make the space close.** Records holding lists compare by reference, so without
+  a `Key` every state looks new. A counter that can grow forever needs a `Boundary`. If the space does
+  not close, `Exhaustive` says so rather than passing: reaching `maxStates` proves nothing.
+- **Time is fixed.** Time-aware constraints read a constant clock (`.Clock(...)` to change it), so
+  exploration is deterministic.
+- **It finds real bugs in your rules.** Running this against the example domains showed that
+  `Transitions(...).Allow(...)` was rejecting mutations that left the state alone (adding a line to a
+  `Pending` order), and that `BankAccount.Withdraw` never checks the overdraft limit.
+- **More than one argument.** The generator skips methods with two or more parameters; add them with
+  `.Action("Transfer", account => ...)`.
+
+Runnable versions of all of the above: `tests/Nullean.Entities.Examples.Tests/AutoTests/AutoTestExamples.cs`
+and `tests/Nullean.Entities.CsCheck.Tests/EntitySpecTests.cs`.
+
 ## Testing qualities, not just assertions
 
 Every CsCheck testing style still needs something to assert. The usual answer is a fresh predicate
@@ -66,7 +126,7 @@ different terminal call on the same spec.
 | Absent | `Sample` | `Never<T1,T2>` | Built — `Nullean.Entities.Reactive` |
 | Temporal | `Sample` | `After().Then().Within()` | Built — `Nullean.Entities.Reactive` |
 | Vacuity, sampled | `SampleWith(..., Coverage)` | `Coverage<TEvent>.Expect` | Built — this package |
-| Vacuity, proved | `Spec.Exhaustive`/`Reachable` | — | Needs a pure state machine; separate topic |
+| Vacuity, proved | `EntitySpec.Exhaustive()` | `When` guards, `Allow` edges, `Reachable` | Built — for entities with pure actions (see above) |
 | Liveness, unbounded | `Sample` | `Eventually<T>` | Built — `Nullean.Entities.Reactive` |
 | Idempotency | `Sample` | `Idempotent(action)` | Built — `Nullean.Entities` |
 | Monotonicity | `Sample`, step-scoped | `Monotonic(selector, direction)` | Built — `Nullean.Entities` |
@@ -261,10 +321,9 @@ that doesn't" — shrunk down to the smallest such pair, the same as every other
 > liveness) land in `Nullean.Entities`/`Nullean.Entities.Reactive`; `Script<TSut>`,
 > `SampleWith`/`RunWith`, and `Metamorphic` land here.
 >
-> **Not yet designed:** declaring an exhaustive, provable state machine (`Spec.Exhaustive`/`Faults`/
-> `Reachable`/`Mermaid`) against Nullean entities. It needs a pure `Apply(state, event) -> state`,
-> which is a different authoring mode from "drive a real, possibly-impure SUT directly" that
-> everything above assumes — a separate design, not a refinement of this one.
+> Entities with pure actions get the exhaustive, provable mode too — see "One line per test style"
+> above. A real, possibly-impure SUT driven through events (everything else in this section) still
+> goes through `Script<TSut>`.
 
 ## `Script<TSut>`
 
