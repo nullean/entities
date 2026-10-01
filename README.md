@@ -1,102 +1,259 @@
 # Nullean.Entities
 
-You have domain rules. Right now they're scattered: a guard clause here, a FluentValidation rule
-there, a hand-written unit test with one picked example, maybe a property-based test if someone on
-the team likes CsCheck. Every one of those is a different predicate, rewritten by hand, for the same
-underlying rule — and the rule itself has no name, so a failure just says `false`.
-
-Nullean.Entities starts from the opposite direction: name the rule once, as a `Constraint<T>`, and
-let *where you run it from* vary — a live mutation guard in production code, a one-off `Validate`
-call, or thousands of CsCheck-generated scenarios trying to break it — without rewriting the rule for
-any of them.
+C# records and unions let you make illegal *shapes* unrepresentable. They cannot make illegal
+*values*, *transitions*, or *histories* unrepresentable. This library is the layer that does.
 
 ```csharp
-var cancelIsIdempotent = Constraints<Order>.Idempotent(o => o.Cancel(), "Cancelling twice must leave the order unchanged.");
+public sealed record Order(Guid Id, OrderStatus Status, IReadOnlyList<OrderLine> Lines);
+
+public static partial class OrderConstraints        // companion class — domain type stays clean
+{
+    [Constraint] public static readonly Constraint<Order> TotalNeverNegative =
+        Constraints<Order>.Always(o => o.Total >= 0, "An order total can't be negative.");
+
+    [Constraint] public static readonly Constraint<Order> ConfirmedOrdersHaveLines =
+        Constraints<Order>.When(o => o.Status == OrderStatus.Confirmed)
+                          .Requires(o => o.Lines.Count > 0, "A confirmed order needs at least one line.");
+    // Source generator emits: OrderConstraints.Constraints (ConstraintSet<Order>)
+    // Forget a [Constraint] field or get the type wrong — the build fails, not a warning.
+}
+
+OrderConstraints.Constraints.Validate(order);                                    // point-in-time
+
+var channel = ConstraintChannel.For(order).Enforce(OrderConstraints.Constraints);
+
+channel.Apply(o => o with { Status = OrderStatus.Confirmed }) switch
+{
+    Result<Order>.Ok(var next)          => Save(next),
+    Result<Order>.Fail(_, var problems) => Reject(problems),   // order is unchanged
+};
 ```
 
-That one line is usable in three completely different contexts, unchanged: a production
-`ConstraintChannel<Order>` enforcing it on every mutation, a unit test calling `.Validate(order)`
-once, or a CsCheck `Sample` run checking it against hundreds of generated orders. Nothing about the
-declaration knows or cares which.
+Declare what must be true of your domain once. Enforce it at every mutation, watch it in production,
+and let a property tester try to break it — the same declaration every time.
 
-## The three packages — what each is for
+## What the type system can't say
 
-| Package | Reach for it when | Depends on |
-|---|---|---|
-| [`Nullean.Entities`](src/Nullean.Entities) | You want named, composable rules enforced at runtime — in a service, a repository, anywhere a mutation needs a guard before it commits. Works standalone; nothing here needs a test framework. | BCL only |
-| [`Nullean.Entities.Reactive`](src/Nullean.Entities.Reactive) | Your rule is about a *sequence* of events over time, not one value — "never ship after cancelling," "every confirmed order closes within 30 seconds," "this eventually happens with no deadline." Lifts the same `Constraint<T>` vocabulary onto `IObservable<TEvent>`. | `Nullean.Entities` |
-| [`Nullean.Entities.CsCheck`](src/Nullean.Entities.CsCheck) | You trust the rule and now want a computer trying to break it: generate hundreds of random action sequences against your SUT, shrink any failure to the smallest reproducing case, replay it from a seed. Also ships Bogus/AutoBogus-backed generators for realistic fake data. | `Nullean.Entities.Reactive`, [CsCheck](https://github.com/AnthonyLloyd/CsCheck), [Bogus](https://github.com/bchavez/Bogus) |
+| You want to say | C# enforces it? | The type-theory idea | This library |
+|---|---|---|---|
+| An order is Pending, Confirmed, Shipped or Cancelled | ✅ unions / sealed records | Sum types (ADTs) | — |
+| Every case is handled | ✅ exhaustive `switch` | Exhaustiveness | — |
+| `Total >= 0` | ❌ | Refinement types (Liquid Haskell, F\*) | `Always` |
+| A Confirmed order has ≥ 1 line | ❌ | Dependent types (Idris, Agda) | `When(...).Requires(...)` |
+| You can only Ship a Confirmed order | ❌ | Typestate (Rust, Plaid) | `Transitions`, `StateMachine` |
+| Cancel twice = cancel once | ❌ | Algebraic laws | `Idempotent` |
+| Confirmed orders ship within 48 h | ❌ | Session types / temporal logic (LTL) | `Reactive` |
+| Every state is reachable, none is a dead end | ❌ | Model checking | `StateMachine` *(coming)* |
 
-The three are additive, not alternatives — each one is useful alone, and each later one makes the
-one before it more thoroughly exercised without asking you to re-author anything.
+These are runtime checks, not compile-time ones — but declared once, named, and next to the type.
+`[Constraint]` makes the *set* exhaustive at build time: add a field and forget to tag it, or tag it
+incorrectly, and the build refuses. `ConstraintChannel` turns "parse, don't validate" into
+**"apply, don't mutate"**: an invalid next state is never committed, so it never reaches downstream code.
 
-`Nullean.Entities` on its own: `Constraint<T>` / `ConstraintSet<T>`, with `Validate` (point-in-time),
-`Apply`/`ApplyOrThrow` (safe mutation, returns `Result<T>.Ok`/`Fail` instead of throwing), and
-`ConstraintChannel<T>` (holds a current value, enforces the set on every proposed change). This is
-the part you could adopt even if you never write a single property-based test.
+## Modeling with unions
 
-## Testing axes — independent dimensions, not stations on a line
-
-A construct usually needs *several* of these qualities at once, not one instead of another, which
-is why "axis" fits better than "vertex" (a vertex is one fixed corner of a shape; an axis is a
-dimension you can add without displacing the others). They split into two families.
-
-**Over a sequence of events, with a real or virtual clock** — needs `Nullean.Entities.Reactive`:
-
-| Axis | The formal name, if you know one | What it actually asks |
-|---|---|---|
-| Absent | safety | This bad pair of events never happens (ship after cancel) |
-| Temporal | bounded liveness | This good thing happens, and within a deadline |
-| Liveness, unbounded | liveness | This good thing happens eventually — no deadline at all |
-| Vacancy, weak | coverage | Did the generator actually reach the dangerous states, or is "Absent" only passing because nothing risky ever got generated? |
-| Vacancy, proved | reachability proof | The strong form of the above: prove a state unreachable, not just "didn't see it in N runs" — needs a pure state machine, a separate design this repo hasn't built |
-
-**Over a single operation on a value, no clock, no stream** — `Nullean.Entities` alone is enough:
-
-| Axis | The formal name, if you know one | What it actually asks |
-|---|---|---|
-| Idempotency | `f(f(x)) == f(x)` | Doing it twice is the same as doing it once |
-| Monotonicity | an ordering invariant | This quantity only ever moves one direction |
-| Conservation | an equality invariant | This quantity is neither created nor destroyed by the transition |
-| Confluence | a metamorphic property | Two paths that are supposed to agree, actually agree — the useful check when there's no independent "correct answer" to compare against |
-
-That second family is the one worth knowing about even if you've never touched `.Reactive`: none of
-idempotency, monotonicity, conservation, or confluence need an event stream. They're pure-value
-properties `Nullean.Entities` expresses directly, and `Nullean.Entities.CsCheck` drives with plain
-`Gen<T>.Sample` — no `Script<TSut>` required.
-
-`Nullean.Entities.CsCheck` adds two more things once you actually want to fuzz: `Script<TSut>` to
-generate, shrink, and replay whole action sequences against a real SUT, and `Metamorphic` for the
-confluence axis specifically (two generated values, two paths, one equality check, on fresh
-instances each time).
-
-## Realistic fake data, without losing reproducibility
-
-Bogus generates data that looks real — emails, addresses, product SKUs. CsCheck generates data that
-shrinks and replays from a seed. Left to themselves they don't combine: Bogus has its own `Random`,
-disconnected from CsCheck's, so a Bogus-backed value can't be replayed or minimized the way a
-hand-written `Gen<T>` can.
-
-`Nullean.Entities.CsCheck` bridges the two: every Bogus draw is routed through CsCheck's own `PCG`
-instead of Bogus's default `Random`, and the draw count/magnitude is recorded as a CsCheck `Size` —
-so a failing Bogus-generated order shrinks toward the smallest one, exactly like any other
-generator.
+The event type is a real C# 11 `union` — a closed sum type the compiler enforces exhaustively:
 
 ```csharp
-var genOrder = GenFakerExtensions.Faker<Order>(faker => faker
-    .CustomInstantiator(f => new Order(f.Random.Guid()))
-    .RuleFor(o => o.Email, f => f.Internet.Email()));
+// Plain case records. Nothing references the library.
+public sealed record Placed(Guid OrderId);
+public sealed record Confirmed(Guid OrderId);
+public sealed record Shipped(Guid OrderId);
+public sealed record Cancelled(Guid OrderId);
 
-var genCustomer = GenAuto.Of<Customer>(); // AutoBogus fills every field, nested objects included
+// The closed union. A switch that omits any case won't build.
+public readonly union OrderEvent(Placed, Confirmed, Shipped, Cancelled);
 ```
 
-`Faker<T>` is for when you want to write the rules by hand; `GenAuto.Of<T>` is for when you don't
-want to write any — AutoBogus fills every public member automatically. Both plug straight into a
-`Script<TSut>` step's argument, so one generated action sequence can mix a Bogus-backed step with a
-plain `Gen.Guid` one. See [`Nullean.Entities.CsCheck`'s README](src/Nullean.Entities.CsCheck#bogusautobogus-generators)
-for the full detail on what gets routed through the `PCG` and why.
+> **On .NET 10** (no `union` keyword): use `abstract record OrderEvent` with the four cases as
+> `sealed record`s nested inside. Every API below works unchanged — `Nullean.Entities.Reactive` ships
+> a predicate-based overload of every operator for the case where a `where T : OrderEvent` constraint
+> isn't available.
 
-## Install
+The same companion-class pattern works for event constraints:
+
+```csharp
+public static partial class OrderEventSpec
+{
+    [Constraint] public static readonly ReactiveConstraint<OrderEvent> NeverShippedAfterCancellation =
+        Constraints<OrderEvent>.Never<Cancelled, Shipped>((c, s) => c.OrderId == s.OrderId)
+            .Named(nameof(NeverShippedAfterCancellation));
+
+    [Constraint] public static readonly ReactiveConstraint<OrderEvent> ConfirmedOrdersClose =
+        Constraints<OrderEvent>.After<Confirmed>()
+            .Then<Shipped, Cancelled>(
+                m1: (c, s) => s.OrderId == c.OrderId,
+                m2: (c, ca) => ca.OrderId == c.OrderId)
+            .Within(TimeSpan.FromHours(48))
+            .Required()
+            .Named(nameof(ConfirmedOrdersClose));
+    // Generated: OrderEventSpec.Constraints (ReactiveConstraintSet<OrderEvent>)
+}
+```
+
+`OrderConstraints.Instance` and `OrderEventSpec.Instance` (both generated) implement
+`IConstraintsFor<T>` / `IReactiveConstraintsFor<T>`, so generic utilities can receive them by
+interface and infer `T` without knowing the concrete class.
+
+If you prefer the rules on the domain type itself — some teams do — tag fields directly on the domain
+type. The generator adds `IHaveConstraints<T>` to its partial declaration, enabling
+`events.AttachConstraints()` without naming the spec class.
+
+## Let a computer try to break them
+
+Hand-written tests check the scenarios you thought of. Declared constraints let a property tester
+check the ones you didn't. A failure shrinks automatically to the smallest reproduction and comes
+with a seed to replay it.
+
+### Testing axes
+
+| Axis | The question | Declaration |
+|---|---|---|
+| Invariant | Is every generated value valid? | `Constraints<Order>.Always(o => o.Total >= 0, ...)` |
+| Idempotency | Twice == once? | `Constraints<Order>.Idempotent(o => o.Cancel(), ...)` |
+| Monotonicity | Only moves one way? | `Constraints<Order>.Monotonic(o => o.Total, NonDecreasing)` |
+| Conservation | Nothing created or destroyed? | `Constraints<(Order, Order)>.Conserves(p => ...)` |
+| Absence (safety) | The bad sequence never happens? | `Never<Cancelled, Shipped>((c, s) => ...)` |
+| Temporal (bounded liveness) | The good thing happens within a deadline? | `After<Confirmed>().Then<Shipped, Cancelled>(...).Within(48h).Required()` |
+| Liveness (unbounded) | The good thing eventually happens? | `Eventually<Shipped>(scope: OrderIdOf, from: ...)` |
+| Confluence | Two orderings must agree? | `script.Metamorphic(factory, gen, path1, path2, equal)` |
+| Vacancy | Did the generator hit the interesting states? | `coverage: OrderLifecycle.Machine` *(coming)* |
+
+### CsCheck integrations
+
+| Method | What you get | Status |
+|---|---|---|
+| `Gen<T>.Sample` | Random values + shrinking | ✅ works with `ConstraintSet<T>.Validate`; Bogus/AutoBogus generators stay shrinkable via `GenFakerExtensions.Faker<T>` and `GenAuto.Of<T>` |
+| `Script.SampleWith` | Random action sequences in virtual time against a live SUT | ✅ |
+| `Script.RunWith` | Progress and shrink events as an observable stream | ✅ returns `IObservable<EntityEvent>` |
+| `Script.Metamorphic` | Two orderings of the same operations must agree (confluence) | ✅ |
+| Model-based testing | SUT state must match the machine's predicted state after every step | ⏳ needs `StateMachine` |
+| Parallel / linearizability | Concurrent steps, same reactive spec | ⏳ |
+| Coverage | Fail if some declared transition was never exercised | ⏳ needs `StateMachine` |
+
+```csharp
+var script = Script.For<OrderService>()
+    .Step("Place",   Gen.Guid, (svc, id) => svc.Place(id))
+    .Step("Confirm", Gen.Guid, (svc, id) => svc.Confirm(id))
+    .Step("Ship",    Gen.Guid, (svc, id) => svc.Ship(id))
+    .Step("Cancel",  Gen.Guid, (svc, id) => svc.Cancel(id))
+    .Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)))
+    .Length(3, 25);
+
+// The same spec declared above — no re-declaration.
+script.SampleWith(_ => new OrderService(), svc => svc.Events, OrderEventSpec.Constraints);
+```
+
+A failure prints the shrunk trace and a replay seed:
+
+```
+Spec violated: ConfirmedOrdersClose
+  +000ms  Place(a1b2c3d4-...)
+  +120ms  Confirm(a1b2c3d4-...)
+  +49h    [timeout — no Shipped or Cancelled within 48 h]
+Shrunk to 3 steps from 19.
+CsCheck_Seed=0Hk1u3ZbQ0p1
+```
+
+Swap `Gen.Guid` for a Bogus generator to get realistic-looking data — still shrinkable and
+seed-reproducible, because `GenFakerExtensions.Faker<T>` routes Bogus draws through CsCheck's own
+random source:
+
+```csharp
+var genCustomer = GenAuto.Of<Customer>(); // every field, nested objects, all shrinkable
+var genSku      = GenFakerExtensions.Faker<string>(faker => faker.Commerce.Ean13());
+```
+
+## The same rules, in production
+
+Attach `OrderEventSpec.Constraints` to any live event stream:
+
+```csharp
+using var service = new OrderService();
+var monitored = OrderEventSpec.Constraints.Attach(service.Events);
+
+service.Place(orderId);
+service.Confirm(orderId);
+
+monitored.AnyViolated;                                   // false — nothing has broken yet
+monitored[OrderEventSpec.ConfirmedOrdersClose].Current;  // Verdict.Pending — clock still running
+```
+
+`Pending` means "still watching." `Violated` is final. `.Required()` means a trigger that never fires
+is itself a violation, not a vacuous pass.
+
+Subscribe to violations in a dashboard or health check:
+
+```csharp
+monitored[OrderEventSpec.ConfirmedOrdersClose].Verdicts
+    .Where(v => v.IsViolated)
+    .Subscribe(v => alerting.Emit("order-sla-breach", v));
+```
+
+The spec does not know or care whether it is running inside a test or in production.
+
+## State machines *(coming next)*
+
+`Transitions(...)` already checks individual state-transition rules. What is not yet built is a
+first-class machine — something that proves the declared states form a structurally sound graph and
+then derives all the checks from that one declaration.
+
+The planned API groups transitions by `From` state, so the declaration reads like a diagram, and
+lives in a companion class:
+
+```csharp
+public readonly union OrderState(Draft, Placed, Confirmed, Shipped, Cancelled);
+
+public static partial class OrderLifecycle
+{
+    [StateMachine]
+    public static readonly StateMachine<OrderState> Machine = StateMachine<OrderState>.Define(m => m
+        .Initial<Draft>(s => s
+            .On("Place").To<Placed>())
+
+        .State<Placed>(s => s
+            .On("Confirm").To<Confirmed>(when: p => p.Lines.Count > 0)
+            .On("Cancel").To<Cancelled>())
+
+        .State<Confirmed>(s => s
+            .To<Shipped>()             // .On() is optional — unnamed transitions take their target's name
+            .On("Cancel").To<Cancelled>())
+
+        .Terminal<Shipped>()
+        .Terminal<Cancelled>());
+}
+```
+
+The build refuses to compile if:
+
+- any case of `OrderState` is not mentioned in the machine *(NESM001 — exhaustiveness)*
+- any state is unreachable from `Initial` *(NESM002)*
+- any non-terminal state has no outgoing transition *(NESM003 — dead end)*
+- any state cannot reach a terminal *(NESM004 — trap)*
+
+These are structural checks; guards are deliberately ignored. Whether a guard actually lets a
+transition fire at runtime is exactly what the property tester answers.
+
+From one declaration, everything else derives:
+
+```csharp
+Constraint<OrderState>         guard   = OrderLifecycle.Machine.AsConstraint();
+ReactiveConstraint<OrderEvent> monitor = OrderLifecycle.Machine.AsReactive(stateOf: e => ...);
+Gen<IReadOnlyList<Step>>       walks   = OrderLifecycle.Machine.Walks();
+string                         diagram = OrderLifecycle.Machine.ToMermaid();
+
+// Once Walks() is available:
+script.SampleWith(factory, events, spec, coverage: OrderLifecycle.Machine);
+// ↑ fails the run if some declared transition was never exercised
+```
+
+## Packages
+
+| Package | What it adds | Depends on |
+|---|---|---|
+| `Nullean.Entities` | `Constraint<T>`, `ConstraintChannel`, `[Constraint]` source generator | nothing |
+| `Nullean.Entities.Reactive` | `ReactiveConstraint<T>`, temporal operators, live monitoring | `System.Reactive` |
+| `Nullean.Entities.CsCheck` | `Script`, action-sequence testing, Bogus/AutoBogus generators | `CsCheck`, `Bogus` |
 
 ```sh
 dotnet add package Nullean.Entities
@@ -106,9 +263,8 @@ dotnet add package Nullean.Entities.CsCheck
 
 ## Building from source
 
-Requires the .NET 11 preview SDK (pinned in `global.json`, `allowPrerelease: true`) — every project
-multi-targets `net10.0;net11.0`, and a newer SDK can always build older TFMs. Expect an
-`NETSDK1057` "you are using a preview version of .NET" message on every build; that is expected.
+Requires the .NET 11 preview SDK (pinned in `global.json`) — every project multi-targets
+`net10.0;net11.0`. Expect an `NETSDK1057` preview-SDK notice on every build; that is expected.
 
 ```sh
 git clone https://github.com/nullean/entities.git nullean-entities
