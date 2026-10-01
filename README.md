@@ -1,36 +1,119 @@
 # Nullean.Entities
 
-C# records and unions let you make illegal *shapes* unrepresentable. They cannot make illegal
-*values*, *transitions*, or *histories* unrepresentable. This library is the layer that does.
+C# records let you model the shape of your domain precisely, and unions seal it: add a case and the
+compiler finds every `switch` that needs updating. But the type system stops there. It cannot say
+`Total >= 0`, `a Confirmed order needs lines`, `you can only Ship from Confirmed`, or `every
+confirmed order must close within 48 hours`. Those constraints end up scattered across service
+methods, validators and tests — rewritten in slightly different forms for each context, silently
+drifting apart as the model evolves. Nullean.Entities gives them a home: declare each rule once,
+next to the type it governs, and enforce it at mutations, watch it over live event streams, and hand
+it to a property tester — the same declaration every time.
 
 ```csharp
-public sealed record Order(Guid Id, OrderStatus Status, IReadOnlyList<OrderLine> Lines);
-
-public static partial class OrderConstraints        // companion class — domain type stays clean
+// The domain. Plain records and a union — nothing references the library.
+public sealed record Order(Guid Id, OrderStatus Status, IReadOnlyList<OrderLine> Lines)
 {
-    [Constraint] public static readonly Constraint<Order> TotalNeverNegative =
-        Constraints<Order>.Always(o => o.Total >= 0, "An order total can't be negative.");
-
-    [Constraint] public static readonly Constraint<Order> ConfirmedOrdersHaveLines =
-        Constraints<Order>.When(o => o.Status == OrderStatus.Confirmed)
-                          .Requires(o => o.Lines.Count > 0, "A confirmed order needs at least one line.");
-    // Source generator emits: OrderConstraints.Constraints (ConstraintSet<Order>)
-    // Forget a [Constraint] field or get the type wrong — the build fails, not a warning.
+    public decimal Total => Lines.Sum(l => l.Quantity * l.Price);
 }
 
-OrderConstraints.Constraints.Validate(order);                                    // point-in-time
+public sealed record Placed(Guid OrderId);
+public sealed record Confirmed(Guid OrderId);
+public sealed record Shipped(Guid OrderId);
+public sealed record Cancelled(Guid OrderId);
 
-var channel = ConstraintChannel.For(order).Enforce(OrderConstraints.Constraints);
+public readonly union OrderEvent(Placed, Confirmed, Shipped, Cancelled);
+// A switch over OrderEvent that omits any case won't build.
 
-channel.Apply(o => o with { Status = OrderStatus.Confirmed }) switch
+// ── What the type system can't say about Order ───────────────────────────
+public static partial class OrderConstraints
 {
-    Result<Order>.Ok(var next)          => Save(next),
-    Result<Order>.Fail(_, var problems) => Reject(problems),   // order is unchanged
-};
+    // Total >= 0
+    [Constraint] public static readonly Constraint<Order> TotalNeverNegative =
+        Constraints<Order>.Always(o => o.Total >= 0, "Order total can't be negative.");
+
+    // A Confirmed order has at least one line.
+    [Constraint] public static readonly Constraint<Order> ConfirmedOrdersHaveLines =
+        Constraints<Order>.When(o => o.Status == OrderStatus.Confirmed)
+                          .Requires(o => o.Lines.Count > 0, "Confirm requires at least one line.");
+
+    // Cancel twice = cancel once.
+    [Constraint] public static readonly Constraint<Order> CancelIsIdempotent =
+        Constraints<Order>.Idempotent(o => o.Cancel(), "Cancel must be idempotent.");
+
+    // You can only Ship a Confirmed order.
+    [Constraint] public static readonly Constraint<Order> LegalTransitions =
+        Constraints<Order>.Transitions(
+            (prev, next) => (prev.Status, next.Status) is
+                (Pending, Confirmed) or (Confirmed, Shipped) or
+                (Pending or Confirmed, Cancelled),
+            "Illegal status transition.");
+    // Generated: OrderConstraints.Constraints (ConstraintSet<Order>)
+    // Forget [Constraint] on a field, or target the wrong type — the build fails, not a warning.
+}
+
+// ── What the type system can't say about sequences of OrderEvents ────────
+public static partial class OrderEventSpec
+{
+    private static Guid OrderIdOf(OrderEvent e) => e switch
+    {
+        Placed p    => p.OrderId,
+        Confirmed c => c.OrderId,
+        Shipped s   => s.OrderId,
+        Cancelled c => c.OrderId,
+    };
+
+    // Cancelled orders are never shipped.
+    [Constraint] public static readonly ReactiveConstraint<OrderEvent> NeverShippedAfterCancellation =
+        Constraints<OrderEvent>.Never<Cancelled, Shipped>((c, s) => c.OrderId == s.OrderId)
+            .Named(nameof(NeverShippedAfterCancellation));
+
+    // Confirmed orders close (ship or cancel) within 48 h.
+    [Constraint] public static readonly ReactiveConstraint<OrderEvent> ConfirmedOrdersClose =
+        Constraints<OrderEvent>.After<Confirmed>()
+            .Then<Shipped, Cancelled>(
+                m1: (c, s) => s.OrderId == c.OrderId,
+                m2: (c, ca) => ca.OrderId == c.OrderId)
+            .Within(TimeSpan.FromHours(48))
+            .Required()
+            .Named(nameof(ConfirmedOrdersClose));
+
+    // Every confirmed order eventually closes — no deadline, but it must happen.
+    [Constraint] public static readonly ReactiveConstraint<OrderEvent> EveryConfirmedOrderCloses =
+        Constraints<OrderEvent>.Eventually<Shipped>(
+            scope: OrderIdOf,
+            from:  e => e is Confirmed)
+            .Named(nameof(EveryConfirmedOrderCloses));
+    // Generated: OrderEventSpec.Constraints (ReactiveConstraintSet<OrderEvent>)
+}
 ```
 
-Declare what must be true of your domain once. Enforce it at every mutation, watch it in production,
-and let a property tester try to break it — the same declaration every time.
+Enforce at mutations. Watch in production. Break with a property tester.
+
+```csharp
+// Enforce: only commit if every constraint passes.
+var channel = ConstraintChannel.For(order).Enforce(OrderConstraints.Constraints);
+channel.Apply(o => o.Ship()) switch
+{
+    Result<Order>.Ok(var shipped)       => Save(shipped),
+    Result<Order>.Fail(_, var problems) => Reject(problems),   // order unchanged
+};
+
+// Watch: attach to a live stream, read verdicts any time.
+var monitored = OrderEventSpec.Constraints.Attach(service.Events);
+monitored[OrderEventSpec.ConfirmedOrdersClose].Current;   // Verdict.Pending / Violated
+
+// Break: hundreds of random action sequences, failures shrunk and seed-reproducible.
+Script.For<OrderService>()
+    .Step("Place",   Gen.Guid, (svc, id) => svc.Place(id))
+    .Step("Confirm", Gen.Guid, (svc, id) => svc.Confirm(id))
+    .Step("Ship",    Gen.Guid, (svc, id) => svc.Ship(id))
+    .Step("Cancel",  Gen.Guid, (svc, id) => svc.Cancel(id))
+    .Length(3, 25)
+    .SampleWith(_ => new OrderService(), svc => svc.Events, OrderEventSpec.Constraints);
+```
+
+> `union` is a C# 11 feature. On .NET 10 and earlier, use `abstract record OrderEvent` with nested
+> `sealed record` cases — every API above works unchanged.
 
 ## What the type system can't say
 
@@ -46,58 +129,17 @@ and let a property tester try to break it — the same declaration every time.
 | Every state is reachable, none is a dead end | ❌ | Model checking | `StateMachine` *(coming)* |
 
 These are runtime checks, not compile-time ones — but declared once, named, and next to the type.
-`[Constraint]` makes the *set* exhaustive at build time: add a field and forget to tag it, or tag it
-incorrectly, and the build refuses. `ConstraintChannel` turns "parse, don't validate" into
-**"apply, don't mutate"**: an invalid next state is never committed, so it never reaches downstream code.
-
-## Modeling with unions
-
-The event type is a real C# 11 `union` — a closed sum type the compiler enforces exhaustively:
-
-```csharp
-// Plain case records. Nothing references the library.
-public sealed record Placed(Guid OrderId);
-public sealed record Confirmed(Guid OrderId);
-public sealed record Shipped(Guid OrderId);
-public sealed record Cancelled(Guid OrderId);
-
-// The closed union. A switch that omits any case won't build.
-public readonly union OrderEvent(Placed, Confirmed, Shipped, Cancelled);
-```
-
-> **On .NET 10** (no `union` keyword): use `abstract record OrderEvent` with the four cases as
-> `sealed record`s nested inside. Every API below works unchanged — `Nullean.Entities.Reactive` ships
-> a predicate-based overload of every operator for the case where a `where T : OrderEvent` constraint
-> isn't available.
-
-The same companion-class pattern works for event constraints:
-
-```csharp
-public static partial class OrderEventSpec
-{
-    [Constraint] public static readonly ReactiveConstraint<OrderEvent> NeverShippedAfterCancellation =
-        Constraints<OrderEvent>.Never<Cancelled, Shipped>((c, s) => c.OrderId == s.OrderId)
-            .Named(nameof(NeverShippedAfterCancellation));
-
-    [Constraint] public static readonly ReactiveConstraint<OrderEvent> ConfirmedOrdersClose =
-        Constraints<OrderEvent>.After<Confirmed>()
-            .Then<Shipped, Cancelled>(
-                m1: (c, s) => s.OrderId == c.OrderId,
-                m2: (c, ca) => ca.OrderId == c.OrderId)
-            .Within(TimeSpan.FromHours(48))
-            .Required()
-            .Named(nameof(ConfirmedOrdersClose));
-    // Generated: OrderEventSpec.Constraints (ReactiveConstraintSet<OrderEvent>)
-}
-```
+`[Constraint]` makes the *set* exhaustive at build time: add a field and forget to tag it, and the
+build refuses. `ConstraintChannel` turns "parse, don't validate" into **"apply, don't mutate"**: an
+invalid next state is never committed, so it never reaches downstream code.
 
 `OrderConstraints.Instance` and `OrderEventSpec.Instance` (both generated) implement
-`IConstraintsFor<T>` / `IReactiveConstraintsFor<T>`, so generic utilities can receive them by
+`IConstraintsFor<T>` / `IReactiveConstraintsFor<T>`, so generic utilities can receive either by
 interface and infer `T` without knowing the concrete class.
 
-If you prefer the rules on the domain type itself — some teams do — tag fields directly on the domain
-type. The generator adds `IHaveConstraints<T>` to its partial declaration, enabling
-`events.AttachConstraints()` without naming the spec class.
+If you prefer the rules on the domain type itself — tag fields directly on the type and the generator
+adds `IHaveConstraints<T>` to its partial declaration, enabling `events.AttachConstraints()` without
+naming the spec class.
 
 ## Let a computer try to break them
 
