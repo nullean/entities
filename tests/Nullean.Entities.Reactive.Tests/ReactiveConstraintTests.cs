@@ -244,6 +244,72 @@ public class TemporalTests
 	}
 
 	[Test]
+	public void Multi_trigger_second_violation_is_detected()
+	{
+		var scheduler = new TestScheduler();
+		var subject = new Subject<Ev>();
+		ReactiveConstraint<Ev> constraint = Constraints<Ev>.After<Ev.A>().Then<Ev.B>((a, b) => a.Value == b.Value).Within(TimeSpan.FromSeconds(5));
+		var running = constraint.Attach(subject, scheduler);
+
+		// First trigger resolves fine (A(1) → B(1))
+		subject.OnNext(new Ev.A(1));
+		scheduler.AdvanceBy(TimeSpan.FromSeconds(2).Ticks);
+		subject.OnNext(new Ev.B(1));
+		running.Current.IsViolated.Should().BeFalse();
+
+		// Second trigger fires but times out — this is the violation the old code would miss
+		subject.OnNext(new Ev.A(2));
+		scheduler.AdvanceBy(TimeSpan.FromSeconds(6).Ticks); // past the window, no B(2)
+
+		running.Current.IsViolated.Should().BeTrue();
+	}
+
+	[Test]
+	public void Required_violated_when_trigger_never_fires()
+	{
+		var scheduler = new TestScheduler();
+		var subject = new Subject<Ev>();
+		var constraint = Constraints<Ev>.After<Ev.A>().Then<Ev.B>().Within(TimeSpan.FromSeconds(5)).Required();
+		var running = constraint.Attach(subject, scheduler);
+
+		// No A trigger ever fires — stream completes without a trigger
+		subject.OnCompleted();
+
+		running.Current.IsViolated.Should().BeTrue();
+	}
+
+	[Test]
+	public void Required_holds_when_trigger_fires_and_resolves()
+	{
+		var scheduler = new TestScheduler();
+		var subject = new Subject<Ev>();
+		var constraint = Constraints<Ev>.After<Ev.A>().Then<Ev.B>().Within(TimeSpan.FromSeconds(5)).Required();
+		var running = constraint.Attach(subject, scheduler);
+
+		subject.OnNext(new Ev.A(1));
+		scheduler.AdvanceBy(TimeSpan.FromSeconds(2).Ticks);
+		subject.OnNext(new Ev.B(1)); // resolves fine
+		subject.OnCompleted();
+
+		// Trigger fired and resolved — no violation
+		running.Current.IsViolated.Should().BeFalse();
+	}
+
+	[Test]
+	public void Required_violated_when_trigger_fires_but_times_out()
+	{
+		var scheduler = new TestScheduler();
+		var subject = new Subject<Ev>();
+		var constraint = Constraints<Ev>.After<Ev.A>().Then<Ev.B>().Within(TimeSpan.FromSeconds(5)).Required();
+		var running = constraint.Attach(subject, scheduler);
+
+		subject.OnNext(new Ev.A(1));
+		scheduler.AdvanceBy(TimeSpan.FromSeconds(6).Ticks); // timeout
+
+		running.Current.IsViolated.Should().BeTrue();
+	}
+
+	[Test]
 	public void UnlessInterruptedBy_lifts_obligation_on_interrupt()
 	{
 		var scheduler = new TestScheduler();
@@ -256,8 +322,10 @@ public class TemporalTests
 		subject.OnNext(new Ev.C(0)); // interruption — lifts obligation
 
 		scheduler.AdvanceBy(TimeSpan.FromSeconds(4).Ticks); // past original window
+															// With multi-trigger semantics, Holds is never emitted mid-stream — the constraint
+															// stays Pending (still monitoring for future triggers). Absence of Violated is the signal.
 		running.Current.IsViolated.Should().BeFalse();
-		running.Current.IsHolds.Should().BeTrue();
+		running.Current.IsPending.Should().BeTrue();
 	}
 }
 
@@ -415,7 +483,8 @@ public class PredicateBasedOperatorTests
 		subject.OnNext(new Ev.C(0)); // interruption — lifts obligation
 
 		scheduler.AdvanceBy(TimeSpan.FromSeconds(4).Ticks); // past original window
-		running.Current.IsHolds.Should().BeTrue();
+		running.Current.IsViolated.Should().BeFalse();
+		running.Current.IsPending.Should().BeTrue();
 	}
 }
 
