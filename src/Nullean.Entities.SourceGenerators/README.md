@@ -24,21 +24,21 @@ Two independent discovery pipelines feed the same grouping/validation/emission p
   type is silently dropped by that same filter, with no diagnostic, since it was never going to be
   auto-discovered either way and `[Constraint]` is simply inert once `[Constraints]` is present.
 
-The merged member list groups by containing type, and emits one `Constraints` property per group:
+The merged member list groups by containing type, and emits one `All` property per group:
 
 - `Constraint<T>` members where the containing type **is** `T` — the domain type declares its own
   rules — get `IHaveConstraints<T>` (F-bounded, static-abstract) added to the same partial
   declaration too, so `events.AttachConstraints()` (`Nullean.Entities.Reactive`) just works.
 - `Constraint<T>` members on any other partial type (a companion "spec" class) get the same plain
-  `ConstraintSet<T> Constraints` property, plus a nested `TypeConstraints` struct implementing
+  `ConstraintSet<T> All` property, plus a nested `TypeConstraints` struct implementing
   `IConstraintsFor<T>` — a plain *instance* interface, unlike `IHaveConstraints<T>`, so
   `SpecClass.TypeConstraints.Instance` is a value generic code can take as a parameter (inferring
   `T` from it) rather than only a type to constrain on. It's nested, never on the spec class's own
-  base list, because `SpecClass.Constraints` is `static` regardless of whether the class itself is
+  base list, because `SpecClass.All` is `static` regardless of whether the class itself is
   — there's nothing on the class that could implement an instance interface member. A forwarding
   `SpecClass.Instance` field on the outer class itself means a caller never has to spell out
   `TypeConstraints`. Both cases build the property from `ConstraintSet.From((nameof(field), field), ...)`.
-- `ReactiveConstraint<T>` members get a `ReactiveConstraintSet<T> Constraints` property with the
+- `ReactiveConstraint<T>` members get a `ReactiveConstraintSet<T> All` property with the
   same nested `TypeConstraints : IReactiveConstraintsFor<T>` treatment, built from
   `ReactiveConstraintSet.From((nameof(field), field), ...)`. There's no reactive-native self-attach
   interface to choose instead — self-attach for reactive flows through the sync core's
@@ -75,5 +75,5 @@ hand-built `Compilation`s — one test per generated shape and one per diagnosti
 and `tests/Nullean.Entities.Reactive.Tests` additionally each carry one real end-to-end fixture: a
 `[Constraint]`-tagged type compiled by the actual generator (wired in as an analyzer on those test
 projects too, the same way it's wired into `Nullean.Entities`/`Nullean.Entities.Reactive`
-themselves), asserting the generated `Constraints` property behaves correctly at runtime — not
+themselves), asserting the generated `All` property behaves correctly at runtime — not
 just that the generator emits the text you'd expect.

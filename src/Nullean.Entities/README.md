@@ -1,262 +1,252 @@
 # Nullean.Entities
 
-Synchronous domain constraints for .NET: name a rule once, check it against a value or a proposed
-mutation. No `System.Reactive`, no `CsCheck` — this package has no dependency beyond the BCL.
+Rules you write once and the compiler enforces everywhere — for the parts of your domain that guards
+and `if` statements let slip through.
 
-## The idea
+## The problem with guards
 
-A `Constraint<T>` is a named rule, built through `Constraints<T>` rather than a public constructor:
-
-```csharp
-var alwaysPositive = Constraints<Item>.Always(item => item.Value > 0, "Value must stay positive.");
-```
-
-`message` is optional on every builder in this package (`Always`, `Transitions`, `Idempotent`,
-`Monotonic`, `Conserves`, `Requires`). Omitted, the violation names the constraint itself — whatever
-`.Named(...)` or `[Constraint]`'s generated `(nameof(field), field)` tuple gave it — and attaches the
-offending value(s) as `Violation.Evidence`, so a quick rule doesn't need prose until it's worth
-writing:
+A guard in a service method enforces a rule at one call site. Add a second path into the same
+operation and the guard has to be copied. Forget to copy it and nothing fails at compile time — the
+rule just silently stops applying.
 
 ```csharp
-public static readonly Constraint<Item> AlwaysPositive = Constraints<Item>.Always(item => item.Value > 0);
-// violated: "AlwaysPositive was violated.", Evidence == the offending Item
-```
-
-It lives anywhere — a `static readonly` field, a local variable, a constructor parameter. A
-`ConstraintSet<T>` is an ordered collection of them, named from the tuple you build it with:
-
-```csharp
-var constraints = ConstraintSet.From((nameof(alwaysPositive), alwaysPositive), (nameof(neverOverHundred), neverOverHundred));
-
-IReadOnlyList<Violation> violations = constraints.Validate(new Item(-1));
-// violations[0].ConstraintId == "alwaysPositive"
-```
-
-`Always(predicate, message)` covers the common fixed-message case. `Constraints<T>.Check(check)` is
-the escape hatch for a message built from the value itself:
-
-```csharp
-var alwaysPositive = Constraints<Item>.Check(
-    item => item.Value > 0 ? [] : [Violation.Error($"Value {item.Value} is not positive")]
-);
-```
-
-## Safe mutation
-
-`Apply` runs a mutation, checks every constraint against the result, and only commits if all of
-them pass:
-
-```csharp
-Result<Item> result = constraints.Apply(current, item => item with { Value = item.Value + 1 });
-
-var next = result.Match(
-    ok => ok,
-    violations => throw new InvalidOperationException(violations[0].Message)
-);
-```
-
-`ApplyOrThrow` is the same thing without the `Match`. `ConstraintChannel<T>` wraps a single mutable
-`Current` value behind the same `Apply` semantics, so a caller can keep proposing mutations without
-re-plumbing the constraint set each time:
-
-```csharp
-var channel = ConstraintChannel.For(new Item(1)).Enforce(constraints);
-channel.Apply(item => item with { Value = 5 });   // Current is now 5
-channel.Apply(item => item with { Value = -1 });  // rejected; Current is still 5
-```
-
-## Exhaustive constraint sets: `[Constraint]`
-
-Tag every `Constraint<T>` field or property that belongs to one type with `[Constraint]`, and
-[`Nullean.Entities.SourceGenerators`](../Nullean.Entities.SourceGenerators) (bundled into this
-package's own nupkg as an analyzer — no separate install) bundles them into a `Constraints`
-property automatically:
-
-```csharp
-public sealed partial record Item(int Value)
+// Before: a rule written three ways, in three places, drifting apart
+public void Confirm(Order order)
 {
-    [Constraint]
-    public static readonly Constraint<Item> AlwaysPositive = Constraints<Item>.Always(i => i.Value > 0, "...");
-
-    [Constraint]
-    public static readonly Constraint<Item> NeverOverHundred = Constraints<Item>.Always(i => i.Value <= 100, "...");
-
-    // Generated: public static ConstraintSet<Item> Constraints { get; } =
-    //     ConstraintSet.From((nameof(AlwaysPositive), AlwaysPositive), (nameof(NeverOverHundred), NeverOverHundred));
-}
-```
-
-A type whose own `[Constraint]` fields target itself also gets `IHaveConstraints<T>` added to its
-partial declaration for free, so `Item.Constraints` and generic code written against
-`IHaveConstraints<T>` both just work. A separate "spec" companion class tagging someone else's type
-gets a nested `TypeConstraints` struct instead, implementing `IConstraintsFor<T>` — a plain instance
-interface, not F-bounded and not static-abstract, since the spec class and `T` are different types
-and the whole point is a *value* generic code can take as a parameter:
-
-```csharp
-public sealed record Order(Guid Id, decimal Total, string? PaymentRef);
-
-public static partial class OrderSpec
-{
-    [Constraint]
-    public static readonly Constraint<Order> TotalNonNegative = Constraints<Order>.Always(o => o.Total >= 0, "...");
+    if (order.Lines.Count == 0)
+        throw new InvalidOperationException("Cannot confirm an empty order.");
+    // ...
 }
 
-// Generic code takes the value and infers T from it — no need to know OrderSpec exists:
-static ConstraintSet<T> ConstraintsFor<T>(IConstraintsFor<T> spec) => spec.Constraints;
-
-ConstraintsFor(OrderSpec.Instance); // == OrderSpec.Constraints
-```
-
-The interface is never on the spec class's own base list, even if you declare it as an ordinary
-(non-static) class: `IConstraintsFor<T>.Constraints` is an instance member, and `OrderSpec.Constraints`
-is (and stays) `static` either way, so there is nothing on `OrderSpec` itself that could implement it.
-A nested `OrderSpec.TypeConstraints` is a zero-size singleton (`readonly struct`, one static field)
-that forwards to it instead — one path, regardless of how the spec class is declared. `OrderSpec.Instance`
-is itself a forwarding shortcut for `OrderSpec.TypeConstraints.Instance`, generated on the outer class,
-so a caller never has to spell out `TypeConstraints` at all. The set can never drift from the fields
-actually declared, since there is no separate list to keep in sync and adding a field updates it
-automatically.
-
-Any misused `[Constraint]` member — not static, wrong type, not partial, nested, generic, or an
-inconsistent type argument across members on the same type — refuses to generate anything for that
-type at all, rather than silently generating from the valid subset. See
-[the generator's own README](../Nullean.Entities.SourceGenerators/README.md) for the full rules.
-
-### Tagging the type instead of each field: `[Constraints]`
-
-`[Constraint]` is per-member — tag the field, it's included. `[Constraints]` is per-type instead:
-put it on the type once, and every static `Constraint<T>`/`ReactiveConstraint<TEvent>`-typed field or
-property declared directly on it is picked up with no tagging at all:
-
-```csharp
-[Constraints]
-public static partial class OrderConstraints
+public async Task ConfirmAsync(Order order)
 {
-    public static readonly Constraint<Order> TotalNeverNegative = Constraints<Order>.Always(o => o.Total >= 0);
-    public static readonly Constraint<Order> CancelIsIdempotent = Constraints<Order>.Idempotent(o => o.Cancel());
-
-    // Generated: OrderConstraints.Constraints (ConstraintSet<Order>), from both fields above —
-    // neither needed [Constraint]. Add a third static Constraint<Order> field and it's included
-    // automatically on the next build; forget to make it static, or declare the type non-partial,
-    // and the build fails the same way an [Constraint] mistake would (NECG001 etc.) — see the
-    // generator's own README for the full diagnostic list.
+    if (order.Lines.Count == 0)           // same rule, copy-pasted
+        throw new InvalidOperationException("Cannot confirm an empty order.");
+    // ...
 }
-```
 
-`[ConstraintIgnore]` is the per-member opt-out, for the rare private helper that builds a constraint
-but shouldn't be counted as one of the type's own rules:
-
-```csharp
-[Constraints]
-public static partial class OrderConstraints
+public void BulkConfirm(IEnumerable<Order> orders)
 {
-    [ConstraintIgnore]
-    private static readonly Constraint<Order> BuildingBlock = Constraints<Order>.Always(o => o.Total >= 0);
-
-    public static readonly Constraint<Order> TotalMatchesLines = /* ...composes BuildingBlock with something else... */;
-}
-```
-
-A type using `[Constraints]` doesn't also need `[Constraint]` on its own members — if both appear,
-the explicit tag is simply redundant (already found by auto-discovery), never double-counted.
-
-## Sequential constraints: `Transitions`
-
-`Always` and `Check` only ever see the value being checked. A constraint that depends on what the
-value *was* — a legal state-machine transition, a value that must never decrease — needs
-`Transitions`, which only `Apply` (never `Validate`) can run, since a standalone instance has no
-"previous" to compare against:
-
-```csharp
-var validTransitions = Constraints<Order>.Transitions(
-    (prev, next) => (prev.Status, next.Status) switch
+    foreach (var o in orders.Where(o => o.Lines.Count > 0)) // different expression, same intent
     {
-        (OrderStatus.Pending, OrderStatus.Confirmed) => true,
-        (OrderStatus.Confirmed, OrderStatus.Shipped) => true,
-        (_, OrderStatus.Cancelled) => true,
-        _ => false,
-    },
-    "Illegal order status transition."
-);
-```
-
-`When(guard).Requires(requirement)` adds a conditional constraint — violated only when `guard` is
-true for the value but `requirement` fails:
-
-```csharp
-var paymentRefRequired = Constraints<Order>
-    .When(o => o.Status == OrderStatus.Confirmed)
-    .Requires(o => o.PaymentRef != null, "PaymentRef is required once an order is confirmed.");
-```
-
-### A declarative allow-list: `Transitions<TState>`
-
-Hand-writing a `switch` of legal `(prev, next)` pairs works, but it's tedious and easy to get wrong
-(a missed case, a backwards tuple) once there are more than two or three. `Transitions<TState>`
-takes a selector and an explicit allow-list instead — one `Allow(from, to)` per legal edge, violated
-on anything not in it:
-
-```csharp
-var legalTransitions = Constraints<Order>
-    .Transitions(o => o.Status)
-    .Allow(OrderStatus.Pending, OrderStatus.Confirmed)
-    .Allow(OrderStatus.Confirmed, OrderStatus.Shipped)
-    .Allow(OrderStatus.Pending, OrderStatus.Cancelled)
-    .Allow(OrderStatus.Confirmed, OrderStatus.Cancelled);
-```
-
-It converts implicitly to `Constraint<T>`, so it drops straight into a field or a `ConstraintSet.From`
-tuple with no extra call. Reach for the predicate-based `Transitions(Func<T, T, bool>, string?)`
-overload above instead when a transition's legality depends on more than just the two state values
-(for example, a quantity carried on the event) — `Transitions<TState>` is for the common case where
-the thing moving through states is a single comparable value, usually an enum.
-
-## Named qualities beyond a plain predicate
-
-> See [`Nullean.Entities.CsCheck`'s testing-qualities table](../Nullean.Entities.CsCheck#testing-qualities-not-just-assertions)
-> for the full set, including the reactive (`Eventually`) and CsCheck-side (`Metamorphic`) ones.
-
-`Always` and `Check` can express any of these by hand, but naming the quality instead of hiding it
-in an arbitrary predicate means a failure says *what kind* of thing broke, not just which rule did:
-
-```csharp
-// Idempotent: applying an action once or twice from the same starting value gives the same result
-// — the standard f(f(x)) == f(x) law. Point-in-time: Cancel() supplies both "once" and "twice", so
-// Validate is enough, no mutation needed.
-Constraints<Order>.Idempotent(o => o.Cancel(), "Cancelling twice must leave the order unchanged.");
-
-// Monotonic: a selected value never moves the wrong way across a mutation. Sequential, so it only
-// ever fires from Apply — step-scoped by construction, since it's meaningless without a previous
-// value. Attach it to the Constraints backing the specific step(s) meant to hold it (e.g. AddLine),
-// not a type's whole Constraints set — a step that's allowed to shrink the value (RemoveLine) would
-// otherwise wrongly fail it.
-Constraints<Order>.Monotonic(o => o.Total, MonotonicDirection.NonDecreasing);
-
-// Conserves: a quantity is preserved across a transition that moves it between two values, not one.
-// Sequential, like Monotonic, but by equality instead of ordering — the first shape here that's
-// naturally exercised with a pair-valued T rather than a single entity.
-Constraints<(Order From, Order To)>.Conserves(p => p.From.Total + p.To.Total, "Moving a line must not create or destroy value.");
-```
-
-## `IHaveConstraints<TSelf>`
-
-A type can declare its own constraint set as a static member, using a C# 11 static abstract
-interface member — this is what `[Constraint]` generates for you, but it can be written by hand
-too:
-
-```csharp
-public sealed partial record Item(int Value) : IHaveConstraints<Item>
-{
-    private static readonly Constraint<Item> AlwaysPositive = Constraints<Item>.Always(i => i.Value > 0, "...");
-
-    public static ConstraintSet<Item> Constraints { get; } = ConstraintSet.From((nameof(AlwaysPositive), AlwaysPositive));
+        // ...
+    }
 }
 ```
 
-This is what [`Nullean.Entities.Reactive`](https://www.nuget.org/packages/Nullean.Entities.Reactive)
-and [`Nullean.Entities.CsCheck`](https://www.nuget.org/packages/Nullean.Entities.CsCheck) attach to
-without this package depending on either of them.
+```csharp
+// After: one rule, applied at every call site
+[Constraints]
+public static partial class OrderConstraints
+{
+    public static readonly Constraint<Order> MustHaveLines =
+        Constraints<Order>.Always(o => o.Lines.Count > 0, "An order must have at least one line.");
+
+    public static readonly Constraint<Order> LegalStatusTransitions = Constraints<Order>
+        .Transitions(o => o.Status)
+        .Allow(OrderStatus.Pending, OrderStatus.Confirmed)
+        .Allow(OrderStatus.Confirmed, OrderStatus.Shipped)
+        .Allow(OrderStatus.Pending, OrderStatus.Cancelled)
+        .Allow(OrderStatus.Confirmed, OrderStatus.Cancelled);
+}
+
+// Every caller uses the same set — the rule cannot drift
+var result = OrderConstraints.All.Apply(order, o => o.Confirm());
+```
+
+`[Constraints]` auto-discovers every `Constraint<Order>` field on `OrderConstraints` and generates
+`OrderConstraints.All` — a `ConstraintSet<Order>`. Add a new field and it's included on the next
+build; remove one and it disappears. No list to maintain, no drift between field name and constraint
+name.
+
+## What Apply returns
+
+`ConstraintSet<T>.Apply` takes the current value and a mutation, runs every constraint against the
+result, and returns a three-way union:
+
+```csharp
+var result = OrderConstraints.All.Apply(order, o => o.Confirm());
+
+switch (result)
+{
+    case ChannelResult<Order>.Applied(var next):
+        // mutation passed — next is the new value
+        break;
+    case ChannelResult<Order>.Noop(var current):
+        // mutation produced the same value — nothing ran
+        break;
+    case ChannelResult<Order>.Failure(var current, var violations):
+        // one or more constraints rejected the mutation
+        foreach (var v in violations)
+            logger.LogWarning("{Rule}: {Message}", v.ConstraintId, v.Message);
+        break;
+}
+```
+
+`Noop` short-circuits without running any constraints when the mutation produces an equal value —
+cancelling an already-cancelled order is free. `Applied` means every constraint passed. `Failure`
+means at least one rejected it, and you have the full violation list with names, messages, and
+evidence attached.
+
+`ApplyOrThrow` is the same thing without the switch, for cases where a violation is truly exceptional.
+
+## Long-lived objects: ConstraintChannel
+
+For objects that evolve over time — an order being processed, a room being booked — a
+`ConstraintChannel<T>` wraps the current value and applies constraints on every mutation, without the
+caller re-plumbing the constraint set each time:
+
+```csharp
+var channel = ConstraintChannel
+    .For(order)
+    .Enforce(OrderConstraints.All);
+
+channel.Apply(o => o.Confirm());   // Applied — channel.Current is now Confirmed
+channel.Apply(o => o.Confirm());   // Noop — already Confirmed, nothing ran
+channel.Apply(o => o.Ship());      // Applied — channel.Current is now Shipped
+channel.Apply(o => o.Cancel());    // Failure — can't cancel a shipped order
+```
+
+## What you can express
+
+Every constraint is a named, quoted value — not an anonymous lambda hidden inside a method.
+
+```csharp
+[Constraints]
+public static partial class OrderConstraints
+{
+    // A predicate that must always hold, checked on every Validate or Apply
+    public static readonly Constraint<Order> TotalNeverNegative =
+        Constraints<Order>.Always(o => o.Total >= 0, "Order total must not go negative.");
+
+    // A rule whose message is built from the value itself
+    public static readonly Constraint<Order> LineSkusMustBeUnique = Constraints<Order>.Check(o =>
+        o.Lines
+            .GroupBy(l => l.Sku)
+            .Where(g => g.Count() > 1)
+            .Select(g => Violation.Error($"Duplicate SKU '{g.Key}' — each line must be unique."))
+            .ToList()
+    );
+
+    // A conditional rule: when the guard holds, the requirement must too
+    public static readonly Constraint<Order> ConfirmedOrderRequiresPaymentRef = Constraints<Order>
+        .When(o => o.Status == OrderStatus.Confirmed)
+        .Requires(o => o.PaymentRef is not null, "A confirmed order must have a payment reference.");
+
+    // Legal state transitions — the allow-list is the spec, not a switch expression
+    public static readonly Constraint<Order> LegalStatusTransitions = Constraints<Order>
+        .Transitions(o => o.Status)
+        .Allow(OrderStatus.Pending, OrderStatus.Confirmed)
+        .Allow(OrderStatus.Confirmed, OrderStatus.Shipped)
+        .Allow(OrderStatus.Pending, OrderStatus.Cancelled)
+        .Allow(OrderStatus.Confirmed, OrderStatus.Cancelled);
+
+    // f(f(x)) == f(x) — applied once or twice gives the same result
+    public static readonly Constraint<Order> CancelIsIdempotent =
+        Constraints<Order>.Idempotent(o => o.Cancel(), "Cancelling twice must leave the order unchanged.");
+
+    // A selected value never moves the wrong way across a specific mutation
+    // Sequential — only fires from Apply, not Validate. Attach to the step set that owns AddLine.
+    public static readonly Constraint<Order> TotalNeverDecreasesOnAddLine =
+        Constraints<Order>.Monotonic(o => o.Total, MonotonicDirection.NonDecreasing);
+
+    // A quantity conserved across a pair of values — no value is created or destroyed
+    public static readonly Constraint<(Order From, Order To)> LineTransferConservesTotal =
+        Constraints<(Order, Order)>.Conserves(p => p.From.Total + p.To.Total);
+}
+```
+
+`Transitions`, `Monotonic`, and `Conserves` are *sequential* — they compare two values, so they only
+fire from `Apply`, never from `Validate`. A violation says "Monotonic was violated" or "Conserves was
+violated", not just "a predicate failed" — the failure names the quality that broke.
+
+## Declared state machines
+
+For domains where each state is its own shape — not just an enum value but a type carrying data —
+`StateMachine<TState>` declares the graph once and validates it eagerly at startup:
+
+```csharp
+private abstract record OrderState
+{
+    public sealed record Draft : OrderState;
+    public sealed record Placed(int Lines) : OrderState;
+    public sealed record Confirmed : OrderState;
+    public sealed record Shipped : OrderState;
+    public sealed record Cancelled : OrderState;
+}
+
+public static readonly StateMachine<OrderState> OrderLifecycle = StateMachine<OrderState>.Define(m => m
+    .Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>())
+    .State<OrderState.Placed>(s => s
+        .On("Confirm").To<OrderState.Confirmed>(when: p => p.Lines > 0)
+        .On("Cancel").To<OrderState.Cancelled>())
+    .State<OrderState.Confirmed>(s => s.To<OrderState.Shipped>().On("Cancel").To<OrderState.Cancelled>())
+    .Terminal<OrderState.Shipped>()
+    .Terminal<OrderState.Cancelled>()
+);
+```
+
+`Define` throws `StateMachineDefinitionException` (NESM001–NESM004) if the graph fails exhaustiveness,
+reachability, dead-end, or trap checks — caught at startup, not buried in a log at runtime.
+
+From a defined machine you get:
+
+```csharp
+OrderLifecycle.AsConstraint()  // Constraint<OrderState> — drops into ConstraintSet.From(...)
+OrderLifecycle.AsReactive()    // ReactiveConstraint<OrderState> — checks an event stream
+OrderLifecycle.ToMermaid()     // Mermaid diagram — paste into your README or docs
+OrderLifecycle.Walks()         // Gen<IReadOnlyList<StateMachineStep<T>>> — CsCheck graph walks
+OrderLifecycle.RealizedWalks() // Gen<IReadOnlyList<RealizedStep<T>>> — guard-aware walks with real values
+```
+
+For enum-shaped state machines, `Constraints<T>.Transitions(selector).Allow(from, to)` stays the right
+tool — `StateMachine<TState>` is for the case where each state carries its own data and a guard needs
+to inspect it.
+
+## Validating without mutating
+
+`ConstraintSet<T>.Validate` runs only the point-in-time constraints (anything that isn't `Sequential`)
+and returns the full violation list:
+
+```csharp
+IReadOnlyList<Violation> violations = OrderConstraints.All.Validate(order);
+if (violations.Count > 0)
+    return BadRequest(violations.Select(v => v.Message));
+```
+
+`Validate` is the right tool for an incoming API payload before you ever create a mutation. `Apply` is
+the right tool for a proposed change — it runs both point-in-time *and* sequential constraints.
+
+## The source generator
+
+`[Constraints]` on a companion class is the most common pattern:
+
+```csharp
+[Constraints]
+public static partial class SupportTicketConstraints
+{
+    public static readonly Constraint<SupportTicket> LegalStatusTransitions = Constraints<SupportTicket>
+        .Transitions(t => t.Status)
+        .Allow(TicketStatus.Open, TicketStatus.InProgress)
+        .Allow(TicketStatus.InProgress, TicketStatus.Resolved)
+        .Allow(TicketStatus.Resolved, TicketStatus.Closed)
+        .Allow(TicketStatus.Resolved, TicketStatus.InProgress);
+
+    public static readonly Constraint<SupportTicket> ResolvedRequiresTimestamp = Constraints<SupportTicket>
+        .When(t => t.Status is TicketStatus.Resolved or TicketStatus.Closed)
+        .Requires(t => t.ResolvedAt is not null, "Resolved/closed tickets must have a resolution timestamp.");
+}
+
+// Generated: public static ConstraintSet<SupportTicket> All { get; }
+```
+
+`[ConstraintIgnore]` on a field opts it out — for a building-block constraint that composes into
+others but shouldn't be counted as one of the type's own rules. A misused `[Constraint]` member (not
+static, wrong type, not partial) refuses to generate anything for that type and emits a build error —
+the generator never silently generates from a partial subset.
+
+See [`Nullean.Entities.SourceGenerators`](../Nullean.Entities.SourceGenerators/README.md) for the full
+diagnostic list.
 
 ## Install
 
@@ -264,10 +254,13 @@ without this package depending on either of them.
 dotnet add package Nullean.Entities
 ```
 
+The source generator ships inside this package's nupkg as an analyzer — no separate install.
+
 ## Links
 
 - [Source & full documentation](https://github.com/nullean/entities)
-- [Nullean.Entities.Reactive](https://www.nuget.org/packages/Nullean.Entities.Reactive) — lifts a
-  `ConstraintSet<T>` onto an `IObservable<TEvent>` stream, plus temporal/structural operators that
-  only make sense against a stream.
+- [Nullean.Entities.Reactive](https://www.nuget.org/packages/Nullean.Entities.Reactive) — temporal and
+  structural constraints over `IObservable<TEvent>` streams
+- [Nullean.Entities.CsCheck](https://www.nuget.org/packages/Nullean.Entities.CsCheck) — all eight
+  CsCheck testing axes, driven by named constraint sets and shrinkable Bogus generators
 - License: MIT
