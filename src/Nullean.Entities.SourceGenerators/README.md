@@ -11,8 +11,20 @@ anyone changing the generator itself.
 
 ## What it does
 
-Finds every static field/property tagged `[Constraint]`, groups them by containing type, and
-emits one `Constraints` property per group:
+Two independent discovery pipelines feed the same grouping/validation/emission path:
+
+- Every static field/property tagged `[Constraint]` (explicit, per-member).
+- Every static `Constraint<T>`/`ReactiveConstraint<TEvent>`-typed member declared directly on a
+  type tagged `[Constraints]` (implicit, per-type) — found by walking the type's own members with
+  `INamedTypeSymbol.GetMembers()`, skipping anything also tagged `[ConstraintIgnore]`. A type using
+  `[Constraints]` has any of its own `[Constraint]`-tagged members merged away as redundant rather
+  than counted twice: `Merge` drops every explicit member whose containing type was also seen by
+  the `[Constraints]` pipeline, before the two lists are concatenated. One accepted consequence —
+  a member on a `[Constraints]`-tagged type that is wrongly `[Constraint]`-tagged *and* the wrong
+  type is silently dropped by that same filter, with no diagnostic, since it was never going to be
+  auto-discovered either way and `[Constraint]` is simply inert once `[Constraints]` is present.
+
+The merged member list groups by containing type, and emits one `Constraints` property per group:
 
 - `Constraint<T>` members where the containing type **is** `T` — the domain type declares its own
   rules — get `IHaveConstraints<T>` (F-bounded, static-abstract) added to the same partial

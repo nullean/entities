@@ -11,6 +11,17 @@ A `Constraint<T>` is a named rule, built through `Constraints<T>` rather than a 
 var alwaysPositive = Constraints<Item>.Always(item => item.Value > 0, "Value must stay positive.");
 ```
 
+`message` is optional on every builder in this package (`Always`, `Transitions`, `Idempotent`,
+`Monotonic`, `Conserves`, `Requires`). Omitted, the violation names the constraint itself — whatever
+`.Named(...)` or `[Constraint]`'s generated `(nameof(field), field)` tuple gave it — and attaches the
+offending value(s) as `Violation.Evidence`, so a quick rule doesn't need prose until it's worth
+writing:
+
+```csharp
+public static readonly Constraint<Item> AlwaysPositive = Constraints<Item>.Always(item => item.Value > 0);
+// violated: "AlwaysPositive was violated.", Evidence == the offending Item
+```
+
 It lives anywhere — a `static readonly` field, a local variable, a constructor parameter. A
 `ConstraintSet<T>` is an ordered collection of them, named from the tuple you build it with:
 
@@ -112,6 +123,44 @@ inconsistent type argument across members on the same type — refuses to genera
 type at all, rather than silently generating from the valid subset. See
 [the generator's own README](../Nullean.Entities.SourceGenerators/README.md) for the full rules.
 
+### Tagging the type instead of each field: `[Constraints]`
+
+`[Constraint]` is per-member — tag the field, it's included. `[Constraints]` is per-type instead:
+put it on the type once, and every static `Constraint<T>`/`ReactiveConstraint<TEvent>`-typed field or
+property declared directly on it is picked up with no tagging at all:
+
+```csharp
+[Constraints]
+public static partial class OrderConstraints
+{
+    public static readonly Constraint<Order> TotalNeverNegative = Constraints<Order>.Always(o => o.Total >= 0);
+    public static readonly Constraint<Order> CancelIsIdempotent = Constraints<Order>.Idempotent(o => o.Cancel());
+
+    // Generated: OrderConstraints.Constraints (ConstraintSet<Order>), from both fields above —
+    // neither needed [Constraint]. Add a third static Constraint<Order> field and it's included
+    // automatically on the next build; forget to make it static, or declare the type non-partial,
+    // and the build fails the same way an [Constraint] mistake would (NECG001 etc.) — see the
+    // generator's own README for the full diagnostic list.
+}
+```
+
+`[ConstraintIgnore]` is the per-member opt-out, for the rare private helper that builds a constraint
+but shouldn't be counted as one of the type's own rules:
+
+```csharp
+[Constraints]
+public static partial class OrderConstraints
+{
+    [ConstraintIgnore]
+    private static readonly Constraint<Order> BuildingBlock = Constraints<Order>.Always(o => o.Total >= 0);
+
+    public static readonly Constraint<Order> TotalMatchesLines = /* ...composes BuildingBlock with something else... */;
+}
+```
+
+A type using `[Constraints]` doesn't also need `[Constraint]` on its own members — if both appear,
+the explicit tag is simply redundant (already found by auto-discovery), never double-counted.
+
 ## Sequential constraints: `Transitions`
 
 `Always` and `Check` only ever see the value being checked. A constraint that depends on what the
@@ -140,6 +189,28 @@ var paymentRefRequired = Constraints<Order>
     .When(o => o.Status == OrderStatus.Confirmed)
     .Requires(o => o.PaymentRef != null, "PaymentRef is required once an order is confirmed.");
 ```
+
+### A declarative allow-list: `Transitions<TState>`
+
+Hand-writing a `switch` of legal `(prev, next)` pairs works, but it's tedious and easy to get wrong
+(a missed case, a backwards tuple) once there are more than two or three. `Transitions<TState>`
+takes a selector and an explicit allow-list instead — one `Allow(from, to)` per legal edge, violated
+on anything not in it:
+
+```csharp
+var legalTransitions = Constraints<Order>
+    .Transitions(o => o.Status)
+    .Allow(OrderStatus.Pending, OrderStatus.Confirmed)
+    .Allow(OrderStatus.Confirmed, OrderStatus.Shipped)
+    .Allow(OrderStatus.Pending, OrderStatus.Cancelled)
+    .Allow(OrderStatus.Confirmed, OrderStatus.Cancelled);
+```
+
+It converts implicitly to `Constraint<T>`, so it drops straight into a field or a `ConstraintSet.From`
+tuple with no extra call. Reach for the predicate-based `Transitions(Func<T, T, bool>, string?)`
+overload above instead when a transition's legality depends on more than just the two state values
+(for example, a quantity carried on the event) — `Transitions<TState>` is for the common case where
+the thing moving through states is a single comparable value, usually an enum.
 
 ## Named qualities beyond a plain predicate
 

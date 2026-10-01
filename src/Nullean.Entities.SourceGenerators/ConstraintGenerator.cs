@@ -41,16 +41,30 @@ namespace Nullean.Entities.SourceGenerators;
 public sealed class ConstraintGenerator : IIncrementalGenerator
 {
 	private const string ConstraintAttributeMetadataName = "Nullean.Entities.ConstraintAttribute";
+	private const string ConstraintsAttributeMetadataName = "Nullean.Entities.ConstraintsAttribute";
+	private const string ConstraintIgnoreAttributeMetadataName = "Nullean.Entities.ConstraintIgnoreAttribute";
 
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
-		var members = context.SyntaxProvider.ForAttributeWithMetadataName(
+		var explicitMembers = context.SyntaxProvider.ForAttributeWithMetadataName(
 			ConstraintAttributeMetadataName,
 			predicate: static (node, _) => node is VariableDeclaratorSyntax or PropertyDeclarationSyntax,
 			transform: static (ctx, ct) => Analyze(ctx, ct)
 		);
 
-		context.RegisterSourceOutput(members.Collect(), static (spc, all) => Generate(spc, all));
+		// [Constraints] on the type itself: every eligible static member is discovered by
+		// reflecting over the type's own symbol rather than requiring each one to carry
+		// [Constraint] — one MemberInfo array per tagged type, flattened below so it can be merged
+		// with explicitMembers and fed through the exact same grouping/validation path.
+		var autoDiscoveredMembers = context.SyntaxProvider.ForAttributeWithMetadataName(
+			ConstraintsAttributeMetadataName,
+			predicate: static (node, _) => node is ClassDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax,
+			transform: static (ctx, ct) => AnalyzeAutoType(ctx, ct)
+		);
+
+		var merged = explicitMembers.Collect().Combine(autoDiscoveredMembers.Collect()).Select(static (pair, _) => Merge(pair.Left, pair.Right));
+
+		context.RegisterSourceOutput(merged, static (spc, all) => Generate(spc, all));
 	}
 
 	private static MemberInfo Analyze(GeneratorAttributeSyntaxContext ctx, CancellationToken _)
@@ -63,6 +77,65 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			_ => (null!, false),
 		};
 		return new MemberInfo(symbol.ContainingType!, memberType, symbol.Name, isStatic, ctx.TargetNode.GetLocation());
+	}
+
+	/// <summary>
+	/// For a [Constraints]-tagged type, every static field/property declared directly on it whose
+	/// type is Constraint&lt;T&gt;/ReactiveConstraint&lt;TEvent&gt; is eligible — found by walking
+	/// the type's own members rather than requiring [Constraint] on each one. [ConstraintIgnore]
+	/// excludes an otherwise-eligible member; anything whose type doesn't match (TryClassify
+	/// returns false) is silently not a candidate at all, the same as it simply never being tagged
+	/// under the per-member opt-in — there is no "wrong type" diagnostic to raise here, since
+	/// nothing asked for this specific member to be included.
+	/// </summary>
+	private static ImmutableArray<MemberInfo> AnalyzeAutoType(GeneratorAttributeSyntaxContext ctx, CancellationToken _)
+	{
+		if (ctx.TargetSymbol is not INamedTypeSymbol type)
+		{
+			return [];
+		}
+
+		return [
+			.. type
+				.GetMembers()
+				.Where(m => m is IFieldSymbol or IPropertySymbol && m.IsStatic)
+				.Where(m => !m.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnoreAttributeMetadataName))
+				.Select(
+					m =>
+						(Member: m, MemberType: m switch
+						{
+							IFieldSymbol f => f.Type,
+							IPropertySymbol p => p.Type,
+							_ => null!
+						})
+				)
+				.Where(t => TryClassify(t.MemberType, out var unusedKind, out var unusedTypeArgument))
+				.Select(t => new MemberInfo(type, t.MemberType, t.Member.Name, true, t.Member.Locations.FirstOrDefault() ?? Location.None)),
+		];
+	}
+
+	/// <summary>
+	/// A type read via [Constraints] takes over entirely for that type: its explicit [Constraint]
+	/// members (if any — redundant, not an error) are dropped in favour of the auto-discovered
+	/// list, so the same member is never counted twice and only one source file is ever emitted per
+	/// type. A type with no [Constraints] tag is unaffected, using explicitMembers exactly as before.
+	/// One consequence: a stray [Constraint] on a member whose type doesn't qualify (a mistake, on
+	/// a type that also carries [Constraints]) is dropped silently rather than diagnosed — it was
+	/// never going to be auto-discovered either, and [Constraint] is simply inert once [Constraints]
+	/// is present on the containing type.
+	/// </summary>
+	private static ImmutableArray<MemberInfo> Merge(ImmutableArray<MemberInfo> explicitMembers, ImmutableArray<ImmutableArray<MemberInfo>> autoDiscovered)
+	{
+		var autoTypes = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+		foreach (var group in autoDiscovered)
+		{
+			if (group.Length > 0)
+			{
+				autoTypes.Add(group[0].ContainingType);
+			}
+		}
+
+		return [.. explicitMembers.Where(m => !autoTypes.Contains(m.ContainingType)), .. autoDiscovered.SelectMany(g => g),];
 	}
 
 	private static void Generate(SourceProductionContext spc, ImmutableArray<MemberInfo> members)

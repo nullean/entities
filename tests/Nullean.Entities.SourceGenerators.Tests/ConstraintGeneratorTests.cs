@@ -319,4 +319,155 @@ public class ConstraintGeneratorShapeTests
 		run.HasDiagnostic("NECG002").Should().BeTrue();
 		run.Generated.Should().BeEmpty();
 	}
+
+	[Test]
+	public void Constraints_attribute_on_the_type_discovers_every_eligible_static_member_with_no_per_member_tagging()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public sealed record Order(decimal Total, int Lines);
+
+			[Constraints]
+			public static partial class OrderSpec
+			{
+			    public static readonly Constraint<Order> TotalPositive = Constraints<Order>.Always(o => o.Total > 0, "not positive");
+
+			    public static readonly Constraint<Order> HasLines = Constraints<Order>.Always(o => o.Lines > 0, "no lines");
+			}
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		var source = run.SingleGeneratedSource();
+		source.Should().Contain("(nameof(TotalPositive), TotalPositive)");
+		source.Should().Contain("(nameof(HasLines), HasLines)");
+	}
+
+	[Test]
+	public void ConstraintIgnore_excludes_an_otherwise_eligible_member_from_Constraints_attribute_discovery()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public sealed record Order(decimal Total);
+
+			[Constraints]
+			public static partial class OrderSpec
+			{
+			    public static readonly Constraint<Order> TotalPositive = Constraints<Order>.Always(o => o.Total > 0, "not positive");
+
+			    // A building block combined into TotalPositive above, not a rule of its own —
+			    // [ConstraintIgnore] is the escape hatch for exactly this.
+			    [ConstraintIgnore]
+			    public static readonly Constraint<Order> NotARuleOfItsOwn = Constraints<Order>.Always(o => true, "unused");
+			}
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		var source = run.SingleGeneratedSource();
+		source.Should().Contain("(nameof(TotalPositive), TotalPositive)");
+		source.Should().NotContain("NotARuleOfItsOwn");
+	}
+
+	[Test]
+	public void Constraints_attribute_makes_any_coexisting_explicit_Constraint_tag_redundant_not_duplicated()
+	{
+		// A member tagged [Constraint] on a type that also carries [Constraints] is already found
+		// by auto-discovery — it must appear exactly once in the generated set, not twice.
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public sealed record Order(decimal Total);
+
+			[Constraints]
+			public static partial class OrderSpec
+			{
+			    [Constraint]
+			    public static readonly Constraint<Order> TotalPositive = Constraints<Order>.Always(o => o.Total > 0, "not positive");
+			}
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		var source = run.SingleGeneratedSource();
+		source.Split("nameof(TotalPositive)").Length.Should().Be(2, "TotalPositive must be bundled exactly once, not once per attribute that mentions it");
+	}
+
+	[Test]
+	public void Constraints_attribute_on_a_self_attach_type_still_adds_IHaveConstraints()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			[Constraints]
+			public partial record Item(int Value)
+			{
+			    public static readonly Constraint<Item> Positive = Constraints<Item>.Always(i => i.Value > 0, "not positive");
+			}
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		var source = run.SingleGeneratedSource();
+		source.Should().Contain("global::Nullean.Entities.IHaveConstraints<Item>");
+		source.Should().Contain("(nameof(Positive), Positive)");
+	}
+
+	[Test]
+	public void Constraints_attribute_on_a_non_partial_type_is_still_refused_with_NECG001()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public sealed record Order(decimal Total);
+
+			[Constraints]
+			public static class OrderSpec
+			{
+			    public static readonly Constraint<Order> TotalPositive = Constraints<Order>.Always(o => o.Total > 0, "not positive");
+			}
+			"""
+		);
+
+		run.HasDiagnostic("NECG001").Should().BeTrue();
+		run.Generated.Should().BeEmpty();
+	}
+
+	[Test]
+	public void Constraints_attribute_with_no_eligible_members_generates_nothing_and_raises_no_diagnostic()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			[Constraints]
+			public static partial class EmptySpec
+			{
+			    public static readonly int NotAConstraint = 1;
+			}
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		run.Generated.Should().BeEmpty();
+	}
 }
