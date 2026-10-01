@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.Commerce;
 
 public class ShoppingCartTests
 {
-	private static readonly ConstraintSet<ShoppingCart> Constraints = ShoppingCartConstraints.Constraints;
+	private static readonly ConstraintSet<ShoppingCart> Constraints = ShoppingCartConstraints.All;
 
 	private static readonly CartLine LineA = new("SKU-A", 2, 9.99m);
 

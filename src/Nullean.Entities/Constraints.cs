@@ -415,7 +415,7 @@ public sealed class ConstraintAttribute : Attribute
 /// <summary>
 /// Marks a partial type for automatic constraint discovery: every static
 /// <see cref="Constraint{T}"/>/<c>ReactiveConstraint&lt;TEvent&gt;</c> field or property declared
-/// directly on this type is bundled into the generated <c>Constraints</c> set, with no need to tag
+/// directly on this type is bundled into the generated <c>All</c> set, with no need to tag
 /// each one with <see cref="ConstraintAttribute"/> individually. Mark a member that should be
 /// excluded despite matching with <see cref="ConstraintIgnoreAttribute"/>.
 /// </summary>
@@ -441,7 +441,7 @@ public sealed class ConstraintIgnoreAttribute : Attribute
 
 public interface IHaveConstraints<TSelf> where TSelf : IHaveConstraints<TSelf>
 {
-	static abstract ConstraintSet<TSelf> Constraints { get; }
+	static abstract ConstraintSet<TSelf> All { get; }
 }
 
 // ── IConstraintsFor<T> ────────────────────────────────────────────────────────
@@ -460,7 +460,7 @@ public interface IHaveConstraints<TSelf> where TSelf : IHaveConstraints<TSelf>
 
 public interface IConstraintsFor<T>
 {
-	ConstraintSet<T> Constraints { get; }
+	ConstraintSet<T> All { get; }
 }
 
 // ── ConstraintSet<T> ──────────────────────────────────────────────────────────
@@ -495,18 +495,27 @@ public sealed class ConstraintSet<T>
 	/// Runs a <paramref name="mutation"/> and checks every constraint over the result —
 	/// <see cref="ConstraintKind.PointInTime"/> constraints against the result alone,
 	/// <see cref="ConstraintKind.Sequential"/> ones against the (<paramref name="current"/>, result)
-	/// pair. If all pass, returns <see cref="Result{T}.Ok"/> with the new value; otherwise
-	/// <see cref="Result{T}.Fail"/> with every violation.
+	/// pair. Returns <see cref="ChannelResult{T}.Noop"/> when the mutation produces the same value,
+	/// <see cref="ChannelResult{T}.Applied"/> when all constraints pass, or
+	/// <see cref="ChannelResult{T}.Failure"/> (carrying the original value) when any are violated.
 	/// </summary>
-	public Result<T> Apply(T current, Func<T, T> mutation)
+	public ChannelResult<T> Apply(T current, Func<T, T> mutation)
 	{
 		var next = mutation(current);
+		if (EqualityComparer<T>.Default.Equals(current, next))
+			return new ChannelResult<T>.Noop(current);
 		var violations = RunAll(current, next);
-		return violations.Count == 0 ? new Result<T>.Ok(next) : new Result<T>.Fail(next, violations);
+		return violations.Count == 0 ? new ChannelResult<T>.Applied(next) : new ChannelResult<T>.Failure(current, violations);
 	}
 
-	/// <summary>Like <see cref="Apply"/>, but throws on the first violated constraint.</summary>
-	public T ApplyOrThrow(T current, Func<T, T> mutation) => Apply(current, mutation).Unwrap();
+	/// <summary>Like <see cref="Apply"/>, but throws on <see cref="ChannelResult{T}.Failure"/>. Returns the new value for both <see cref="ChannelResult{T}.Applied"/> and <see cref="ChannelResult{T}.Noop"/>.</summary>
+	public T ApplyOrThrow(T current, Func<T, T> mutation) => Apply(current, mutation) switch
+	{
+		ChannelResult<T>.Applied a => a.Value,
+		ChannelResult<T>.Noop n => n.Value,
+		ChannelResult<T>.Failure f => throw new InvalidOperationException($"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
+		_ => throw new UnreachableException(),
+	};
 
 	// Called by ConstraintChannel<T>.Apply after it has already computed `next` to avoid calling
 	// the mutation twice — the channel needs the value upfront to short-circuit on equality.

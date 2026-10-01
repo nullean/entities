@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.Finance;
 
 public class BankAccountTests
 {
-	private static readonly ConstraintSet<BankAccount> Constraints = BankAccountConstraints.Constraints;
+	private static readonly ConstraintSet<BankAccount> Constraints = BankAccountConstraints.All;
 
 	private static BankAccount Active(decimal balance = 100m) => new("DE89370400440532013000", balance, 500m, AccountStatus.Active);
 

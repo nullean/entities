@@ -98,7 +98,7 @@ public static partial class PatientRecordConstraints
 			[
 				.. record
 					.ActiveMedications
-					.SelectMany(m => MedicationConstraints.Constraints.Validate(m).Select(v => v with { Message = $"Medication '{m.DrugName}': {v.Message}" })),
+					.SelectMany(m => MedicationConstraints.All.Validate(m).Select(v => v with { Message = $"Medication '{m.DrugName}': {v.Message}" })),
 			]
 	);
 
@@ -139,7 +139,7 @@ public static partial class PatientRecordConstraints
 			[
 				.. record
 					.RecentLabResults
-					.SelectMany(l => LabResultConstraints.Constraints.Validate(l).Select(v => v with { Message = $"Lab '{l.TestName}': {v.Message}" })),
+					.SelectMany(l => LabResultConstraints.All.Validate(l).Select(v => v with { Message = $"Lab '{l.TestName}': {v.Message}" })),
 			]
 	);
 
@@ -150,7 +150,7 @@ public static partial class PatientRecordConstraints
 				.. record
 					.VitalHistory
 					.SelectMany(
-						v => VitalSignsConstraints.Constraints.Validate(v).Select(viol => viol with { Message = $"Vitals at {v.RecordedAt:u}: {viol.Message}" })
+						v => VitalSignsConstraints.All.Validate(v).Select(viol => viol with { Message = $"Vitals at {v.RecordedAt:u}: {viol.Message}" })
 					),
 			]
 	);
@@ -183,7 +183,7 @@ public static partial class PatientRecordConstraints
 }
 
 // Step set for status-change mutations (Admit, Discharge).
-// Use this set — not PatientRecordConstraints.Constraints — when changing patient status.
+// Use this set — not PatientRecordConstraints.All — when changing patient status.
 public static class PatientRecordStepConstraints
 {
 	public static readonly ConstraintSet<PatientRecord> StatusChangeStep = ConstraintSet.From(

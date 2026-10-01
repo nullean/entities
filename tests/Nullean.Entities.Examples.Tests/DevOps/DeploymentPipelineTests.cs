@@ -5,7 +5,7 @@ namespace Nullean.Entities.Examples.Tests.DevOps;
 
 public class DeploymentPipelineTests
 {
-	private static readonly ConstraintSet<DeploymentPipeline> Constraints = DeploymentPipelineConstraints.Constraints;
+	private static readonly ConstraintSet<DeploymentPipeline> Constraints = DeploymentPipelineConstraints.All;
 
 	private static DeploymentPipeline Queued() =>
 		new(

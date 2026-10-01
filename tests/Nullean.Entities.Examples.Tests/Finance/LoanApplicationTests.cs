@@ -5,7 +5,7 @@ namespace Nullean.Entities.Examples.Tests.Finance;
 
 public class LoanApplicationTests
 {
-	private static readonly ConstraintSet<LoanApplication> Constraints = LoanApplicationConstraints.Constraints;
+	private static readonly ConstraintSet<LoanApplication> Constraints = LoanApplicationConstraints.All;
 
 	private static LoanApplicant Applicant(int creditScore = 700) => new("John Smith", creditScore);
 

@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.Finance;
 
 public class TransferTests
 {
-	private static readonly ConstraintSet<(Account From, Account To)> Constraints = TransferConstraints.Constraints;
+	private static readonly ConstraintSet<(Account From, Account To)> Constraints = TransferConstraints.All;
 
 	[Test]
 	public void Validate_legal_transfer_conserves_total()

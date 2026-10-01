@@ -5,7 +5,7 @@ namespace Nullean.Entities.Examples.Tests.Traffic;
 
 public class TrafficLightTests
 {
-	private static readonly ConstraintSet<TrafficLight> Constraints = TrafficLightConstraints.Constraints;
+	private static readonly ConstraintSet<TrafficLight> Constraints = TrafficLightConstraints.All;
 
 	private static TrafficLight Red() => new("Main/1st", Signal.Red, TimeSpan.FromSeconds(30));
 

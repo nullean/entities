@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.SaaS;
 
 public class SubscriptionTests
 {
-	private static readonly ConstraintSet<Subscription> Constraints = SubscriptionConstraints.Constraints;
+	private static readonly ConstraintSet<Subscription> Constraints = SubscriptionConstraints.All;
 
 	private static readonly BillingPeriod Period = new(new DateOnly(2024, 1, 1), new DateOnly(2024, 1, 31));
 

@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.Commerce;
 
 public class CouponsTests
 {
-	private static readonly ConstraintSet<Cart> Constraints = CouponConstraints.Constraints;
+	private static readonly ConstraintSet<Cart> Constraints = CouponConstraints.All;
 
 	private static Coupon PercentOff(string code, decimal min = 0m) => new(code, min, CouponKind.Standard);
 

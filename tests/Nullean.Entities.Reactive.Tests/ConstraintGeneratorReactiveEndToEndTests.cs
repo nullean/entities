@@ -39,14 +39,14 @@ public class ReactiveCompanionClassConstraintsTests
 	[Test]
 	public void Generated_Constraints_is_a_ReactiveConstraintSet()
 	{
-		GeneratedOrderEventSpec.Constraints.Should().BeOfType<ReactiveConstraintSet<GeneratedOrderEvent>>();
+		GeneratedOrderEventSpec.All.Should().BeOfType<ReactiveConstraintSet<GeneratedOrderEvent>>();
 	}
 
 	[Test]
 	public void Attaching_the_generated_set_names_each_constraint_from_the_field()
 	{
 		var subject = new Subject<GeneratedOrderEvent>();
-		var monitored = GeneratedOrderEventSpec.Constraints.Attach(subject);
+		var monitored = GeneratedOrderEventSpec.All.Attach(subject);
 
 		monitored["NeverShippedBeforeConfirmed"].Current.IsPending.Should().BeTrue();
 		monitored["TotalAlwaysPositive"].Current.IsPending.Should().BeTrue();
@@ -57,7 +57,7 @@ public class ReactiveCompanionClassConstraintsTests
 	{
 		var orderId = Guid.NewGuid();
 		var subject = new Subject<GeneratedOrderEvent>();
-		var monitored = GeneratedOrderEventSpec.Constraints.Attach(subject);
+		var monitored = GeneratedOrderEventSpec.All.Attach(subject);
 
 		subject.OnNext(new GeneratedOrderEvent.Placed(orderId));
 		subject.OnNext(new GeneratedOrderEvent.Shipped(orderId));
@@ -70,9 +70,9 @@ public class ReactiveCompanionClassConstraintsTests
 	{
 		// Same reasoning as the sync IConstraintsFor<T> end-to-end test: a plain instance interface,
 		// so a caller passes the value and TEvent is inferred from it.
-		static ReactiveConstraintSet<T> ConstraintsFor<T>(IReactiveConstraintsFor<T> spec) => spec.Constraints;
+		static ReactiveConstraintSet<T> ConstraintsFor<T>(IReactiveConstraintsFor<T> spec) => spec.All;
 
-		ConstraintsFor(GeneratedOrderEventSpec.TypeConstraints.Instance).Should().BeSameAs(GeneratedOrderEventSpec.Constraints);
+		ConstraintsFor(GeneratedOrderEventSpec.TypeConstraints.Instance).Should().BeSameAs(GeneratedOrderEventSpec.All);
 	}
 
 	[Test]
@@ -81,6 +81,6 @@ public class ReactiveCompanionClassConstraintsTests
 		// GeneratedOrderEventSpec.Instance is the generated top-level shortcut — callers never have
 		// to spell out "TypeConstraints" to get the IReactiveConstraintsFor<OrderEvent> value.
 		GeneratedOrderEventSpec.Instance.Should().BeEquivalentTo(GeneratedOrderEventSpec.TypeConstraints.Instance);
-		GeneratedOrderEventSpec.Instance.Constraints.Should().BeSameAs(GeneratedOrderEventSpec.Constraints);
+		GeneratedOrderEventSpec.Instance.All.Should().BeSameAs(GeneratedOrderEventSpec.All);
 	}
 }

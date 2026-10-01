@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.Commerce;
 
 public class OrderLifecycleTests
 {
-	private static readonly ConstraintSet<Order> Constraints = OrderConstraints.Constraints;
+	private static readonly ConstraintSet<Order> Constraints = OrderConstraints.All;
 
 	private static readonly OrderLine Line = new("SKU-1", 1, 10m);
 

@@ -47,28 +47,35 @@ public class ConstraintSetTests
 	}
 
 	[Test]
-	public void Apply_returns_Ok_when_no_constraints_are_violated()
+	public void Apply_returns_Applied_when_no_constraints_are_violated()
 	{
 		var result = All.Apply(new Item(1), current => current with { Value = 2 });
-		result.Should().BeOfType<Result<Item>.Ok>();
+		result.Should().BeOfType<ChannelResult<Item>.Applied>();
 	}
 
 	[Test]
-	public void Apply_returns_Fail_when_a_constraint_is_violated()
+	public void Apply_returns_Noop_when_the_mutation_produces_the_same_value()
 	{
-		var result = All.Apply(new Item(1), _ => new Item(-5));
-
-		result.Should().BeOfType<Result<Item>.Fail>();
-		((Result<Item>.Fail)result).Violations.Should().NotBeEmpty();
+		var result = All.Apply(new Item(1), current => current with { Value = 1 });
+		result.Should().BeOfType<ChannelResult<Item>.Noop>();
 	}
 
 	[Test]
-	public void Fail_keeps_the_attempted_value_for_a_caller_that_matches_on_the_record_directly()
+	public void Apply_returns_Failure_when_a_constraint_is_violated()
 	{
 		var result = All.Apply(new Item(1), _ => new Item(-5));
 
-		var fail = result.Should().BeOfType<Result<Item>.Fail>().Subject;
-		fail.Attempted.Value.Should().Be(-5);
+		result.Should().BeOfType<ChannelResult<Item>.Failure>();
+		((ChannelResult<Item>.Failure)result).Violations.Should().NotBeEmpty();
+	}
+
+	[Test]
+	public void Failure_carries_the_original_value()
+	{
+		var result = All.Apply(new Item(1), _ => new Item(-5));
+
+		var failure = result.Should().BeOfType<ChannelResult<Item>.Failure>().Subject;
+		failure.Current.Value.Should().Be(1);
 	}
 
 	[Test]
@@ -79,6 +86,13 @@ public class ConstraintSetTests
 	}
 
 	[Test]
+	public void ApplyOrThrow_returns_the_same_value_when_mutation_is_a_noop()
+	{
+		var next = All.ApplyOrThrow(new Item(1), current => current with { Value = 1 });
+		next.Value.Should().Be(1);
+	}
+
+	[Test]
 	public void ApplyOrThrow_throws_when_a_constraint_is_violated()
 	{
 		var act = () => All.ApplyOrThrow(new Item(1), _ => new Item(-5));
@@ -86,32 +100,19 @@ public class ConstraintSetTests
 	}
 
 	[Test]
-	public void Result_Match_dispatches_to_the_ok_branch()
+	public void Apply_Applied_pattern_match_dispatches_correctly()
 	{
-		var ok = All.Apply(new Item(1), _ => new Item(2));
-		var called = false;
-		ok.Match<Item?>(
-			v =>
-			{
-				called = true;
-				return v;
-			},
-			_ => null
-		);
-		called.Should().BeTrue();
+		var applied = All.Apply(new Item(1), _ => new Item(2));
+		var saw = applied is ChannelResult<Item>.Applied(var v) && v.Value == 2;
+		saw.Should().BeTrue();
 	}
 
 	[Test]
-	public void Result_Match_dispatches_to_the_fail_branch()
+	public void Apply_Failure_pattern_match_dispatches_correctly()
 	{
-		var fail = All.Apply(new Item(1), _ => new Item(-1));
-		var failCalled = false;
-		fail.Match<Item?>(v => v, _ =>
-		{
-			failCalled = true;
-			return null;
-		});
-		failCalled.Should().BeTrue();
+		var failure = All.Apply(new Item(1), _ => new Item(-1));
+		var sawFailure = failure is ChannelResult<Item>.Failure { Violations.Count: > 0 };
+		sawFailure.Should().BeTrue();
 	}
 }
 
@@ -130,14 +131,14 @@ public class SequentialConstraintTests
 	public void Apply_holds_when_the_mutation_increases_the_value()
 	{
 		var result = All.Apply(new Item(1), current => current with { Value = 2 });
-		result.Should().BeOfType<Result<Item>.Ok>();
+		result.Should().BeOfType<ChannelResult<Item>.Applied>();
 	}
 
 	[Test]
 	public void Apply_is_violated_when_the_mutation_decreases_the_value()
 	{
 		var result = All.Apply(new Item(5), current => current with { Value = 1 });
-		result.Should().BeOfType<Result<Item>.Fail>();
+		result.Should().BeOfType<ChannelResult<Item>.Failure>();
 	}
 
 	[Test]
@@ -198,14 +199,14 @@ public class MonotonicConstraintTests
 	public void NonDecreasing_holds_when_the_mutation_grows_the_value()
 	{
 		var result = ConstraintSet.From((nameof(NeverDecreases), NeverDecreases)).Apply(new Item(1), current => current with { Value = 5 });
-		result.Should().BeOfType<Result<Item>.Ok>();
+		result.Should().BeOfType<ChannelResult<Item>.Applied>();
 	}
 
 	[Test]
-	public void NonDecreasing_holds_when_the_mutation_leaves_the_value_unchanged()
+	public void NonDecreasing_leaves_the_value_unchanged_as_Noop()
 	{
 		var result = ConstraintSet.From((nameof(NeverDecreases), NeverDecreases)).Apply(new Item(1), current => current with { Value = 1 });
-		result.Should().BeOfType<Result<Item>.Ok>();
+		result.Should().BeOfType<ChannelResult<Item>.Noop>();
 	}
 
 	[Test]
@@ -213,8 +214,8 @@ public class MonotonicConstraintTests
 	{
 		var result = ConstraintSet.From((nameof(NeverDecreases), NeverDecreases)).Apply(new Item(5), current => current with { Value = 1 });
 
-		result.Should().BeOfType<Result<Item>.Fail>();
-		var fail = (Result<Item>.Fail)result;
+		result.Should().BeOfType<ChannelResult<Item>.Failure>();
+		var fail = ((ChannelResult<Item>.Failure)result);
 		fail.Violations.Should().ContainSingle();
 		fail.Violations[0].Evidence.Should().Be((5, 1));
 	}
@@ -223,7 +224,7 @@ public class MonotonicConstraintTests
 	public void NonIncreasing_is_violated_when_the_mutation_grows_the_value()
 	{
 		var result = ConstraintSet.From((nameof(NeverIncreases), NeverIncreases)).Apply(new Item(1), current => current with { Value = 5 });
-		result.Should().BeOfType<Result<Item>.Fail>();
+		result.Should().BeOfType<ChannelResult<Item>.Failure>();
 	}
 
 	[Test]
@@ -253,7 +254,7 @@ public class ConservesConstraintTests
 	public void Holds_when_a_transfer_moves_value_between_the_two_halves_without_changing_the_total()
 	{
 		var result = All.Apply((new Item(10), new Item(0)), current => (current.From with { Value = 7 }, current.To with { Value = 3 }));
-		result.Should().BeOfType<Result<(Item, Item)>.Ok>();
+		result.Should().BeOfType<ChannelResult<(Item, Item)>.Applied>();
 	}
 
 	[Test]
@@ -261,8 +262,8 @@ public class ConservesConstraintTests
 	{
 		var result = All.Apply((new Item(10), new Item(0)), current => (current.From with { Value = 7 }, current.To with { Value = 4 }));
 
-		result.Should().BeOfType<Result<(Item, Item)>.Fail>();
-		var fail = (Result<(Item, Item)>.Fail)result;
+		result.Should().BeOfType<ChannelResult<(Item, Item)>.Failure>();
+		var fail = ((ChannelResult<(Item, Item)>.Failure)result);
 		fail.Violations.Should().ContainSingle();
 		fail.Violations[0].Evidence.Should().Be((10, 11));
 	}
@@ -319,8 +320,8 @@ public class OptionalMessageDefaultsTests
 	{
 		var result = Sequential.Apply(new Item(5), _ => new Item(1));
 
-		var fail = result.Should().BeOfType<Result<Item>.Fail>().Subject;
-		var violation = fail.Violations.Should().ContainSingle(v => v.ConstraintId == nameof(NeverDecreases)).Subject;
+		var failure = result.Should().BeOfType<ChannelResult<Item>.Failure>().Subject;
+		var violation = failure.Violations.Should().ContainSingle(v => v.ConstraintId == nameof(NeverDecreases)).Subject;
 		violation.Message.Should().Be("NeverDecreases does not allow the transition from Item { Value = 5 } to Item { Value = 1 }.");
 		violation.Evidence.Should().Be((new Item(5), new Item(1)));
 	}
@@ -342,8 +343,8 @@ public class OptionalMessageDefaultsTests
 	{
 		var result = Pairwise.Apply((new Item(10), new Item(0)), current => (current.From with { Value = 7 }, current.To with { Value = 4 }));
 
-		var fail = result.Should().BeOfType<Result<(Item, Item)>.Fail>().Subject;
-		var violation = fail.Violations.Should().ContainSingle().Subject;
+		var failure = result.Should().BeOfType<ChannelResult<(Item, Item)>.Failure>().Subject;
+		var violation = failure.Violations.Should().ContainSingle().Subject;
 		violation.Message.Should().Be("TotalIsConserved did not conserve its value (was 10, became 11).");
 		violation.Evidence.Should().Be((10, 11));
 	}
@@ -386,7 +387,7 @@ public class TransitionBuilderTests
 	public void Holds_for_an_allowed_edge()
 	{
 		var result = All.Apply(new Order(Status.Pending), current => current with { Status = Status.Confirmed });
-		result.Should().BeOfType<Result<Order>.Ok>();
+		result.Should().BeOfType<ChannelResult<Order>.Applied>();
 	}
 
 	[Test]
@@ -394,8 +395,8 @@ public class TransitionBuilderTests
 	{
 		var result = All.Apply(new Order(Status.Pending), current => current with { Status = Status.Shipped });
 
-		var fail = result.Should().BeOfType<Result<Order>.Fail>().Subject;
-		var violation = fail.Violations.Should().ContainSingle().Subject;
+		var failure = result.Should().BeOfType<ChannelResult<Order>.Failure>().Subject;
+		var violation = failure.Violations.Should().ContainSingle().Subject;
 		violation.Message.Should().Be("LegalTransitions does not allow the transition from Pending to Shipped.");
 		violation.Evidence.Should().Be((Status.Pending, Status.Shipped));
 	}

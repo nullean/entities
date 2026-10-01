@@ -6,8 +6,8 @@ namespace Nullean.Entities.Examples.Tests.HR;
 
 public class OrgChartTests
 {
-	private static readonly ConstraintSet<Person> PersonSet = PersonConstraints.Constraints;
-	private static readonly ConstraintSet<OrgChart> OrgSet = OrgChartConstraints.Constraints;
+	private static readonly ConstraintSet<Person> PersonSet = PersonConstraints.All;
+	private static readonly ConstraintSet<OrgChart> OrgSet = OrgChartConstraints.All;
 
 	private static Person ActivePerson(string id, string? managerId = null) => new(id, $"Person {id}", managerId, EmploymentStatus.Active, 1, []);
 

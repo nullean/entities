@@ -206,7 +206,7 @@ public sealed record ConstraintSetState(IReadOnlyDictionary<string, Verdict> Ver
 
 public interface IReactiveConstraintsFor<TEvent>
 {
-	ReactiveConstraintSet<TEvent> Constraints { get; }
+	ReactiveConstraintSet<TEvent> All { get; }
 }
 
 // ── Constraints<TEvent> — static builder ──────────────────────────────────────
@@ -735,7 +735,7 @@ public sealed class WithinBuilder2<TEvent, TTrigger, TNext1, TNext2> where TTrig
 public static class ReactiveConstraintSetExtensions
 {
 	/// <summary>
-	/// Attaches the type's own <see cref="IHaveConstraints{TSelf}.Constraints"/> to the
+	/// Attaches the type's own <see cref="IHaveConstraints{TSelf}.All"/> to the
 	/// event stream, converting the synchronous <see cref="ConstraintSet{T}"/> to a
 	/// <see cref="ReactiveConstraintSet{TEvent}"/> first (see <see cref="ConstraintSetReactiveExtensions.ToReactive{T}"/>).
 	/// Only available when TEvent implements IHaveConstraints&lt;TEvent&gt;.
@@ -743,7 +743,7 @@ public static class ReactiveConstraintSetExtensions
 	public static MonitoredConstraintSet<TEvent> AttachConstraints<TEvent>(
 		this IObservable<TEvent> events,
 		IScheduler? scheduler = null
-	) where TEvent : IHaveConstraints<TEvent> => TEvent.Constraints.ToReactive().Attach(events, scheduler);
+	) where TEvent : IHaveConstraints<TEvent> => TEvent.All.ToReactive().Attach(events, scheduler);
 }
 
 public static class ConstraintSetReactiveExtensions

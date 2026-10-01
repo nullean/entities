@@ -6,8 +6,8 @@ namespace Nullean.Entities.Examples.Tests.Basics;
 
 public class MoneyTests
 {
-	private static readonly ConstraintSet<Money> MoneySet = MoneyConstraints.Constraints;
-	private static readonly ConstraintSet<(Money Left, Money Right)> PairSet = MoneyPairConstraints.Constraints;
+	private static readonly ConstraintSet<Money> MoneySet = MoneyConstraints.All;
+	private static readonly ConstraintSet<(Money Left, Money Right)> PairSet = MoneyPairConstraints.All;
 
 	[Test]
 	public void Validate_positive_amount_passes()

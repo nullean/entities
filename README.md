@@ -77,7 +77,7 @@ public static partial class OrderConstraints
         .Allow(OrderStatus.Pending, OrderStatus.Cancelled)
         .Allow(OrderStatus.Confirmed, OrderStatus.Cancelled);
 
-    // Generated: OrderConstraints.Constraints (ConstraintSet<Order>), from all four fields above.
+    // Generated: OrderConstraints.All (ConstraintSet<Order>), from all four fields above.
     // Add a fifth Constraint<Order> field and it joins the set on the next build with no extra
     // step; make the type non-partial, or target the wrong type, and the build still fails outright.
 }
@@ -88,10 +88,10 @@ if every constraint passes — violations are returned, nothing is left in an in
 
 ```csharp
 // Point-in-time: is this order valid right now?
-IReadOnlyList<Violation> problems = OrderConstraints.Constraints.Validate(order);
+IReadOnlyList<Violation> problems = OrderConstraints.All.Validate(order);
 
 // Guarded mutation: only commit if every constraint passes.
-var channel = ConstraintChannel.For(order).Enforce(OrderConstraints.Constraints);
+var channel = ConstraintChannel.For(order).Enforce(OrderConstraints.All);
 
 channel.Apply(o => o.Ship()) switch
 {
@@ -145,7 +145,7 @@ public static partial class OrderEventSpec
         from:     e => e is Confirmed,
         isTarget: e => e is Shipped or Cancelled);
 
-    // Generated: OrderEventSpec.Constraints (ReactiveConstraintSet<OrderEvent>), from all three
+    // Generated: OrderEventSpec.All (ReactiveConstraintSet<OrderEvent>), from all three
     // fields above and named from them — .Named(...) is for a constraint built outside a
     // [Constraints] type, which has no field name of its own to borrow.
 }
@@ -155,7 +155,7 @@ Attach the spec to any `IObservable<T>` and read verdicts at any time — in a t
 wired into a health check. The spec does not know or care which:
 
 ```csharp
-var monitored = OrderEventSpec.Constraints.Attach(service.Events);
+var monitored = OrderEventSpec.All.Attach(service.Events);
 
 service.Place(orderId);
 service.Confirm(orderId);
@@ -196,7 +196,7 @@ The testing axes map to how you think about correctness, not to any specific fra
 
 `Nullean.Entities.CsCheck` maps each axis to a test entry point. `Script` builds a sequence of
 named steps with generated arguments and optional virtual-time delays, then drives a real SUT with
-random orderings. The same `OrderEventSpec.Constraints` declared above runs unchanged — no
+random orderings. The same `OrderEventSpec.All` declared above runs unchanged — no
 re-declaration for tests:
 
 ```csharp
@@ -210,7 +210,7 @@ var script = Script.For<OrderService>()
 
 // Generates hundreds of random step sequences, runs each against a fresh OrderService,
 // checks every reactive constraint after each run. Finds the cases you didn't think of.
-script.SampleWith(_ => new OrderService(), svc => svc.Events, OrderEventSpec.Constraints);
+script.SampleWith(_ => new OrderService(), svc => svc.Events, OrderEventSpec.All);
 ```
 
 A failure prints the shrunk trace and a replay seed:

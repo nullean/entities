@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.IoT;
 
 public class SensorTests
 {
-	private static readonly ConstraintSet<Sensor> Constraints = SensorConstraints.Constraints;
+	private static readonly ConstraintSet<Sensor> Constraints = SensorConstraints.All;
 
 	private static Sensor Online() => new("dev-001", "Warehouse A", SensorStatus.Online, [], [], 0.0, 100.0);
 

@@ -6,7 +6,7 @@ namespace Nullean.Entities.Examples.Tests.Commerce;
 
 public class InventoryTests
 {
-	private static readonly ConstraintSet<StockItem> Constraints = InventoryConstraints.Constraints;
+	private static readonly ConstraintSet<StockItem> Constraints = InventoryConstraints.All;
 
 	[Test]
 	public void Validate_valid_stock_item()
