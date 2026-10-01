@@ -5,6 +5,7 @@
     <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="Microsoft.Reactive.Testing" />
+    <ProjectReference Include="../../examples/Nullean.Entities.Examples/Nullean.Entities.Examples.csproj" />
     <ProjectReference Include="../../src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
     <!-- Dev-time only, so the [Constraint] fixtures in NestedConstraintsExamples.cs actually get
          their Constraints property generated when this project itself is compiled — see

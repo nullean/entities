@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Nullean.Entities.Examples</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+    <!-- Dev-time only: the [Constraints] companion classes below need their Constraints property
+         generated. Analyzer references don't flow transitively, so this project needs its own copy. -->
+    <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

@@ -8,6 +8,7 @@
   <Project Path="tests/Nullean.Entities.SourceGenerators.Tests/Nullean.Entities.SourceGenerators.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Reactive.Tests/Nullean.Entities.Reactive.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.CsCheck.Tests/Nullean.Entities.CsCheck.Tests.csproj" />
+  <Project Path="examples/Nullean.Entities.Examples/Nullean.Entities.Examples.csproj" />
   <Project Path="examples/Nullean.Entities.Reactive.Examples/Nullean.Entities.Reactive.Examples.csproj" />
-  <Project Path="examples/Nullean.Entities.CsCheck.Examples/Nullean.Entities.CsCheck.Examples.csproj" />
+  <Project Path="tests/Nullean.Entities.Examples.Tests/Nullean.Entities.Examples.Tests.csproj" />
 </Solution>
