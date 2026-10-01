@@ -4,7 +4,7 @@
 using CsCheck;
 using Soenneker.Utils.AutoBogus;
 
-namespace Nullean.Entities.Bogus;
+namespace Nullean.Entities.CsCheck;
 
 /// <summary>
 /// Creates CsCheck generators backed by <c>Soenneker.Utils.AutoBogus</c>
@@ -48,5 +48,5 @@ internal sealed class AutoFakerGen<T>(Action<AutoFaker>? configure) : Gen<T>, ID
 		return value;
 	}
 
-	public void Dispose() => throw new NotImplementedException();
+	public void Dispose() => _local.Dispose();
 }

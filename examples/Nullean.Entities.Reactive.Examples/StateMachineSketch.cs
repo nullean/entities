@@ -10,7 +10,10 @@
 // just becomes one more driver of a constraint set that stands on its own.
 // ────────────────────────────────────────────────────────────────────────────
 
-// Sketch file — SUT stubs throw NotImplementedException.
+// Sketch file — four design patterns for where a constraint set can live, checked with a
+// TestScheduler only (no Script<T>/SampleWith/RunWith). Superseded by the real, fully-worked
+// examples elsewhere in this project and in Nullean.Entities.CsCheck.Examples; kept as a record of
+// the design exploration, not as coverage this goal's Script<TSut> work needs to reach.
 
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;

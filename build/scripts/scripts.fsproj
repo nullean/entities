@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <!-- Build tooling, not a library under test — stays single-targeted regardless of the
+         net10.0;net11.0 set at the repo root (which must be cleared explicitly here, or the
+         SDK treats the inherited multi-targeting list as authoritative over this TargetFramework). -->
+    <TargetFrameworks></TargetFrameworks>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <RollForward>LatestMinor</RollForward>

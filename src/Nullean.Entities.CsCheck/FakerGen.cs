@@ -4,7 +4,7 @@
 using Bogus;
 using CsCheck;
 
-namespace Nullean.Entities.Bogus;
+namespace Nullean.Entities.CsCheck;
 
 // Expose FakerHub (protected internal on Faker<T>) through a public property so
 // FakerGen<T> can set its Random without reflection.
@@ -42,7 +42,7 @@ internal sealed class FakerGen<T>(Func<Faker<T>, Faker<T>> configure) : Gen<T>, 
 		return value;
 	}
 
-	public void Dispose() => throw new NotImplementedException();
+	public void Dispose() => _local.Dispose();
 }
 
 /// <summary>

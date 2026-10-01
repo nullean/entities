@@ -88,4 +88,24 @@ public class CompanionClassConstraintsTests
 		var order = new GeneratedOrder(Guid.NewGuid(), 10m, "pay-1");
 		GeneratedOrderSpec.Constraints.Validate(order).Should().BeEmpty();
 	}
+
+	[Test]
+	public void IConstraintsFor_interface_is_actually_implemented_via_the_nested_TypeConstraints()
+	{
+		// IConstraintsFor<T> is a plain instance interface (not static-abstract, not F-bounded), so
+		// generic code can take a value implementing it directly and infer T from the argument —
+		// no separate TSpec type parameter needed, and no need to know GeneratedOrderSpec exists.
+		static ConstraintSet<T> ConstraintsFor<T>(IConstraintsFor<T> spec) => spec.Constraints;
+
+		ConstraintsFor(GeneratedOrderSpec.TypeConstraints.Instance).Should().BeSameAs(GeneratedOrderSpec.Constraints);
+	}
+
+	[Test]
+	public void Instance_is_a_forwarding_shortcut_for_TypeConstraints_Instance()
+	{
+		// GeneratedOrderSpec.Instance is the generated top-level shortcut — callers never have to
+		// spell out "TypeConstraints" to get the IConstraintsFor<Order> value.
+		GeneratedOrderSpec.Instance.Should().BeEquivalentTo(GeneratedOrderSpec.TypeConstraints.Instance);
+		GeneratedOrderSpec.Instance.Constraints.Should().BeSameAs(GeneratedOrderSpec.Constraints);
+	}
 }

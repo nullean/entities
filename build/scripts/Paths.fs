@@ -6,6 +6,11 @@ open System.IO
 let ToolName = "nullean-entities"
 let Repository = "nullean/entities"
 let MainTFM = "net10.0"
+// Every TFM a multi-targeted project in this repo builds — kept in sync with the
+// TargetFrameworks set in the root Directory.Build.props. `test` runs every test project once
+// per entry here, so a net11.0-only regression (e.g. a real C# union failing to compile or
+// behave the same as the net10.0 record-hierarchy fallback) fails the same gate as net10.0.
+let Frameworks = [ "net10.0"; "net11.0" ]
 let SignKey = "b04a6ff7fe029dc7"
 
 let IncludeGitHashInInformational = true
@@ -26,7 +31,6 @@ let mapProjectToNuget =
         .Add("Nullean.Entities", "Nullean.Entities")
         .Add("Nullean.Entities.Reactive", "Nullean.Entities.Reactive")
         .Add("Nullean.Entities.CsCheck", "Nullean.Entities.CsCheck")
-        .Add("Nullean.Entities.Bogus", "Nullean.Entities.Bogus")
 
 let buildOnlyPackages = Set.empty<string>
 
@@ -35,9 +39,9 @@ let mapNugetToProject =
     |> Map.fold (fun (m: Map<string, string>) key value -> m.Add(value, key)) Map.empty<string, string>
 
 // Test projects discovered under tests/, run in dependency order (Entities has no deps,
-// Reactive depends on Entities, CsCheck depends on Reactive, Bogus is standalone).
+// Reactive depends on Entities, CsCheck depends on Reactive).
 let TestProjects =
     [ "tests/Nullean.Entities.Tests"
       "tests/Nullean.Entities.SourceGenerators.Tests"
       "tests/Nullean.Entities.Reactive.Tests"
-      "tests/Nullean.Entities.Bogus.Tests" ]
+      "tests/Nullean.Entities.CsCheck.Tests" ]

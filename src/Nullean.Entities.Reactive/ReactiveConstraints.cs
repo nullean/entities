@@ -164,6 +164,20 @@ public sealed class MonitoredConstraintSet<TEvent>
 	// Access by name — for logging, dashboards, property tests output.
 	public MonitoredConstraint<TEvent> this[string name] => _byName[name];
 
+	// A cheap synchronous snapshot — "has anything violated so far" — rather than subscribing to
+	// State and tracking it yourself. This is what lets Nullean.Entities.CsCheck's SampleWith use a
+	// MonitoredConstraintSet as CsCheck's own `equal` check: `equal: (sut, _) => !monitored.AnyViolated`.
+	public bool AnyViolated => _byName.Values.Any(c => c.Current.IsViolated);
+
+	/// <summary>
+	/// Every constraint currently in a <see cref="Verdict.Violated"/> state, by name — the detail
+	/// behind <see cref="AnyViolated"/>'s yes/no. This is what lets
+	/// Nullean.Entities.CsCheck's <c>RunWith</c> report which named constraints fired for a
+	/// shrunk failing case, not just that one did.
+	/// </summary>
+	public IReadOnlyList<(string Name, Verdict Verdict)> Violations =>
+		[.. _byName.Where(kv => kv.Value.Current.IsViolated).Select(kv => (kv.Key, kv.Value.Current))];
+
 	// All constraints as a change stream.
 	public IObservable<ConstraintSetState> State =>
 		_byName
@@ -181,6 +195,20 @@ public sealed class MonitoredConstraintSet<TEvent>
 
 public sealed record ConstraintSetState(IReadOnlyDictionary<string, Verdict> Verdicts);
 
+// ── IReactiveConstraintsFor<TEvent> ───────────────────────────────────────────
+// The reactive companion-class interface — mirrors Nullean.Entities.IConstraintsFor<T>: a plain
+// instance interface (not static-abstract), so a value implementing it is ordinary data a caller can
+// pass around and infer TEvent from, rather than only a generic type constraint. There is no reactive
+// self-attach interface: a union that declares its own ReactiveConstraint<TEvent> members still gets
+// this same interface, since reactive self-attach already flows through the sync core's
+// IHaveConstraints<T> + ToReactive() (see ReactiveConstraintSetExtensions.AttachConstraints below)
+// rather than a dedicated reactive-native self-attach interface.
+
+public interface IReactiveConstraintsFor<TEvent>
+{
+	ReactiveConstraintSet<TEvent> Constraints { get; }
+}
+
 // ── Constraints<TEvent> — static builder ──────────────────────────────────────
 // No base class. All fluent builder methods live here.
 // Use `using static Nullean.Entities.Reactive.Constraints<MyEvent>;` in the file that
@@ -195,7 +223,18 @@ public static class Constraints<TEvent>
 	// ── Structural operators ──────────────────────────────────────────────
 
 	/// <summary>
-	/// Violated when two consecutive events of types T1 and T2 satisfy the predicate.
+	/// Violated when two T1/T2 events satisfy the predicate and nothing else of type T1 or T2 comes
+	/// between them — every event of any OTHER type is filtered out first, so "consecutive" here
+	/// means consecutive among T1/T2 occurrences, not consecutive in the raw stream. That makes this
+	/// the wrong choice whenever a legitimate intermediate state can sit between T1 and T2: e.g.
+	/// <c>Never&lt;Placed,Shipped&gt;</c> to forbid skipping Confirmed produces a false positive for
+	/// the ordinary Placed → Confirmed → Shipped sequence, because Confirmed is neither T1 nor T2 and
+	/// gets filtered out from between them. Use <see cref="Transitions(Func{TEvent, TEvent, bool})"/>
+	/// instead when the intervening event matters — it checks raw-stream-adjacent pairs, not
+	/// filtered ones. <c>Never&lt;T1,T2&gt;</c> is the right tool only when T1/T2 are the sole events
+	/// of interest for the correlated key (e.g. a terminal state that, once reached, precludes any
+	/// other T1/T2 event from legitimately following it — <c>Never&lt;Cancelled,Shipped&gt;</c> is
+	/// safe because nothing can ever un-cancel an order back onto a path to Shipped).
 	/// Pair receives (T1, T2) — timestamps come from the attached scheduler, not from
 	/// the event payload.
 	/// </summary>
@@ -269,6 +308,132 @@ public static class Constraints<TEvent>
 				.StartWith(Verdict.Pending)
 		);
 
+	// ── Predicate-based counterparts ────────────────────────────────────────
+	// Every structural/temporal operator above is generic over a case type with `where T : TEvent`
+	// — fine for a record hierarchy, where a case genuinely IS-A TEvent. It does not typecheck at
+	// all for a C# union: `readonly union OrderEvent(Placed, Shipped);` makes Placed/Shipped
+	// ordinary sibling top-level types with compiler-synthesized pattern-matching support, not real
+	// subtypes of OrderEvent (`where T : OrderEvent` rejects a union type outright with CS0701 —
+	// "not a valid constraint" — since the union itself compiles to a sealed type). These overloads
+	// take a `Func<TEvent,bool>` classifier instead of a type parameter, so "is this a Placed" is
+	// expressed as `e is OrderEvent.Placed` (pattern matching, not a type constraint) and works
+	// identically whether TEvent is a record hierarchy or a union.
+
+	/// <summary>
+	/// Predicate-based counterpart to <see cref="Never{T1, T2}"/>, for event shapes where "is this
+	/// a T1/T2" can only be a runtime check, not a generic constraint (C# unions — see the remark
+	/// above). Same filter-then-adjacency semantics and the same caveat as the typed overload: not
+	/// the right choice when a legitimate intervening event type can sit between the two classified
+	/// events — use <see cref="Transitions(Func{TEvent, TEvent, bool})"/> instead.
+	/// </summary>
+	public static ReactiveConstraint<TEvent> Never(Func<TEvent, bool> isT1, Func<TEvent, bool> isT2, Func<TEvent, TEvent, bool> pair) =>
+		new(
+			(events, scheduler) => events
+				.Where(e => isT1(e) || isT2(e))
+				.Buffer(2, 1)
+				.Where(buf => buf.Count == 2 && isT1(buf[0]) && isT2(buf[1]) && pair(buf[0], buf[1]))
+				.Select(buf => Verdict.Violated(scheduler.Now, (buf[0], buf[1])))
+				.Take(1)
+				.StartWith(Verdict.Pending)
+		);
+
+	/// <summary>Predicate-based counterpart to <see cref="NeverTwice{T}"/> — see the remark above.</summary>
+	public static ReactiveConstraint<TEvent> NeverTwice(Func<TEvent, bool> isRelevant, Func<TEvent, object> key) =>
+		new((events, scheduler) => Observable.Defer(() =>
+		{
+			var seen = new HashSet<object>();
+			return events.Where(isRelevant).Where(e => !seen.Add(key(e))).Select(e => Verdict.Violated(scheduler.Now, e!)).Take(1).StartWith(Verdict.Pending);
+		}));
+
+	/// <summary>Predicate-based counterpart to <see cref="Always{T}"/> — see the remark above.</summary>
+	public static ReactiveConstraint<TEvent> Always(Func<TEvent, bool> isRelevant, Func<TEvent, bool> predicate) =>
+		new(
+			(events, scheduler) => events
+				.Where(isRelevant)
+				.Where(e => !predicate(e))
+				.Select(e => Verdict.Violated(scheduler.Now, e!))
+				.Take(1)
+				.StartWith(Verdict.Pending)
+		);
+
+	/// <summary>
+	/// Predicate-based counterpart to <see cref="Eventually{T}"/> — see the remark above.
+	/// <paramref name="isTarget"/> replaces the type parameter: an event for which it returns true
+	/// resolves the obligation opened by <paramref name="from"/> for the same <paramref name="scope"/> key.
+	/// </summary>
+	public static ReactiveConstraint<TEvent> Eventually(
+		Func<TEvent, object> scope,
+		Func<TEvent, bool> from,
+		Func<TEvent, bool> isTarget,
+		string? message = null
+	) =>
+		new(
+			(events, scheduler) => Observable.Create<Verdict>(observer =>
+			{
+				var pending = new HashSet<object>();
+				return events.Subscribe(e =>
+				{
+					if (from(e))
+					{
+						pending.Add(scope(e));
+					}
+					if (isTarget(e))
+					{
+						pending.Remove(scope(e));
+					}
+				}, observer.OnError, () =>
+				{
+					observer.OnNext(
+						pending.Count > 0
+							? Verdict.Violated(
+								scheduler.Now,
+								message ?? $"{pending.Count} instance(s) never reached the target event: {string.Join(", ", pending)}"
+							)
+							: Verdict.Holds
+					);
+					observer.OnCompleted();
+				});
+			}).StartWith(Verdict.Pending)
+		);
+
+	/// <summary>
+	/// Predicate-based counterpart to the whole <see cref="After{TTrigger}"/>/<c>.Then()</c>/
+	/// <c>.Within()</c>/<c>.UnlessInterruptedBy()</c> builder chain, collapsed into one primitive
+	/// since there is no type parameter to hang separate builder steps off — see the remark above.
+	/// <paramref name="isNext"/> receives (trigger, candidate) and replaces both <c>.Then&lt;T&gt;()</c>
+	/// and <c>.Then&lt;T1,T2&gt;()</c> (an <paramref name="isNext"/> that matches either case covers
+	/// the two-case form). <paramref name="isInterrupt"/> replaces <c>.UnlessInterruptedBy&lt;T&gt;()</c>
+	/// when supplied; omitted (null), a trigger with nothing satisfying <paramref name="isNext"/>
+	/// within <paramref name="window"/> violates, matching <c>.Required()</c>.
+	/// </summary>
+	public static ReactiveConstraint<TEvent> AfterUntil(
+		Func<TEvent, bool> isTrigger,
+		Func<TEvent, TEvent, bool> isNext,
+		TimeSpan window,
+		Func<TEvent, bool>? isInterrupt = null
+	) =>
+		new(
+			(events, scheduler) => events
+				.Where(isTrigger)
+				.SelectMany(trigger =>
+				{
+					var nextObs = events.Where(e => isNext(trigger, e)).Select(_ => Verdict.Holds).Take(1);
+					var timeoutObs = Observable.Timer(window, scheduler).Select(
+						_ => Verdict.Violated(scheduler.Now, $"No matching event within {window} after {trigger}")
+					);
+
+					if (isInterrupt is null)
+					{
+						return nextObs.Amb(timeoutObs).Take(1);
+					}
+
+					var interruptObs = events.Where(isInterrupt).Select(_ => Verdict.Holds).Take(1);
+					return nextObs.Amb(interruptObs).Amb(timeoutObs).Take(1);
+				})
+				.Take(1)
+				.StartWith(Verdict.Pending)
+		);
+
 	/// <summary>
 	/// Starts a conditional constraint: <c>When(guard).Requires(requirement)</c> is violated the
 	/// first time an event satisfies <paramref name="guard"/> but fails <c>requirement</c>. Unlike
@@ -281,6 +446,47 @@ public static class Constraints<TEvent>
 	// ── Temporal operators ────────────────────────────────────────────────
 
 	public static AfterBuilder<TEvent, TTrigger> After<TTrigger>() where TTrigger : TEvent => new();
+
+	/// <summary>
+	/// Unbounded liveness: every instance opened by <paramref name="from"/> must eventually see a
+	/// <typeparamref name="T"/> event sharing its <paramref name="scope"/> key, with no deadline.
+	/// Unlike <see cref="After{TTrigger}"/>'s <c>.Then().Within()</c>, there is no window to expire
+	/// mid-stream — an instance opened five events ago is still allowed to close on the next one.
+	/// The only point at which "never" can be told apart from "not yet" is when the stream itself
+	/// ends, so this resolves to <see cref="Verdict.Violated"/> only on <c>OnCompleted</c>, with any
+	/// scope keys still open at that point reported as evidence. A stream that never completes
+	/// (a live production feed) stays <see cref="Verdict.Pending"/> forever — this constraint is for
+	/// a bounded run (a CsCheck-generated walk, a recorded session), not a live dashboard.
+	/// </summary>
+	public static ReactiveConstraint<TEvent> Eventually<T>(Func<TEvent, object> scope, Func<TEvent, bool> from, string? message = null) where T : TEvent =>
+		new(
+			(events, scheduler) => Observable.Create<Verdict>(observer =>
+			{
+				var pending = new HashSet<object>();
+				return events.Subscribe(e =>
+				{
+					if (from(e))
+					{
+						pending.Add(scope(e));
+					}
+					if (e is T)
+					{
+						pending.Remove(scope(e));
+					}
+				}, observer.OnError, () =>
+				{
+					observer.OnNext(
+						pending.Count > 0
+							? Verdict.Violated(
+								scheduler.Now,
+								message ?? $"{pending.Count} instance(s) never reached {typeof(T).Name}: {string.Join(", ", pending)}"
+							)
+							: Verdict.Holds
+					);
+					observer.OnCompleted();
+				});
+			}).StartWith(Verdict.Pending)
+		);
 }
 #pragma warning restore CA1000
 

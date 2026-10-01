@@ -15,17 +15,25 @@ Finds every static field/property tagged `[Constraint]`, groups them by containi
 emits one `Constraints` property per group:
 
 - `Constraint<T>` members where the containing type **is** `T` — the domain type declares its own
-  rules — get `IHaveConstraints<T>` added to the same partial declaration too, so
-  `events.AttachConstraints()` (`Nullean.Entities.Reactive`) just works.
+  rules — get `IHaveConstraints<T>` (F-bounded, static-abstract) added to the same partial
+  declaration too, so `events.AttachConstraints()` (`Nullean.Entities.Reactive`) just works.
 - `Constraint<T>` members on any other partial type (a companion "spec" class) get the same plain
-  `ConstraintSet<T> Constraints` property with no interface — for a `T` you don't own, or when you
-  simply prefer rules declared alongside the type rather than on it. Both cases build the property
-  from `ConstraintSet.From((nameof(field), field), ...)`.
-- `ReactiveConstraint<T>` members get a `ReactiveConstraintSet<T> Constraints` property built from
-  `ReactiveConstraintSet.From((nameof(field), field), ...)`. There's no reactive equivalent of
-  `IHaveConstraints<T>`, so this case never adds an interface.
+  `ConstraintSet<T> Constraints` property, plus a nested `TypeConstraints` struct implementing
+  `IConstraintsFor<T>` — a plain *instance* interface, unlike `IHaveConstraints<T>`, so
+  `SpecClass.TypeConstraints.Instance` is a value generic code can take as a parameter (inferring
+  `T` from it) rather than only a type to constrain on. It's nested, never on the spec class's own
+  base list, because `SpecClass.Constraints` is `static` regardless of whether the class itself is
+  — there's nothing on the class that could implement an instance interface member. A forwarding
+  `SpecClass.Instance` field on the outer class itself means a caller never has to spell out
+  `TypeConstraints`. Both cases build the property from `ConstraintSet.From((nameof(field), field), ...)`.
+- `ReactiveConstraint<T>` members get a `ReactiveConstraintSet<T> Constraints` property with the
+  same nested `TypeConstraints : IReactiveConstraintsFor<T>` treatment, built from
+  `ReactiveConstraintSet.From((nameof(field), field), ...)`. There's no reactive-native self-attach
+  interface to choose instead — self-attach for reactive flows through the sync core's
+  `IHaveConstraints<T>` + `ToReactive()` (see `AttachConstraints` in `Nullean.Entities.Reactive`) —
+  so every declarer goes through this one path.
 
-Both kinds name every member from its own field/property name rather than a string literal typed
+All three name every member from its own field/property name rather than a string literal typed
 at the declaration site — a constraint's name can never drift from the field that declares it.
 
 ## Why every failure mode is a refused build, not a warning

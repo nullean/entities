@@ -130,6 +130,15 @@ public sealed class Constraint<T>
 	}
 }
 
+// ── MonotonicDirection ────────────────────────────────────────────────────────
+
+/// <summary>The one direction <see cref="Constraints{T}.Monotonic{TValue}"/> allows a selected value to move.</summary>
+public enum MonotonicDirection
+{
+	NonDecreasing,
+	NonIncreasing,
+}
+
 // ── Constraints<T> — static builder ────────────────────────────────────────────
 // No base class. All fluent builder methods live here. Mirrors Nullean.Entities.Reactive's
 // Constraints<TEvent> so the same vocabulary reads the same way on both sides of ToReactive().
@@ -165,6 +174,60 @@ public static class Constraints<T>
 	/// — for a requirement that needs the previous value too, use <see cref="Transitions"/> instead.
 	/// </summary>
 	public static WhenBuilder<T> When(Func<T, bool> guard) => new(guard);
+
+	/// <summary>
+	/// Violated whenever applying <paramref name="action"/> twice from the value being checked
+	/// gives a different result than applying it once — the standard <c>f(f(x)) == f(x)</c> law.
+	/// Point-in-time: it only needs the value being checked, never a previous one, since
+	/// <paramref name="action"/> itself supplies both "once" and "twice". Naming the quality
+	/// instead of hand-rolling it as an <see cref="Always"/> predicate means a failure reads
+	/// "not idempotent," not the name of a rule that looks unrelated to what actually broke.
+	/// </summary>
+	public static Constraint<T> Idempotent(Func<T, T> action, string message) =>
+		new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var once = action(next);
+			var twice = action(once);
+			return EqualityComparer<T>.Default.Equals(once, twice) ? [] : [Violation.Error(message) with { Evidence = (once, twice) }];
+		});
+
+	/// <summary>
+	/// Violated whenever <paramref name="selector"/>'s value moves the wrong way across a
+	/// mutation, per <paramref name="direction"/>. Sequential, like <see cref="Transitions"/> — it
+	/// only fires from <see cref="ConstraintSet{T}.Apply"/>, never <see cref="ConstraintSet{T}.Validate"/>,
+	/// because "did it move the wrong way" is meaningless without a previous value. This is also
+	/// why it is step-scoped rather than global by construction: attach it only to the
+	/// <c>Constraint&lt;T&gt;</c> set backing the specific script steps it is supposed to hold for
+	/// (e.g. <c>AddLine</c>), not the type's whole <c>Constraints</c> — a step that is allowed to
+	/// shrink the value (<c>RemoveLine</c>) would otherwise wrongly fail it.
+	/// </summary>
+	public static Constraint<T> Monotonic<TValue>(Func<T, TValue> selector, MonotonicDirection direction, string? message = null) =>
+		new(ConstraintKind.Sequential, (prev, next) =>
+		{
+			var before = selector(prev);
+			var after = selector(next);
+			var comparison = Comparer<TValue>.Default.Compare(after, before);
+			var holds = direction == MonotonicDirection.NonDecreasing ? comparison >= 0 : comparison <= 0;
+			return holds ? [] : [Violation.Error(message ?? $"Expected {direction} but moved from {before} to {after}.") with { Evidence = (before, after) }];
+		});
+
+	/// <summary>
+	/// Violated whenever <paramref name="selector"/>'s value changes across a mutation — a
+	/// quantity that a transition must neither create nor destroy. Sequential, the same as
+	/// <see cref="Monotonic{TValue}"/>, but by equality instead of ordering. The first shape here
+	/// that is naturally exercised with a pair-valued <typeparamref name="T"/> (e.g.
+	/// <c>(Order From, Order To)</c>, checked via <c>Constraints&lt;(Order, Order)&gt;</c>) rather
+	/// than a single entity, since "conserved" usually means "conserved across two halves of a
+	/// transfer," not just across one type's own history — but nothing here requires that; any
+	/// <typeparamref name="T"/> with a quantity that must round-trip a mutation unchanged applies.
+	/// </summary>
+	public static Constraint<T> Conserves<TValue>(Func<T, TValue> selector, string message) =>
+		new(ConstraintKind.Sequential, (prev, next) =>
+		{
+			var before = selector(prev);
+			var after = selector(next);
+			return EqualityComparer<TValue>.Default.Equals(before, after) ? [] : [Violation.Error(message) with { Evidence = (before, after) }];
+		});
 }
 #pragma warning restore CA1000
 
@@ -200,6 +263,25 @@ public sealed class ConstraintAttribute : Attribute
 public interface IHaveConstraints<TSelf> where TSelf : IHaveConstraints<TSelf>
 {
 	static abstract ConstraintSet<TSelf> Constraints { get; }
+}
+
+// ── IConstraintsFor<T> ────────────────────────────────────────────────────────
+// The companion-class counterpart to IHaveConstraints<TSelf> — but a plain instance interface, not
+// F-bounded and not static-abstract. Two reasons:
+//   - The type declaring the constraints (a "spec" class) is deliberately not the type they
+//     constrain — T may not even be yours to add an interface to, so F-bounding on it makes no sense.
+//   - An instance member (rather than static-abstract) means a value implementing this interface is
+//     ordinary data: it can be a method parameter, a collection element, or resolved from DI, and a
+//     generic caller can infer T from the value instead of spelling out two type parameters
+//     (`Foo<TSpec, T>() where TSpec : ...` vs. just `Foo<T>(IConstraintsFor<T> spec)`).
+// [Constraint] generates a singleton `TypeConstraints.Instance` nested inside the spec class to hand
+// out — see the generator's own comment for why that's nested rather than on the spec class itself —
+// plus a forwarding `SpecClass.Instance` shortcut on the outer class, so a caller never has to spell
+// out `TypeConstraints`.
+
+public interface IConstraintsFor<T>
+{
+	ConstraintSet<T> Constraints { get; }
 }
 
 // ── ConstraintSet<T> ──────────────────────────────────────────────────────────

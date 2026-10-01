@@ -1,9 +1,8 @@
 # Nullean.Entities — contributor and agent conventions
 
 Constraint-checked domain entities: a plain sync core (`Nullean.Entities`), a temporal/stream
-layer over `IObservable<T>` (`Nullean.Entities.Reactive`), a property-test driving layer
-(`Nullean.Entities.CsCheck`), and a CsCheck/Bogus bridge for reproducible fake data
-(`Nullean.Entities.Bogus`).
+layer over `IObservable<T>` (`Nullean.Entities.Reactive`), and a property-test driving layer
+(`Nullean.Entities.CsCheck`) that also bundles the CsCheck/Bogus bridge for reproducible fake data.
 
 ## Build and test
 
@@ -21,17 +20,58 @@ Test projects are TUnit and are run with `dotnet run`, one project at a time (`P
 
 | Path | What |
 |---|---|
-| `src/Nullean.Entities` | The core: `Constraint<T>`, `ConstraintSet<T>`, `Violation`, `Result<T>`. No CsCheck, no System.Reactive dependency — deliberately. |
-| `src/Nullean.Entities.Reactive` | Lifts constraints onto `IObservable<TEvent>` streams: structural (`Never`, `NeverTwice`, `Transitions`) and temporal (`After().Then().Within()`) operators, plus `ConstraintSet<T>.ToReactive()` to bridge the sync core onto a stream. |
-| `src/Nullean.Entities.CsCheck` | `Script<TSut>` + `SampleWith`/`RunWith`: drives a SUT under CsCheck and checks a `ReactiveConstraintSet<TEvent>` against the resulting event stream. **Intentionally unimplemented** — see below. |
-| `src/Nullean.Entities.Bogus` | `PcgRandom`/`PcgRandomizer`, `HubFaker<T>`, `Gen.Faker<T>()`, `GenAuto.Of<T>()` — routes Bogus/AutoBogus draws through CsCheck's `PCG` so seeds are reproducible and failures shrink. Standalone: no `ProjectReference` to `Nullean.Entities`. |
-| `tests/Nullean.Entities.Tests` | Sync constraint core tests. |
-| `tests/Nullean.Entities.Reactive.Tests` | Reactive operator + `ToReactive()` bridge tests. |
-| `tests/Nullean.Entities.Bogus.Tests` | Determinism tests (same seed → same object). |
-| `examples/Nullean.Entities.Reactive.Examples` | Three usage styles (fluent, constraints-class, constraints-as-event-source) over a search box, a retry client, and an order state machine, plus a design sketch (`StateMachineSketch.cs`) comparing four ways to attach constraints to a domain type. |
-| `examples/Nullean.Entities.Bogus.Examples` | Bogus/AutoBogus usage. |
+| `src/Nullean.Entities` | The core: `Constraint<T>`, `ConstraintSet<T>`, `Violation`, `Result<T>`, plus the `Idempotent`/`Monotonic`/`Conserves` constraint shapes. No CsCheck, no System.Reactive dependency — deliberately. |
+| `src/Nullean.Entities.Reactive` | Lifts constraints onto `IObservable<TEvent>` streams: structural (`Never`, `NeverTwice`, `Always`, `Transitions`) and temporal (`After().Then().Within()`, `Eventually<T>` for unbounded liveness) operators, a predicate-based counterpart of each (`Never(isT1,isT2,pair)`, `AfterUntil(...)`, etc. — for event shapes where a case can't satisfy `where T : TEvent`, e.g. C# 11 unions), `MonitoredConstraintSet<TEvent>.AnyViolated`/`.Violations`, plus `ConstraintSet<T>.ToReactive()` to bridge the sync core onto a stream. |
+| `src/Nullean.Entities.CsCheck` | `Script<TSut>` + `SampleWith`/`RunWith`: drives a SUT under CsCheck (`Gen.Operation<TSut,Unit>` + `SampleModelBased`'s replay/shrink machinery) and checks a `ReactiveConstraintSet<TEvent>` against the resulting event stream — implemented and tested, see below — plus `ScriptExtensions.Metamorphic` for confluence testing, `PcgRandom`/`PcgRandomizer`, `HubFaker<T>`, `Gen.Faker<T>()`, `GenAuto.Of<T>()` routing Bogus/AutoBogus draws through CsCheck's `PCG` so seeds are reproducible and failures shrink. |
+| `tests/Nullean.Entities.Tests` | Sync constraint core tests, including `Idempotent`/`Monotonic`/`Conserves`. |
+| `tests/Nullean.Entities.Reactive.Tests` | Reactive operator (typed and predicate-based) + `ToReactive()` bridge + `AnyViolated`/`Violations` tests. |
+| `tests/Nullean.Entities.CsCheck.Tests` | `Script<TSut>`/`SampleWith`/`RunWith`/`Metamorphic` tests against a small `Counter` SUT, plus determinism tests for the Bogus-backed generators (same seed → same object). |
+| `examples/Nullean.Entities.Reactive.Examples` | A ladder from simple to complex: a search box (temporal debounce with `UnlessInterruptedBy`), a retry client (exponential backoff), an order state machine — record-hierarchy events on net10.0 (`OrderStateExamples.cs`) and, on net11.0 only, the identical domain re-expressed with a real C# union and the predicate-based operators (`OrderStateExamplesNet11.cs`, `#if NET11_0_OR_GREATER`) — plus a design sketch (`StateMachineSketch.cs`) comparing four ways to attach constraints to a domain type. |
+| `examples/Nullean.Entities.CsCheck.Examples` | The complex end of the ladder: a nested `Order`/`OrderLine`/`OrderEvent` domain exercising every testing quality (absence, temporal, liveness, idempotency, monotonicity, conservation, confluence) through real `Script<TSut>` runs, plus Bogus/AutoBogus generator usage. |
 | `build/scripts` | F# Bullseye build runner. |
 | `build/keys` | Nullean strong-name key — never regenerate, it breaks strong-naming. |
+
+## Multi-targeting: net10.0 and net11.0
+
+Every `src`/`tests`/`examples` project multi-targets `net10.0;net11.0` (set once in the root
+`Directory.Build.props`). `src/Nullean.Entities.SourceGenerators` is the one exception — it stays
+pinned to `netstandard2.0` (a Roslyn analyzer runs inside the host compiler process, not the
+consuming project's TFM) by clearing the inherited `TargetFrameworks` and setting a single
+`TargetFramework` explicitly; clearing it first matters, since a non-empty inherited
+`TargetFrameworks` wins over a project-local `TargetFramework` otherwise.
+
+`global.json` pins the .NET 11 preview SDK (`allowPrerelease: true`) rather than .NET 10, because a
+newer SDK can always build older TFMs but the reverse does not hold for an unreleased one. Expect
+`NETSDK1057` ("you are using a preview version of .NET") on every build — that is expected, not a
+problem to silence.
+
+C# 11's discriminated unions (`readonly union Name(Case1, Case2, ...);`) only parse under
+`LangVersion=preview` in the installed `11.0.100-preview.7` SDK — `LangVersion=latest` resolves to
+the stable C# version that ships with it and rejects `union` outright with CS1001. `Directory.Build.props`
+sets `LangVersion=preview` conditionally, scoped to `'$(TargetFramework)' == 'net11.0'` only, so
+net10.0 stays on `latest` and does not silently pick up other preview syntax never exercised
+against it.
+
+**Union case types are not subtypes of the union.** `readonly union OrderStateEventUnion(Placed,
+Confirmed, ...)` compiles to a sealed type; `Placed` etc. are ordinary top-level sibling types with
+compiler-synthesized pattern-matching support, not classes deriving from the union — confirmed by
+hand: `where T : OrderStateEventUnion` is rejected outright with CS0701 ("not a valid constraint"),
+so no case type can ever satisfy it either. Every operator in `Constraints<TEvent>` that reads
+`where T1 : TEvent` (`Never<T1,T2>`, `NeverTwice<T>`, `Always<T>`, `After<TTrigger>`, `Eventually<T>`)
+is therefore unusable against a union — hence the predicate-based counterparts (`Never(isT1,isT2,pair)`,
+`NeverTwice(isRelevant,key)`, `Always(isRelevant,predicate)`, `Eventually(scope,from,isTarget)`,
+`AfterUntil(isTrigger,isNext,window,isInterrupt)`), which classify via `Func<TEvent,bool>`/pattern
+matching instead of a type parameter and work identically whether `TEvent` is a record hierarchy or
+a union. `Transitions(Func<TEvent,TEvent,bool>)` already took no type parameter and needed no
+change. `OrderStateExamplesNet11.cs` is the worked example: the same domain, spec, and `Script<TSut>`
+run as `OrderStateExamples.cs`, expressed with a union and the predicate-based operators, with a
+`switch` over all four cases and no discard arm proving compiler-enforced exhaustiveness (delete a
+case and rebuild — CS8509, a hard failure under `TreatWarningsAsErrors`).
+
+A union's case list also does not auto-nest its cases the way a record hierarchy's nested records
+do — `readonly union Name(Case1, Case2);` names pre-existing sibling types, it does not declare and
+nest them, so there is no `Name.Case1`. Group cases in a plain container class instead
+(`OrderStateEventCases.Placed`) for the closest equivalent to `OrderStateEvent.Placed` dotted access.
 
 ## Non-negotiables
 
@@ -46,11 +86,17 @@ Test projects are TUnit and are run with `dotnet run`, one project at a time (`P
 - **`Size` is derived from draw count and magnitude.** Do not record `DateTime`, `Guid`, or any
   draw that is always the same regardless of value (like a flag). Record only draws that represent
   domain data.
-- **`Script<TSut>`, `ScriptExtensions.SampleWith`/`RunWith` are intentionally unimplemented** —
-  every overload throws `NotImplementedException`. They are declared against the final API shape
-  so the examples compile and demonstrate the intended call pattern, but nothing downstream
-  depends on them executing yet. Do not "helpfully" implement them without checking first; this
-  is checkpoint-A scaffolding, not a gap to be filled silently.
+- **`Script<TSut>`, `ScriptExtensions.SampleWith`/`RunWith`/`Metamorphic` are implemented and
+  tested.** `Script<TSut>` builds a `Gen.OneOf` over named/generated steps and drives CsCheck's own
+  `SampleModelBased` replay/shrink machinery against a fresh SUT (and a fresh `HistoricalScheduler`)
+  per generated run; `SampleWith` attaches a `ReactiveConstraintSet<TEvent>` to the resulting event
+  stream and uses `MonitoredConstraintSet.AnyViolated` as CsCheck's own `equal` check, so a
+  violation *is* a CsCheck failure with a real reproducible seed. `RunWith` is the same thing as an
+  `IObservable<EntityEvent>` for a caller that wants the play-by-play (`IterationStarted`,
+  `ConstraintResolved`, `SmallerFailure`, `Completed`) instead of an exception. See
+  `tests/Nullean.Entities.CsCheck.Tests/ScriptTests.cs` for the full behaviour, including the
+  virtual-time semantics: `AdvanceBy` only runs before each step (its own pre-delay), never after
+  the last one, so an obligation still pending when a run ends stays `Pending`, not `Violated`.
 
 ## Bogus internals relied on
 
@@ -97,15 +143,17 @@ here if that changes.
 
 1. **Shrinking quality.** A property failing only when Lines > 3 and a SKU contains `7` should
    shrink to ~4 lines. Compare single-node `Size` vs chained-per-RuleFor `Size`. Record the winner
-   and why.
+   and why. — Open.
 2. **Early exit cost.** Once running size passes `min`, abort generation. Benchmark vs always
-   generating and reporting size. Record the result.
+   generating and reporting size. Record the result. — Open.
 3. **Global lock throughput.** Compare `threads: 1` vs `threads: N` with a `FakerGen`. If
-   contention dominates, document it and recommend `threads: 1` in the README.
+   contention dominates, document it and recommend `threads: 1` in the README. — Open.
 4. **Existing fakers.** `faker.ToGen()` on an existing `Faker<T>` needs `FakerHub`, which is
    `protected internal`. Decision: support it via reflection, or support only `Gen.Faker<T>(configure)`?
+   — Open; `Gen.Faker<T>(configure)` (fresh `Faker<T>` per call, not adapting an existing instance)
+   is what shipped.
 5. **Reproducibility.** A test asserts that `CsCheck_Seed` replays to the identical object. Do
-   not ship without this.
+   not ship without this. — Done: `tests/Nullean.Entities.CsCheck.Tests/DeterminismTests.cs`.
 6. **`Script<TSut>` implementation.** Driving a SUT from a generated action sequence, replaying a
    shrunk seed, and producing `EntityEvent.SmallerFailure` traces are the next things to build in
-   `Nullean.Entities.CsCheck`.
+   `Nullean.Entities.CsCheck`. — Done, see the non-negotiable above and `ScriptTests.cs`.

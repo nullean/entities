@@ -6,7 +6,7 @@
 //   3. After giving up, no further retries fire for the same request ID.
 
 using System.Reactive.Concurrency;
-using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using CsCheck;
 using Nullean.Entities.CsCheck;
 using Nullean.Entities.Reactive;
@@ -29,12 +29,58 @@ internal abstract record ClientEvent
 	public sealed record GaveUp(Guid RequestId) : ClientEvent;
 }
 
-internal sealed class FlakyServer(IScheduler scheduler)
+/// <summary>
+/// A single shared "the next attempt fails" flag — a deliberately crude flakiness knob, not a
+/// per-request one. Whichever request happens to attempt next consumes it; that's fine, since
+/// every constraint below is scoped by RequestId and doesn't care which request the flag landed on.
+/// </summary>
+internal sealed class FlakyServer(IScheduler scheduler) : IDisposable
 {
-	public IObservable<ClientEvent> Events { get; } = Observable.Empty<ClientEvent>(scheduler);
+	private const int MaxAttempts = 4;
+	private static readonly TimeSpan InitialDelay = TimeSpan.FromMilliseconds(50);
 
-	public void Enqueue(Request request) => throw new NotImplementedException("SUT stub");
-	public void FailNext() => throw new NotImplementedException("SUT stub");
+	private readonly Subject<ClientEvent> _events = new();
+	private bool _failNext;
+
+	public IObservable<ClientEvent> Events => _events;
+
+	public void Dispose() => _events.Dispose();
+
+	public void FailNext() => _failNext = true;
+
+	public void Enqueue(Request request)
+	{
+		_events.OnNext(new ClientEvent.Sent(request));
+		Attempt(request, attempt: 0, delay: InitialDelay);
+	}
+
+	/// <summary>
+	/// Tries the request now. On failure, schedules the next try after <paramref name="delay"/>
+	/// and reports it as Retried once it fires, with the delay that just doubled — so
+	/// <c>Delay == PreviousDelay * 2</c> holds for every Retried event, not just most of them.
+	/// </summary>
+	private void Attempt(Request request, int attempt, TimeSpan delay)
+	{
+		if (!_failNext)
+		{
+			_events.OnNext(new ClientEvent.Succeeded(request.Id));
+			return;
+		}
+		_failNext = false;
+
+		if (attempt >= MaxAttempts)
+		{
+			_events.OnNext(new ClientEvent.GaveUp(request.Id));
+			return;
+		}
+
+		var nextDelay = delay + delay;
+		scheduler.Schedule(delay, () =>
+		{
+			_events.OnNext(new ClientEvent.Retried(request.Id, nextDelay, delay));
+			Attempt(request, attempt + 1, nextDelay);
+		});
+	}
 }
 
 // ── Constraints class ──────────────────────────────────────────────────────────
@@ -73,7 +119,8 @@ public class RetryFluentExamples
 		.For<FlakyServer>()
 		.Step(Gen.String[1, 40].Select(path => new Request(Guid.NewGuid(), path)), (server, req) => server.Enqueue(req))
 		.Step("fail-next", server => server.FailNext())
-		.Delays(Gen.Int[0, 2_000].Select(ms => TimeSpan.FromMilliseconds(ms)));
+		.Delays(Gen.Int[0, 2_000].Select(ms => TimeSpan.FromMilliseconds(ms)))
+		.Length(3, 20);
 
 	private static readonly ReactiveConstraintSet<ClientEvent> Spec = ReactiveConstraintSet.From(
 		("BackoffDoubles", Always<ClientEvent.Retried>(r => r.Delay == r.PreviousDelay * 2)),
@@ -98,7 +145,8 @@ public class RetrySpecClassExamples
 		.For<FlakyServer>()
 		.Step(Gen.String[1, 40].Select(path => new Request(Guid.NewGuid(), path)), (server, req) => server.Enqueue(req))
 		.Step("fail-next", server => server.FailNext())
-		.Delays(Gen.Int[0, 2_000].Select(ms => TimeSpan.FromMilliseconds(ms)));
+		.Delays(Gen.Int[0, 2_000].Select(ms => TimeSpan.FromMilliseconds(ms)))
+		.Length(3, 20);
 
 	[Test]
 	public void BackoffAndTerminationAreRespected() =>

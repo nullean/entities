@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <!-- Generators run inside the host compiler process, which is netstandard2.0 regardless of
-         the consuming project's own TargetFramework. Overrides the net10.0 set at the repo root. -->
+         the consuming project's own TargetFramework. Overrides the net10.0;net11.0 set at the repo
+         root — TargetFrameworks (plural) must be cleared explicitly, or the SDK treats the
+         inherited multi-targeting list as authoritative over this single TargetFramework. -->
+    <TargetFrameworks></TargetFrameworks>
     <TargetFramework>netstandard2.0</TargetFramework>
     <!-- Not installed directly by a consumer; it ships inside Nullean.Entities' nupkg under
          analyzers/dotnet/cs instead (see Nullean.Entities.csproj). Overrides the repo root default. -->

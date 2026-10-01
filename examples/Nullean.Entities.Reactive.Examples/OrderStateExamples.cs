@@ -4,8 +4,7 @@
 // The spec verifies that the state machine's transitions are legal and that
 // every order that is confirmed eventually ships or is cancelled.
 
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using CsCheck;
 using Nullean.Entities.CsCheck;
 using Nullean.Entities.Reactive;
@@ -26,23 +25,75 @@ internal abstract record OrderStateEvent
 	public sealed record Cancelled(Guid OrderId) : OrderStateEvent;
 }
 
-internal sealed class OrderService(IScheduler scheduler)
+internal enum OrderState
 {
-	public IObservable<OrderStateEvent> Events { get; } = Observable.Empty<OrderStateEvent>(scheduler);
+	Pending,
+	Confirmed,
+	Shipped,
+	Cancelled,
+}
 
-	public void Place(Guid orderId) => throw new NotImplementedException("SUT stub");
-	public void Confirm(Guid orderId) => throw new NotImplementedException("SUT stub");
-	public void Ship(Guid orderId) => throw new NotImplementedException("SUT stub");
-	public void Cancel(Guid orderId) => throw new NotImplementedException("SUT stub");
+internal sealed class OrderService : IDisposable
+{
+	private readonly Subject<OrderStateEvent> _events = new();
+	private readonly Dictionary<Guid, OrderState> _orders = [];
+
+	public IObservable<OrderStateEvent> Events => _events;
+
+	public void Dispose() => _events.Dispose();
+
+	public void Place(Guid orderId)
+	{
+		if (_orders.ContainsKey(orderId))
+		{
+			return; // already placed — a fresh Place is a no-op, not a re-placement
+		}
+		_orders[orderId] = OrderState.Pending;
+		_events.OnNext(new OrderStateEvent.Placed(orderId));
+	}
+
+	public void Confirm(Guid orderId)
+	{
+		if (_orders.TryGetValue(orderId, out var state) && state == OrderState.Pending)
+		{
+			_orders[orderId] = OrderState.Confirmed;
+			_events.OnNext(new OrderStateEvent.Confirmed(orderId));
+		}
+	}
+
+	public void Ship(Guid orderId)
+	{
+		if (_orders.TryGetValue(orderId, out var state) && state == OrderState.Confirmed)
+		{
+			_orders[orderId] = OrderState.Shipped;
+			_events.OnNext(new OrderStateEvent.Shipped(orderId));
+		}
+	}
+
+	public void Cancel(Guid orderId)
+	{
+		if (_orders.TryGetValue(orderId, out var state) && state is OrderState.Pending or OrderState.Confirmed)
+		{
+			_orders[orderId] = OrderState.Cancelled;
+			_events.OnNext(new OrderStateEvent.Cancelled(orderId));
+		}
+	}
 }
 
 // ── Constraints class ──────────────────────────────────────────────────────────
 
 internal static class OrderStateSpec
 {
-	/// <summary>No order skips the Confirmed state to reach Shipped.</summary>
-	public static readonly ReactiveConstraint<OrderStateEvent> NeverShippedWithoutConfirmation = Never<OrderStateEvent.Placed, OrderStateEvent.Shipped>(
-		(p, s) => p.OrderId == s.OrderId
+	/// <summary>
+	/// No order skips the Confirmed state to reach Shipped. Deliberately <c>Transitions</c>
+	/// (raw-stream adjacency), not <c>Never&lt;Placed,Shipped&gt;</c>: <c>Never&lt;T1,T2&gt;</c>
+	/// filters the stream down to <c>{T1,T2}</c> events *before* checking adjacency, so a genuinely
+	/// legal Placed → Confirmed → Shipped sequence makes Placed and Shipped look falsely adjacent
+	/// the moment Confirmed gets filtered out from between them — a real false positive CsCheck's
+	/// own generated runs found on the very first pass.
+	/// </summary>
+	public static readonly ReactiveConstraint<OrderStateEvent> NeverShippedWithoutConfirmation = Transitions(
+		(prev, next) => !(prev is OrderStateEvent.Placed p && next is OrderStateEvent.Shipped s && p.OrderId == s.OrderId)
 	).Named(nameof(NeverShippedWithoutConfirmation));
 
 	/// <summary>Every confirmed order eventually reaches a terminal state.</summary>
@@ -69,18 +120,27 @@ internal static class OrderStateSpec
 
 public class OrderStateFluentExamples
 {
-	private static readonly Gen<Guid> GenOrderId = Gen.Guid;
+	// A small fixed pool, not a fresh Guid per step — otherwise Confirm/Ship/Cancel almost always
+	// land on an order nothing else ever touched, and every constraint above holds only vacuously.
+	private static readonly Guid[] Pool = [Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()];
+	private static readonly Gen<Guid> GenOrderId = Gen.Int[0, Pool.Length - 1].Select(i => Pool[i]);
 
 	private static readonly Script<OrderService> OrderScript = Script
 		.For<OrderService>()
-		.Step(GenOrderId, (svc, id) => svc.Place(id))
-		.Step(GenOrderId, (svc, id) => svc.Confirm(id))
-		.Step(GenOrderId, (svc, id) => svc.Ship(id))
-		.Step(GenOrderId, (svc, id) => svc.Cancel(id))
-		.Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)));
+		.Step("Place", GenOrderId, (svc, id) => svc.Place(id))
+		.Step("Confirm", GenOrderId, (svc, id) => svc.Confirm(id))
+		.Step("Ship", GenOrderId, (svc, id) => svc.Ship(id))
+		.Step("Cancel", GenOrderId, (svc, id) => svc.Cancel(id))
+		.Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)))
+		.Length(3, 20);
 
+	// NeverShippedBeforeConfirmation deliberately uses Transitions (raw-stream adjacency), not
+	// Never<Placed,Shipped> — see OrderStateSpec's own copy of this constraint for why
+	// Never<T1,T2>'s filter-then-adjacency semantics produce a false positive here.
 	private static readonly ReactiveConstraintSet<OrderStateEvent> Spec = ReactiveConstraintSet.From(
-		("NeverShippedBeforeConfirmation", Never<OrderStateEvent.Placed, OrderStateEvent.Shipped>((p, s) => p.OrderId == s.OrderId)),
+		("NeverShippedBeforeConfirmation", Transitions(
+			(prev, next) => !(prev is OrderStateEvent.Placed p && next is OrderStateEvent.Shipped s && p.OrderId == s.OrderId)
+		)),
 		("ConfirmedOrderTerminates", After<OrderStateEvent.Confirmed>()
 			.Then<OrderStateEvent.Shipped, OrderStateEvent.Cancelled>(m1: (c, s) => s.OrderId == c.OrderId, m2: (c, ca) => ca.OrderId == c.OrderId)
 			.Within(TimeSpan.FromSeconds(60))),
@@ -88,21 +148,25 @@ public class OrderStateFluentExamples
 	);
 
 	[Test]
-	public void OrderTransitionsAreValid() => OrderScript.SampleWith(scheduler => new OrderService(scheduler), svc => svc.Events, Spec);
+	public void OrderTransitionsAreValid() => OrderScript.SampleWith(_ => new OrderService(), svc => svc.Events, Spec);
 }
 
 // ── Constraints class style ───────────────────────────────────────────────────
 
 public class OrderStateSpecClassExamples
 {
+	private static readonly Guid[] Pool = [Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()];
+	private static readonly Gen<Guid> GenOrderId = Gen.Int[0, Pool.Length - 1].Select(i => Pool[i]);
+
 	private static readonly Script<OrderService> OrderScript = Script
 		.For<OrderService>()
-		.Step(Gen.Guid, (svc, id) => svc.Place(id))
-		.Step(Gen.Guid, (svc, id) => svc.Confirm(id))
-		.Step(Gen.Guid, (svc, id) => svc.Ship(id))
-		.Step(Gen.Guid, (svc, id) => svc.Cancel(id))
-		.Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)));
+		.Step("Place", GenOrderId, (svc, id) => svc.Place(id))
+		.Step("Confirm", GenOrderId, (svc, id) => svc.Confirm(id))
+		.Step("Ship", GenOrderId, (svc, id) => svc.Ship(id))
+		.Step("Cancel", GenOrderId, (svc, id) => svc.Cancel(id))
+		.Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)))
+		.Length(3, 20);
 
 	[Test]
-	public void OrderTransitionsAreValid() => OrderScript.SampleWith(scheduler => new OrderService(scheduler), svc => svc.Events, OrderStateSpec.All);
+	public void OrderTransitionsAreValid() => OrderScript.SampleWith(_ => new OrderService(), svc => svc.Events, OrderStateSpec.All);
 }

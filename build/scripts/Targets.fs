@@ -42,7 +42,8 @@ let private build (arguments:ParseResults<Arguments>) =
 
 let private test (arguments:ParseResults<Arguments>) =
     for project in Paths.TestProjects do
-        exec "dotnet" ["run"; "--project"; project; "-c"; "Release"]
+        for framework in Paths.Frameworks do
+            exec "dotnet" ["run"; "--project"; project; "-c"; "Release"; "--framework"; framework]
 
 let private pristineCheck (arguments:ParseResults<Arguments>) =
     let doCheck = arguments.TryGetResult CleanCheckout |> Option.defaultValue true

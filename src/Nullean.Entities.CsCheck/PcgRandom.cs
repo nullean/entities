@@ -4,7 +4,7 @@
 using Bogus;
 using CsCheck;
 
-namespace Nullean.Entities.Bogus;
+namespace Nullean.Entities.CsCheck;
 
 /// <summary>
 /// A <see cref="Random"/> that routes every draw through CsCheck's <see cref="PCG"/>

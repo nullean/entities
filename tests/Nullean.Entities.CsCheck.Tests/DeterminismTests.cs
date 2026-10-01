@@ -1,13 +1,13 @@
 using AwesomeAssertions;
 using CsCheck;
 using global::Bogus;
-using Nullean.Entities.Bogus;
+using Nullean.Entities.CsCheck;
 using TUnit;
 
-namespace Nullean.Entities.Bogus.Tests;
+namespace Nullean.Entities.CsCheck.Tests;
 
 /// <summary>Domain type used by all determinism and shrink tests.</summary>
-sealed class Order
+internal sealed class Order
 {
 	public Order(Guid id) => Id = id;
 	public Guid Id { get; }
@@ -16,7 +16,7 @@ sealed class Order
 	public decimal Total => Lines.Sum(l => l.Quantity * l.Price);
 }
 
-sealed class OrderLine
+internal sealed class OrderLine
 {
 	public string Sku { get; set; } = "";
 	public int Quantity { get; set; }
@@ -37,9 +37,9 @@ public class DeterminismTests
 	);
 
 	/// <summary>
-    /// The same seed must produce the identical object on every run.
-    /// If this test fails, the reproducibility guarantee is broken.
-    /// </summary>
+	/// The same seed must produce the identical object on every run.
+	/// If this test fails, the reproducibility guarantee is broken.
+	/// </summary>
 	[Test]
 	public void SameSeedProducesIdenticalObject()
 	{
@@ -62,30 +62,21 @@ public class DeterminismTests
 	}
 
 	/// <summary>
-    /// A property that holds for all orders must not fail when the generator is used.
-    /// </summary>
+	/// A property that holds for all orders must not fail when the generator is used.
+	/// </summary>
 	[Test]
-	public void TotalEqualsLineSum()
-	{
-		GenOrder.Sample(order =>
-		{
-			order.Total.Should().Be(order.Lines.Sum(l => l.Quantity * l.Price));
-		});
-	}
+	public void TotalEqualsLineSum() => GenOrder.Sample(order => order.Total.Should().Be(order.Lines.Sum(l => l.Quantity * l.Price)));
 
 	/// <summary>
-    /// A property that always fails should give a seed in the exception message.
-    /// </summary>
+	/// A property that always fails should give a seed in the exception message.
+	/// </summary>
 	[Test]
 	public void FailingPropertyThrowsWithSeed()
 	{
 		var threw = false;
 		try
 		{
-			GenOrder.Sample(order =>
-			{
-				order.Lines.Count.Should().Be(-1, "always fails");
-			});
+			GenOrder.Sample(order => order.Lines.Count.Should().Be(-1, "always fails"));
 		}
 		catch (Exception ex) when (ex.Message.Contains("CsCheck_Seed"))
 		{

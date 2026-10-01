@@ -7,6 +7,7 @@
 
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using AwesomeAssertions;
 using CsCheck;
 using Microsoft.Reactive.Testing;
@@ -23,24 +24,60 @@ internal abstract record SearchEvent
 	// Stamped with the scheduler's current time when the SUT emits the event.
 	public DateTimeOffset Timestamp { get; init; }
 
-	public sealed record Typed(string Text) : SearchEvent;
+	/// <summary>
+	/// Shared marker for "the box's input changed somehow" — SettlesToQuery's
+	/// <c>UnlessInterruptedBy&lt;InputChanged&gt;</c> needs Typed AND Cleared to both discharge a
+	/// pending obligation, but only Typed may ever *open* one (<c>After&lt;Typed&gt;()</c> checks the
+	/// concrete type, not this base). Using the same type for "trigger" and "interrupt" would make
+	/// Cleared re-open the very obligation it was meant to close — an infinite regress a run of
+	/// Clear-then-nothing would eventually violate on a timeout that was never really due.
+	/// </summary>
+	public abstract record InputChanged : SearchEvent;
 
-	public sealed record Cleared : SearchEvent;
+	public sealed record Typed(string Text) : InputChanged;
+
+	public sealed record Cleared : InputChanged;
 
 	public sealed record Queried(string Text) : SearchEvent;
 }
 
-/// <summary>
-/// The SUT. Takes an <see cref="IScheduler"/> so it runs in virtual time.
-/// The implementation is intentionally left as a stub so the examples compile
-/// against the final library rather than a mock.
-/// </summary>
-internal sealed class SearchBox(IScheduler scheduler, TimeSpan debounce)
+/// <summary>The SUT. Takes an <see cref="IScheduler"/> so debouncing runs in virtual time.</summary>
+internal sealed class SearchBox(IScheduler scheduler, TimeSpan debounce) : IDisposable
 {
-	public IObservable<SearchEvent> Events { get; } = Observable.Empty<SearchEvent>(scheduler);
+	private readonly Subject<SearchEvent> _events = new();
+	private IDisposable? _pendingQuery;
 
-	public void Type(string text) => throw new NotImplementedException($"SUT stub (debounce={debounce})");
-	public void Clear() => throw new NotImplementedException($"SUT stub (debounce={debounce})");
+	public IObservable<SearchEvent> Events => _events;
+
+	public void Dispose()
+	{
+		_pendingQuery?.Dispose();
+		_events.Dispose();
+	}
+
+	public void Type(string text)
+	{
+		_events.OnNext(new SearchEvent.Typed(text) { Timestamp = scheduler.Now });
+		_pendingQuery?.Dispose();
+
+		// Defensive: the scripts below only ever generate non-empty text for Type (Clear is the
+		// dedicated way to empty the box), but a caller could still pass "" directly — never
+		// scheduling a query for it keeps NeverEmpty true by construction either way.
+		if (text.Length == 0)
+		{
+			_pendingQuery = null;
+			return;
+		}
+
+		_pendingQuery = scheduler.Schedule(debounce, () => _events.OnNext(new SearchEvent.Queried(text) { Timestamp = scheduler.Now }));
+	}
+
+	public void Clear()
+	{
+		_pendingQuery?.Dispose();
+		_pendingQuery = null;
+		_events.OnNext(new SearchEvent.Cleared { Timestamp = scheduler.Now });
+	}
 }
 
 // ── Style 2: Constraints class ────────────────────────────────────────────────
@@ -60,7 +97,7 @@ internal static class SearchBoxSpec
 	public static readonly ReactiveConstraint<SearchEvent> SettlesToQuery = After<SearchEvent.Typed>()
 		.Then<SearchEvent.Queried>((typed, query) => query.Text == typed.Text)
 		.Within(TimeSpan.FromMilliseconds(350))
-		.UnlessInterruptedBy<SearchEvent.Typed>()
+		.UnlessInterruptedBy<SearchEvent.InputChanged>()
 		.Named(nameof(SettlesToQuery));
 
 	public static readonly ReactiveConstraint<SearchEvent> NoBurstQueries = Never<SearchEvent.Queried, SearchEvent.Queried>(
@@ -80,7 +117,7 @@ public class SearchBoxFluentExamples
 {
 	private static readonly Script<SearchBox> SearchScript = Script
 		.For<SearchBox>()
-		.Step(Gen.String[0, 5], (box, text) => box.Type(text))
+		.Step(Gen.String[1, 5], (box, text) => box.Type(text))
 		.Step("clear", box => box.Clear())
 		.Delays(Gen.Int[0, 600].Select(ms => TimeSpan.FromMilliseconds(ms)))
 		.Length(1, 20);
@@ -93,7 +130,7 @@ public class SearchBoxFluentExamples
 		("SettlesToQuery", After<SearchEvent.Typed>()
 			.Then<SearchEvent.Queried>((typed, query) => query.Text == typed.Text)
 			.Within(TimeSpan.FromMilliseconds(350))
-			.UnlessInterruptedBy<SearchEvent.Typed>()),
+			.UnlessInterruptedBy<SearchEvent.InputChanged>()),
 		("NoBurstQueries", Never<SearchEvent.Queried, SearchEvent.Queried>((prev, next) => next.Timestamp - prev.Timestamp < Debounce))
 	);
 
@@ -109,7 +146,7 @@ public class SearchBoxSpecClassExamples
 
 	private static readonly Script<SearchBox> SearchScript = Script
 		.For<SearchBox>()
-		.Step(Gen.String[0, 5], (box, text) => box.Type(text))
+		.Step(Gen.String[1, 5], (box, text) => box.Type(text))
 		.Step("clear", box => box.Clear())
 		.Delays(Gen.Int[0, 600].Select(ms => TimeSpan.FromMilliseconds(ms)))
 		.Length(1, 20);
@@ -134,8 +171,9 @@ public class SearchBoxSpecClassExamples
 		// Initially pending.
 		running[SearchBoxSpec.SettlesToQuery].Current.Should().Be(Verdict.Pending);
 
-		// After a type + the debounce window — SUT is a stub so these throw at runtime,
-		// but the API pattern is demonstrated here.
+		// After a type + the debounce window, the obligation After<Typed>().Then<Queried>() opened
+		// should have settled to Holds — a real assertion against the real SearchBox above, not a
+		// stub.
 		box.Type("a");
 		scheduler.AdvanceBy(TimeSpan.FromMilliseconds(400).Ticks);
 
@@ -152,7 +190,7 @@ public class SearchBoxEventSourceExamples
 
 	private static readonly Script<SearchBox> SearchScript = Script
 		.For<SearchBox>()
-		.Step(Gen.String[0, 5], (box, text) => box.Type(text))
+		.Step(Gen.String[1, 5], (box, text) => box.Type(text))
 		.Step("clear", box => box.Clear())
 		.Delays(Gen.Int[0, 600].Select(ms => TimeSpan.FromMilliseconds(ms)))
 		.Length(1, 20);

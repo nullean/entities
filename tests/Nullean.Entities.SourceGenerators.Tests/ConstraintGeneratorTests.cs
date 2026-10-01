@@ -36,7 +36,7 @@ public class ConstraintGeneratorShapeTests
 	}
 
 	[Test]
-	public void Companion_class_case_gets_the_property_but_not_the_interface()
+	public void Companion_static_class_case_gets_a_nested_TypeConstraints_with_an_Instance_singleton()
 	{
 		var run = GeneratorTestHost.Run(
 			"""
@@ -57,11 +57,48 @@ public class ConstraintGeneratorShapeTests
 		run.Diagnostics.Should().BeEmpty();
 		var source = run.SingleGeneratedSource();
 		source.Should().NotContain("IHaveConstraints");
+		// IConstraintsFor<T> is a plain instance interface, and OrderSpec's own `Constraints` is
+		// static either way — the interface never lands on the spec class's own base list.
+		source.Should().NotContain("partial class OrderSpec :");
+		source.Should().Contain("struct TypeConstraints : global::Nullean.Entities.IConstraintsFor<global::Sample.Order>");
+		source.Should().Contain("public static readonly TypeConstraints Instance = default;");
 		source.Should().Contain("global::Nullean.Entities.ConstraintSet<global::Sample.Order>");
+		// The forwarding shortcut on the spec class itself — OrderSpec.Instance, not
+		// OrderSpec.TypeConstraints.Instance — so a caller never has to spell out the nested type.
+		source.Should().Contain("public static readonly TypeConstraints Instance = TypeConstraints.Instance;");
 	}
 
 	[Test]
-	public void Reactive_case_bundles_into_a_ReactiveConstraintSet_with_named_tuples()
+	public void Companion_non_static_class_case_also_nests_TypeConstraints_rather_than_implementing_it_directly()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public sealed record Order(decimal Total);
+
+			public sealed partial class OrderSpec
+			{
+			    [Constraint]
+			    public static readonly Constraint<Order> TotalPositive = Constraints<Order>.Always(o => o.Total > 0, "not positive");
+			}
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		var source = run.SingleGeneratedSource();
+		// Unlike the old static-abstract design, a non-static spec class still gets the interface
+		// nested rather than directly implemented — IConstraintsFor<T>.Constraints is an instance
+		// member, and OrderSpec.Constraints is (and stays) static regardless of whether OrderSpec
+		// itself is `static`.
+		source.Should().NotContain("partial class OrderSpec :");
+		source.Should().Contain("struct TypeConstraints : global::Nullean.Entities.IConstraintsFor<global::Sample.Order>");
+	}
+
+	[Test]
+	public void Reactive_case_bundles_into_a_ReactiveConstraintSet_with_named_tuples_and_a_nested_TypeConstraints()
 	{
 		var run = GeneratorTestHost.Run(
 			"""
@@ -82,6 +119,9 @@ public class ConstraintGeneratorShapeTests
 
 		run.Diagnostics.Should().BeEmpty();
 		var source = run.SingleGeneratedSource();
+		source.Should().Contain("struct TypeConstraints : global::Nullean.Entities.Reactive.IReactiveConstraintsFor<global::Sample.Ev>");
+		source.Should().Contain("public static readonly TypeConstraints Instance = default;");
+		source.Should().Contain("public static readonly TypeConstraints Instance = TypeConstraints.Instance;");
 		source.Should().Contain("global::Nullean.Entities.Reactive.ReactiveConstraintSet<global::Sample.Ev>");
 		source.Should().Contain("global::Nullean.Entities.Reactive.ReactiveConstraintSet.From(");
 		source.Should().Contain("(nameof(AlwaysHolds), AlwaysHolds)");

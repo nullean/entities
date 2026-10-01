@@ -19,9 +19,13 @@ internal abstract record GeneratedOrderEvent
 
 internal static partial class GeneratedOrderEventSpec
 {
+	// Transitions, not Never<Placed,Shipped>: this domain has a real Confirmed case sitting between
+	// them, and Never<T1,T2> filters every other event type out before checking adjacency — see the
+	// caveat on Constraints<TEvent>.Never for the false positive that produces against the ordinary
+	// Placed -> Confirmed -> Shipped path.
 	[Constraint]
-	public static readonly ReactiveConstraint<GeneratedOrderEvent> NeverShippedBeforeConfirmed = Constraints<GeneratedOrderEvent>.Never<GeneratedOrderEvent.Placed, GeneratedOrderEvent.Shipped>(
-		(p, s) => p.OrderId == s.OrderId
+	public static readonly ReactiveConstraint<GeneratedOrderEvent> NeverShippedBeforeConfirmed = Constraints<GeneratedOrderEvent>.Transitions(
+		(prev, next) => !(prev is GeneratedOrderEvent.Placed p && next is GeneratedOrderEvent.Shipped s && p.OrderId == s.OrderId)
 	);
 
 	[Constraint]
@@ -59,5 +63,24 @@ public class ReactiveCompanionClassConstraintsTests
 		subject.OnNext(new GeneratedOrderEvent.Shipped(orderId));
 
 		monitored["NeverShippedBeforeConfirmed"].Current.IsViolated.Should().BeTrue();
+	}
+
+	[Test]
+	public void IReactiveConstraintsFor_interface_is_actually_implemented_via_the_nested_TypeConstraints()
+	{
+		// Same reasoning as the sync IConstraintsFor<T> end-to-end test: a plain instance interface,
+		// so a caller passes the value and TEvent is inferred from it.
+		static ReactiveConstraintSet<T> ConstraintsFor<T>(IReactiveConstraintsFor<T> spec) => spec.Constraints;
+
+		ConstraintsFor(GeneratedOrderEventSpec.TypeConstraints.Instance).Should().BeSameAs(GeneratedOrderEventSpec.Constraints);
+	}
+
+	[Test]
+	public void Instance_is_a_forwarding_shortcut_for_TypeConstraints_Instance()
+	{
+		// GeneratedOrderEventSpec.Instance is the generated top-level shortcut — callers never have
+		// to spell out "TypeConstraints" to get the IReactiveConstraintsFor<OrderEvent> value.
+		GeneratedOrderEventSpec.Instance.Should().BeEquivalentTo(GeneratedOrderEventSpec.TypeConstraints.Instance);
+		GeneratedOrderEventSpec.Instance.Constraints.Should().BeSameAs(GeneratedOrderEventSpec.Constraints);
 	}
 }

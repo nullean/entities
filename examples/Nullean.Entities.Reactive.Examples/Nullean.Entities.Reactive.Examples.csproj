@@ -6,5 +6,12 @@
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="Microsoft.Reactive.Testing" />
     <ProjectReference Include="../../src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+    <!-- Dev-time only, so the [Constraint] fixtures in NestedConstraintsExamples.cs actually get
+         their Constraints property generated when this project itself is compiled — see
+         Nullean.Entities.csproj. Analyzer references set via OutputItemType="Analyzer" on a
+         ProjectReference don't flow transitively through further ProjectReferences (unlike
+         PackageReference analyzer assets), so this needs its own copy despite already depending on
+         Nullean.Entities.CsCheck -> Nullean.Entities.Reactive -> Nullean.Entities. -->
+    <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

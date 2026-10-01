@@ -8,13 +8,20 @@
 //     just work — the "domain type declares its own rules" shape. The property is built from
 //     `ConstraintSet.From((nameof(field), field), ...)`, so a constraint's name can never drift
 //     from the field that declares it.
-//   - Constraint<T> members on any other partial type (a companion "spec" class, T untouched)
-//     get the same plain `ConstraintSet<T> Constraints` property with no interface — useful when
-//     T isn't owned by this repo, or the author simply prefers rules declared alongside the type
-//     instead of on it.
-//   - ReactiveConstraint<T> members get a `ReactiveConstraintSet<T> Constraints` property built
-//     from `ReactiveConstraintSet.From((nameof(field), field), ...)`. There is no reactive
-//     equivalent of IHaveConstraints<T> to attach to, so this case never adds an interface.
+//   - Constraint<T> members on any other partial type (a companion "spec" class, T untouched) get
+//     the same plain `ConstraintSet<T> Constraints` property, plus a nested
+//     `TypeConstraints : IConstraintsFor<T>` struct with a singleton `Instance` — never on the spec
+//     class's own base list, even when it isn't `static`, because IConstraintsFor<T> is a plain
+//     instance interface: `SpecClass.TypeConstraints.Instance` is a value a caller can pass around
+//     or infer T from, which putting the interface directly on the (usually static) spec class
+//     could never give you. A forwarding `public static readonly TypeConstraints Instance` on the
+//     spec class itself means a caller never has to spell out `TypeConstraints` at all —
+//     `SpecClass.Instance` is the same value as `SpecClass.TypeConstraints.Instance`.
+//   - ReactiveConstraint<T> members get the same treatment with
+//     `ReactiveConstraintSet<T> Constraints` / a nested `TypeConstraints : IReactiveConstraintsFor<T>`
+//     — there is no reactive-native self-attach interface (self-attach for reactive flows through
+//     the sync core's IHaveConstraints<T> + ToReactive() instead), so every declarer goes through
+//     this one path.
 //
 // A type with ANY invalid [Constraint] member (not static, wrong type, mixed kinds, not
 // partial, nested, generic, or an inconsistent type argument) gets no generated property at all —
@@ -178,31 +185,68 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	{
 		var selfAttach = SymbolEqualityComparer.Default.Equals(type, typeArgument);
 		var typeArgDisplay = typeArgument.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-		var baseList = selfAttach ? $" : global::Nullean.Entities.IHaveConstraints<{type.Name}>" : "";
+		var propertyType = $"global::Nullean.Entities.ConstraintSet<{typeArgDisplay}>";
+		// Self-attach (the type IS T) gets the F-bounded, static-abstract IHaveConstraints<T>
+		// directly on its own base list — a domain record is never static, so this is always a
+		// plain base-list addition. A companion "spec" class (T untouched) gets a nested
+		// TypeConstraints struct instead — see NestedTypeConstraints for why it's never on the spec
+		// class's own base list, even when the class isn't `static`.
+		var (baseList, nested) = selfAttach
+			? ($" : global::Nullean.Entities.IHaveConstraints<{type.Name}>", null)
+			: (string.Empty, NestedTypeConstraints(type, "global::Nullean.Entities.IConstraintsFor", typeArgDisplay, propertyType));
 
 		return Emit(
 			type,
 			baseList,
-			$"global::Nullean.Entities.ConstraintSet<{typeArgDisplay}>",
+			propertyType,
 			"global::Nullean.Entities.ConstraintSet.From(",
-			members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})")
+			members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})"),
+			nested
 		);
 	}
 
 	private static string GenerateReactive(INamedTypeSymbol type, ITypeSymbol typeArgument, ImmutableArray<MemberInfo> members)
 	{
 		var typeArgDisplay = typeArgument.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+		var propertyType = $"global::Nullean.Entities.Reactive.ReactiveConstraintSet<{typeArgDisplay}>";
+		// No reactive-native self-attach interface (see ReactiveConstraints.cs), so every declarer
+		// goes through the same nested TypeConstraints path as the sync companion case.
+		var nested = NestedTypeConstraints(type, "global::Nullean.Entities.Reactive.IReactiveConstraintsFor", typeArgDisplay, propertyType);
 
 		return Emit(
 			type,
 			baseList: "",
-			$"global::Nullean.Entities.Reactive.ReactiveConstraintSet<{typeArgDisplay}>",
+			propertyType,
 			"global::Nullean.Entities.Reactive.ReactiveConstraintSet.From(",
-			members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})")
+			members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})"),
+			nested
 		);
 	}
 
-	private static string Emit(INamedTypeSymbol type, string baseList, string propertyType, string factoryCall, IEnumerable<string> args)
+	/// <summary>
+	/// A zero-size <c>TypeConstraints</c> struct nested in the spec class, implementing the given
+	/// plain instance <c>I...ConstraintsFor&lt;T&gt;</c> interface and exposing a singleton
+	/// <c>Instance</c>. Never placed on the spec class's own base list — the interface is an
+	/// instance member, and the spec class's `Constraints` is `static`, so the spec class itself
+	/// cannot be made to implement the interface without either an unwanted instantiation or (for
+	/// the usual `static class` shape) CS0714. Nesting means `SpecClass.TypeConstraints.Instance` is
+	/// always available regardless of how the spec class itself is declared. <see cref="Emit"/>
+	/// additionally forwards a plain `Instance` field onto the spec class itself, so a caller can
+	/// write `SpecClass.Instance` without ever needing to know `TypeConstraints` exists.
+	/// </summary>
+	private static string NestedTypeConstraints(INamedTypeSymbol type, string interfaceName, string typeArgDisplay, string propertyType) =>
+		$"public readonly struct TypeConstraints : {interfaceName}<{typeArgDisplay}>\n" + $"    {{\n" +
+			$"        public static readonly TypeConstraints Instance = default;\n" + $"\n" +
+			$"        public {propertyType} Constraints => {type.Name}.Constraints;\n" + $"    }}";
+
+	private static string Emit(
+		INamedTypeSymbol type,
+		string baseList,
+		string propertyType,
+		string factoryCall,
+		IEnumerable<string> args,
+		string? nestedType = null
+	)
 	{
 		var ns = type.ContainingNamespace.IsGlobalNamespace ? null : type.ContainingNamespace.ToDisplayString();
 		var typeKind = TypeKindKeyword(type);
@@ -230,6 +274,15 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		sb.AppendLine($"{indent}        {factoryCall}");
 		sb.AppendLine($"{indent}            {argList}");
 		sb.AppendLine($"{indent}        );");
+		if (nestedType is not null)
+		{
+			sb.AppendLine();
+			sb.AppendLine($"{indent}    {nestedType}");
+			sb.AppendLine();
+			// Forwarding shortcut so a caller never has to spell out "TypeConstraints" — see
+			// NestedTypeConstraints's own doc comment for why the nested struct exists at all.
+			sb.AppendLine($"{indent}    public static readonly TypeConstraints Instance = TypeConstraints.Instance;");
+		}
 		sb.AppendLine($"{indent}}}");
 		if (ns is not null)
 		{

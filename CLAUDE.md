@@ -6,16 +6,20 @@ orientation.
 
 ## The one-paragraph version
 
-Four packages, one idea: a `Constraint<T>` is a named, syntax-level rule with a `Check` function,
+Three packages, one idea: a `Constraint<T>` is a named, syntax-level rule with a `Check` function,
 and a `ConstraintSet<T>` is an ordered collection of them. `Nullean.Entities` is that idea alone —
-no CsCheck, no System.Reactive, so it costs a consumer nothing to hold constraints on a domain type.
-`Nullean.Entities.Reactive` lifts constraints onto `IObservable<TEvent>` streams, adding temporal and
-structural operators (`Never`, `NeverTwice`, `After().Then().Within()`) that only make sense against
-a stream, plus `ConstraintSet<T>.ToReactive()` to attach the sync core to one. `Nullean.Entities.CsCheck`
+no CsCheck, no System.Reactive, so it costs a consumer nothing to hold constraints on a domain type
+— plus the `Idempotent`/`Monotonic`/`Conserves` shapes. `Nullean.Entities.Reactive` lifts constraints
+onto `IObservable<TEvent>` streams, adding temporal and structural operators (`Never`, `NeverTwice`,
+`Always`, `Transitions`, `After().Then().Within()`, `Eventually<T>` for unbounded liveness) that only
+make sense against a stream, a predicate-based counterpart of each for event shapes that cannot
+satisfy `where T : TEvent` (C# 11 unions — see `AGENTS.md`), `MonitoredConstraintSet<TEvent>.AnyViolated`,
+plus `ConstraintSet<T>.ToReactive()` to attach the sync core to a stream. `Nullean.Entities.CsCheck`
 drives a `Script<TSut>` under CsCheck and checks a `ReactiveConstraintSet<TEvent>` against the
-resulting event stream — still unimplemented scaffolding, see below. `Nullean.Entities.Bogus` is
-unrelated to the other three: it routes Bogus/AutoBogus draws through CsCheck's `PCG` so seeds are
-reproducible and failures shrink.
+resulting event stream via `SampleWith`/`RunWith` (`MonitoredConstraintSet.AnyViolated` is CsCheck's
+own `equal` check, so a violation is a real, reproducible CsCheck failure), plus `Metamorphic` for
+confluence testing and the Bogus/AutoBogus bridge: generators that route their draws through
+CsCheck's `PCG` so seeds are reproducible and failures shrink.
 
 ## Design decisions worth not re-litigating
 
@@ -26,9 +30,15 @@ reproducible and failures shrink.
   It does not gain the temporal/structural operators declared directly in `Constraints<TEvent>` —
   those still need to be authored in Reactive terms, because "after X, then Y, within a time window"
   has no sync equivalent to lift from.
-- **`Script<TSut>`, `SampleWith`/`RunWith` are intentionally unimplemented.** Every overload throws
-  `NotImplementedException`. They exist so the examples compile against the final API shape and
-  demonstrate the intended call pattern; nothing downstream depends on them executing yet.
+- **`Script<TSut>`, `SampleWith`/`RunWith`/`Metamorphic` are implemented and tested**, backed by
+  CsCheck's own `Gen.OneOf` + ranged `.Array[min,max]` step selection and `SampleModelBased`'s
+  replay/shrink machinery — see the non-negotiable in `AGENTS.md`.
+- **A union case type is not a subtype of the union.** `readonly union Name(Case1, Case2);` compiles
+  to a sealed type; `Case1`/`Case2` are ordinary sibling types with compiler-only pattern-matching
+  support, so `where T : TEvent` (used throughout `Constraints<TEvent>`'s typed operators) can never
+  be satisfied by one — confirmed with CS0701 against the union type itself. The predicate-based
+  operators exist because of this, not as a style preference — see `AGENTS.md`'s multi-targeting
+  section for the full finding and `OrderStateExamplesNet11.cs` for the worked example.
 - **`PcgRandom : System.Random`.** Bogus has no injection point for a custom RNG except
   `Randomizer.localSeed` (protected). Subclassing is the only approach that does not require
   patching Bogus.
@@ -43,6 +53,13 @@ not deleted. Formatting is enforced by [curb](https://curb.nullean.net) via the 
 and a Husky.Net pre-commit hook, the same way [nullean/curb](https://github.com/nullean/curb) formats
 itself — see the Code Style section in `AGENTS.md`.
 
-Still open: `Script<TSut>` itself (driving a SUT from a generated action sequence, replaying a shrunk
-seed, producing `EntityEvent.SmallerFailure` traces), and the spike questions in `AGENTS.md` that gate
-a 1.0.
+Every project multi-targets `net10.0;net11.0` (the source generator stays on `netstandard2.0`); see
+`AGENTS.md`'s multi-targeting section for the `LangVersion`/union-constraint findings behind it.
+`Script<TSut>`, `SampleWith`/`RunWith`/`Metamorphic`, and the new constraint shapes (`Idempotent`,
+`Monotonic`, `Conserves`, `Eventually<T>`) are implemented and tested on both TFMs — an
+`Order`/`OrderLine`/`OrderEvent` domain in `examples/Nullean.Entities.CsCheck.Examples` exercises
+every testing quality (absence, temporal, liveness, idempotency, monotonicity, conservation,
+confluence) end to end.
+
+Still open: the spike questions in `AGENTS.md` that gate a 1.0 (shrinking quality, early-exit cost,
+global-lock throughput, `faker.ToGen()` support).
