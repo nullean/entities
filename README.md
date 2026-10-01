@@ -20,8 +20,30 @@ public sealed record Placed(Guid OrderId);
 public sealed record Confirmed(Guid OrderId);
 public sealed record Shipped(Guid OrderId);
 public sealed record Cancelled(Guid OrderId);
-
 public readonly union OrderEvent(Placed, Confirmed, Shipped, Cancelled);
+```
+
+## What the type system can't say
+
+| You want to say | C# enforces it? | The type-theory idea | This library |
+|---|---|---|---|
+| An order is Pending, Confirmed, Shipped or Cancelled | ✅ unions / sealed records | Sum types (ADTs) | — |
+| Every case is handled | ✅ exhaustive `switch` | Exhaustiveness | — |
+| `Total >= 0` | ❌ | Refinement types (Liquid Haskell, F\*) | `Always` |
+| A Confirmed order has ≥ 1 line | ❌ | Dependent types (Idris, Agda) | `When(...).Requires(...)` |
+| You can only Ship a Confirmed order | ❌ | Typestate (Rust, Plaid) | `Transitions`, `StateMachine` |
+| Cancel twice = cancel once | ❌ | Algebraic laws | `Idempotent` |
+| Confirmed orders ship within 48 h | ❌ | Session types / temporal logic (LTL) | `Reactive` |
+| Every state is reachable, none is a dead end | ❌ | Model checking | `StateMachine` *(coming)* |
+
+These are runtime checks, not compile-time ones — but declared once, named, and next to the type.
+`[Constraint]` makes the *set* exhaustive at build time: add a field and forget to tag it, and the
+build refuses. `ConstraintChannel` turns "parse, don't validate" into **"apply, don't mutate"**: an
+invalid next state is never committed, so it never reaches downstream code.
+
+## Have `Nullean.Entities` say/enforce it in its stead
+
+```csharp
 // A switch over OrderEvent that omits any case won't build.
 
 // ── What the type system can't say about Order ───────────────────────────
@@ -50,7 +72,28 @@ public static partial class OrderConstraints
     // Generated: OrderConstraints.Constraints (ConstraintSet<Order>)
     // Forget [Constraint] on a field, or target the wrong type — the build fails, not a warning.
 }
+```
 
+Validate a single instance at any point in time, or wrap a mutation in a channel that only commits
+if every constraint passes — violations are returned, nothing is left in an invalid state:
+
+```csharp
+// Point-in-time: is this order valid right now?
+IReadOnlyList<Violation> problems = OrderConstraints.Constraints.Validate(order);
+
+// Guarded mutation: only commit if every constraint passes.
+var channel = ConstraintChannel.For(order).Enforce(OrderConstraints.Constraints);
+
+channel.Apply(o => o.Ship()) switch
+{
+    Result<Order>.Ok(var shipped)       => Save(shipped),
+    Result<Order>.Fail(_, var problems) => Reject(problems),   // order is unchanged
+};
+```
+
+## `Nullean.Entities.Reactive` to enforce constraints over a stream of events
+
+```csharp
 // ── What the type system can't say about sequences of OrderEvents ────────
 public static partial class OrderEventSpec
 {
@@ -87,59 +130,28 @@ public static partial class OrderEventSpec
 }
 ```
 
-Enforce at mutations. Watch in production. Break with a property tester.
+Attach the spec to any `IObservable<T>` and read verdicts at any time — in a test, in production, or
+wired into a health check. The spec does not know or care which:
 
 ```csharp
-// Enforce: only commit if every constraint passes.
-var channel = ConstraintChannel.For(order).Enforce(OrderConstraints.Constraints);
-channel.Apply(o => o.Ship()) switch
-{
-    Result<Order>.Ok(var shipped)       => Save(shipped),
-    Result<Order>.Fail(_, var problems) => Reject(problems),   // order unchanged
-};
-
-// Watch: attach to a live stream, read verdicts any time.
 var monitored = OrderEventSpec.Constraints.Attach(service.Events);
-monitored[OrderEventSpec.ConfirmedOrdersClose].Current;   // Verdict.Pending / Violated
 
-// Break: hundreds of random action sequences, failures shrunk and seed-reproducible.
-Script.For<OrderService>()
-    .Step("Place",   Gen.Guid, (svc, id) => svc.Place(id))
-    .Step("Confirm", Gen.Guid, (svc, id) => svc.Confirm(id))
-    .Step("Ship",    Gen.Guid, (svc, id) => svc.Ship(id))
-    .Step("Cancel",  Gen.Guid, (svc, id) => svc.Cancel(id))
-    .Length(3, 25)
-    .SampleWith(_ => new OrderService(), svc => svc.Events, OrderEventSpec.Constraints);
+service.Place(orderId);
+service.Confirm(orderId);
+
+monitored[OrderEventSpec.ConfirmedOrdersClose].Current;  // Verdict.Pending — clock still running
+monitored.AnyViolated;                                   // false
+
+monitored[OrderEventSpec.ConfirmedOrdersClose].Verdicts
+    .Where(v => v.IsViolated)
+    .Subscribe(v => alerting.Emit("order-sla-breach", v));
 ```
+
+`Pending` means "still watching." `Violated` is final. `.Required()` means a trigger that never
+fires is itself a violation, not a vacuous pass.
 
 > `union` is a C# 11 feature. On .NET 10 and earlier, use `abstract record OrderEvent` with nested
 > `sealed record` cases — every API above works unchanged.
-
-## What the type system can't say
-
-| You want to say | C# enforces it? | The type-theory idea | This library |
-|---|---|---|---|
-| An order is Pending, Confirmed, Shipped or Cancelled | ✅ unions / sealed records | Sum types (ADTs) | — |
-| Every case is handled | ✅ exhaustive `switch` | Exhaustiveness | — |
-| `Total >= 0` | ❌ | Refinement types (Liquid Haskell, F\*) | `Always` |
-| A Confirmed order has ≥ 1 line | ❌ | Dependent types (Idris, Agda) | `When(...).Requires(...)` |
-| You can only Ship a Confirmed order | ❌ | Typestate (Rust, Plaid) | `Transitions`, `StateMachine` |
-| Cancel twice = cancel once | ❌ | Algebraic laws | `Idempotent` |
-| Confirmed orders ship within 48 h | ❌ | Session types / temporal logic (LTL) | `Reactive` |
-| Every state is reachable, none is a dead end | ❌ | Model checking | `StateMachine` *(coming)* |
-
-These are runtime checks, not compile-time ones — but declared once, named, and next to the type.
-`[Constraint]` makes the *set* exhaustive at build time: add a field and forget to tag it, and the
-build refuses. `ConstraintChannel` turns "parse, don't validate" into **"apply, don't mutate"**: an
-invalid next state is never committed, so it never reaches downstream code.
-
-`OrderConstraints.Instance` and `OrderEventSpec.Instance` (both generated) implement
-`IConstraintsFor<T>` / `IReactiveConstraintsFor<T>`, so generic utilities can receive either by
-interface and infer `T` without knowing the concrete class.
-
-If you prefer the rules on the domain type itself — tag fields directly on the type and the generator
-adds `IHaveConstraints<T>` to its partial declaration, enabling `events.AttachConstraints()` without
-naming the spec class.
 
 ## Let a computer try to break them
 
@@ -147,31 +159,24 @@ Hand-written tests check the scenarios you thought of. Declared constraints let 
 check the ones you didn't. A failure shrinks automatically to the smallest reproduction and comes
 with a seed to replay it.
 
-### Testing axes
+The testing axes map to how you think about correctness, not to any specific framework method:
 
-| Axis | The question | Declaration |
-|---|---|---|
-| Invariant | Is every generated value valid? | `Constraints<Order>.Always(o => o.Total >= 0, ...)` |
-| Idempotency | Twice == once? | `Constraints<Order>.Idempotent(o => o.Cancel(), ...)` |
-| Monotonicity | Only moves one way? | `Constraints<Order>.Monotonic(o => o.Total, NonDecreasing)` |
-| Conservation | Nothing created or destroyed? | `Constraints<(Order, Order)>.Conserves(p => ...)` |
-| Absence (safety) | The bad sequence never happens? | `Never<Cancelled, Shipped>((c, s) => ...)` |
-| Temporal (bounded liveness) | The good thing happens within a deadline? | `After<Confirmed>().Then<Shipped, Cancelled>(...).Within(48h).Required()` |
-| Liveness (unbounded) | The good thing eventually happens? | `Eventually<Shipped>(scope: OrderIdOf, from: ...)` |
-| Confluence | Two orderings must agree? | `script.Metamorphic(factory, gen, path1, path2, equal)` |
-| Vacancy | Did the generator hit the interesting states? | `coverage: OrderLifecycle.Machine` *(coming)* |
+| Axis | The question |
+|---|---|
+| Invariant | Is every generated value valid? |
+| Idempotency | Doing it twice is the same as once? |
+| Monotonicity | Does this quantity only ever move one way? |
+| Conservation | Is nothing created or destroyed by this operation? |
+| Absence (safety) | Does this bad sequence of events never happen? |
+| Temporal (bounded liveness) | Does the good thing happen within a deadline? |
+| Liveness (unbounded) | Does the good thing eventually happen at all? |
+| Confluence | Do two orderings of the same operations agree? |
+| Vacancy | Did the test generator actually reach the interesting states? |
 
-### CsCheck integrations
-
-| Method | What you get | Status |
-|---|---|---|
-| `Gen<T>.Sample` | Random values + shrinking | ✅ works with `ConstraintSet<T>.Validate`; Bogus/AutoBogus generators stay shrinkable via `GenFakerExtensions.Faker<T>` and `GenAuto.Of<T>` |
-| `Script.SampleWith` | Random action sequences in virtual time against a live SUT | ✅ |
-| `Script.RunWith` | Progress and shrink events as an observable stream | ✅ returns `IObservable<EntityEvent>` |
-| `Script.Metamorphic` | Two orderings of the same operations must agree (confluence) | ✅ |
-| Model-based testing | SUT state must match the machine's predicted state after every step | ⏳ needs `StateMachine` |
-| Parallel / linearizability | Concurrent steps, same reactive spec | ⏳ |
-| Coverage | Fail if some declared transition was never exercised | ⏳ needs `StateMachine` |
+`Nullean.Entities.CsCheck` maps each axis to a test entry point. `Script` builds a sequence of
+named steps with generated arguments and optional virtual-time delays, then drives a real SUT with
+random orderings. The same `OrderEventSpec.Constraints` declared above runs unchanged — no
+re-declaration for tests:
 
 ```csharp
 var script = Script.For<OrderService>()
@@ -182,7 +187,8 @@ var script = Script.For<OrderService>()
     .Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)))
     .Length(3, 25);
 
-// The same spec declared above — no re-declaration.
+// Generates hundreds of random step sequences, runs each against a fresh OrderService,
+// checks every reactive constraint after each run. Finds the cases you didn't think of.
 script.SampleWith(_ => new OrderService(), svc => svc.Events, OrderEventSpec.Constraints);
 ```
 
@@ -197,42 +203,36 @@ Shrunk to 3 steps from 19.
 CsCheck_Seed=0Hk1u3ZbQ0p1
 ```
 
-Swap `Gen.Guid` for a Bogus generator to get realistic-looking data — still shrinkable and
-seed-reproducible, because `GenFakerExtensions.Faker<T>` routes Bogus draws through CsCheck's own
-random source:
+When steps need realistic domain data, swap any `Gen<T>` for a Bogus-backed generator. It routes
+every Bogus draw through CsCheck's own random source, so shrinking and seed replay work identically:
 
 ```csharp
-var genCustomer = GenAuto.Of<Customer>(); // every field, nested objects, all shrinkable
-var genSku      = GenFakerExtensions.Faker<string>(faker => faker.Commerce.Ean13());
+var genLine = GenFakerExtensions.Faker<OrderLine>(faker => faker
+    .RuleFor(l => l.Sku,      f => f.Commerce.Ean13())
+    .RuleFor(l => l.Quantity, f => f.Random.Int(1, 100))
+    .RuleFor(l => l.Price,    f => f.Finance.Amount()));
+
+var genCustomer = GenAuto.Of<Customer>(); // fills every field, nested objects too — all shrinkable
+
+var script = Script.For<OrderService>()
+    .Step("Place",   genLine,       (svc, line)     => svc.PlaceOrder(line))
+    .Step("Confirm", genCustomer,   (svc, customer) => svc.ConfirmWith(customer))
+    .Step("Cancel",  Gen.Guid,      (svc, id)       => svc.Cancel(id))
+    .Length(3, 25);
 ```
 
-## The same rules, in production
+The supported axes today and what's coming:
 
-Attach `OrderEventSpec.Constraints` to any live event stream:
+| Axis | Status |
+|---|---|
+| Invariant, Idempotency, Monotonicity, Conservation | ✅ `ConstraintSet<T>.Validate`, `Idempotent`, `Monotonic`, `Conserves` |
+| Absence, Temporal, Liveness | ✅ `Script.SampleWith` + `ReactiveConstraintSet` |
+| Confluence | ✅ `Script.Metamorphic` |
+| Model-based (SUT state vs machine prediction) | ⏳ needs `StateMachine` |
+| Parallel / linearizability | ⏳ |
+| Vacancy (every transition exercised) | ⏳ needs `StateMachine` |
 
-```csharp
-using var service = new OrderService();
-var monitored = OrderEventSpec.Constraints.Attach(service.Events);
-
-service.Place(orderId);
-service.Confirm(orderId);
-
-monitored.AnyViolated;                                   // false — nothing has broken yet
-monitored[OrderEventSpec.ConfirmedOrdersClose].Current;  // Verdict.Pending — clock still running
-```
-
-`Pending` means "still watching." `Violated` is final. `.Required()` means a trigger that never fires
-is itself a violation, not a vacuous pass.
-
-Subscribe to violations in a dashboard or health check:
-
-```csharp
-monitored[OrderEventSpec.ConfirmedOrdersClose].Verdicts
-    .Where(v => v.IsViolated)
-    .Subscribe(v => alerting.Emit("order-sla-breach", v));
-```
-
-The spec does not know or care whether it is running inside a test or in production.
+See [Nullean.Entities.CsCheck](src/Nullean.Entities.CsCheck/README.md) for the full API.
 
 ## State machines *(coming next)*
 
