@@ -194,6 +194,16 @@ itself is). There's no reactive self-attach interface parallel to `IHaveConstrai
 union that wants to declare its own reactive rules on itself still goes through a companion spec
 class, or lifts a sync `IHaveConstraints<T>` set with `ToReactive()`/`AttachConstraints()` above.
 
+## Relationship to the core temporal rules
+
+`Nullean.Entities` has the same operators (`Temporal<TEvent>.Never/NeverTwice/Always/Transitions/When/After().Then().Within()/AfterUntil/Eventually`)
+as a pure state machine over timestamped events, with `Trace.Check` for recorded sessions and `MonitorAsync` for an `IAsyncEnumerable` on a
+`TimeProvider`: no Rx, no scheduler. Use this package when the stream already is an `IObservable<T>` or you want Rx's own operators next to the rules.
+The two are checked against each other (same generated traces, same verdict and violation time per operator), so a rule means the same thing in either.
+
+`Verdict` (`Pending`, `Holds`, `Violated(at, evidence)`) now lives in `Nullean.Entities` and is shared; add `using Nullean.Entities;` where you used it.
+`AfterUntil` and `After().Then().Within()` report only `Pending` or `Violated`, never `Holds`: an answered obligation simply stays quiet.
+
 ## Install
 
 ```sh

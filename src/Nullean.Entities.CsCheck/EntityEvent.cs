@@ -3,8 +3,6 @@
 // No doc comments yet (checkpoint-A exploration code) — CS1591 is suppressed project-wide
 // in Directory.Build.props rather than per file.
 
-using Nullean.Entities.Reactive;
-
 namespace Nullean.Entities.CsCheck;
 
 public abstract record EntityEvent

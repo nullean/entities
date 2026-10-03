@@ -216,6 +216,13 @@ public sealed class EntitySpec<T>
 		return this;
 	}
 
+	/// <summary>"Now" from a <see cref="TimeProvider"/> you control (a <see cref="ManualTimeProvider"/> you advance between terminals).</summary>
+	public EntitySpec<T> Clock(TimeProvider time)
+	{
+		_clock = time;
+		return this;
+	}
+
 	/// <summary>Stop expanding states outside this region (in addition to <see cref="Limit"/>), so an unbounded model can still close.</summary>
 	public EntitySpec<T> Boundary(Func<T, bool> inside)
 	{

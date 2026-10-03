@@ -14,6 +14,7 @@
 // in Directory.Build.props rather than per file.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Nullean.Entities;
 
@@ -654,6 +655,56 @@ public sealed class ConstraintSet<T>
 		_ => throw new UnreachableException(),
 	};
 
+	/// <summary>
+	/// <see cref="ApplyDetailed"/> for a mutation that awaits something (a service call, a database read): it receives
+	/// <paramref name="cancellationToken"/>, and the constraints are checked once it returns.
+	/// </summary>
+	public async ValueTask<ApplyOutcome<T>> ApplyDetailedAsync(
+		T current,
+		Func<T, CancellationToken, ValueTask<T>> mutation,
+		TimeProvider? time = null,
+		CancellationToken cancellationToken = default
+	)
+	{
+		var next = await mutation(current, cancellationToken).ConfigureAwait(false);
+		if (EqualityComparer<T>.Default.Equals(current, next))
+		{
+			return new ApplyOutcome<T>.Noop(current);
+		}
+		var violations = RunAll(current, next, time);
+		return violations.Count == 0 ? new ApplyOutcome<T>.Applied(next) : new ApplyOutcome<T>.Failure(current, next, violations);
+	}
+
+	/// <summary><see cref="Apply"/> for an awaited mutation.</summary>
+	public async ValueTask<Result<T>> ApplyAsync(
+		T current,
+		Func<T, CancellationToken, ValueTask<T>> mutation,
+		TimeProvider? time = null,
+		CancellationToken cancellationToken = default
+	) => await ApplyDetailedAsync(current, mutation, time, cancellationToken).ConfigureAwait(false) switch
+	{
+		ApplyOutcome<T>.Applied a => new Result<T>.Ok(a.Value),
+		ApplyOutcome<T>.Noop n => new Result<T>.Ok(n.Value),
+		ApplyOutcome<T>.Failure f => new Result<T>.Fail(f.Attempted, f.Violations),
+		_ => throw new UnreachableException(),
+	};
+
+	/// <summary>
+	/// Validates a stream of values as they arrive (a database cursor, an event-store read, a paged API) without materialising it:
+	/// each value is yielded with the violations found, in order.
+	/// </summary>
+	public async IAsyncEnumerable<(T Value, IReadOnlyList<Violation> Violations)> ValidateAsync(
+		IAsyncEnumerable<T> values,
+		TimeProvider? time = null,
+		[EnumeratorCancellation] CancellationToken cancellationToken = default
+	)
+	{
+		await foreach (var value in values.WithCancellation(cancellationToken).ConfigureAwait(false))
+		{
+			yield return (value, Validate(value, time));
+		}
+	}
+
 	// Called by ConstrainedValue<T>.Apply after it has already computed `next` to avoid calling
 	// the mutation twice — the channel needs the value upfront to short-circuit on equality.
 	internal IReadOnlyList<Violation> RunAll(T current, T next, TimeProvider? time)
@@ -743,6 +794,44 @@ public sealed class ConstrainedValue<T>
 		ApplyOutcome<T>.Failure f => throw new InvalidOperationException($"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
 		_ => throw new UnreachableException(),
 	};
+
+	/// <summary><see cref="ApplyDetailed"/> for a mutation that awaits something. <see cref="Current"/> is updated only if every constraint passes.</summary>
+	public async ValueTask<ApplyOutcome<T>> ApplyDetailedAsync(Func<T, CancellationToken, ValueTask<T>> mutation, CancellationToken cancellationToken = default)
+	{
+		var outcome = await _constraints.ApplyDetailedAsync(Current, mutation, _time, cancellationToken).ConfigureAwait(false);
+		if (outcome is ApplyOutcome<T>.Applied applied)
+		{
+			Current = applied.Value;
+		}
+		return outcome;
+	}
+
+	/// <summary><see cref="Apply"/> for a mutation that awaits something.</summary>
+	public async ValueTask<Result<T>> ApplyAsync(
+		Func<T, CancellationToken, ValueTask<T>> mutation,
+		CancellationToken cancellationToken = default
+	) => await ApplyDetailedAsync(mutation, cancellationToken).ConfigureAwait(false) switch
+	{
+		ApplyOutcome<T>.Applied a => new Result<T>.Ok(a.Value),
+		ApplyOutcome<T>.Noop n => new Result<T>.Ok(n.Value),
+		ApplyOutcome<T>.Failure f => new Result<T>.Fail(f.Attempted, f.Violations),
+		_ => throw new UnreachableException(),
+	};
+
+	/// <summary>
+	/// Applies each mutation of an asynchronous sequence in order, each to the result of the last that was accepted, yielding the
+	/// outcome of every one. A rejected mutation leaves <see cref="Current"/> as it was and the sequence carries on.
+	/// </summary>
+	public async IAsyncEnumerable<ApplyOutcome<T>> ApplyAllAsync(
+		IAsyncEnumerable<Func<T, T>> mutations,
+		[EnumeratorCancellation] CancellationToken cancellationToken = default
+	)
+	{
+		await foreach (var mutation in mutations.WithCancellation(cancellationToken).ConfigureAwait(false))
+		{
+			yield return ApplyDetailed(mutation);
+		}
+	}
 }
 
 public static class ConstrainedValue

@@ -261,6 +261,68 @@ This is what [`Nullean.Entities.Reactive`](https://www.nuget.org/packages/Nullea
 and [`Nullean.Entities.CsCheck`](https://www.nuget.org/packages/Nullean.Entities.CsCheck) attach to
 without this package depending on either of them.
 
+## Time: `TimeProvider`, and temporal rules with no Rx
+
+Everything that needs "now" takes a `TimeProvider` (default `TimeProvider.System`), so a test controls the clock instead of sleeping:
+
+```csharp
+static readonly Constraint<Reading> Fresh = Constraints<Reading>.NotOlderThan(r => r.At, TimeSpan.FromMinutes(5));
+static readonly Constraint<Reading> NotFromTheFuture = Constraints<Reading>.NotInFuture(r => r.At, tolerance: TimeSpan.FromSeconds(2));
+
+var time = new ManualTimeProvider();                      // virtual time, ships in this package
+set.Validate(reading, time);                              // Validate, Apply, ApplyDetailed, ApplyOrThrow and ConstrainedValue.Enforce all take one
+time.Advance(TimeSpan.FromMinutes(6));                    // moves the clock and fires every timer that falls due, in order
+```
+
+A rule that is about **sequences in time** ("a confirmed order ships within 60 seconds", "never ship after cancelling") needs events,
+not a single value. `Temporal<TEvent>` builds those rules, with the same operators as `Nullean.Entities.Reactive` and no Rx:
+
+```csharp
+var rules = TemporalRuleSet<OrderEvent>.From(
+    ("ConfirmedShips", Temporal<OrderEvent>.After<Confirmed>().Then<Shipped>((c, s) => c.OrderId == s.OrderId).Within(TimeSpan.FromSeconds(60))),
+    ("NoShipAfterCancel", Temporal<OrderEvent>.Never<Cancelled, Shipped>((c, s) => c.OrderId == s.OrderId)),
+    ("EveryOrderCloses", Temporal<OrderEvent>.Eventually<Shipped>(e => e.OrderId, e => e is Placed)));
+```
+
+| You have | Use | You get |
+|---|---|---|
+| A recorded session, audit log or event-store read | `Trace.Check(events, rules)` over `Timestamped<TEvent>` | A `TraceReport`: every violation with its time and evidence, what is still pending |
+| A live `IAsyncEnumerable<TEvent>` | `events.MonitorAsync(rules, time)` | Each verdict change as it happens; deadlines run on the provider's timers |
+| Events you push yourself | `new TemporalMonitor<TEvent>(rules, time)`, `.Observe(e)`, `.Changes()`, `.Complete()` | The same, without an enumerable |
+| A rule you want to run step by step | `rule.CreateMonitor()`, `.Observe(e, at)`, `.Tick(now)`, `.Finish(at)` | The pure state machine behind all of the above |
+
+```csharp
+await foreach (var change in orderEvents.MonitorAsync(rules, TimeProvider.System))
+{
+    if (change.Verdict.IsViolated) alert(change.Rule, change.Verdict.ViolationAt, change.Verdict.ViolationEvidence);
+}
+```
+
+Two ordering rules are fixed, because they decide edge cases: a deadline is reached **before** an event at the same instant is considered
+(so an event arriving exactly at the deadline is too late), and an event **never answers the obligation it opens**. A violation is reported at
+the instant of the deadline, not when it was noticed. `Eventually` and `Required()` are only decided at `Finish`/`Complete`, so they are for a
+bounded run.
+
+Not rewritten, kept in agreement: `Nullean.Entities.Reactive` implements the same operators over `IObservable<T>` (Rx schedulers, debounce,
+windows) and is the right package when the stream is already Rx. A differential test in the CsCheck test project generates timestamped
+traces and requires both to give the same verdict and the same violation time for every operator.
+
+## Async: awaiting a mutation, validating a stream
+
+```csharp
+// the mutation awaits something; constraints are checked once it returns, the token is passed through
+Result<Order> result = await OrderConstraints.All.ApplyAsync(order, async (o, ct) => await shipping.ShipAsync(o, ct));
+
+var value = ConstrainedValue.For(order).Enforce(OrderConstraints.All);
+await value.ApplyAsync(async (o, ct) => await pricing.RepriceAsync(o, ct));          // Current changes only if accepted
+await foreach (var outcome in value.ApplyAllAsync(commands)) { ... }                 // IAsyncEnumerable<Func<Order, Order>>, in order
+
+await foreach (var (order, violations) in OrderConstraints.All.ValidateAsync(db.ReadOrdersAsync())) { ... }  // validate a cursor without materialising it
+```
+
+`ApplyDetailedAsync` returns the three-way `ApplyOutcome<T>` (`Applied`, `Noop`, `Failure`). Constraints themselves stay synchronous: a rule that
+has to call a service is better expressed as a mutation that does the call and a constraint on its result.
+
 ## Install
 
 ```sh

@@ -21,27 +21,7 @@ using System.Reactive.Subjects;
 // below resolve unqualified.
 namespace Nullean.Entities.Reactive;
 
-// ── Verdict ───────────────────────────────────────────────────────────────────
-
-public abstract record Verdict
-{
-	public static readonly Verdict Pending = new PendingVerdict();
-	public static readonly Verdict Holds = new HoldsVerdict();
-
-	public static Verdict Violated(DateTimeOffset at, object evidence) => new ViolatedVerdict(at, evidence);
-
-	private sealed record PendingVerdict : Verdict;
-
-	private sealed record HoldsVerdict : Verdict;
-
-	private sealed record ViolatedVerdict(DateTimeOffset At, object Evidence) : Verdict;
-
-	public bool IsViolated => this is ViolatedVerdict;
-	public bool IsHolds => this is HoldsVerdict;
-	public bool IsPending => this is PendingVerdict;
-	public object? ViolationEvidence => (this as ViolatedVerdict)?.Evidence;
-	public DateTimeOffset? ViolationAt => (this as ViolatedVerdict)?.At;
-}
+// Verdict (Pending / Holds / Violated) lives in Nullean.Entities: the core temporal monitor reports the same type.
 
 // ── MonitoredConstraint<TEvent> ───────────────────────────────────────────────
 // The live, attached instance of a ReactiveConstraint<TEvent>.

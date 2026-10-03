@@ -2,15 +2,6 @@ using AwesomeAssertions;
 
 namespace Nullean.Entities.Tests;
 
-internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
-{
-	private DateTimeOffset _now = start;
-
-	public override DateTimeOffset GetUtcNow() => _now;
-
-	public void Advance(TimeSpan by) => _now += by;
-}
-
 internal sealed record Reading(DateTimeOffset At, int Value);
 
 public class TimeAwareConstraintTests

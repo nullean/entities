@@ -202,6 +202,20 @@ What happens under the hood, and how to get it right:
   so an obligation still open when the walk ends stays `Pending`. To check the final deadline, end the script with a
   step whose pre-delay can cross it (a no-op `Step("Wait", _ => { })` works), or use `Eventually<T>`.
 
+**Without Rx.** If the service takes a `TimeProvider` and records timestamped events, the same script drives a `ManualTimeProvider` and
+checks core temporal rules (`Temporal<TEvent>`, from `Nullean.Entities`) instead:
+
+```csharp
+script.SampleWith(
+    time => new OrderDesk(time),              // the SUT reads time from the provider it is given
+    desk => desk.Log,                         // IEnumerable<Timestamped<DeskEvent>> it recorded
+    rules,                                    // a TemporalRuleSet<DeskEvent>
+    coverage);                                // optional: the same vacuity check
+```
+
+The generated delays advance the `ManualTimeProvider`, a violation fails with the rule, its time and evidence, a shrunk walk and a seed, and
+nothing depends on Rx. The Rx-based `SampleWith(IScheduler ...)` above and this one check the same operators, and a differential test keeps them in agreement.
+
 For entities rather than event streams, time enters as a `TimeProvider`: `NotOlderThan(selector, maxAge)` and
 friends take the clock from the call, and `EntitySpec` fixes it (`.Clock(...)`) so exploration is deterministic.
 
