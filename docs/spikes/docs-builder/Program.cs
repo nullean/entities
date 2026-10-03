@@ -59,7 +59,9 @@ Try<CodexConfiguration>("CodexConfiguration");
 Try<DocsetDiscovery>("DocsetDiscovery");
 
 SpikeApp.Stats.Run();
+SpikeApp.Repro.Run();
 SpikeApp.Port.Run();
+SpikeApp.Throws.Run();
 SpikeApp.Perf.Run();
 
 foreach (var line in results)

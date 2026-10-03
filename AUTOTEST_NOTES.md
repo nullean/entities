@@ -185,4 +185,25 @@ breaking them, which is what the rules need to be tested against. Navigation mou
 **What the spike changed in the library:** `Normalize<T>`; identities declared with `Identity` are unique in plausible data (a shared depth-limit constant had been the source of "repeated" paths); depth-limit values are drawn
 fresh instead of shared.
 
-**Not done:** porting the rules into docs-builder's own constraint sets and golden snapshots, running their `ConstraintSetTests` laws harness against ours, finding which `DocumentationSetConstraints` rule throws, and the git branch.
+### The branch (`feature/erd-model-entities` in docs-builder, commit `fe203348c`, nothing pushed)
+
+A new worktree off `feature/erd-model`'s HEAD (your uncommitted work there is untouched). It adds `tests/Elastic.Documentation.Entities.Tests` (not in `docs-builder.slnx`; it needs a checkout of this repository through the
+`NulleanEntitiesRoot` property, and passes `NulleanSingleTfm=true` so docs-builder's stable 10.0.300 SDK can evaluate our multi-targeted projects) and two small fixes in the domain.
+
+| What | Result |
+|---|---|
+| Our rules on the **shipped `config/`** (assembler and both navigation files) and on the real **`docs/_docset.yml`** | 4 tests, **0 violations**: repository dictionaries are keyed by name, private is available and listed, available repositories publish, every mount names an available repository, no toc path is listed twice, every docset product exists |
+| docs-builder's own `ConstraintSetTests` laws harness, over our assembly rules through an 8-line adapter (`ConstraintSet<T>` to their `Constraint<T>`, `Violation` to `Finding`) | valid breaks nothing; each of the 6 rules has a counter-example that breaks only it. (The harness is copied verbatim into the project: TUnit does not discover inherited tests of a base class in another assembly.) |
+| Every one of the 11 aggregates generated, in all three modes | passes; plausible assemblies satisfy all six rules with the loader's derivation as the normalizer |
+| docs-builder's own existing suites on the branch | `Elastic.Documentation.Tests` 73 of 73, `Elastic.Documentation.Configuration.Tests` (golden snapshots included) 849 of 849 |
+
+**Bugs found and fixed on the branch** (each has a regression test that fails without the fix; they were found by hostile generated data and are confirmed by stashing the fixes):
+
+1. `default-cta-known` threw `ArgumentNullException` for a `default_cta` whose value is null (`ctas.ContainsKey(null)`). Fixed: a null value is an unknown cta.
+2. `path-prefixes-unique` threw `UriFormatException` for a `path_prefix` that is not a legal URL path. Fixed with `Uri.TryCreate`.
+3. **A .NET runtime bug.** `Uri.TryCreate("file://\u202E/", UriKind.Absolute, out _)` throws `IndexOutOfRangeException` (a `Try*` method should never throw), reproduced on a bare console app on .NET 10.0.8. A `file://` URI whose host is only U+202E (RIGHT-TO-LEFT OVERRIDE, in the adversarial edge catalog) triggers it, and it was the
+   reason fix 2 first appeared not to work. The fix wraps the call. This is worth reporting to dotnet/runtime; not done here.
+
+Left as a suggestion, not changed: an invalid `path_prefix` is now skipped by the duplicate check, so nothing reports it; a new constraint ("path_prefix is a legal URL path") would, but adding one changes their golden list and laws.
+
+**Not done:** pushing either branch; reporting the runtime bug upstream.
