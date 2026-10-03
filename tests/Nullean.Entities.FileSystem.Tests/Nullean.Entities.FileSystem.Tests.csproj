@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="AwesomeAssertions" />
+    <PackageReference Include="System.IO.Abstractions.TestingHelpers" />
+    <ProjectReference Include="../../src/Nullean.Entities.FileSystem/Nullean.Entities.FileSystem.csproj" />
+  </ItemGroup>
+</Project>

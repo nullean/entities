@@ -70,7 +70,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 		options.Mode == AutoMode.Plausible && options.Relations.Any(r => r.To == elementType && r.Kind is RelationKind.Reference or RelationKind.ReferenceList);
 
 	// Declared relations share keys across one root value, so the root opens a scope; with none declared there is nothing to share.
-	private Gen<object?> Scoped(Gen<object?> root) => options.Relations.Count == 0 ? root : new ScopedGen(root);
+	private Gen<object?> Scoped(Gen<object?> root) => options.Relations.Count == 0 && !options.ScopeRequired ? root : new ScopedGen(root);
 
 	// ── Dispatch ─────────────────────────────────────────────────────────────
 
@@ -268,7 +268,9 @@ internal sealed class AutoBuilder(AutoOptions options)
 
 	private (Gen<object?> Value, ObjectPlan? Plan) Element(Type elementType, string? name, int depth)
 	{
-		var plan = IsObject(elementType) && !IsUnion(elementType) && !IsPolymorphic(elementType) ? Plan(elementType, depth) : null;
+		var plan = IsObject(elementType) && !options.Custom.ContainsKey(elementType) && !IsUnion(elementType) && !IsPolymorphic(elementType)
+			? Plan(elementType, depth)
+			: null;
 		return (plan is null ? Build(elementType, name, false, depth) : new ObjectGen(plan, options), plan);
 	}
 
@@ -672,7 +674,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 		if (type.IsInterface || type.IsAbstract)
 		{
 			throw new NotSupportedException(
-				$"AutoGen cannot build {type.Name}: it is {(type.IsInterface ? "an interface" : "abstract")} with no concrete subtype it can build in its assembly. Provide a generator with AutoOptions.Use<{type.Name}>(gen)."
+				$"AutoGen cannot build {type.Name}: it is {(type.IsInterface ? "an interface" : "abstract")} with no concrete subtype it can build in its assembly. Provide a generator with AutoOptions.Use<{type.Name}>(gen).{(type.Namespace == "System.IO.Abstractions" ? " For IFileSystem, IFileInfo and IDirectoryInfo, reference Nullean.Entities.CsCheck.FileSystem and call options.UseFileSystem()." : "")}"
 			);
 		}
 		var constructors = type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);

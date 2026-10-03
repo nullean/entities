@@ -45,6 +45,22 @@ var attached = Account.Constraints.ToReactive().Attach(subject);
 subject.OnNext(account with { Balance = -5m });
 Expect(attached.Violations.Count > 0, "reactive constraint reports a violation");
 
+// File rules over System.IO.Abstractions types, on the real file system
+var fileSystem = new System.IO.Abstractions.FileSystem();
+var files = ConstraintSet.From(
+	("Exists", Nullean.Entities.FileSystem.Files<FileHolder>.Exist(h => [h.File])),
+	("InsideTemp", Nullean.Entities.FileSystem.Files<FileHolder>.StayInside(h => h.Root, h => [h.File]))
+);
+var temp = fileSystem.DirectoryInfo.New(Path.GetTempPath());
+Expect(
+	files.Validate(new FileHolder(temp, fileSystem.FileInfo.New(Path.Combine(temp.FullName, "nullean-aot-missing.md")))).Count == 1,
+	"a missing file inside the root is one violation"
+);
+Expect(
+	files.Validate(new FileHolder(temp, fileSystem.FileInfo.New("/definitely/elsewhere/x.md"))).Count == 2,
+	"a missing file outside the root breaks both rules"
+);
+
 if (failures.Count > 0)
 {
 	Console.Error.WriteLine("AOT smoke failed: " + string.Join("; ", failures));

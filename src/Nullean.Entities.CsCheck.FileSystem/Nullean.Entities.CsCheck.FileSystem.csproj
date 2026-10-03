@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Generated file-system worlds for Nullean.Entities.CsCheck: AutoGen builds IFileSystem, IFileInfo and IDirectoryInfo members from one MockFileSystem per generated value, with missing, symlinked, hidden and outside-the-root files, so rules about files get counter-examples with no hand-written file system.</Description>
+    <PackageTags>cscheck property-testing filesystem mockfilesystem</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IO.Abstractions.TestingHelpers" />
+    <ProjectReference Include="../Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+    <ProjectReference Include="../Nullean.Entities.FileSystem/Nullean.Entities.FileSystem.csproj" />
+  </ItemGroup>
+</Project>

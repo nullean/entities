@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Constraint shapes for files and directories (exists, stays inside a root, not a symlink, no hidden segments, extension) over System.IO.Abstractions types, so a domain that holds IFileInfo can state its file rules as named constraints.</Description>
+    <PackageTags>domain entities constraints validation filesystem abstractions</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IO.Abstractions" />
+    <ProjectReference Include="../Nullean.Entities/Nullean.Entities.csproj" />
+  </ItemGroup>
+</Project>

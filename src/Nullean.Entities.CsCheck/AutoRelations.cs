@@ -85,13 +85,40 @@ internal sealed class RelationState
 	public List<object?> Pool { get; } = [];
 }
 
-/// <summary>Opens a relation scope around one root value, so every relation sees the same keys while it is built.</summary>
+/// <summary>
+/// State shared by every generator while ONE root value is built: a file-system world that every <c>IFileInfo</c> member of the value belongs to, for example.
+/// A generator registered with <see cref="AutoOptions.Use{T}(Gen{T})"/> asks for its state with <see cref="GetOrAdd{T}"/>; the scope is created around the root draw
+/// when <see cref="AutoOptions.NeedsScope"/> was called (or a relation was declared), and is null outside one.
+/// </summary>
+public sealed class AutoScope
+{
+	[ThreadStatic]
+	private static AutoScope? CurrentSlot;
+
+	public static AutoScope? Current { get => CurrentSlot; internal set => CurrentSlot = value; }
+
+	private readonly Dictionary<object, object> _items = [];
+
+	/// <summary>The value stored under <paramref name="key"/> for this root, created by <paramref name="create"/> on first use.</summary>
+	public T GetOrAdd<T>(object key, Func<T> create) where T : class
+	{
+		if (!_items.TryGetValue(key, out var value))
+		{
+			_items[key] = value = create();
+		}
+		return (T)value;
+	}
+}
+
+/// <summary>Opens a scope around one root value, so every relation, and every generator that asked for shared state, sees the same keys while it is built.</summary>
 internal sealed class ScopedGen(Gen<object?> inner) : Gen<object?>
 {
 	public override object? Generate(PCG pcg, Size? min, out Size size)
 	{
 		var previous = RelationScope.Current;
+		var previousScope = AutoScope.Current;
 		RelationScope.Current ??= new RelationScope();
+		AutoScope.Current ??= new AutoScope();
 		try
 		{
 			return inner.Generate(pcg, min, out size);
@@ -99,6 +126,7 @@ internal sealed class ScopedGen(Gen<object?> inner) : Gen<object?>
 		finally
 		{
 			RelationScope.Current = previous;
+			AutoScope.Current = previousScope;
 		}
 	}
 }
@@ -294,6 +322,18 @@ internal sealed class PoolGen(RelationDecl decl, Gen<object?> inner, AutoOptions
 public sealed partial class AutoOptions
 {
 	internal List<RelationDecl> Relations { get; } = [];
+
+	internal bool ScopeRequired { get; private set; }
+
+	/// <summary>
+	/// Opens an <see cref="AutoScope"/> around every generated root value. For a generator registered with <see cref="Use{T}(Gen{T})"/> that shares state across
+	/// the members of one value (the file-system world of <c>UseFileSystem()</c>).
+	/// </summary>
+	public AutoOptions NeedsScope()
+	{
+		ScopeRequired = true;
+		return this;
+	}
 
 	/// <summary>
 	/// <typeparamref name="TFrom"/>'s <paramref name="from"/> member (a key) refers to a <typeparamref name="TTo"/> that has that <paramref name="key"/>, anywhere in

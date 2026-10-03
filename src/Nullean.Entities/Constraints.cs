@@ -372,7 +372,7 @@ public static class Constraints<T>
 	}
 
 	/// <summary>"o =&gt; o.Address.City" becomes "Address.City"; anything that is not a plain member path becomes null.</summary>
-	internal static string? MemberOf(string? expression)
+	public static string? MemberOf(string? expression)
 	{
 		if (expression is null)
 		{

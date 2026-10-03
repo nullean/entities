@@ -2,6 +2,8 @@ using Nullean.Entities;
 
 namespace Nullean.Entities.AotSmoke;
 
+public sealed record FileHolder(System.IO.Abstractions.IDirectoryInfo Root, System.IO.Abstractions.IFileInfo File);
+
 [Constraints]
 public sealed partial record Account(string Id, decimal Balance)
 {

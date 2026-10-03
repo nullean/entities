@@ -22,6 +22,9 @@
     <!-- System.Reactive 7.0.0 and Microsoft.Reactive.Testing 7.0.0. -->
     <PackageVersion Include="System.Reactive" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Reactive.Testing" Version="7.0.0" />
+    <!-- System.IO.Abstractions 22.2.0: the file-system types docs-builder's domain holds (IFileSystem, IFileInfo, IDirectoryInfo); the TestingHelpers package is the MockFileSystem the generator builds. -->
+    <PackageVersion Include="System.IO.Abstractions" Version="22.2.0" />
+    <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="22.2.0" />
     <!-- Bogus 35.6.5: realistic fake data generation. -->
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <!-- Soenneker.Utils.AutoBogus: maintained AutoBogus fork for net9/10, Bogus >= 35.6.5. -->
