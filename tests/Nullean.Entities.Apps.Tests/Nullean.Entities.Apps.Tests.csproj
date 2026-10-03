@@ -6,10 +6,14 @@
     <PackageReference Include="TUnit" />
     <PackageReference Include="AwesomeAssertions" />
     <ProjectReference Include="../../src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.CsCheck.FileSystem/Nullean.Entities.CsCheck.FileSystem.csproj" />
     <ProjectReference Include="../../examples/Apps/OrderFulfilment/OrderFulfilment.csproj" />
     <ProjectReference Include="../../examples/Apps/Banking/Banking.csproj" />
     <ProjectReference Include="../../examples/Apps/SupportDesk/SupportDesk.csproj" />
     <ProjectReference Include="../../examples/Apps/EventSourcedCart/EventSourcedCart.csproj" />
     <ProjectReference Include="../../examples/Apps/Inventory/Inventory.csproj" />
+    <ProjectReference Include="../../examples/Apps/DataAudit/DataAudit.csproj" />
+    <ProjectReference Include="../../examples/Apps/OrgChart/OrgChart.csproj" />
+    <ProjectReference Include="../../examples/Apps/DocsSiteBuild/DocsSiteBuild.csproj" />
   </ItemGroup>
 </Project>

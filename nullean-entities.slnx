@@ -15,9 +15,12 @@
   <Project Path="tests/Nullean.Entities.FileSystem.Tests/Nullean.Entities.FileSystem.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.CsCheck.FileSystem.Tests/Nullean.Entities.CsCheck.FileSystem.Tests.csproj" />
   <Project Path="examples/Apps/Banking/Banking.csproj" />
+  <Project Path="examples/Apps/DataAudit/DataAudit.csproj" />
+  <Project Path="examples/Apps/DocsSiteBuild/DocsSiteBuild.csproj" />
   <Project Path="examples/Apps/EventSourcedCart/EventSourcedCart.csproj" />
   <Project Path="examples/Apps/Inventory/Inventory.csproj" />
   <Project Path="examples/Apps/OrderFulfilment/OrderFulfilment.csproj" />
+  <Project Path="examples/Apps/OrgChart/OrgChart.csproj" />
   <Project Path="examples/Apps/SupportDesk/SupportDesk.csproj" />
   <Project Path="examples/Nullean.Entities.AotSmoke/Nullean.Entities.AotSmoke.csproj" />
   <Project Path="examples/Nullean.Entities.Examples/Nullean.Entities.Examples.csproj" />

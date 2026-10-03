@@ -46,7 +46,10 @@ let Apps =
       "examples/Apps/Banking"
       "examples/Apps/SupportDesk"
       "examples/Apps/EventSourcedCart"
-      "examples/Apps/Inventory" ]
+      "examples/Apps/Inventory"
+      "examples/Apps/DataAudit"
+      "examples/Apps/OrgChart"
+      "examples/Apps/DocsSiteBuild" ]
 
 let TestProjects =
     [ "tests/Nullean.Entities.Tests"

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The database administrator's use of the library: audit rows that already exist. Row rules run over a stream (a cursor), table rules over the
+       keys, every finding has a severity, and the report says which rules also belong in the schema. `dotnet run`, or `./build.sh apps`. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <RootNamespace>DataAudit</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/Narrator.cs" Link="Narrator.cs" />
+    <ProjectReference Include="../../../src/Nullean.Entities/Nullean.Entities.csproj" />
+    <ProjectReference Include="../../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

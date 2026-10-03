@@ -970,7 +970,8 @@ Know the limits:
   - **Derived invariants**: a member computed from others (`PrivateRepositories` is the private subset of `AvailableRepositories`) cannot be guessed. `o.Normalize<AssemblyConfiguration>(Derive)` applies a function
     you give it, typically the loader's own derivation: always to plausible data, to about half of mixed data, never to adversarial data, so the invariant holds where it should and is still broken where a rule needs testing.
     - **Size**: collections get `MaxCollection` scaled across the distribution (it now has an effect above 4) and narrow by one at each level of nesting, so a tree stays a few dozen nodes however deep it goes. `o.Large()` is the preset for
-    realistic trees (six levels, up to eight per collection); the defaults keep property tests quick.
+    realistic trees (`MaxDepth` 6, up to eight per collection); the defaults keep property tests quick. `MaxDepth` counts a collection and then its element as two levels, so a tree of N levels of nodes needs a `MaxDepth` of about 2N:
+    a rule about a chain of six (`Probe` reports it as never violated) needs `MaxDepth = 16`, not 6.
   - Not generated: references to something outside the generated value (a key into a database, a repository elsewhere). Duplicate ids and `Start`/`End` pairs are generated too.
 
 An AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock) lives in the separate, optional

@@ -159,4 +159,15 @@ public class FileWorldTests
 			.Should()
 			.Contain(["ImagesExist", "ImagesStayInRoot", "ImagesAreNotSymlinks", "NoHiddenFolders"]);
 	}
+
+	[Test]
+	public void A_world_includes_a_file_with_the_wrong_extension_so_an_extension_rule_has_something_to_catch()
+	{
+		var rule = ConstraintSet.From(("ImagesAreMarkdown", Files<Docset>.HaveExtension(d => d.Images, [".md"])));
+
+		var violations = Draw(AutoMode.Adversarial, 400).SelectMany(d => rule.Validate(d)).ToList();
+
+		violations.Should().NotBeEmpty();
+		violations.Should().OnlyContain(v => v.Message.Contains(".bin", StringComparison.Ordinal));
+	}
 }

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- A tiny documentation build that reads a docset from a file system and refuses to build it when its files are wrong: missing, outside the
+       docset, symlinked, hidden, the wrong kind. The rules read the System.IO.Abstractions types the model holds, so the same code runs on the disk
+       here and on a MockFileSystem in the tests. `dotnet run`, or `./build.sh apps`. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <RootNamespace>DocsSiteBuild</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/Narrator.cs" Link="Narrator.cs" />
+    <ProjectReference Include="../../../src/Nullean.Entities/Nullean.Entities.csproj" />
+    <ProjectReference Include="../../../src/Nullean.Entities.FileSystem/Nullean.Entities.FileSystem.csproj" />
+    <ProjectReference Include="../../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

@@ -137,7 +137,7 @@ var next = result.Match(
 
 `Apply` treats a mutation that changes nothing as `Ok`. When "nothing happened" matters (skip a
 save, skip an audit event), `ApplyDetailed` returns an `ApplyOutcome<T>` — `Applied`, `Noop` or
-`Failure` — instead. `ApplyOrThrow` is `Apply` without the `Match`. `ConstrainedValue<T>` wraps a single mutable
+`Failure` — instead. A no-op runs **no** rule, so an operation where "nothing happened" is itself an error (a hire under a manager who does not exist, a cancel of an order that is not there) should use `ApplyDetailed` and say so: relying on a rule to notice it works only when the edit happens to return a different value. `ApplyOrThrow` is `Apply` without the `Match`. `ConstrainedValue<T>` wraps a single mutable
 `Current` value behind the same `Apply` semantics, so a caller can keep proposing mutations without
 re-plumbing the constraint set each time:
 

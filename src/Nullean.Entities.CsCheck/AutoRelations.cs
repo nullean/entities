@@ -402,8 +402,9 @@ public sealed partial class AutoOptions
 	internal bool ScopeRequired { get; private set; }
 
 	/// <summary>
-	/// Sizes for a realistic value rather than a quick one: nesting six levels deep and up to eight items per collection (narrowing by one at each level), which gives a
-	/// table of contents or navigation of a few dozen nodes. The defaults (three levels, four items) keep property tests fast.
+	/// Sizes for a realistic value rather than a quick one: a <see cref="MaxDepth"/> of six and up to eight items per collection (narrowing by one at each level), which gives a
+	/// table of contents or navigation of a few dozen nodes. A collection and then its element count as two levels, so six is about three levels of nodes; set
+	/// <see cref="MaxDepth"/> to about twice the depth a rule needs. The defaults (three, four items) keep property tests fast.
 	/// </summary>
 	public AutoOptions Large()
 	{

@@ -4,7 +4,8 @@
 // shape: the interfaces have no constructor, and what matters is what is on the disk. UseFileSystem() gives AutoGen a MockFileSystem per generated value: every
 // file-system member of that one value belongs to the same world, so SourceFile, Root and FileSystem agree. Plausible data is files that exist inside the root;
 // the other modes add what the rules about files exist to catch: a missing file, an empty one, a symbolic link, a file below a linked directory, one below a
-// hidden directory, one outside the root, one reached through "..", one in a different case.
+// hidden directory, one outside the root, one reached through "..", one in a different case, and one that exists with an
+// extension no rule about documents expects (`.bin`; every other generated file is `.md`).
 
 using System.IO.Abstractions;
 using System.IO.Abstractions.TestingHelpers;
@@ -24,6 +25,7 @@ internal enum FileKind
 	Outside,
 	DotDot,
 	CaseVariant,
+	WrongExtension,
 }
 
 internal enum DirectoryKind
@@ -127,6 +129,13 @@ internal sealed class FileWorld
 					var real = Combine(Outside, name + ".md");
 					FileSystem.AddFile(real, new MockFileData("reached through .."));
 					return FileSystem.FileInfo.New(Combine(Root, "guide", "..", "..", FileSystem.Path.GetFileName(Outside), name + ".md"));
+				}
+			case FileKind.WrongExtension:
+				{
+					// exists and is inside the root, so only a rule about the kind of file can object (generated files are .md)
+					var path = Combine(Folder(pcg), name + ".bin");
+					FileSystem.AddFile(path, new MockFileData("binary"));
+					return FileSystem.FileInfo.New(path);
 				}
 			case FileKind.CaseVariant:
 				{
