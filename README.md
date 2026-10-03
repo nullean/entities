@@ -258,60 +258,35 @@ The supported axes today and what's coming:
 
 See [Nullean.Entities.CsCheck](src/Nullean.Entities.CsCheck/README.md) for the full API.
 
-## State machines *(coming next)*
+## State machines as data
 
-`Transitions(...)` already checks individual state-transition rules. What is not yet built is a
-first-class machine — something that proves the declared states form a structurally sound graph and
-then derives all the checks from that one declaration.
-
-The planned API groups transitions by `From` state, so the declaration reads like a diagram, and
-lives in a companion class:
+A lifecycle is often a picture first. `StateMachine<TState, TTrigger>` declares it as a value, and everything else derives from that one declaration:
 
 ```csharp
-public readonly union OrderState(Draft, Placed, Confirmed, Shipped, Cancelled);
+public static readonly StateMachine<ProductLifecycle, string> Machine = StateMachine
+    .Define<ProductLifecycle, string>(ProductLifecycle.Preview)
+    .Permit("Promote", ProductLifecycle.Preview, ProductLifecycle.Beta)
+    .Permit("Promote", ProductLifecycle.Beta, ProductLifecycle.Ga)
+    .Permit("Deprecate", ProductLifecycle.Ga, ProductLifecycle.Deprecated)
+    .Permit("Remove", ProductLifecycle.Deprecated, ProductLifecycle.Removed)
+    .Build();
 
-public static partial class OrderLifecycle
-{
-    [StateMachine]
-    public static readonly StateMachine<OrderState> Machine = StateMachine<OrderState>.Define(m => m
-        .Initial<Draft>(s => s
-            .On("Place").To<Placed>())
-
-        .State<Placed>(s => s
-            .On("Confirm").To<Confirmed>(when: p => p.Lines.Count > 0)
-            .On("Cancel").To<Cancelled>())
-
-        .State<Confirmed>(s => s
-            .To<Shipped>()             // .On() is optional — unnamed transitions take their target's name
-            .On("Cancel").To<Cancelled>())
-
-        .Terminal<Shipped>()
-        .Terminal<Cancelled>());
-}
+Constraint<Product> rule = Machine.AsConstraint<Product>(p => p.Lifecycle);   // the allow-list, as a constraint
+string diagram = Machine.ToMermaid();                                        // a Mermaid stateDiagram-v2, and FromMermaid reads one back
+Machine.Spec().Exhaustive();                                                 // CsCheck: every state reachable, nothing stuck
+Machine.ConformTo(start, p => p.Lifecycle, bindings: [("Promote", p => p.Promote()), ...]);   // does the entity follow the diagram?
 ```
 
-The build refuses to compile if:
+`ConformTo` has already found real bugs in the examples: states that no method can reach, and methods that change state where the machine says nothing should happen. Guards that depend on
+runtime data cannot be declared in a machine; they stay in the entity's constraints. Structural problems (an unreachable state, a dead end) are found when the machine is explored in a test, not at
+compile time. See [Nullean.Entities.CsCheck](src/Nullean.Entities.CsCheck/README.md) for the other ways to declare one (reducers, event sourcing, mutable classes).
 
-- any case of `OrderState` is not mentioned in the machine *(NESM001 — exhaustiveness)*
-- any state is unreachable from `Initial` *(NESM002)*
-- any non-terminal state has no outgoing transition *(NESM003 — dead end)*
-- any state cannot reach a terminal *(NESM004 — trap)*
+## Rules over collections, annotated models, and real services
 
-These are structural checks; guards are deliberately ignored. Whether a guard actually lets a
-transition fire at runtime is exactly what the property tester answers.
-
-From one declaration, everything else derives:
-
-```csharp
-Constraint<OrderState>         guard   = OrderLifecycle.Machine.AsConstraint();
-ReactiveConstraint<OrderEvent> monitor = OrderLifecycle.Machine.AsReactive(stateOf: e => ...);
-Gen<IReadOnlyList<Step>>       walks   = OrderLifecycle.Machine.Walks();
-string                         diagram = OrderLifecycle.Machine.ToMermaid();
-
-// Once Walks() is available:
-script.SampleWith(factory, events, spec, coverage: OrderLifecycle.Machine);
-// ↑ fails the run if some declared transition was never exercised
-```
+- `Unique`, `References`, `Acyclic` and `NoChains` express the rules a real domain has over collections and graphs (duplicate ids, dangling references, include cycles, redirect chains).
+- DataAnnotations (`[Required]`, `[Range]`, `[StringLength]`, ...) on a `[Constraints]` type become generated constraints, so an annotated model is already a set you can test.
+- [`docs/integration.md`](docs/integration.md) shows where to call a set in ASP.NET Core, Marten-style event-sourced aggregates, EF Core and MassTransit.
+- The core and Reactive packages are trim and AOT clean, and a NativeAOT build of both is part of the repository's own build (`./build.sh aot`).
 
 ## Packages
 

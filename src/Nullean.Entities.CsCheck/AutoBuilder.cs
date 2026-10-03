@@ -100,7 +100,85 @@ internal sealed class AutoBuilder(AutoOptions options)
 		{
 			return union;
 		}
+		if (TryPolymorphic(type, depth, out var polymorphic))
+		{
+			return polymorphic;
+		}
 		return Object(type, depth);
+	}
+
+	// ── Abstract types and interfaces ────────────────────────────────────────
+	// An abstract base or an interface is built as one of its concrete subtypes: the [JsonDerivedType] list when the type has one, otherwise every
+	// concrete, non-generic subtype in the type's own assembly (nested records included: `Shape.Circle : Shape`). Framework types are never searched.
+
+	private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, Type[]> Subtypes = new();
+
+	internal static bool IsPolymorphic(Type type) => (type.IsAbstract || type.IsInterface) && !type.IsGenericTypeDefinition && !IsFrameworkType(type);
+
+	private static bool IsFrameworkType(Type type) =>
+		type.Assembly == typeof(object).Assembly || (type.Namespace?.StartsWith("System", StringComparison.Ordinal) ?? false) || type.Namespace?.StartsWith(
+			"Microsoft",
+			StringComparison.Ordinal
+		) == true;
+
+	private static Type[] SubtypesOf(Type type) =>
+		Subtypes.GetOrAdd(type, t =>
+		{
+			var declared = t.GetCustomAttributes(false)
+				.Where(a => a.GetType().Name == "JsonDerivedTypeAttribute")
+				.Select(a => a.GetType().GetProperty("DerivedType")?.GetValue(a) as Type)
+				.Where(d => d is not null && !d.IsAbstract && !d.IsInterface)
+				.Select(d => d!)
+				.ToArray();
+			if (declared.Length > 0)
+			{
+				return declared;
+			}
+			Type[] all;
+			try
+			{
+				all = t.Assembly.GetTypes();
+			}
+			catch (ReflectionTypeLoadException e)
+			{
+				all = [.. e.Types.Where(x => x is not null).Select(x => x!)];
+			}
+			return [
+				.. all.Where(
+					c =>
+						c is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false } && c != t && t.IsAssignableFrom(c) && !c.IsDefined(
+							typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute),
+							false
+						)
+				).OrderBy(c => c.FullName, StringComparer.Ordinal)
+			];
+		});
+
+	private bool TryPolymorphic(Type type, int depth, out Gen<object?> gen)
+	{
+		gen = null!;
+		if (!IsPolymorphic(type))
+		{
+			return false;
+		}
+		var cases = new List<Gen<object?>>();
+		foreach (var subtype in SubtypesOf(type))
+		{
+			try
+			{
+				cases.Add(Build(subtype, null, false, depth));
+			}
+			catch (NotSupportedException)
+			{
+				// a subtype AutoGen cannot build is never chosen
+			}
+		}
+		if (cases.Count == 0)
+		{
+			return false;
+		}
+		gen = new ChoiceGen([.. cases]);
+		return true;
 	}
 
 	// ── Unions ───────────────────────────────────────────────────────────────
@@ -165,7 +243,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 
 	private (Gen<object?> Value, ObjectPlan? Plan) Element(Type elementType, string? name, int depth)
 	{
-		var plan = IsObject(elementType) && !IsUnion(elementType) ? Plan(elementType, depth) : null;
+		var plan = IsObject(elementType) && !IsUnion(elementType) && !IsPolymorphic(elementType) ? Plan(elementType, depth) : null;
 		return (plan is null ? Build(elementType, name, false, depth) : new ObjectGen(plan, options), plan);
 	}
 
@@ -569,7 +647,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 		if (type.IsInterface || type.IsAbstract)
 		{
 			throw new NotSupportedException(
-				$"AutoGen cannot build {type.Name}: it is {(type.IsInterface ? "an interface" : "abstract")}. Provide a generator with AutoOptions.Use<{type.Name}>(gen), or use GenAuto.Bogus<T>()."
+				$"AutoGen cannot build {type.Name}: it is {(type.IsInterface ? "an interface" : "abstract")} with no concrete subtype it can build in its assembly. Provide a generator with AutoOptions.Use<{type.Name}>(gen)."
 			);
 		}
 		var constructors = type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);

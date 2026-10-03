@@ -105,3 +105,22 @@ internal sealed class UnionGen(Type type, (System.Reflection.ConstructorInfo Con
 		return Activator.CreateInstance(type);
 	}
 }
+
+/// <summary>One of several generators per draw (the concrete subtypes of an abstract type), skipping a case that yields null.</summary>
+internal sealed class ChoiceGen(Gen<object?>[] cases) : Gen<object?>
+{
+	public override object? Generate(PCG pcg, Size? min, out Size size)
+	{
+		var start = (int)pcg.Next((uint)cases.Length);
+		for (var i = 0; i < cases.Length; i++)
+		{
+			var value = cases[(start + i) % cases.Length].Generate(pcg, min, out size);
+			if (value is not null)
+			{
+				return value;
+			}
+		}
+		size = new Size(0);
+		return null;
+	}
+}

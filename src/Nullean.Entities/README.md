@@ -120,7 +120,8 @@ so a caller never has to spell out `TypeConstraints` at all. The set can never d
 actually declared, since there is no separate list to keep in sync and adding a field updates it
 automatically.
 
-Any misused `[Constraint]` member — not static, wrong type, not partial, nested, generic, or an
+A type nested in other types is supported when every type around it is `partial` too (the generator re-declares them). Any misused `[Constraint]` member — not static, wrong type,
+not partial (or nested in something that is not), generic, or an
 inconsistent type argument across members on the same type — refuses to generate anything for that
 type at all, rather than silently generating from the valid subset. See
 [the generator's own README](../Nullean.Entities.SourceGenerators/README.md) for the full rules.

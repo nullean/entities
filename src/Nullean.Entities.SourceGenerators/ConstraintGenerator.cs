@@ -26,7 +26,7 @@
 //     this one path.
 //
 // A type with ANY invalid [Constraint] member (not static, wrong type, mixed kinds, not
-// partial, nested, generic, or an inconsistent type argument) gets no generated property at all —
+// partial, nested in a type that is not partial, generic, or an inconsistent type argument) gets no generated property at all —
 // see Diagnostics.cs for why a partial, silently-incomplete set is treated as worse than a
 // compile error.
 
@@ -159,14 +159,16 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			var groupMembers = group.ToImmutableArray();
 			var anchor = groupMembers[0].Location;
 
-			if (containingType.ContainingType is not null)
-			{
-				spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.NestedTypeNotSupported, anchor, containingType.Name));
-				continue;
-			}
-			if (containingType.TypeParameters.Length > 0)
+			var containers = ContainerChain(containingType);
+			if (containingType.TypeParameters.Length > 0 || containers.Any(c => c.TypeParameters.Length > 0))
 			{
 				spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.GenericTypeNotSupported, anchor, containingType.Name));
+				continue;
+			}
+			// A nested type is supported: the types around it are re-declared partial in the generated file, so each must be partial in the source.
+			if (containers.FirstOrDefault(c => !IsDeclaredPartial(c)) is { } notPartial)
+			{
+				spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.NestedTypeNotSupported, anchor, containingType.Name, notPartial.Name));
 				continue;
 			}
 			if (!IsDeclaredPartial(containingType))
@@ -258,6 +260,17 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 
 			spc.AddSource(HintName(containingType), SourceText.From(source, Encoding.UTF8));
 		}
+	}
+
+	// The types that contain this one, outermost first.
+	private static ImmutableArray<INamedTypeSymbol> ContainerChain(INamedTypeSymbol type)
+	{
+		var chain = new List<INamedTypeSymbol>();
+		for (var c = type.ContainingType; c is not null; c = c.ContainingType)
+		{
+			chain.Insert(0, c);
+		}
+		return [.. chain];
 	}
 
 	private static bool IsDeclaredPartial(INamedTypeSymbol type) =>
@@ -432,7 +445,9 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	{
 		var ns = type.ContainingNamespace.IsGlobalNamespace ? null : type.ContainingNamespace.ToDisplayString();
 		var typeKind = TypeKindKeyword(type);
-		var indent = ns is null ? "" : "    ";
+		var containers = ContainerChain(type);
+		var outerIndent = ns is null ? "" : "    ";
+		var indent = outerIndent + new string(' ', 4 * containers.Length);
 		// A literal "\n", not Environment.NewLine (RS1035): a generator's output has to be
 		// deterministic across OSes, and Environment.NewLine is exactly the kind of
 		// environment-dependent read that would break that.
@@ -449,6 +464,12 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		{
 			sb.AppendLine($"namespace {ns}");
 			sb.AppendLine("{");
+		}
+		for (var level = 0; level < containers.Length; level++)
+		{
+			var containerIndent = outerIndent + new string(' ', 4 * level);
+			sb.AppendLine($"{containerIndent}partial {TypeKindKeyword(containers[level])} {containers[level].Name}");
+			sb.AppendLine($"{containerIndent}{{");
 		}
 		sb.AppendLine($"{indent}partial {typeKind} {type.Name}{baseList}");
 		sb.AppendLine($"{indent}{{");
@@ -476,6 +497,10 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			sb.AppendLine($"{indent}    public static readonly TypeConstraints Instance = TypeConstraints.Instance;");
 		}
 		sb.AppendLine($"{indent}}}");
+		for (var level = containers.Length - 1; level >= 0; level--)
+		{
+			sb.AppendLine($"{outerIndent}{new string(' ', 4 * level)}}}");
+		}
 		if (ns is not null)
 		{
 			sb.AppendLine("}");

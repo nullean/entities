@@ -639,8 +639,9 @@ Know the limits:
 - **Tight constraints still defeat zero-config.** A realistic email, a balanced journal entry, plausible vitals: the default reaches
   some by luck (`"a@b..c"`) but not reliably. The error names the constraints that rejected everything; give the test a start
   (`Spec(start)`), `Use<T>(gen)`, or a Bogus rule (`f.Internet.Email()`).
-- **Not built by AutoGen:** interfaces and abstract types (give it `AutoOptions.Use<T>(gen)`), and classes with neither a public constructor nor a static
-  `From`/`Create`/`Of`/`New`/`Parse` factory. Everything else is: immutable, frozen and read-only collections, `System.Tuple`, `KeyValuePair`, value tuples,
+- **Abstract types and interfaces** are built as one of their concrete subtypes: the `[JsonDerivedType]` list when there is one, otherwise every concrete, non-generic subtype in the type's
+  own assembly (nested records included). Framework types are never searched, and an interface nothing implements still asks for `AutoOptions.Use<T>(gen)`.
+- **Not built by AutoGen:** classes with neither a public constructor nor a static `From`/`Create`/`Of`/`New`/`Parse` factory. Everything else is: immutable, frozen and read-only collections, `System.Tuple`, `KeyValuePair`, value tuples,
   `IPAddress`, `Version`, `Int128`, `UInt128`, `BigInteger`, `Half` and `Rune`.
 - **Value objects and typed ids** are built the way their author intended: `[JsonConstructor]` picks the constructor, and a type with a private constructor and a static
   factory (`DocsetPath.From(string)`, `OrderId.Create(Guid)`) goes through it, redrawing when its guard refuses a value. A strongly-typed id that wraps a `Guid`, `string`, `int`

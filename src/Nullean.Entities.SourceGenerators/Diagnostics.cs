@@ -52,8 +52,8 @@ internal static class Diagnostics
 
 	public static readonly DiagnosticDescriptor NestedTypeNotSupported = new(
 		"NECG005",
-		"Nested types are not supported",
-		"'{0}' has [Constraint] members but is a nested type, which this generator does not yet support",
+		"The type containing a nested [Constraint] type must be partial",
+		"'{0}' has [Constraint] members and is nested, but its containing type '{1}' is not declared partial; the generator re-declares every containing type partial to add to it",
 		Category,
 		DiagnosticSeverity.Error,
 		isEnabledByDefault: true

@@ -75,6 +75,33 @@ internal sealed record Doc(string Id, IReadOnlyList<string> IncludedIds);
 
 internal sealed record DocSet(IReadOnlyList<Doc> Docs);
 
+internal abstract record Notice
+{
+	public sealed record Info(string Text) : Notice;
+
+	public sealed record Alert(string Text, int Level) : Notice;
+}
+
+internal interface IAnimal
+{
+	string Name { get; }
+}
+
+internal sealed record Dog(string Name) : IAnimal;
+
+internal sealed record Cat(string Name, bool Indoor) : IAnimal;
+
+[System.Text.Json.Serialization.JsonDerivedType(typeof(Wheel))]
+internal abstract record Part(string Label);
+
+internal sealed record Wheel(string Label, int Spokes) : Part(Label);
+
+internal sealed record Bolt(string Label) : Part(Label);
+
+internal sealed record Inbox(IReadOnlyList<Notice> Notices, IAnimal Pet, Part Part);
+
+internal interface IUnimplemented;
+
 public class AutoGenRealWorldTests
 {
 	private static List<T> Draw<T>(AutoMode mode, int count = 400, Action<AutoOptions>? configure = null) =>
@@ -207,5 +234,34 @@ public class AutoGenRealWorldTests
 		adversarial.Any(s => Includes(s, (d, ids) => ids.Any(i => s.Docs.All(x => x.Id != i)))).Should().BeTrue("an include of nothing");
 		adversarial.Any(s => Includes(s, (d, ids) => ids.Contains(d.Id))).Should().BeTrue("a doc that includes itself");
 		adversarial.Any(s => HasCycle(s) && !Includes(s, (d, ids) => ids.Contains(d.Id))).Should().BeTrue("a longer cycle");
+	}
+
+	[Test]
+	public void Abstract_records_and_interfaces_are_built_as_each_of_their_concrete_subtypes()
+	{
+		var inboxes = Draw<Inbox>(AutoMode.Plausible, 300);
+
+		var notices = inboxes.SelectMany(i => i.Notices).ToList();
+		notices.Any(n => n is Notice.Info).Should().BeTrue();
+		notices.Any(n => n is Notice.Alert).Should().BeTrue();
+		inboxes.Any(i => i.Pet is Dog).Should().BeTrue();
+		inboxes.Any(i => i.Pet is Cat).Should().BeTrue();
+		inboxes.All(i => i.Pet is not null && i.Part is not null).Should().BeTrue();
+	}
+
+	[Test]
+	public void A_JsonDerivedType_list_restricts_the_subtypes()
+	{
+		var parts = Draw<Inbox>(AutoMode.Plausible, 300).Select(i => i.Part).ToList();
+
+		parts.All(p => p is Wheel).Should().BeTrue("only Wheel is listed, Bolt is not");
+	}
+
+	[Test]
+	public void An_interface_nothing_implements_still_says_what_to_do()
+	{
+		var act = () => GenAuto.Of<IUnimplemented>(AutoMode.Plausible).Generate(new PCG(1u, 1UL), null, out _);
+
+		act.Should().Throw<NotSupportedException>().Which.Message.Should().Contain("AutoOptions.Use");
 	}
 }

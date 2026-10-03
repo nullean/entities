@@ -562,3 +562,59 @@ public class AnnotationGeneratorShapeTests
 		source.Should().Contain("(nameof(ValueRange), ValueRange)").And.Contain("\"ValueRangeAnnotation\"");
 	}
 }
+
+public class NestedTypeGeneratorShapeTests
+{
+	[Test]
+	public void A_type_nested_in_partial_types_gets_its_set_with_every_container_redeclared_partial()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public static partial class Billing
+			{
+			    public partial class Documents
+			    {
+			        public sealed partial record Line(int Quantity)
+			        {
+			            [Constraint]
+			            public static readonly Constraint<Line> Positive = Constraints<Line>.Always(l => l.Quantity > 0);
+			        }
+			    }
+			}
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		var source = run.SingleGeneratedSource();
+		source.Should().Contain("partial class Billing").And.Contain("partial class Documents").And.Contain("partial record Line");
+		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
+	}
+
+	[Test]
+	public void A_container_that_is_not_partial_still_refuses_with_NECG005_naming_it()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public static class Closed
+			{
+			    public sealed partial record Line(int Quantity)
+			    {
+			        [Constraint]
+			        public static readonly Constraint<Line> Positive = Constraints<Line>.Always(l => l.Quantity > 0);
+			    }
+			}
+			"""
+		);
+
+		run.Diagnostics.Single(d => d.Id == "NECG005").GetMessage().Should().Contain("Closed");
+		run.Generated.Should().BeEmpty();
+	}
+}

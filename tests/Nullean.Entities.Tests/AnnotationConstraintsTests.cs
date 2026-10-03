@@ -23,6 +23,16 @@ public sealed partial record Booking([Range(1, 10)] int Guests, DateOnly From, D
 	public static readonly Constraint<Booking> EndsAfterItStarts = Constraints<Booking>.Always(b => b.To > b.From);
 }
 
+// A nested type: the generator re-declares Billing as partial around it.
+public static partial class Billing
+{
+	[Constraints]
+	public sealed partial record Line([Range(1, 10)] int Quantity)
+	{
+		public static readonly Constraint<Line> NotThirteen = Constraints<Line>.Always(l => l.Quantity != 13);
+	}
+}
+
 public class AnnotationConstraintsTests
 {
 	private static readonly Signup Good = new("Ada", "adal", 30, 4.5, "ABC-123", "hi");
@@ -130,5 +140,12 @@ public class AnnotationConstraintsTests
 		var result = Signup.Constraints.Apply(Good, s => s with { Age = 5 });
 
 		result.Should().BeOfType<Result<Signup>.Fail>().Which.Violations.Should().ContainSingle().Which.Member.Should().Be("Age");
+	}
+
+	[Test]
+	public void A_nested_type_gets_its_constraints_too()
+	{
+		Billing.Line.Constraints.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["NotThirteen", "QuantityRange"]);
+		Billing.Line.Constraints.Validate(new Billing.Line(11)).Single().ConstraintId.Should().Be("QuantityRange");
 	}
 }
