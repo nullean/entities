@@ -3,6 +3,7 @@
 
 using AwesomeAssertions;
 using Nullean.Entities.CsCheck;
+using Nullean.Entities.Examples.Basics.Money;
 using Nullean.Entities.Examples.Commerce.OrderLifecycle;
 using Nullean.Entities.Examples.Finance.BankAccount;
 using Nullean.Entities.Examples.Traffic.TrafficLight;
@@ -80,24 +81,29 @@ public class AutoTestExamples
 	public void TrafficLight_zero_config_proves_the_cycle() => TrafficLightConstraints.Instance.Spec().Exhaustive();
 
 	[Test]
-	public void BankAccount_zero_config_preserves_finds_the_unguarded_Withdraw()
+	public void BankAccount_zero_config_preserves_finds_an_unguarded_action()
 	{
+		// Hostile arguments find the more basic gap first: Deposit(-1) is accepted by the method. Withdraw ignoring the
+		// overdraft limit is the same kind of finding. Either way the action relies on Apply to say no.
 		var act = () => BankAccountConstraints.All.Preserves(BankAccountConstraints.Actions, iter: 500);
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("Withdraw");
+		act.Should().Throw<Exception>().Which.Message.Should().MatchRegex("Withdraw|Deposit");
 	}
 
 	// ── Simple property tests: no state machine, constraints are the oracle ─────────────────────────
 
 	[Test]
-	public void Order_total_always_equals_its_lines() => OrderConstraints.All.ForAll(o => o.Total == o.Lines.Sum(l => l.Quantity * l.Price), iter: 200);
+	public void Order_total_always_equals_its_lines() =>
+		OrderConstraints.All.ForAll(o => o.Total == o.Lines.Sum(l => l.Quantity * l.Price), GenAuto.Of<Order>(AutoMode.Plausible), iter: 200);
 
 	[Test]
 	public void Order_cancelling_twice_is_the_same_as_once_for_any_valid_order() =>
-		OrderConstraints.All.ForAll(o => o.Cancel().Cancel() == o.Cancel(), iter: 200);
+		OrderConstraints.All.ForAll(o => o.Cancel().Cancel() == o.Cancel(), GenAuto.Of<Order>(AutoMode.Plausible), iter: 200);
 
 	[Test]
-	public void Order_every_action_keeps_a_generated_valid_order_valid() => OrderConstraints.All.Preserves(OrderConstraints.Actions, iter: 300);
+	// Plausible only: Order.Total multiplies quantity by price, which overflows decimal on extreme lines (see AUTOTEST_NOTES.md).
+	public void Order_every_action_keeps_a_generated_valid_order_valid() =>
+		OrderConstraints.All.Preserves(OrderConstraints.Actions, iter: 300, data: AutoMode.Plausible);
 
 	[Test]
 	public void TrafficLight_probe_shows_which_rules_a_generator_can_actually_break()
@@ -109,4 +115,19 @@ public class AutoTestExamples
 
 	[Test]
 	public void TrafficLight_values_that_break_a_rule_are_named_and_rejected() => TrafficLightConstraints.All.RejectsInvalid();
+
+	// ── Boundaries: where do the rules start and stop saying no? ─────────────────────────────────────
+
+	[Test]
+	public void BankAccount_boundaries_list_the_hostile_values_nothing_rejects()
+	{
+		var report = BankAccountConstraints.All.Boundaries(writeLine: Console.WriteLine);
+
+		report.Gaps.Should().Contain(g => g.Property == "Iban" && g.Value == "\" \""); // a blank IBAN is accepted
+		report.Gaps.Should().Contain(g => g.Property == "Status"); // so is an undefined AccountStatus
+		report.RulesFor("Balance").Should().Contain("BalanceAboveLimit"); // while the overdraft rule does reject extremes
+	}
+
+	[Test]
+	public void Money_default_generator_breaks_every_rule_with_no_hand_made_data() => MoneyConstraints.All.Probe().NeverViolated.Should().BeEmpty();
 }

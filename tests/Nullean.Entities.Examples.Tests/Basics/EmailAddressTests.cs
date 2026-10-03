@@ -30,9 +30,16 @@ public class EmailAddressTests
 	[Test]
 	public void RejectsInvalid_malformed_addresses_are_named_by_Validate() => Constraints.RejectsInvalid();
 
-	// AutoBogus makes arbitrary words, never an address, so it cannot build a valid one on its own...
+	// The default generator mixes plausible words with edge strings ("a@b..c", "@", ...), so it reaches both valid and invalid addresses
+	// on its own, with no Bogus rule written. It does not reach a *realistic* address, which the Bogus rule below does.
 	[Test]
-	public void AutoBogus_alone_never_builds_a_valid_address() => Constraints.Probe(throwOnContradiction: false).NeverHeld.Should().Contain("ValidFormat");
+	public void Probe_shows_the_default_generator_reaches_both_valid_and_invalid_addresses()
+	{
+		var entry = Constraints.Probe(throwOnContradiction: false).Entries.Single(e => e.Constraint == "ValidFormat");
+
+		entry.Held.Should().BeGreaterThan(0);
+		entry.Violated.Should().BeGreaterThan(0);
+	}
 
 	// ...but a Bogus rule can, and the same constraints are the oracle for it.
 	[Test]

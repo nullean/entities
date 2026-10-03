@@ -213,7 +213,7 @@ public class EntitySpecTests
 		EntitySpec.For<Lamp>().Exhaustive(requireCoverage: false).Closed.Should().BeTrue();
 
 	[Test]
-	public void Undeclared_argument_domains_are_filled_with_a_few_distinct_AutoBogus_values()
+	public void Undeclared_argument_domains_are_plausible_values_plus_the_edge_values_that_matter()
 	{
 		var seen = new HashSet<string>();
 		var actions = new EntityActions<Door>(new EntityAction<Door>("Paint", typeof(string), (d, a) =>
@@ -224,8 +224,10 @@ public class EntitySpecTests
 
 		DoorConstraints.All.Spec(Door.New(), actions).Exhaustive(requireCoverage: false);
 
-		seen.Should().HaveCount(3);
-		seen.Should().OnlyContain(v => v.Length > 0);
+		// two plausible words plus the two edge values that matter most for a string argument
+		seen.Should().HaveCount(4);
+		seen.Should().Contain("").And.Contain(" ");
+		seen.Where(v => v.Trim().Length > 0).Should().HaveCount(2);
 	}
 
 	[Test]

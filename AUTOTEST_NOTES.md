@@ -42,16 +42,16 @@ attempts, rejected by A, B" message; each test supplies a start (`Spec(start)`) 
 - *Idea B, medium:* `GenAuto.Of<T>(configure)` registry keyed by type (`Email -> Internet.Email()`), set once per test assembly.
 - *Idea C, large:* constraint-guided repair (shrink an invalid AutoBogus value toward validity). Probably not worth it.
 
-### Generated data is plausible, not adversarial
-AutoBogus never makes a negative decimal, NaN, an empty string or an inverted range, so `Probe` reports most
-`Always` constraints as "never violated" and `RejectsInvalid` lists them as unfalsifiable. Money and Temperature
-needed a hand-made adversarial `raw:` generator (`Gen.OneOfConst(double.NaN, -300.0, ...)`).
-- *Idea, small:* an `Adversarial<T>()` generator mixing edge values per primitive (0, ±1, min/max, NaN, empty, whitespace).
+### Generated data is now hostile by default (was: plausible, not adversarial)
+`GenAuto.Of<T>` mixes in edge values (see the CsCheck README table), so Money and Temperature no longer need a hand-made `raw:`
+generator. Not done yet:
+- **Relations between different objects** (a child whose key points at nothing, itself, or a cycle). Duplicate ids and `Start/End` pairs are generated.
+- **Types AutoGen cannot build:** `ImmutableArray`/`ImmutableList`, `FrozenSet`, `System.Tuple`, classes with no public constructor.
+- **Overlap and rest-period rules over time slots** (`RoomBooking`, `ShiftRoster`) are still never violated (structured, not leaf, relations).
 
-### Argument domains are random, not boundary values
-An `int` argument gets three random 32-bit values, so `Reserve(-2104519966)` is found by luck. The interesting
-values are 0, 1, -1, and "just past the limit".
-- *Idea, small:* for numeric argument types default the domain to `{ 0, 1, -1, small positive }` plus one random value.
+### Argument domains
+Now two plausible values plus the edge values that matter for the type (`""`/`" "`, `0`/`-1`, `NaN`, earliest/latest date). Open: a numeric
+domain still does not know "just past the limit" (it cannot see the rule), which `Boundaries()` reports per property.
 
 ### Numbers that only grow need a `Key` or `Boundary`
 `BankAccount` and `Subscription` do not close without one (`.Key(a => (a.Status, a.Balance))`, a boundary).
@@ -95,3 +95,17 @@ ones. Today the README explains it and the failure message names the action.
 - `Aggregate_*` and `Level 1/2/3` Patient tests: named, targeted violations with specific messages.
 - `RoomBooking`/`ShiftRoster`/`Coupons` violating cases: need specific overlapping or conflicting data.
 - Reactive example specs (`After().Then().Within()` and friends): already `Script`-driven; they gained `Coverage`.
+
+## 4. Findings from the hostile-by-default generator
+
+Found only after `GenAuto.Of<T>` started producing edge values (the first pass, with AutoBogus, could not):
+
+| Domain | Finding |
+|---|---|
+| `Order` | `OrderLine.Subtotal` (`Quantity * Price`) **overflows `decimal`** on extreme lines; the computed `Total` then throws inside the constraint, and even `ToString` of the order throws. |
+| `BankAccount` | `Deposit(-n)` is accepted by the method (negative deposit); at about 7.9e28 `Balance + 0.01` is unchanged, so a deposit has no effect; an undefined `AccountStatus` and a negative `OverdraftLimit` are accepted. |
+| `TrafficLight` | `Advance()` **throws** `ArgumentOutOfRangeException` for an undefined `Signal`; no constraint rejects one. |
+| every domain with an enum | No constraint rejects an **undefined enum value** (`(Status)999`), which is what a deserialiser produces from bad input. |
+| `StockItem` | With `0` and `-1` in the argument domain `Restock` grows without bound: the enforced search needs a `Boundary`. |
+| `DateRange` | With only early dates in the domain `Extend` can never move the end forward under `Enforced`: domains need the late extreme (now included). |
+| library | A constraint that **throws** on hostile input (the `Order.Total` overflow, the `OrgChart` duplicate-id `ToDictionary`) used to abort the run; it is now reported as a violation ("X threw OverflowException") by `Valid`, `Probe`, `RejectsInvalid`, `Preserves`, `ShouldSatisfy` and `Boundaries`. |

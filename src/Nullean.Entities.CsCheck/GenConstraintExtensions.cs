@@ -14,7 +14,7 @@ internal sealed class ValidGen<T>(Gen<T> inner, ConstraintSet<T> constraints, Ti
 		for (var attempt = 0; attempt < Check.WhereLimit; attempt++)
 		{
 			var value = inner.Generate(pcg, min, out size);
-			var violations = constraints.Validate(value, time);
+			var violations = ConstraintProperties.SafeValidate(constraints, value, time);
 			if (violations.Count == 0)
 			{
 				return value;
@@ -54,16 +54,17 @@ public static class GenConstraintExtensions
 		gen.Sample(
 			value =>
 			{
-				var violations = constraints.Validate(value, time);
+				var violations = ConstraintProperties.SafeValidate(constraints, value, time);
 				if (violations.Count > 0)
 				{
 					throw new InvalidOperationException(
-						$"{value} violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
+						$"{ConstraintProperties.SafePrint(value)} violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
 					);
 				}
 			},
 			writeLine,
 			seed,
-			iter
+			iter,
+			print: ConstraintProperties.SafePrint
 		);
 }

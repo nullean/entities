@@ -113,6 +113,7 @@ dotnet add package Nullean.Entities.CsCheck
 | Did behaviour change by accident? | Regression by hash (`Check.Hash`) | `spec.Snapshot(expected)` | Changed lifecycles, with the new hash to commit |
 | Did my green test prove anything? | Coverage / classification | `Coverage<TEvent>`; built into `Exhaustive` | A constraint that held because it never ran |
 | Which of my rules can this data even break? | Property sampling, inverted | `set.Probe()`, `set.RejectsInvalid()` | Tautologies, contradictions, unnamed rules |
+| Where do my rules stop saying no? | Boundary-value analysis over an edge catalog | `set.Boundaries()` | Hostile values nothing rejects: `" "`, `NaN`, an undefined enum, an empty Guid |
 
 Rule of thumb: start with `spec.Exhaustive()`. If the state space will not close, `spec.Sample()`. Add `Faults()`
 once, to find out how much your rules really cover.
@@ -458,45 +459,102 @@ If the event type implements `IHaveConstraints<TEvent>`, the constraint argument
 hand-rolled shrinking anywhere: `SampleWith`, `RunWith` and `Metamorphic` build a real `Gen<T>` and hand it to
 CsCheck's `Sample`, so generation, shrinking, multithreading and seed replay are CsCheck's own.
 
-## Generated data and AutoBogus
+## Generated data: plausible and hostile by default
 
-Bogus and CsCheck each have their own random source. Left alone, a Bogus-backed `Gen<T>` cannot replay a seed or shrink,
-because CsCheck never sees the draws. This package makes Bogus draw from CsCheck's `PCG`, so every `Faker<T>`/`AutoFaker`
-value is a real CsCheck generator: reproducible by seed, shrinkable by draw count and magnitude.
+`GenAuto.Of<T>()` builds a value of any type from its shape (constructor, properties, collections, enums, nullability) and mixes
+**plausible** data with **edge cases** by default. You do not write the adversarial generator: it is already in.
 
 ```csharp
-// Hand-written rules, when you want realistic or constraint-friendly data:
-Gen<OrderLine> lines = GenFakerExtensions.Faker<OrderLine>(faker => faker
-    .CustomInstantiator(f => new OrderLine(f.Commerce.Ean13(), f.Random.Int(1, 100), f.Finance.Amount(0.01m, 500m))));
-
-// Or let AutoBogus fill every public member, nested objects included:
-Gen<Order> orders = GenAuto.Of<Order>();
+GenAuto.Of<Order>()                          // Mixed (default): mostly plausible, about one leaf in four an edge value
+GenAuto.Of<Order>(AutoMode.Plausible)        // words, small positive numbers, dates near 2026: what a demo would show
+GenAuto.Of<Order>(AutoMode.Adversarial)      // edge values only, including the hostile group
+GenAuto.Of<Order>(AutoMode.Mixed, o => o.Use(Gen.Const(OrderStatus.Pending)).AddStringEdges("N/A"))
 ```
 
-### Where AutoBogus is used without being asked
+What the edge values are (each list is ordered **simplest first**, so a failure shrinks to the simplest hostile value that breaks the rule):
+
+| Type | Edge values |
+|---|---|
+| `string` | `""`, `" "`, tabs, newlines, `\r\n`, leading/trailing/internal spaces, NBSP, ideographic and thin spaces, U+2028/2029, zero-width space/joiner, BOM, soft hyphen, bidi overrides (trojan source), C0/C1 control characters, DEL, private-use, noncharacters; emoji, ZWJ sequences, skin tones, flags, combining marks and "Zalgo", NFC vs NFD (`"é"` vs `"e\u0301"`), CJK, Arabic, Hebrew; Turkish `İ`/`ı`, `ß`, ligatures; homoglyphs and fullwidth forms; `"null"`, `"NaN"`, `"0x10"`, `"1e5"`, `"00123"`, ISO dates and GUIDs as text; SQL, HTML, format-string, template, JNDI, path-traversal, CSV-formula and URL-encoding payloads; email- and URL-shaped fragments (`"a@"`, `"a@@b.c"`, `"http://"`); lengths 50/100/255/256/1000/4000/4001/10,000; `null` for nullable. **Adversarial only:** NUL and lone surrogates |
+| integers (every width) | `0`, `1`, `-1`, `min`, `max`, `min+1`, `max-1`, powers of two and one either side (127/128, 255/256, 32767/32768, 65535/65536, 2^31, 2^53+1), 9/10/11, 99/100/101, 999/1000/1001 |
+| `double`, `float` | `NaN` (several payloads), `+/-Infinity`, `-0.0`, `epsilon`, subnormals, `Max`/`Min`, `2^53` and `2^53+1`, `0.1`, `0.2`, `0.1+0.2`, `1e-7`, `1e21` |
+| `decimal` | `0`, `+/-1`, `+/-0.01`, `0.005`/`0.015` (rounding), `Max`/`Min`, `1e-28`, **the same number at different scales** (`1`, `1.0`, `1.00`, `1.000000000`), `-0.0` |
+| dates and times | `default`, `MinValue`, `MaxValue`, one tick either side, Unix epoch, Y2038, leap days, 1900 (not a leap year), DST gaps and overlaps, offsets `-12:00`, `+14:00`, `+05:45`; `TimeSpan` zero, negative, 24h, 24h + 1 tick, `Max`/`Min` |
+| `Guid`, `Uri` | `Guid.Empty`, all-`F`, v1/v7-shaped; relative, scheme-only, userinfo, IDN, port 0 and 65535, 2,000+ characters |
+| enums | every defined value **and undefined ones** (`(E)999`, `(E)-1`, `(E)int.MaxValue`) |
+| collections, dictionaries | empty, one item, duplicates, the same instance twice, keys differing only by case or whitespace |
+| **relations between fields** | `Start == End`, `Start > End`, `End == Start + 1 unit` for pairs like `Start/End`, `From/To`, `Min/Max`, `Open/Close`; **duplicate identities** across the items of a list (`Id`, `Sku`, `Email`: same, different case, padded) |
+
+Plausible strings come from a **corpus** built once from Bogus (words, names, emails, urls, cities, ibans, EAN13) and picked by index,
+matched to the member name (`Email` gets emails, `City` cities). That keeps data realistic without Bogus's global lock on the hot path
+(see below), and a smaller index is a shorter string, so it shrinks.
+
+A constructor that throws on a hostile value is treated as correct behaviour: the generator redraws (20 tries) instead of failing. A
+**constraint** that throws on hostile data is reported as a violation ("`TotalMatchesLines` threw `OverflowException`"), not an abort:
+a rule that crashes instead of reporting is a finding. Values whose `ToString` throws are printed safely in failure messages.
+
+### What you get out of the box
 
 | Where | What is generated | Override with |
 |---|---|---|
-| `Spec()` with no start | Valid entities from fixed seeds, covering every enum/bool value at least once, up to twelve | `Spec(start)` or `.From(a, b)` |
-| An action taking an argument | Three distinct values (all values of an enum or bool) | `.Domain<T>(...)`, `.DomainFrom<S, T>(...)` |
-| `ForAll`, `Preserves` | Entities from `GenAuto.Of<T>()`, kept only if valid | `gen:` / `start:` |
-| `Probe`, `RejectsInvalid` | Raw `GenAuto.Of<T>()` values, deliberately unfiltered so violations can occur | `gen:` / `raw:` |
+| `Spec()` with no start | Plausible, valid entities from fixed seeds, covering every enum/bool value at least once, up to twelve | `Spec(start)`, `.From(a, b)`, `.Data(mode)` |
+| An action taking an argument | Two plausible values plus the edge values that matter most for the type (`""` and `" "`, `0` and `-1`, `NaN`, the earliest and latest date); all values of an enum or bool | `.Domain<T>(...)`, `.DomainFrom<S, T>(...)`, `.Data(mode)` |
+| `ForAll`, `Preserves` | `Mixed` entities, kept only if valid | `gen:` / `start:` / `data:` |
+| `Probe`, `RejectsInvalid` | Half `Mixed`, half `Adversarial`, unfiltered, so violations occur | `gen:` / `raw:` |
+| `Boundaries()` | Every edge value, one property at a time, on a valid baseline | `baseline:` |
+
+### Boundaries: where do the rules stop saying no?
+
+```csharp
+OrderConstraints.All.Boundaries(writeLine: Console.WriteLine);
+```
+
+takes a valid value, swaps in each edge value for **one property at a time**, and reports which rules reject it and, more usefully,
+which hostile values **nothing** rejects. It reads like the documentation the constraints never wrote:
+
+```
+Boundaries from BankAccount { Iban = NL00TEST, Balance = 31.2, OverdraftLimit = 40.5, Status = Active }:
+  Iban: 0 of 173 edge values rejected, 62 hostile values accepted
+      GAP, nothing rejects: "", " ", "\u0009", "\u000A", "\u000D\u000A", "\u000D", "\u000C", "\u000B", and 54 more
+  Balance: 1 of 25 edge values rejected, 6 hostile values accepted
+      rejected by BalanceAboveLimit: -79228162514264337593543950335
+      GAP, nothing rejects: -1, -0.01, -0.005, -0.0000000000000000000000000001, 79228162514264337593543950335
+  (OverdraftLimit: the same shape as Balance)
+```
+
+Use `report.Gaps` to assert, `report.RulesFor("Balance")` to see which rules guard a property.
 
 Know the limits:
 
-- **A random string argument is almost always a no-op.** `RemoveLine(sku)` with an AutoBogus string never matches a
-  line that exists. Use `.DomainFrom<OrderLine, string>(l => l.Sku)` so the argument comes from the state.
-- **Generated data is plausible, not adversarial.** AutoBogus builds positive decimals and words, never NaN, negatives or
-  blank strings, so `Probe` will report many rules as "never violated" and `RejectsInvalid` as unfalsifiable. Pass a
-  hand-made `raw:` generator (`Gen.OneOfConst(double.NaN, -300.0, 0.0)`) to test those.
-- **Tight constraints defeat it.** An email needs an `@`, a journal entry must balance, vitals must be plausible:
-  AutoBogus cannot build those. The error names the constraints that rejected everything; give the test a start
-  (`Spec(start)`) or a Bogus rule (`f.Internet.Email()`).
+- **A random string argument is almost always a no-op.** `RemoveLine(sku)` with a corpus word never matches a line that exists.
+  Use `.DomainFrom<OrderLine, string>(l => l.Sku)` so the argument comes from the state.
+- **Hostile data finds hostile bugs.** Zero-config now tries `Reserve(-1)`, an undefined enum, `decimal.MaxValue`. Expect findings in
+  code that never saw them (an overflow in a computed `Total`, an unguarded `Deposit(-5)`). Use `data: AutoMode.Plausible` /
+  `.Data(AutoMode.Plausible)` for a domain you have not hardened yet, and treat the rest as a to-do list.
+- **Tight constraints still defeat zero-config.** A realistic email, a balanced journal entry, plausible vitals: the default reaches
+  some by luck (`"a@b..c"`) but not reliably. The error names the constraints that rejected everything; give the test a start
+  (`Spec(start)`), `Use<T>(gen)`, or a Bogus rule (`f.Internet.Email()`).
+- **Not built by AutoGen:** interfaces and abstract types, classes with no public constructor, `ImmutableArray`, `FrozenSet`,
+  `System.Tuple`. It says so and points at `AutoOptions.Use<T>(gen)`.
+- **Relations between *different* objects** (a child whose foreign key points at nothing, at itself, or at a cycle) are not generated yet;
+  duplicate ids and `Start`/`End` pairs are.
 
-### What is routed through the PCG, and why it matters
+`GenAuto.Bogus<T>(configure)` is the previous AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock). It is kept for teams that already
+configured `AutoFaker`. The measured case for and against keeping it is in [`docs/autobogus-decision.md`](https://github.com/nullean/entities/blob/main/docs/autobogus-decision.md).
 
-- One `Faker<T>`/`AutoFaker` per thread, created on first use and reused: Bogus takes a global lock on every draw, so
-  this only avoids repeated setup, not the lock.
+Your own Bogus rules still work and still compose:
+
+```csharp
+Gen<OrderLine> lines = GenFakerExtensions.Faker<OrderLine>(faker => faker
+    .CustomInstantiator(f => new OrderLine(f.Commerce.Ean13(), f.Random.Int(1, 100), f.Finance.Amount(0.01m, 500m))));
+```
+
+### What is routed through the PCG, and why it matters (user `Faker<T>` rules and `GenAuto.Bogus<T>`)
+
+- One `Faker<T>`/`AutoFaker` per thread, created on first use and reused. Bogus takes a process-wide lock on every draw
+  (`Randomizer.Locker`, an `internal static` that cannot be turned off), so a Bogus-backed generator stops scaling at about two
+  threads: measured 71k `Order` draws/second on one thread and 97k on eight, against 617k and 1.6M for `GenAuto.Of<Order>()`.
+  This is why `GenAuto.Of<T>` does not draw from Bogus at runtime.
 - `configure` must be pure: it runs once per thread, not once per sample.
 - Only draws that represent real domain data count toward `Size`; a flag, or a value that is always the same, is not recorded.
 - **Routing `Random` through the PCG is not the whole story.** `Faker.IndexFaker`/`IndexVariable` are separate counters

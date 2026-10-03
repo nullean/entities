@@ -28,7 +28,7 @@ public static class ConstraintProperties
 		string? seed = null,
 		long iter = -1,
 		Action<string>? writeLine = null
-	) => (gen ?? GenAuto.Of<T>().Valid(constraints, time)).Sample(property, writeLine, seed, iter);
+	) => (gen ?? GenAuto.Of<T>().Valid(constraints, time)).Sample(property, writeLine, seed, iter, print: SafePrint);
 
 	/// <inheritdoc cref="ForAll{T}(ConstraintSet{T}, Func{T, bool}, Gen{T}, TimeProvider, string, long, Action{string})"/>
 	public static void ForAll<T>(
@@ -39,14 +39,15 @@ public static class ConstraintProperties
 		string? seed = null,
 		long iter = -1,
 		Action<string>? writeLine = null
-	) => (gen ?? GenAuto.Of<T>().Valid(constraints, time)).Sample(property, writeLine, seed, iter);
+	) => (gen ?? GenAuto.Of<T>().Valid(constraints, time)).Sample(property, writeLine, seed, iter, print: SafePrint);
 
 	/// <summary>
 	/// From a valid starting entity, any action with any generated argument leaves it satisfying the
 	/// constraints: point-in-time ones on the result, sequential ones over (start, result). The action is
 	/// run raw — <c>Apply</c> would reject a bad result and so could never reveal one. This is the
 	/// randomised cousin of <c>EntitySpec.Exhaustive</c>, and because starts are AutoBogus values rather than
-	/// <c>New()</c> it also reaches states the factory never produces.
+	/// <c>New()</c> it also reaches states the factory never produces. Starts and arguments are <see cref="AutoMode.Mixed"/> by
+	/// default (some edge values); pass <paramref name="data"/> to change that for an entity not yet hardened against extremes.
 	/// </summary>
 	public static void Preserves<T>(
 		this ConstraintSet<T> constraints,
@@ -55,7 +56,8 @@ public static class ConstraintProperties
 		TimeProvider? time = null,
 		string? seed = null,
 		long iter = -1,
-		Action<string>? writeLine = null
+		Action<string>? writeLine = null,
+		AutoMode data = AutoMode.Mixed
 	)
 	{
 		if (actions.Count == 0)
@@ -64,9 +66,9 @@ public static class ConstraintProperties
 				$"{typeof(T).Name} has no actions to check; [Constraints] generates them from public methods that return {typeof(T).Name}."
 			);
 		}
-		var starts = start ?? GenAuto.Of<T>().Valid(constraints, time);
+		var starts = start ?? GenAuto.Of<T>(data).Valid(constraints, time);
 		var runs = Gen.OneOf([
-			.. actions.Select(a => Gen.Select(starts, AutoDefaults.ArgumentGen(a.ArgumentType), (s, x) => (Start: s, Action: a, Argument: x)))
+			.. actions.Select(a => Gen.Select(starts, AutoDefaults.ArgumentGen(a.ArgumentType, data), (s, x) => (Start: s, Action: a, Argument: x)))
 		]);
 		runs.Sample(
 			run =>
@@ -82,7 +84,8 @@ public static class ConstraintProperties
 			},
 			writeLine,
 			seed,
-			iter
+			iter,
+			print: run => $"{SafePrint(run.Start)} | {run.Action.Name}({SafePrint(run.Argument)})"
 		);
 	}
 
@@ -106,7 +109,7 @@ public static class ConstraintProperties
 		Sample(gen, samples, value =>
 		{
 			// Once per value: a Check constraint can report several violations for one bad value.
-			foreach (var id in constraints.Validate(value, time).Select(v => v.ConstraintId).Where(id => id is not null).Distinct())
+			foreach (var id in SafeValidate(constraints, value, time).Select(v => v.ConstraintId).Where(id => id is not null).Distinct())
 			{
 				if (violated.TryGetValue(id!, out var count))
 				{
@@ -151,7 +154,7 @@ public static class ConstraintProperties
 			{
 				return;
 			}
-			var validate = constraints.Validate(value, time);
+			var validate = SafeValidate(constraints, value, time);
 			foreach (var name in names.Where(n => validate.Any(v => v.ConstraintId == n) && checkedCount[n] < 3))
 			{
 				checkedCount[name]++;
@@ -179,7 +182,7 @@ public static class ConstraintProperties
 	{
 		try
 		{
-			return (AutoDefaults.ValidStarts(constraints, time, 1)[0], true);
+			return (AutoDefaults.ValidStarts(constraints, time, count: 1)[0], true);
 		}
 		catch (InvalidOperationException)
 		{
@@ -192,7 +195,7 @@ public static class ConstraintProperties
 
 	private static void Sample<T>(Gen<T>? gen, int count, Action<T> each)
 	{
-		var source = gen ?? GenAuto.Of<T>();
+		var source = gen ?? AutoDefaults.Hostile<T>();
 		try
 		{
 			for (var i = 0; i < count; i++)
@@ -206,16 +209,71 @@ public static class ConstraintProperties
 		}
 	}
 
+	/// <summary>
+	/// <c>Validate</c>, except a constraint that <b>throws</b> on the value is reported as a violation ("X threw OverflowException: ...")
+	/// instead of aborting the run. Hostile data is exactly what makes constraints throw (an overflow in a computed property,
+	/// <c>ToDictionary</c> on a duplicate id); a rule that crashes instead of reporting is a finding, not a reason to stop.
+	/// </summary>
+	internal static IReadOnlyList<Violation> SafeValidate<T>(ConstraintSet<T> constraints, T value, TimeProvider? time)
+	{
+		time ??= TimeProvider.System;
+		var violations = new List<Violation>();
+		var index = 0;
+		foreach (var c in constraints.AsConstraints())
+		{
+			var name = c.Name ?? $"constraint{index++}";
+			if (c.Kind != ConstraintKind.PointInTime)
+			{
+				continue;
+			}
+			try
+			{
+				violations.AddRange(c.CheckAt(value, value, time).Select(v => v with { ConstraintId = name }));
+			}
+			catch (Exception e) when (e is not OperationCanceledException)
+			{
+				violations.Add(Violation.Error($"{name} threw {e.GetType().Name}: {e.Message}") with { ConstraintId = name });
+			}
+		}
+		return violations;
+	}
+
+	/// <summary>A value rendered for a failure message, even when its <c>ToString</c> throws (a computed property that overflows).</summary>
+	internal static string SafePrint<T>(T value)
+	{
+		try
+		{
+			return Check.Print(value);
+		}
+		catch (Exception e) when (e is not OperationCanceledException)
+		{
+			return $"{typeof(T).Name} (ToString threw {e.GetType().Name}: {e.Message})";
+		}
+	}
+
 	internal static IReadOnlyList<Violation> ViolationsOf<T>(ConstraintSet<T> constraints, T before, T after, TimeProvider? time)
 	{
 		time ??= TimeProvider.System;
 		var unchanged = EqualityComparer<T>.Default.Equals(before, after);
-		return [
-			.. constraints
-				.AsConstraints()
-				.Where(c => c.Kind == ConstraintKind.PointInTime || !unchanged)
-				.SelectMany(c => c.CheckAt(before, after, time).Select(v => v with { ConstraintId = c.Name })),
-		];
+		var violations = new List<Violation>();
+		var index = 0;
+		foreach (var c in constraints.AsConstraints())
+		{
+			var name = c.Name ?? $"constraint{index++}";
+			if (c.Kind != ConstraintKind.PointInTime && unchanged)
+			{
+				continue;
+			}
+			try
+			{
+				violations.AddRange(c.CheckAt(before, after, time).Select(v => v with { ConstraintId = name }));
+			}
+			catch (Exception e) when (e is not OperationCanceledException)
+			{
+				violations.Add(Violation.Error($"{name} threw {e.GetType().Name}: {e.Message}") with { ConstraintId = name });
+			}
+		}
+		return violations;
 	}
 }
 

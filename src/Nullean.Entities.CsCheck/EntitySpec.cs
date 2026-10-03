@@ -96,6 +96,7 @@ public sealed class EntitySpec<T>
 	private Func<T, bool>? _boundary;
 	private Func<T, bool>? _terminal;
 	private int _collectionLimit = 2;
+	private AutoMode? _data;
 	private bool _enforced;
 	private TimeProvider _clock = new FixedTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
 
@@ -188,6 +189,16 @@ public sealed class EntitySpec<T>
 	public EntitySpec<T> Enforced()
 	{
 		_enforced = true;
+		return this;
+	}
+
+	/// <summary>
+	/// How hostile the generated data is. Starting states default to <see cref="AutoMode.Plausible"/> (they should look like real
+	/// states) and action arguments to plausible values plus a few edge values (<c>""</c>, <c>-1</c>, <c>NaN</c>); this sets both.
+	/// </summary>
+	public EntitySpec<T> Data(AutoMode mode)
+	{
+		_data = mode;
 		return this;
 	}
 
@@ -489,11 +500,11 @@ public sealed class EntitySpec<T>
 	private static EntityStep<T> ToStep(Transition<Keyed<T>> t, object[]?[] domains) =>
 		new(t.Action, t.Arg, domains[t.ActionIndex] is { } d && t.ArgIndex >= 0 && t.ArgIndex < d.Length ? d[t.ArgIndex] : null, t.Before.Value, t.After.Value);
 
-	private List<T> Starts() => _starts ??= [.. AutoDefaults.ValidStarts(_constraints, _clock)];
+	private List<T> Starts() => _starts ??= [.. AutoDefaults.ValidStarts(_constraints, _clock, _data ?? AutoMode.Plausible)];
 
 	private void CheckStart(T start)
 	{
-		var violations = _constraints.Validate(start, _clock);
+		var violations = ConstraintProperties.SafeValidate(_constraints, start, _clock);
 		if (violations.Count > 0)
 		{
 			throw new InvalidOperationException(
@@ -519,7 +530,7 @@ public sealed class EntitySpec<T>
 		}
 		else
 		{
-			values = AutoDefaults.Domain(type);
+			values = AutoDefaults.Domain(type, _data);
 		}
 		return _resolved[type] = values.Length > 0
 			? values

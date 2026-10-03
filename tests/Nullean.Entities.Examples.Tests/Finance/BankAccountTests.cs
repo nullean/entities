@@ -51,7 +51,9 @@ public class BankAccountTests
 	}
 
 	[Test]
-	public void ForAll_depositing_a_positive_amount_increases_the_balance() => Constraints.ForAll(a => a.Deposit(0.01m).Balance > a.Balance, iter: 200);
+	// Plausible only: at ~7.9e28 a decimal cannot represent balance + 0.01, so a deposit has no effect (see AUTOTEST_NOTES.md).
+	public void ForAll_depositing_a_positive_amount_increases_the_balance() =>
+		Constraints.ForAll(a => a.Deposit(0.01m).Balance > a.Balance, GenAuto.Of<BankAccount>(AutoMode.Plausible), iter: 200);
 
 	// Withdraw() never checks the overdraft limit, and DepositIsMonotonic is in the general set (so Withdraw is always
 	// rejected through Apply). Both are in AUTOTEST_NOTES.md. Enforced models the Apply boundary; Key keeps the space finite.
@@ -67,10 +69,10 @@ public class BankAccountTests
 			.Exhaustive();
 
 	[Test]
-	public void AutoTest_raw_Withdraw_is_found_to_ignore_the_overdraft_limit()
+	public void AutoTest_raw_actions_are_found_to_rely_on_Apply_to_reject_bad_amounts()
 	{
 		var act = () => Constraints.Preserves(BankAccountConstraints.Actions, iter: 500);
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("Withdraw");
+		act.Should().Throw<Exception>().Which.Message.Should().MatchRegex("Withdraw|Deposit");
 	}
 }

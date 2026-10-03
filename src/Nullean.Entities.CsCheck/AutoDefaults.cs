@@ -1,5 +1,5 @@
 // Nullean.Entities.CsCheck — what EntitySpec<T> and the property helpers fall back to when you give
-// them nothing: AutoBogus-generated starting states and argument values (drawn from fixed seeds, so
+// them nothing: generated starting states and argument values (drawn from fixed seeds, so
 // a run is reproducible), and a structural notion of "the same state".
 
 using System.Collections;
@@ -17,10 +17,15 @@ internal static class AutoDefaults
 	private const int MaxModeStarts = 12;
 	private const int Attempts = 400;
 
-	/// <summary>Up to <paramref name="count"/> distinct AutoBogus values of <paramref name="type"/>, from fixed seeds.</summary>
-	public static object[] Domain(Type type, int count = DomainSize)
+	/// <summary>
+	/// A small, finite set of values to try for an argument of <paramref name="type"/>: a couple of plausible ones from fixed
+	/// seeds, plus (unless <paramref name="data"/> is <see cref="AutoMode.Plausible"/>) the edge values that matter most for
+	/// the type (<c>""</c> and <c>" "</c>, <c>0</c> and <c>-1</c>, <c>NaN</c>, ...). Small on purpose: the reachable state
+	/// space grows with it.
+	/// </summary>
+	public static object[] Domain(Type type, AutoMode? data = null, int count = DomainSize)
 	{
-		// An enum or a bool has a handful of values: try them all instead of three random ones, which
+		// An enum or a bool has a handful of values: try them all instead of a few random ones, which
 		// could easily miss the one a guard or a transition is about.
 		if (type.IsEnum)
 		{
@@ -30,54 +35,94 @@ internal static class AutoDefaults
 		{
 			return [false, true];
 		}
+		var withEdges = data != AutoMode.Plausible;
 		try
 		{
-			return (object[])typeof(AutoDefaults).GetMethod(nameof(Draw), BindingFlags.NonPublic | BindingFlags.Static)!.MakeGenericMethod(type).Invoke(
-				null,
-				[count]
-			)!;
+			var plausible = new AutoBuilder(new AutoOptions { Mode = AutoMode.Plausible }).ForType(type);
+			var values = new List<object>();
+			DrawDistinct(plausible, withEdges ? 2 : count, values, 1u);
+			if (withEdges)
+			{
+				var edgeBuilder = new AutoBuilder(new AutoOptions { Mode = AutoMode.Adversarial }).ForType(type);
+				if (edgeBuilder is LeafGen leaf)
+				{
+					foreach (var edge in CoreEdges(type, leaf.Edges))
+					{
+						if (edge is not null && !values.Contains(edge))
+						{
+							values.Add(edge);
+						}
+					}
+				}
+				else
+				{
+					// An object: a plausible one is already there; add one with edge-case leaves.
+					DrawDistinct(new AutoBuilder(new AutoOptions { Mode = AutoMode.Mixed }).ForType(type), 1, values, 2u);
+				}
+			}
+			return [.. values];
 		}
-		catch (TargetInvocationException e) when (e.InnerException is not null)
+		catch (NotSupportedException e)
 		{
-			throw new InvalidOperationException(
-				$"AutoBogus could not generate a {type.Name}: {e.InnerException.Message}. Declare the values with .Domain<{type.Name}>(...).",
-				e.InnerException
-			);
+			throw new InvalidOperationException($"AutoGen could not generate a {type.Name}: {e.Message} Declare the values with .Domain<{type.Name}>(...).", e);
 		}
 	}
 
-	/// <summary>A generator of AutoBogus argument values (boxed), or a constant null for an action without an argument.</summary>
-	public static Gen<object?> ArgumentGen(Type? type) =>
+	private static void DrawDistinct(Gen<object?> gen, int count, List<object> into, uint stream)
+	{
+		var wanted = into.Count + count;
+		for (var i = 0; i < count * 10 && into.Count < wanted; i++)
+		{
+			var value = gen.Generate(new PCG(stream, (ulong)i + 1), null, out _);
+			if (value is not null && !into.Contains(value))
+			{
+				into.Add(value);
+			}
+		}
+	}
+
+	private static bool IsMax(object? value) => value switch
+	{
+		DateTime dt => dt == DateTime.MaxValue,
+		DateTimeOffset dto => dto == DateTimeOffset.MaxValue,
+		DateOnly d => d == DateOnly.MaxValue,
+		TimeOnly t => t == TimeOnly.MaxValue,
+		TimeSpan ts => ts == TimeSpan.MaxValue,
+		_ => false,
+	};
+
+	// The two or three edge values worth trying for an argument: the rest of the catalog is for random testing.
+	private static IEnumerable<object?> CoreEdges(Type type, object?[] edges)
+	{
+		if (type == typeof(string) || type == typeof(Guid) || type == typeof(Uri))
+		{
+			return edges.Take(2);
+		}
+		// An "End" argument has to be able to move forward as well as back, so dates and times get both extremes.
+		if (type == typeof(DateTime) || type == typeof(DateTimeOffset) || type == typeof(DateOnly) || type == typeof(TimeOnly) || type == typeof(TimeSpan))
+		{
+			return [edges[0], .. edges.Where(IsMax)];
+		}
+		if (type == typeof(double) || type == typeof(float))
+		{
+			return [edges[0], edges[2], .. edges.Where(e => e is double.NaN or float.NaN)];
+		}
+		return ((edges.Length >= 3 && type.IsPrimitive) || type == typeof(decimal)) ? [edges[0], edges[2]] : edges.Take(2);
+	}
+
+	/// <summary>Half plausible-and-edge-mixed, half edge-only: for sampling where both holding and violated cases are wanted.</summary>
+	public static Gen<T> Hostile<T>() => Gen.OneOf(GenAuto.Of<T>(), GenAuto.Of<T>(AutoMode.Adversarial));
+
+	/// <summary>A generator of argument values (boxed), or a constant null for an action without an argument.</summary>
+	public static Gen<object?> ArgumentGen(Type? type, AutoMode data = AutoMode.Mixed) =>
 		type is null
 			? Gen.Const(() => (object?)null)
 			: (Gen<object?>)typeof(AutoDefaults).GetMethod(nameof(ArgumentGenOf), BindingFlags.NonPublic | BindingFlags.Static)!.MakeGenericMethod(type).Invoke(
 				null,
-				null
+				[data]
 			)!;
 
-	private static Gen<object?> ArgumentGenOf<T>() => GenAuto.Of<T>().Select(x => (object?)x);
-
-	private static object[] Draw<T>(int count)
-	{
-		var gen = GenAuto.Of<T>();
-		try
-		{
-			var seen = new List<object>();
-			for (var i = 0; i < count * 10 && seen.Count < count; i++)
-			{
-				var value = gen.Generate(new PCG(1u, (ulong)i + 1), null, out _);
-				if (value is not null && !seen.Contains(value))
-				{
-					seen.Add(value);
-				}
-			}
-			return [.. seen];
-		}
-		finally
-		{
-			(gen as IDisposable)?.Dispose();
-		}
-	}
+	private static Gen<object?> ArgumentGenOf<T>(AutoMode data) => GenAuto.Of<T>(data).Select(x => (object?)x);
 
 	/// <summary>
 	/// AutoBogus values of <typeparamref name="T"/> that already satisfy <paramref name="constraints"/>.
@@ -85,9 +130,9 @@ internal static class AutoDefaults
 	/// properties (its modes) one start is kept per distinct combination, up to eight; otherwise
 	/// the first three distinct values.
 	/// </summary>
-	public static T[] ValidStarts<T>(ConstraintSet<T> constraints, TimeProvider? time, int count = StartCount)
+	public static T[] ValidStarts<T>(ConstraintSet<T> constraints, TimeProvider? time, AutoMode mode = AutoMode.Plausible, int count = StartCount)
 	{
-		var gen = GenAuto.Of<T>();
+		var gen = GenAuto.Of<T>(mode);
 		try
 		{
 			var candidates = new List<T>();
@@ -96,7 +141,7 @@ internal static class AutoDefaults
 			for (var i = 0; i < Attempts; i++)
 			{
 				var value = gen.Generate(new PCG(2u, (ulong)i + 1), null, out _);
-				var violations = constraints.Validate(value, time);
+				var violations = ConstraintProperties.SafeValidate(constraints, value, time);
 				if (violations.Count == 0)
 				{
 					if (keys.Add(StructuralKey.Of(value)))

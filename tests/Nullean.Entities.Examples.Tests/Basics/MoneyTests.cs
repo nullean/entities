@@ -37,18 +37,7 @@ public class MoneyTests
 			.Faker<Money>(faker => faker.CustomInstantiator(f => new Money(f.Finance.Amount(0.01m, 1_000_000m), f.Finance.Currency().Code)))
 			.ShouldSatisfy(MoneySet, iter: 200);
 
-	// AutoBogus only makes plausible values, so negative amounts and blank currencies need a hand-made adversarial generator.
+	// No hand-made generator: the default one mixes in negative amounts and blank currencies on its own.
 	[Test]
-	public void RejectsInvalid_negative_amounts_and_blank_currencies_are_named_and_rejected()
-	{
-		var adversarial = Gen.Select(
-			Gen.Int[-100, 100].Select(i => (decimal)i),
-			Gen.OneOfConst("EUR", "", " "),
-			(amount, currency) => new Money(amount, currency)
-		);
-
-		var report = MoneySet.RejectsInvalid(raw: adversarial);
-
-		report.Unfalsifiable.Should().BeEmpty();
-	}
+	public void RejectsInvalid_negative_amounts_and_blank_currencies_are_named_and_rejected() => MoneySet.RejectsInvalid().Unfalsifiable.Should().BeEmpty();
 }

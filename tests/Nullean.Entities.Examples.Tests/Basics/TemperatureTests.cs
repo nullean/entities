@@ -57,14 +57,7 @@ public class TemperatureTests
 	public void ShouldSatisfy_everyday_temperatures_are_valid() =>
 		Gen.Double[0.0, 1000.0].Select(c => new Temperature(c)).ShouldSatisfy(Constraints, iter: 200);
 
-	// AutoBogus never makes NaN, infinity or sub-absolute-zero doubles; this is the hand-made adversarial generator.
+	// No hand-made generator: the default one reaches NaN, infinity and sub-absolute-zero values on its own.
 	[Test]
-	public void RejectsInvalid_nan_infinity_and_below_absolute_zero_are_named_and_rejected()
-	{
-		var adversarial = Gen.OneOfConst(double.NaN, double.PositiveInfinity, double.NegativeInfinity, -300.0, -273.16, 0.0, 36.6).Select(
-			c => new Temperature(c)
-		);
-
-		Constraints.RejectsInvalid(raw: adversarial).Unfalsifiable.Should().BeEmpty();
-	}
+	public void RejectsInvalid_nan_infinity_and_below_absolute_zero_are_named_and_rejected() => Constraints.RejectsInvalid().Unfalsifiable.Should().BeEmpty();
 }

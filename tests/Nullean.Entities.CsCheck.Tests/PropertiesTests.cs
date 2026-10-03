@@ -24,7 +24,11 @@ public class ConstraintPropertiesTests
 
 	[Test]
 	public void ForAll_accepts_an_assertion_style_property() =>
-		DoorConstraints.All.ForAll(d => d.Close().Open().State.Should().BeOneOf(DoorState.Open, DoorState.Closed, DoorState.Locked), iter: 50);
+		DoorConstraints.All.ForAll(
+			d => d.Close().Open().State.Should().BeOneOf(DoorState.Open, DoorState.Closed, DoorState.Locked),
+			GenAuto.Of<Door>(AutoMode.Plausible),
+			iter: 50
+		);
 
 	[Test]
 	public void Preserves_passes_when_every_action_keeps_the_door_valid() => DoorConstraints.All.Preserves(DoorConstraints.Actions, iter: 200);

@@ -50,5 +50,7 @@ public class InventoryTests
 
 	// Reserve/Release/Restock take whatever you give them; the constraints reject a bad result at the Apply boundary.
 	[Test]
-	public void AutoTest_enforced_stock_never_goes_negative_or_over_reserved() => InventoryConstraints.Instance.Spec().Enforced().Exhaustive();
+	// The argument domain now includes 0 and -1, and Restock only ever adds, so the stock grows without bound: bound it.
+	public void AutoTest_enforced_stock_never_goes_negative_or_over_reserved() =>
+		InventoryConstraints.Instance.Spec().Enforced().Boundary(item => item.OnHand < 200 && item.Reserved < 200).Exhaustive();
 }

@@ -7,8 +7,8 @@ using Soenneker.Utils.AutoBogus;
 namespace Nullean.Entities.CsCheck;
 
 /// <summary>
-/// Creates CsCheck generators backed by <c>Soenneker.Utils.AutoBogus</c>
-/// (<see cref="AutoFaker"/>), which fills all public properties and fields automatically.
+/// Creates CsCheck generators for any type from its shape. <see cref="Of{T}(AutoMode, Action{AutoOptions})"/> builds
+/// values itself (plausible and adversarial, lock-free); <see cref="Bogus{T}"/> uses <c>Soenneker.Utils.AutoBogus</c>.
 /// </summary>
 public static class GenAuto
 {
@@ -17,11 +17,21 @@ public static class GenAuto
 	/// <typeparamref name="T"/>, using Bogus locale-specific data for well-known types.
 	/// </summary>
 	/// <typeparam name="T">The type to generate.</typeparam>
-	/// <param name="configure">
-	/// Optional configuration for the <see cref="AutoFaker"/>. Called once per thread on
-	/// first use; use it to add overrides and skip rules.
-	/// </param>
-	public static Gen<T> Of<T>(Action<AutoFaker>? configure = null) => new AutoFakerGen<T>(configure);
+	/// <param name="mode">How hostile the data is; see <see cref="AutoMode"/>.</param>
+	/// <param name="configure">Optional tweaks: edge percentage, depth, collection size, custom generators for a type, extra string edges.</param>
+	public static Gen<T> Of<T>(AutoMode mode = AutoMode.Mixed, Action<AutoOptions>? configure = null)
+	{
+		var options = new AutoOptions { Mode = mode };
+		configure?.Invoke(options);
+		return new AutoBuilder(options).For<T>();
+	}
+
+	/// <summary>
+	/// The AutoBogus-backed generator (<c>Soenneker.Utils.AutoBogus</c>): plausible Bogus data only, drawn under
+	/// Bogus's process-wide lock. Kept for callers that configure <see cref="AutoFaker"/> themselves; prefer
+	/// <see cref="Of{T}(AutoMode, Action{AutoOptions})"/>, which is lock-free, shrinks better and includes edge cases.
+	/// </summary>
+	public static Gen<T> Bogus<T>(Action<AutoFaker>? configure = null) => new AutoFakerGen<T>(configure);
 }
 
 /// <summary>
