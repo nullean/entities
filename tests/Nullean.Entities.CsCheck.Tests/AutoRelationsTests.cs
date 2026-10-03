@@ -181,4 +181,23 @@ public class AutoRelationsTests
 		var leaves = trees.SelectMany(t => Tree.Flatten([t], n => n.Children)).Where(n => n.Children.Count == 0).ToList();
 		leaves.Distinct(ReferenceEqualityComparer.Instance).Count().Should().BeGreaterThan(1, "each cut-off leaf is drawn again, not the same constant");
 	}
+
+	[Test]
+	public void Large_gives_realistic_trees_a_few_dozen_nodes_not_two_and_never_an_explosion()
+	{
+		var defaults = Draw<Rel.Toc>(AutoMode.Plausible, _ => { }, 200).Select(t => Flat(t.Nodes).Count()).ToList();
+		var large = Draw<Rel.Toc>(AutoMode.Plausible, o => o.Large(), 200).Select(t => Flat(t.Nodes).Count()).ToList();
+
+		large.Average().Should().BeGreaterThan(defaults.Average() * 3, "a larger tree");
+		large.Average().Should().BeInRange(15, 400, "a few dozen nodes on average");
+		large.Max().Should().BeLessThan(5000, "width narrows with depth, so six levels do not become eight to the sixth");
+	}
+
+	[Test]
+	public void MaxCollection_above_four_now_has_an_effect()
+	{
+		var wide = Draw<Rel.Catalog>(AutoMode.Plausible, o => o.MaxCollection = 12, 300).Max(c => c.Products.Count);
+
+		wide.Should().BeGreaterThan(4);
+	}
 }

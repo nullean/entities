@@ -41,15 +41,6 @@ internal static class Diagnostics
 		isEnabledByDefault: true
 	);
 
-	public static readonly DiagnosticDescriptor GenericTypeNotSupported = new(
-		"NECG004",
-		"Generic types are not supported",
-		"'{0}' has [Constraint] members but is a generic type, which this generator does not yet support",
-		Category,
-		DiagnosticSeverity.Error,
-		isEnabledByDefault: true
-	);
-
 	public static readonly DiagnosticDescriptor NestedTypeNotSupported = new(
 		"NECG005",
 		"The type containing a nested [Constraint] type must be partial",

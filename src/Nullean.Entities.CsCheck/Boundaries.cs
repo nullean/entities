@@ -64,11 +64,12 @@ public static class ConstraintBoundaries
 		this ConstraintSet<T> constraints,
 		T? baseline = default,
 		TimeProvider? time = null,
-		Action<string>? writeLine = null
+		Action<string>? writeLine = null,
+		Action<AutoOptions>? options = null
 	)
 	{
 		baseline ??= AutoDefaults.ValidStarts(constraints, time)[0];
-		var results = Swaps(constraints, baseline, time).Select(w => new BoundaryResult(w.Property, w.Value, w.RejectedBy, w.Hostile)).ToList();
+		var results = Swaps(constraints, baseline, time, options).Select(w => new BoundaryResult(w.Property, w.Value, w.RejectedBy, w.Hostile)).ToList();
 		var report = new BoundaryReport(ConstraintProperties.SafePrint(baseline), results);
 		writeLine?.Invoke(report.ToString());
 		return report;
@@ -77,9 +78,11 @@ public static class ConstraintBoundaries
 	/// <summary>One edge value swapped into one property of the baseline, with the constraints that rejected the result (the instance is null when the constructor refused).</summary>
 	internal sealed record Swap<T>(string Property, string Value, T? Instance, IReadOnlyList<string> RejectedBy, bool Hostile);
 
-	internal static IEnumerable<Swap<T>> Swaps<T>(ConstraintSet<T> constraints, T baseline, TimeProvider? time)
+	internal static IEnumerable<Swap<T>> Swaps<T>(ConstraintSet<T> constraints, T baseline, TimeProvider? time, Action<AutoOptions>? configure = null)
 	{
-		var builder = new AutoBuilder(new AutoOptions { Mode = AutoMode.Adversarial });
+		var autoOptions = new AutoOptions { Mode = AutoMode.Adversarial };
+		configure?.Invoke(autoOptions);
+		var builder = new AutoBuilder(autoOptions);
 		var plan = builder.Plan(typeof(T), 0);
 		var args = plan.ReadArgs(baseline!) ?? throw new InvalidOperationException(
 			$"{typeof(T).Name} has constructor or settable members that are not readable properties, so single values cannot be swapped."
@@ -87,7 +90,7 @@ public static class ConstraintBoundaries
 
 		for (var i = 0; i < args.Length; i++)
 		{
-			foreach (var edge in Edges(builder, plan.Types[i]))
+			foreach (var edge in Edges(builder, autoOptions, plan.Types[i], baseline!))
 			{
 				object? instance = null;
 				string? refused = null;
@@ -112,12 +115,29 @@ public static class ConstraintBoundaries
 		}
 	}
 
-	private static IEnumerable<object?> Edges(AutoBuilder builder, Type type)
+	private static IEnumerable<object?> Edges(AutoBuilder builder, AutoOptions options, Type type, object baseline)
 	{
 		var underlying = Nullable.GetUnderlyingType(type);
 		if (underlying is not null || (!type.IsValueType && type != typeof(string)))
 		{
 			yield return null;
+		}
+		// An edge that depends on the value it goes into (a file in the baseline's own file system), for the member itself or as the one element of a collection member.
+		if (options.EdgeProviders.TryGetValue(type, out var provider))
+		{
+			foreach (var edge in provider(baseline))
+			{
+				yield return edge;
+			}
+			yield break;
+		}
+		if (AutoBuilder.TryCollection(type, out var element) && options.EdgeProviders.TryGetValue(element, out var elementProvider))
+		{
+			foreach (var edge in elementProvider(baseline))
+			{
+				yield return AutoBuilder.Materialize(type, element, [edge]);
+			}
+			yield break;
 		}
 		var leaf = builder.ForType(underlying ?? type) as LeafGen;
 		foreach (var edge in leaf?.Edges ?? [])
@@ -132,6 +152,8 @@ public static class ConstraintBoundaries
 		string s when s.Length > 24 => $"\"{Visible(s[..20])}...\" ({s.Length} chars)",
 		string s => $"\"{Visible(s)}\"",
 		double d => d.ToString("R", CultureInfo.InvariantCulture),
+		System.Collections.IEnumerable items and not string => "[" + string.Join(", ", items.Cast<object?>().Select(Show)) + "]",
+		_ when value.GetType().GetProperty("FullName") is { } fullName => Convert.ToString(fullName.GetValue(value), CultureInfo.InvariantCulture) ?? "?",
 		_ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "?",
 	};
 

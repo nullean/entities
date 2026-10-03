@@ -102,4 +102,33 @@ public class DocsBuilderShapesTests
 		Tree.Flatten<string>(["a"], x => x == "a" ? ["b", "c"] : []).Should().Equal("a", "b", "c");
 		Tree.FlattenWithAncestors<string>(["a"], x => x == "a" ? ["b"] : []).Last().Ancestors.Should().Equal("a");
 	}
+
+	[Test]
+	public void Acyclic_handles_an_include_chain_a_million_deep_without_overflowing_the_stack_and_still_finds_the_loop()
+	{
+		var rule = Constraints<Graph>.Acyclic(g => g.Nodes, n => n.Id, n => n.Includes);
+		var chain = new List<Node> { new("0") };
+		for (var i = 1; i <= 1_000_000; i++)
+		{
+			chain.Add(
+				new Node(i.ToString(System.Globalization.CultureInfo.InvariantCulture), (i - 1).ToString(System.Globalization.CultureInfo.InvariantCulture))
+			);
+		}
+
+		rule.Check(new Graph(chain), new Graph(chain)).Should().BeEmpty();
+
+		chain[0] = new Node("0", "1000000");
+		rule.Check(new Graph(chain), new Graph(chain)).Should().ContainSingle();
+	}
+
+	[Test]
+	public void Tree_Map_rebuilds_a_tree_bottom_up()
+	{
+		var toc = new[] { new TocNode("a.md", [new TocNode("b.md", []), new TocNode("c.md", [new TocNode("d.md", [])])]) };
+
+		var upper = Tree.Map(toc, n => n.Children, (n, children) => n with { Path = n.Path.ToUpperInvariant(), Children = children });
+
+		Tree.Flatten(upper, n => n.Children).Select(n => n.Path).Should().Equal("A.MD", "B.MD", "C.MD", "D.MD");
+		toc[0].Path.Should().Be("a.md", "the original is not changed");
+	}
 }

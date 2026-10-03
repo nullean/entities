@@ -126,4 +126,37 @@ public class FileWorldTests
 
 		act.Should().Throw<NotSupportedException>().Which.Message.Should().Contain("UseFileSystem()");
 	}
+
+	[Test]
+	public void Laws_generates_counter_examples_for_file_members_in_the_baselines_own_file_system()
+	{
+		var valid = Draw(AutoMode.Plausible, 40).First(d => d.Images.Count > 0);
+
+		// A missing root also puts every image outside it, so RootExists has no counter-example of its own: that is a true overlap, reported rather than failed.
+		var report = Rules.Laws(valid, requireCounterExamples: false, options: o => o.UseFileSystem());
+
+		report
+			.Results
+			.Select(r => r.Constraint)
+			.Should()
+			.Contain(["SourceFileExists", "ImagesExist", "ImagesStayInRoot", "ImagesAreNotSymlinks", "NoHiddenFolders"]);
+		report.Results.Should().OnlyContain(r => r.CounterExample.StartsWith("generated:", StringComparison.Ordinal));
+		report.Results.Single(r => r.Constraint == "ImagesAreNotSymlinks").CounterExample.Should().Contain("Images = [");
+	}
+
+	[Test]
+	public void Boundaries_lists_what_each_file_kind_does_to_each_member()
+	{
+		var valid = Draw(AutoMode.Plausible, 40).First(d => d.Images.Count > 0);
+
+		var report = Rules.Boundaries(valid, options: o => o.UseFileSystem());
+
+		report.Results.Where(r => r.Property == "SourceFile").SelectMany(r => r.RejectedBy).Should().Contain("SourceFileExists");
+		report
+			.Results
+			.Where(r => r.Property == "Images")
+			.SelectMany(r => r.RejectedBy)
+			.Should()
+			.Contain(["ImagesExist", "ImagesStayInRoot", "ImagesAreNotSymlinks", "NoHiddenFolders"]);
+	}
 }

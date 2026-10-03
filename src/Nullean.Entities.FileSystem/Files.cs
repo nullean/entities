@@ -156,7 +156,7 @@ public static class Files<T>
 		return self;
 	}
 
-	// A rule that throws on a path the file system refuses is one violation saying so, not an exception out of Validate.
+	// A rule that throws on a path the file system refuses (or on a null one) is one violation saying so, not an exception out of Validate.
 	private static Constraint<T> Rule(Func<T, IEnumerable<Violation>> check)
 	{
 		Constraint<T> self = null!;
@@ -166,7 +166,7 @@ public static class Files<T>
 			{
 				return [.. check(value)];
 			}
-			catch (Exception e) when (e is IOException or ArgumentException or NotSupportedException or UnauthorizedAccessException)
+			catch (Exception e) when (e is IOException or ArgumentException or NotSupportedException or UnauthorizedAccessException or NullReferenceException)
 			{
 				return [Violation.Error($"{self.Name ?? "Constraint"} could not check the path: {e.GetType().Name}: {e.Message}")];
 			}

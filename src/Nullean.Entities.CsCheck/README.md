@@ -516,6 +516,7 @@ OrderConstraints.All.RejectsInvalid();                                   // inva
 | `Preserves(actions)` | From a valid start, any action with any generated argument gives a result that satisfies the constraints. The action runs **raw**, not through `Apply`, which would reject a bad result and so could never show one | You want the random cousin of `Exhaustive` that also starts from states `New()` never produces. |
 | `Probe()` | Per point-in-time constraint, how often it held and was violated over 1,000 generated values | A constraint that **never fails** may be a tautology or a derived value; one that **never holds** is a contradiction (or something the generator cannot build) and throws. |
 | `RejectsInvalid()` | Values violating a constraint appear in `Validate` under its name, and `Apply` to them is refused naming it | You want proof every rule is named and enforced. Constraints the generator never violates are listed as unfalsifiable. |
+| `Commands.Over(make, values...)`, `Commands.FromDomain(make)` | A list of commands for `EventSourced`/`FromReducer`: one per value of an argument, or one per value of its default domain (the same plausible values and edges an action argument gets) | A command carries a value (`Pay(50m)`) and you want the amounts explored, not just the ones you thought of. |
 | `Laws(valid, counterExamples)` | Four laws in one line: a valid value breaks nothing; every rule has a name and names are unique; every rule has a **counter-example** (yours, or generated from a single-property edge value that only that rule rejects); each counter-example breaks **only its own rule** | You want a constraint set to be trustworthy: no rule that can never fire, no two rules that always fire together. It reports every failure at once and tells you when two rules overlap so a single cause cannot be isolated. |
 
 `ForAll` and `Preserves` take `gen:`/`start:` to replace the default (AutoBogus, kept only if valid). For types whose
@@ -671,6 +672,8 @@ Know the limits:
     sometimes refer to nothing, let a dictionary key drift, or repeat a path at two levels. Types in a declared relation get four more levels before the nesting limit cuts them to a constant.
   - **Derived invariants**: a member computed from others (`PrivateRepositories` is the private subset of `AvailableRepositories`) cannot be guessed. `o.Normalize<AssemblyConfiguration>(Derive)` applies a function
     you give it, typically the loader's own derivation: always to plausible data, to about half of mixed data, never to adversarial data, so the invariant holds where it should and is still broken where a rule needs testing.
+    - **Size**: collections get `MaxCollection` scaled across the distribution (it now has an effect above 4) and narrow by one at each level of nesting, so a tree stays a few dozen nodes however deep it goes. `o.Large()` is the preset for
+    realistic trees (six levels, up to eight per collection); the defaults keep property tests quick.
   - Not generated: references to something outside the generated value (a key into a database, a repository elsewhere). Duplicate ids and `Start`/`End` pairs are generated too.
 
 An AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock) lives in the separate, optional

@@ -120,8 +120,8 @@ so a caller never has to spell out `TypeConstraints` at all. The set can never d
 actually declared, since there is no separate list to keep in sync and adding a field updates it
 automatically.
 
-A type nested in other types is supported when every type around it is `partial` too (the generator re-declares them). Any misused `[Constraint]` member — not static, wrong type,
-not partial (or nested in something that is not), generic, or an
+Generic types are supported (the type parameters are carried into the generated declaration). A type nested in other types is supported when every type around it is `partial` too (the generator re-declares them). Any misused `[Constraint]` member — not static, wrong type,
+not partial (or nested in something that is not), or an
 inconsistent type argument across members on the same type — refuses to generate anything for that
 type at all, rather than silently generating from the valid subset. See
 [the generator's own README](../Nullean.Entities.SourceGenerators/README.md) for the full rules.
@@ -352,7 +352,7 @@ StateMachine.FromMermaid(text);                           // and back: a diagram
 warnings and hints it let through are on `ApplyOutcome.Applied.Notices`. A violation carries `File`, `Line`, `Column` and `Length`; `Unique`, `References`, `Acyclic`, `NoChains`, `KeysMatch` and the
 selector form of `Always` take `at:` (a function from the offending item to a `SourceLocation`) so a finding can point back at the line it came from.
 
-More shapes for the references real models use: `KeysMatch(a => a.Repositories, r => r.Name)` (a dictionary keyed by its entity's own name), `Tree.Flatten(roots, n => n.Children)` (every node of a
+More shapes for the references real models use (`Tree.Map` rebuilds an immutable tree bottom-up, for rewriting one; `Acyclic` is iterative, so a chain a million deep is fine): `KeysMatch(a => a.Repositories, r => r.Name)` (a dictionary keyed by its entity's own name), `Tree.Flatten(roots, n => n.Children)` (every node of a
 tree, so `Unique` and `References` run across all levels), and `ConstraintSet.Pair(a, b)` / `ConstraintSet.Merge(a, b)` for a rule over two aggregates and for joining sets.
 
 ## DataAnnotations are constraints too

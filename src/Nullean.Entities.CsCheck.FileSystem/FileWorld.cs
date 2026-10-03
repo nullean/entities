@@ -8,6 +8,7 @@
 
 using System.IO.Abstractions;
 using System.IO.Abstractions.TestingHelpers;
+using System.Runtime.CompilerServices;
 using CsCheck;
 
 namespace Nullean.Entities.CsCheck.FileSystem;
@@ -44,12 +45,18 @@ internal sealed class FileWorld
 
 	private static readonly string[] Folders = ["", "guide", "guide/images", "reference"];
 
-	private int _counter;
-	private bool _linkedDirectoryMade;
+	// one counter per file system, so worlds attached to the same one (Boundaries draws edges for several members) never reuse a name
+	private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<MockFileSystem, StrongBox<int>> Counters = [];
 
-	public FileWorld()
+	private readonly StrongBox<int> _counter;
+
+	public FileWorld() : this(new MockFileSystem(), 0) { }
+
+	/// <summary>A world over a file system a baseline value already has; names start high so they cannot replace the baseline's own files.</summary>
+	public FileWorld(MockFileSystem fileSystem, int firstName = 10_000)
 	{
-		FileSystem = new MockFileSystem();
+		_counter = Counters.GetValue(fileSystem, _ => new StrongBox<int>(firstName));
+		FileSystem = fileSystem;
 		Root = OperatingSystem.IsWindows() ? @"C:\docs" : "/docs";
 		Outside = OperatingSystem.IsWindows() ? @"C:\elsewhere" : "/elsewhere";
 		FileSystem.AddDirectory(Root);
@@ -64,7 +71,7 @@ internal sealed class FileWorld
 
 	private string Combine(params string[] parts) => FileSystem.Path.Combine(parts);
 
-	private string NextName(PCG pcg) => $"{Words[(int)pcg.Next((uint)Words.Length)]}-{_counter++}";
+	private string NextName(PCG pcg) => $"{Words[(int)pcg.Next((uint)Words.Length)]}-{_counter.Value++}";
 
 	private string Folder(PCG pcg)
 	{
@@ -102,10 +109,9 @@ internal sealed class FileWorld
 			case FileKind.BelowLinkedDirectory:
 				{
 					var linked = Combine(Root, "linked");
-					if (!_linkedDirectoryMade)
+					if (!FileSystem.Directory.Exists(linked))
 					{
 						FileSystem.Directory.CreateSymbolicLink(linked, Outside);
-						_linkedDirectoryMade = true;
 					}
 					FileSystem.AddFile(Combine(Outside, name + ".md"), new MockFileData("through a link"));
 					return FileSystem.FileInfo.New(Combine(linked, name + ".md"));

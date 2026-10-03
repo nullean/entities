@@ -488,19 +488,38 @@ public static class Constraints<T>
 			var found = new List<Violation>();
 			var equal = comparer ?? EqualityComparer<TKey>.Default;
 
-			void Visit(TKey key)
+			// Iterative, so an include chain a million deep cannot overflow the stack: each frame is a node and the edges still to follow.
+			foreach (var start in byId.Keys.ToList())
 			{
-				state[key] = 1;
-				path.Add(key);
-				foreach (var target in edges(byId[key]))
+				if (state.ContainsKey(start))
 				{
+					continue;
+				}
+				var stack = new Stack<(TKey Key, IEnumerator<TKey> Edges)>();
+				state[start] = 1;
+				path.Add(start);
+				stack.Push((start, edges(byId[start]).GetEnumerator()));
+				while (stack.Count > 0)
+				{
+					var (key, following) = stack.Peek();
+					if (!following.MoveNext())
+					{
+						following.Dispose();
+						stack.Pop();
+						path.RemoveAt(path.Count - 1);
+						state[key] = 2;
+						continue;
+					}
+					var target = following.Current;
 					if (!byId.ContainsKey(target))
 					{
 						continue;
 					}
 					if (!state.TryGetValue(target, out var seen))
 					{
-						Visit(target);
+						state[target] = 1;
+						path.Add(target);
+						stack.Push((target, edges(byId[target]).GetEnumerator()));
 					}
 					else if (seen == 1)
 					{
@@ -512,16 +531,6 @@ public static class Constraints<T>
 							)
 						);
 					}
-				}
-				path.RemoveAt(path.Count - 1);
-				state[key] = 2;
-			}
-
-			foreach (var key in byId.Keys.ToList())
-			{
-				if (!state.ContainsKey(key))
-				{
-					Visit(key);
 				}
 			}
 			return found;

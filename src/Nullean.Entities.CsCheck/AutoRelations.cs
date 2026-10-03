@@ -376,6 +376,18 @@ public sealed partial class AutoOptions
 
 	internal Dictionary<Type, Func<object, object>> Normalizers { get; } = [];
 
+	internal Dictionary<Type, Func<object, IEnumerable<object?>>> EdgeProviders { get; } = [];
+
+	/// <summary>
+	/// Edge values for a member of type <typeparamref name="T"/> that depend on the valid value they are swapped into: a file in the file system the baseline already has. <c>Boundaries()</c> and
+	/// <c>Laws()</c> (which take the same options) ask for them, one at a time, and swap each into the matching members, or into a one-element collection of them.
+	/// </summary>
+	public AutoOptions EdgesFrom<T>(Func<object, IEnumerable<T>> edges)
+	{
+		EdgeProviders[typeof(T)] = baseline => edges(baseline).Select(e => (object?)e);
+		return this;
+	}
+
 	/// <summary>
 	/// <paramref name="fix"/> turns a generated <typeparamref name="T"/> into one that satisfies the invariants only the domain knows: a value derived from other members
 	/// (<c>PrivateRepositories</c> is the private subset of <c>AvailableRepositories</c>), which a generator cannot guess. Typically the type's own derivation function, the one the
@@ -388,6 +400,17 @@ public sealed partial class AutoOptions
 	}
 
 	internal bool ScopeRequired { get; private set; }
+
+	/// <summary>
+	/// Sizes for a realistic value rather than a quick one: nesting six levels deep and up to eight items per collection (narrowing by one at each level), which gives a
+	/// table of contents or navigation of a few dozen nodes. The defaults (three levels, four items) keep property tests fast.
+	/// </summary>
+	public AutoOptions Large()
+	{
+		MaxDepth = 6;
+		MaxCollection = 8;
+		return this;
+	}
 
 	/// <summary>
 	/// Opens an <see cref="AutoScope"/> around every generated root value. For a generator registered with <see cref="Use{T}(Gen{T})"/> that shares state across

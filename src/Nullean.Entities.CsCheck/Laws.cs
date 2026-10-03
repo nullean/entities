@@ -45,7 +45,8 @@ public static class ConstraintLaws
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
 		bool requireCounterExamples = true,
 		TimeProvider? time = null,
-		Action<string>? writeLine = null
+		Action<string>? writeLine = null,
+		Action<AutoOptions>? options = null
 	)
 	{
 		var all = constraints.AsConstraints();
@@ -99,7 +100,7 @@ public static class ConstraintLaws
 			}
 			else if (constraint.Kind == ConstraintKind.PointInTime)
 			{
-				swaps ??= Swaps(constraints, valid, time);
+				swaps ??= Swaps(constraints, valid, time, options);
 				var swap = swaps.FirstOrDefault(s => s.Instance is not null && s.RejectedBy.Count == 1 && s.RejectedBy[0] == name);
 				if (swap is not null)
 				{
@@ -155,11 +156,11 @@ public static class ConstraintLaws
 		return report;
 	}
 
-	private static List<ConstraintBoundaries.Swap<T>> Swaps<T>(ConstraintSet<T> constraints, T valid, TimeProvider? time)
+	private static List<ConstraintBoundaries.Swap<T>> Swaps<T>(ConstraintSet<T> constraints, T valid, TimeProvider? time, Action<AutoOptions>? options)
 	{
 		try
 		{
-			return [.. ConstraintBoundaries.Swaps(constraints, valid, time)];
+			return [.. ConstraintBoundaries.Swaps(constraints, valid, time, options)];
 		}
 		catch (InvalidOperationException)
 		{

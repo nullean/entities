@@ -191,7 +191,7 @@ public class ConstraintGeneratorShapeTests
 	}
 
 	[Test]
-	public void Generic_containing_type_is_refused_with_NECG004()
+	public void A_generic_type_is_supported_and_its_parameters_are_carried_into_the_generated_declaration()
 	{
 		var run = GeneratorTestHost.Run(
 			"""
@@ -207,8 +207,43 @@ public class ConstraintGeneratorShapeTests
 			"""
 		);
 
-		run.HasDiagnostic("NECG004").Should().BeTrue();
-		run.Generated.Should().BeEmpty();
+		run.Diagnostics.Should().BeEmpty();
+		var source = run.SingleGeneratedSource();
+		source.Should().Contain("partial record Box<T> : global::Nullean.Entities.IHaveConstraints<Box<T>>");
+		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
+	}
+
+	[Test]
+	public void A_generic_companion_with_fields_and_a_generic_container_are_supported()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using System.ComponentModel.DataAnnotations;
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public sealed record Entity<TId>(TId Id, [Range(1, 9)] int Level);
+
+			[Constraints]
+			public static partial class EntityRules<TId>
+			{
+			    public static readonly Constraint<Entity<TId>> LevelNotFive = Constraints<Entity<TId>>.Always(e => e.Level != 5);
+			}
+
+			public partial class Holder<TKey>
+			{
+			    [Constraints]
+			    public sealed partial record Inner([Required] string Name);
+			}
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		run.Generated.Should().HaveCount(2);
+		run.Generated.Should().Contain(g => g.Source.Contains("partial class EntityRules<TId>") && g.Source.Contains("\"LevelRange\""));
+		run.Generated.Should().Contain(g => g.Source.Contains("partial class Holder<TKey>") && g.Source.Contains("partial record Inner"));
+		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
 	}
 
 	[Test]

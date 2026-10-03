@@ -26,7 +26,7 @@
 //     this one path.
 //
 // A type with ANY invalid [Constraint] member (not static, wrong type, mixed kinds, not
-// partial, nested in a type that is not partial, generic, or an inconsistent type argument) gets no generated property at all —
+// partial, nested in a type that is not partial, or an inconsistent type argument) gets no generated property at all —
 // see Diagnostics.cs for why a partial, silently-incomplete set is treated as worse than a
 // compile error.
 
@@ -186,11 +186,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			var anchor = groupMembers[0].Location;
 
 			var containers = ContainerChain(containingType);
-			if (containingType.TypeParameters.Length > 0 || containers.Any(c => c.TypeParameters.Length > 0))
-			{
-				spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.GenericTypeNotSupported, anchor, containingType.Name));
-				continue;
-			}
+
 			// A nested type is supported: the types around it are re-declared partial in the generated file, so each must be partial in the source.
 			if (containers.FirstOrDefault(c => !IsDeclaredPartial(c)) is { } notPartial)
 			{
@@ -339,7 +335,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		// TypeConstraints struct instead — see NestedTypeConstraints for why it's never on the spec
 		// class's own base list, even when the class isn't `static`.
 		var (baseList, nested) = selfAttach
-			? ($" : global::Nullean.Entities.IHaveConstraints<{type.Name}>", null)
+			? ($" : global::Nullean.Entities.IHaveConstraints<{type.Name}{TypeParameters(type)}>", null)
 			: (string.Empty, NestedTypeConstraints(
 				type,
 				"global::Nullean.Entities.IConstraintsFor",
@@ -451,10 +447,12 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	) =>
 		$"public readonly struct TypeConstraints : {interfaceName}<{typeArgDisplay}>\n" + $"    {{\n" +
 		$"        public static readonly TypeConstraints Instance = default;\n" + $"\n" +
-		$"        public {propertyType} All => {type.Name}.All;\n"
+		$"        public {propertyType} All => {type.Name}{TypeParameters(type)}.All;\n"
 		// The entity's mutations travel with the instance, so a test project that only sees
 		// `OrderConstraints.Instance` (not the partial class itself) can still enumerate them.
-		+ (hasActions ? $"\n        public global::Nullean.Entities.EntityActions<{typeArgDisplay}>? Actions => {type.Name}.Actions;\n" : "")
+		+ (hasActions
+			? $"\n        public global::Nullean.Entities.EntityActions<{typeArgDisplay}>? Actions => {type.Name}{TypeParameters(type)}.Actions;\n"
+			: "")
 		+ $"    }}";
 
 	private static string Emit(
@@ -494,10 +492,10 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		for (var level = 0; level < containers.Length; level++)
 		{
 			var containerIndent = outerIndent + new string(' ', 4 * level);
-			sb.AppendLine($"{containerIndent}partial {TypeKindKeyword(containers[level])} {containers[level].Name}");
+			sb.AppendLine($"{containerIndent}partial {TypeKindKeyword(containers[level])} {containers[level].Name}{TypeParameters(containers[level])}");
 			sb.AppendLine($"{containerIndent}{{");
 		}
-		sb.AppendLine($"{indent}partial {typeKind} {type.Name}{baseList}");
+		sb.AppendLine($"{indent}partial {typeKind} {type.Name}{TypeParameters(type)}{baseList}");
 		sb.AppendLine($"{indent}{{");
 		// Declared before the property: static initializers run in textual order, and the set's lambdas read these.
 		foreach (var field in staticFields ?? [])
@@ -542,8 +540,12 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		_ => "class",
 	};
 
+	/// <summary><c>&lt;TId, TValue&gt;</c> for a generic type, empty otherwise. Constraints on the parameters are not repeated: a partial declaration need only state them once.</summary>
+	private static string TypeParameters(INamedTypeSymbol type) =>
+		type.TypeParameters.Length == 0 ? "" : "<" + string.Join(", ", type.TypeParameters.Select(p => p.Name)) + ">";
+
 	private static string HintName(INamedTypeSymbol type) =>
-		$"{type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "")}.Constraints.g.cs";
+		$"{type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "").Replace('<', '{').Replace('>', '}').Replace(", ", ",")}.Constraints.g.cs";
 
 	private enum ConstraintKind
 	{

@@ -15,5 +15,6 @@ Every file-system member of one value belongs to the same world, so `SourceFile`
 add what the rules about files exist to catch: a missing file, an empty one, a symbolic link, a file below a linked directory, one below a hidden directory, one outside the root, one reached
 through `..`, one in a different case. Worlds are deterministic from the seed, and a shrunk failure prefers the plain existing file.
 
-Not covered: `Boundaries()` swaps edge values into single properties and does not know the file kinds, so counter-examples for `Laws` on these members are written by hand (in the same world:
-`d.FileSystem.AddFile(...)`).
+`Boundaries()` and `Laws()` know the file kinds too: pass `options: o => o.UseFileSystem()` and each kind (a missing file, a symlink, a hidden directory...) is swapped, in the baseline's own file system, into the file members and
+into one-element lists of them, so `Laws` finds a counter-example for `ImagesExist`, `ImagesStayInRoot` and the rest with none written by hand. (A rule that two others always trip with it, like a missing root and "images stay inside the root", is
+reported as an overlap.)

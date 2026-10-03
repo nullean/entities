@@ -61,4 +61,12 @@ public static class Tree
 
 		return Walk(roots);
 	}
+
+	/// <summary>
+	/// A copy of the forest with every node rebuilt bottom-up: <paramref name="rebuild"/> receives a node and its already-rebuilt children and returns the node to put in its place.
+	/// For rewriting an immutable tree (a table of contents, a navigation, a union of cases) without writing the recursion each time, e.g. to point every mount at a repository that exists.
+	/// Recursive, so it is meant for trees as deep as a document, not for a chain a million long.
+	/// </summary>
+	public static IReadOnlyList<T> Map<T>(IEnumerable<T> roots, Func<T, IEnumerable<T>> children, Func<T, IReadOnlyList<T>, T> rebuild) =>
+		[.. roots.Select(node => rebuild(node, Map(children(node), children, rebuild)))];
 }

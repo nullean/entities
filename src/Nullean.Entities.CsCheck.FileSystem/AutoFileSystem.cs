@@ -1,4 +1,5 @@
 using System.IO.Abstractions;
+using System.IO.Abstractions.TestingHelpers;
 using CsCheck;
 
 namespace Nullean.Entities.CsCheck.FileSystem;
@@ -18,6 +19,9 @@ public static class AutoFileSystemExtensions
 		options.Use<IFileSystem>(new WorldGen<IFileSystem>(options, (_, world, _) => world.FileSystem));
 		options.Use<IFileInfo>(new WorldGen<IFileInfo>(options, (pcg, world, mode) => world.File(pcg, PickFile(pcg, mode))));
 		options.Use<IDirectoryInfo>(new WorldGen<IDirectoryInfo>(options, (pcg, world, mode) => world.Directory(pcg, PickDirectory(pcg, mode))));
+		// Boundaries() and Laws() swap these into a valid value, in the file system it already has.
+		options.EdgesFrom<IFileInfo>(EdgeFiles);
+		options.EdgesFrom<IDirectoryInfo>(EdgeDirectories);
 		options.Use<IFileSystemInfo>(
 			new WorldGen<IFileSystemInfo>(
 				options,
@@ -26,6 +30,36 @@ public static class AutoFileSystemExtensions
 		);
 		return options;
 	}
+
+	private static MockFileSystem? WorldOf(object baseline)
+	{
+		foreach (var property in baseline.GetType().GetProperties().Where(p => p.GetIndexParameters().Length == 0))
+		{
+			var value = property.GetValue(baseline);
+			var found = value switch
+			{
+				MockFileSystem mock => mock,
+				IFileSystemInfo info => info.FileSystem as MockFileSystem,
+				_ => null,
+			};
+			if (found is not null)
+			{
+				return found;
+			}
+		}
+		return null;
+	}
+
+	// one file of every kind but the plain one, in the file system the baseline already has
+	private static IEnumerable<IFileInfo> EdgeFiles(object baseline) =>
+		WorldOf(baseline) is { } mock
+			? Enum.GetValues<FileKind>().Where(k => k != FileKind.Existing).Select(k => new FileWorld(mock).File(new PCG(1u, (ulong)k + 1), k))
+			: [];
+
+	private static IEnumerable<IDirectoryInfo> EdgeDirectories(object baseline) =>
+		WorldOf(baseline) is { } mock
+			? Enum.GetValues<DirectoryKind>().Where(k => k != DirectoryKind.Existing).Select(k => new FileWorld(mock).Directory(new PCG(1u, (ulong)k + 1), k))
+			: [];
 
 	private static FileKind PickFile(PCG pcg, AutoMode mode)
 	{

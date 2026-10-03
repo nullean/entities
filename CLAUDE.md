@@ -65,7 +65,7 @@ generated `Actions` into one-line `Exhaustive`/`Sample`/`Mermaid`/`Faults`/`Conf
 
 `Nullean.Entities.FileSystem` (file rules over System.IO.Abstractions) and `Nullean.Entities.CsCheck.FileSystem` (generated MockFileSystem worlds) are two more optional packages.
 The core, Reactive and FileSystem packages are trim/AOT clean and verified by publishing `examples/Nullean.Entities.AotSmoke` NativeAOT (`./build.sh aot`); the CsCheck packages and the generator are
-not, by design (reflection). The `[Constraints]` generator also turns DataAnnotations into constraints (no opt-in) and supports nested types; generic types are still refused (NECG004).
+not, by design (reflection). The `[Constraints]` generator also turns DataAnnotations into constraints (no opt-in) and supports nested and generic types (a generic companion names its type with a field or `[Constraints]`; C# does not allow a type parameter in an attribute argument, so `[Constraints<T>]` takes a closed type).
 `Violation.Member`, `ConstraintViolationException`, `Unique`/`References`/`Acyclic`/`NoChains`, `Laws()`, and AutoGen's value-object, union, abstract-type, DataAnnotations and foreign-key support are
 documented in the package READMEs; `docs/integration.md` covers real services and `AUTOTEST_NOTES.md` section 6 the docs-platform example.
 

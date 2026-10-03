@@ -111,8 +111,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 					Build(keyType, "key", false, depth + 1),
 					Build(valueType, "value", false, depth + 1),
 					options,
-					AtLeastOne(valueType),
-					PendingTargets(valueType)
+					AtLeastOne(valueType), PendingTargets(valueType), depth
 				);
 		}
 		if (TryCollection(type, out var elementType))
@@ -123,7 +122,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 			}
 			var elementInfo = info?.ElementType ?? info?.GenericTypeArguments.FirstOrDefault();
 			var elementsNullable = elementInfo?.ReadState == NullabilityState.Nullable && !elementType.IsValueType;
-			return new CollectionGen(type, elementType, Element(elementType, name, depth + 1), options, elementsNullable, AtLeastOne(elementType));
+			return new CollectionGen(type, elementType, Element(elementType, name, depth + 1), options, elementsNullable, AtLeastOne(elementType), depth);
 		}
 		if (TryUnion(type, depth, out var union))
 		{
@@ -1215,7 +1214,8 @@ internal sealed class CollectionGen(
 	(Gen<object?> Value, ObjectPlan? Plan) element,
 	AutoOptions options,
 	bool elementsNullable = false,
-	bool atLeastOne = false
+	bool atLeastOne = false,
+	int depth = 1
 ) : Gen<object?>
 {
 	public Type Target => target;
@@ -1229,7 +1229,7 @@ internal sealed class CollectionGen(
 
 	public override object? Generate(PCG pcg, Size? min, out Size size)
 	{
-		var count = (int)Count(pcg, options);
+		var count = (int)Count(pcg, options, depth);
 		if (atLeastOne && count == 0)
 		{
 			count = 1;
@@ -1474,7 +1474,11 @@ internal sealed class CollectionGen(
 			: original;
 	}
 
-	internal static uint Count(PCG pcg, AutoOptions options)
+	/// <summary>
+	/// How many items a collection gets. The shape of the distribution (often none, usually a few) is fixed; <see cref="AutoOptions.MaxCollection"/> scales it, and each level of nesting
+	/// narrows it by one, so a tree stays a few dozen nodes however deep it may go instead of growing as width to the power of depth.
+	/// </summary>
+	internal static uint Count(PCG pcg, AutoOptions options, int depth = 1)
 	{
 		if (options.Mode == AutoMode.Adversarial)
 		{
@@ -1488,7 +1492,9 @@ internal sealed class CollectionGen(
 			};
 		}
 		var weights = new[] { 0u, 0u, 1u, 1u, 2u, 2u, 3u, 4u };
-		return Math.Min(weights[pcg.Next((uint)weights.Length)], (uint)options.MaxCollection);
+		var picked = weights[pcg.Next((uint)weights.Length)];
+		var widest = Math.Max(1, options.MaxCollection - Math.Max(0, depth - 1));
+		return (uint)Math.Round(picked * widest / 4.0, MidpointRounding.AwayFromZero);
 	}
 }
 
@@ -1498,12 +1504,13 @@ internal sealed class DictionaryGen(
 	Gen<object?> value,
 	AutoOptions options,
 	bool atLeastOne = false,
-	Func<bool>? hasPending = null
+	Func<bool>? hasPending = null,
+	int depth = 1
 ) : Gen<object?>
 {
 	public override object? Generate(PCG pcg, Size? min, out Size size)
 	{
-		var count = (int)CollectionGen.Count(pcg, options);
+		var count = (int)CollectionGen.Count(pcg, options, depth);
 		if (atLeastOne && count == 0)
 		{
 			count = 1;

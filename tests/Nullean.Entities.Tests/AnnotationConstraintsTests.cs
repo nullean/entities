@@ -49,6 +49,25 @@ public static partial class OrderConstraints
 	public static readonly Constraint<Order> NotThirteen = Constraints<Order>.Always(o => o.Quantity != 13);
 }
 
+// Generic types: the type parameters are carried into the generated declaration.
+[Constraints]
+public sealed partial record Entity<TId>([Required] string Name, [Range(1, 9)] int Level, TId Id)
+{
+	public static readonly Constraint<Entity<TId>> LevelNotFive = Constraints<Entity<TId>>.Always(e => e.Level != 5);
+}
+
+public sealed record Box<T>([Required] string Label, T Value);
+
+// C# does not allow a type parameter in an attribute's type argument, so a generic companion names its type with a field and a closed one with the attribute.
+[Constraints]
+public static partial class BoxRules<TItem>
+{
+	public static readonly Constraint<Box<TItem>> HasValue = Constraints<Box<TItem>>.Always(b => b.Value is not null);
+}
+
+[Constraints<Box<int>>]
+public static partial class IntBoxRules;
+
 public class AnnotationConstraintsTests
 {
 	private static readonly Signup Good = new("Ada", "adal", 30, 4.5, "ABC-123", "hi");
@@ -179,5 +198,26 @@ public class AnnotationConstraintsTests
 	{
 		OrderConstraints.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["NotThirteen", "NumberRequired", "QuantityRange"]);
 		OrderConstraints.All.Validate(new Order("", 13)).Select(v => v.ConstraintId).Should().BeEquivalentTo(["NotThirteen", "NumberRequired"]);
+	}
+
+	[Test]
+	public void A_generic_entity_is_closed_per_use_and_gets_its_own_set()
+	{
+		Entity<Guid>.Constraints.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["LevelNotFive", "NameRequired", "LevelRange"]);
+		Entity<int>.Constraints.Validate(new Entity<int>("", 5, 7)).Select(v => v.ConstraintId).Should().BeEquivalentTo(["LevelNotFive", "NameRequired"]);
+	}
+
+	[Test]
+	public void A_generic_companion_with_a_field_gets_the_annotations_of_the_generic_type_too()
+	{
+		BoxRules<int>.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["HasValue", "LabelRequired"]);
+		BoxRules<string>.All.Validate(new Box<string>(" ", "x")).Single().Member.Should().Be("Label");
+	}
+
+	[Test]
+	public void A_closed_generic_type_can_be_named_by_the_attribute()
+	{
+		IntBoxRules.All.AsConstraints().Select(c => c.Name).Should().Equal("LabelRequired");
+		IntBoxRules.All.Validate(new Box<int>("", 3)).Single().ConstraintId.Should().Be("LabelRequired");
 	}
 }
