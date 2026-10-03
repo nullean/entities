@@ -60,6 +60,16 @@ public sealed class Script<TSut>
 	}
 
 	/// <summary>
+	/// <see cref="Step(string, Action{TSut})"/> for a service whose operation is async. The step waits for it, so the run stays deterministic: use it
+	/// with services whose awaits complete on their own (in-memory fakes, a <see cref="ManualTimeProvider"/>), not with ones that need real I/O.
+	/// </summary>
+	public Script<TSut> StepAsync(string name, Func<TSut, Task> action) => Step(name, sut => action(sut).GetAwaiter().GetResult());
+
+	/// <summary><see cref="Step{TArg}(string, Gen{TArg}, Action{TSut, TArg})"/> for an async operation.</summary>
+	public Script<TSut> StepAsync<TArg>(string name, Gen<TArg> gen, Func<TSut, TArg, Task> action) =>
+		Step(name, gen, (sut, arg) => action(sut, arg).GetAwaiter().GetResult());
+
+	/// <summary>
 	/// A delay drawn before every step in a generated run — not a fixed pause. Generated delays
 	/// eventually land past a real deadline (see <c>After().Then().Within()</c> in
 	/// Nullean.Entities.Reactive) and shrink to the smallest gap that still violates it. Without

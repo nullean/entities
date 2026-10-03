@@ -366,6 +366,32 @@ OrderLifecycle.RealizedWalks().Sample(steps =>
 is for exercising guards: edges with `when:` predicates are skipped when the predicate fails on the
 generated source value, so a walk is always a valid path through the machine.
 
+## Testing a service
+
+A service holds a repository, a clock and the entity's state, and its operations are async. Two checks drive it without Rx or an event log; both run on CsCheck's `Sample`, so a failure is a shrunk sequence with a seed.
+
+```csharp
+// 1. By the state it exposes: after every step, check the rules on (before, after).
+Script.For<OrderService>()
+    .StepAsync("Place",   s => s.PlaceAsync())
+    .StepAsync("Confirm", s => s.ConfirmAsync())
+    .StepAsync("Ship",    s => s.ShipAsync())
+    .Length(1, 12)
+    .SampleState(clock => new OrderService(clock), s => s.State, ConstraintSet.From(("lifecycle", OrderLifecycle.AsConstraint())));
+
+// 2. Against the declared machine: generate its triggers, run them on the service, and compare with what the machine predicts.
+OrderLifecycle.ConformsTo(clock => new OrderService(clock), s => s.State, (s, trigger) => trigger switch
+{
+    "Place" => s.PlaceAsync(), "Confirm" => s.ConfirmAsync(), "Ship" => s.ShipAsync(), "Cancel" => s.CancelAsync(),
+    _ => throw new InvalidOperationException(trigger),
+});
+```
+
+- `SampleState` reads the state after each step and runs the `ConstraintSet` on it, so an invariant (`Always`) and a rule about changes (`Transitions`, `Monotonic`, `Conserves`) both count. A step that leaves the state unchanged, because the service refused it, is not a transition: only the invariants are asked.
+- `ConformsTo` is the stronger one. After each trigger the service must be where the machine says: the next state when `Fire` accepts it, the *same* state when it refuses (a guard, a case the trigger is not declared for). It finds a service that ships an unconfirmed order and one that refuses a transition the machine allows. Triggers that take an argument are not explored; the machine cannot predict what an argument builds.
+- Operations are awaited in place, so use a service whose awaits complete by themselves (an in-memory repository, a `ManualTimeProvider`). The clock passed to the factory is advanced by `Delays(...)`.
+- For a value machine (`StateMachine<TState, TTrigger>`), `ConformToService(create, stateOf, bindings: [("Open", d => d.OpenAsync()), ...])` is `ConformToMutable` with async bindings.
+
 ## Choosing a test: the CsCheck methodologies
 
 | You want to know | CsCheck methodology | The call here | Finds |

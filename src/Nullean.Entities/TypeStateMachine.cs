@@ -107,6 +107,9 @@ public sealed class StateMachine<TState>
 
 	public Type Initial => _initial;
 
+	/// <summary>The declared case type of a state value: <c>Placed</c> for a <c>Placed(2)</c>, also for a union value that wraps one.</summary>
+	public Type CaseOf(TState state) => StateMachineRuntime.CaseTypeOf(state!);
+
 	public bool IsTerminal(Type state) => _states.TryGetValue(state, out var role) && role == StateRole.Terminal;
 
 	/// <summary>
