@@ -120,3 +120,26 @@ Found only after `GenAuto.Of<T>` started producing edge values (the first pass, 
 | `Person` | The machine has `GoOnLeave` and `Return`; the entity has only `Terminate()`. `OnLeave` is unreachable in practice. |
 
 A declared machine cannot represent guards that depend on runtime data; those stay in the entity's own constraints (`Enforced()`).
+
+## 6. A docs-platform domain, from docs-eng-team's investigation
+
+`examples/Nullean.Entities.Examples/Docs/DocsPlatform` expresses 13 of the constraints catalogued in the docs-eng-team domain-model investigation (plus the product-lifecycle ordering and the link-index deadline, which it found missing) (`docs/domain-model/constraints.md`),
+shaped like docs-builder's `erd-model` aggregates (`Catalog`, `Product` with a lifecycle machine, `DocumentationSet`, `Site`, a pipeline event log). Tests are in
+`tests/Nullean.Entities.Examples.Tests/Docs`.
+
+| Kind of rule | Rules written | How |
+|---|---|---|
+| Uniqueness | G87 product ids (case-insensitive), N1 page URLs, D101 redirect sources, G67 path prefixes | `Unique` |
+| Referential integrity | V1/G80 product to versioning system, D106 redirect target exists, G62/I6 mount to toc, includes to tocs | `References` |
+| Graph | D69 toc include cycles, N30 redirect chains | `Acyclic`, `NoChains` |
+| Cross-field | G89 base not after current, N25 redirect shadows a live page | `Always` with a selector, `Check` |
+| Lifecycle | the ordering of preview, beta, GA, deprecated and removed, which the investigation found nowhere | `StateMachine`, `ConformTo`, `Exhaustive` |
+| Temporal | N38 registry only moves forward, N48 publish only after links validated, link index updated within 10 minutes of a green build | `Temporal<T>`, `Trace.Check` |
+| Temporal, for every command sequence | the publish step cannot publish an unvalidated manifest | event-sourced `Exhaustive(rules)` |
+
+What the tests show: `Probe()` finds a counter-example to every rule from **generated data alone** (duplicates, dangling references, include cycles, redirect
+chains, inverted versions), with no hand-written generator. `Laws()` passes for each set, and it told us something true about the rules: a redirect chain cannot be
+written so that it breaks only `RedirectsAreNotChained`, because the middle hop is either not a page (breaks `RedirectTargetsExist`) or is one (breaks `RedirectsDoNotShadowPages`).
+
+Not expressed: the C1-C3 compatibility rules (an old config file must keep loading), which are about files on disk and belong in golden-file tests, and the rules that need
+a *different repository's* data (I3: a cross-link resolves in another repository's manifest), which would be a composite over the link registry.

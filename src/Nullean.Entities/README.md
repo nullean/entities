@@ -345,6 +345,47 @@ StateMachine.FromMermaid(text);                           // and back: a diagram
 `Nullean.Entities.CsCheck` explores a machine (`machine.Spec().Exhaustive()`) and checks a real entity follows it (`machine.ConformTo(...)`).
 `Constraint<T>.Map` / `ConstraintSet<T>.Map` lift constraints through a projection while keeping kind, name, guards and edges.
 
+## Rules over collections and graphs
+
+Most of the rules a real domain has are about *several* things at once: two items with one id, a reference to something that is not there, an include that loops.
+Four shapes cover them, each reporting every offender with the offending value as `Evidence`, and none of them throws on bad data (a duplicate id
+does not break the cycle check):
+
+```csharp
+Constraints<Site>.Unique(s => s.Pages, p => p.Url);                                        // no two pages at one URL
+Constraints<Site>.References<Mount, string>(s => s.Mounts, m => [m.TocId], s => s.Tocs.Select(t => t.Id));   // every mount names a toc that exists
+Constraints<Site>.Acyclic(s => s.Tocs, t => t.Id, t => t.IncludedIds);                      // "a -> b -> a" is the evidence
+Constraints<Site>.NoChains(s => s.Redirects, r => r.From, r => r.To);                       // A to B while B goes to C
+```
+
+## Reporting violations
+
+A violation carries the rule (`ConstraintId`), a message, the `Evidence`, and, for the selector form of `Always`, the **member** it is about:
+`Constraints<Customer>.Always(c => c.Email, e => e.Contains('@'))` reports `Member = "Email"` (read from the selector's text, so there is no expression tree and
+it stays trim and AOT safe). That is what a validation response is keyed by. `ApplyOrThrow` and `Result.Unwrap` throw a `ConstraintViolationException` whose
+`Violations` are the list itself, not the messages joined into one string. [`docs/integration.md`](https://github.com/nullean/entities/blob/main/docs/integration.md)
+shows the ASP.NET Core `ValidationProblem` mapping.
+
+A rule that two sets name differently keeps each name: `ConstraintSet.From` copies a rule that is already named. `Describe("...")` adds prose.
+
+## Entities that mutate in place
+
+`Apply` is built for values that are replaced (records). A class that is changed in place (an EF Core entity, a classic aggregate) has no "before" to compare to:
+when the mutation returns the very same object of a type without value equality, `Apply` does not call it a no-op; it runs the point-in-time constraints on the result.
+For the sequential rules (`Transitions`, `Monotonic`, `Conserves`) keep a snapshot and use `Check`:
+
+```csharp
+var before = Snapshot(order);          // a copy, or the ORM's original values
+order.Ship();
+var violations = constraints.Check(before, order);
+```
+
+## Trim and AOT
+
+`Nullean.Entities` and `Nullean.Entities.Reactive` build with the trim and AOT analyzers on (`IsAotCompatible`), and `./build.sh aot` publishes a small app that uses the generated
+constraints, `Apply`, a declared machine with its Mermaid round trip, temporal rules, `TemporalMonitor` and a Reactive constraint set as **NativeAOT**, and runs it.
+The `Nullean.Entities.CsCheck` packages are not AOT-compatible: generated data is built by reflection, which is fine in tests.
+
 ## Install
 
 ```sh

@@ -516,6 +516,7 @@ OrderConstraints.All.RejectsInvalid();                                   // inva
 | `Preserves(actions)` | From a valid start, any action with any generated argument gives a result that satisfies the constraints. The action runs **raw**, not through `Apply`, which would reject a bad result and so could never show one | You want the random cousin of `Exhaustive` that also starts from states `New()` never produces. |
 | `Probe()` | Per point-in-time constraint, how often it held and was violated over 1,000 generated values | A constraint that **never fails** may be a tautology or a derived value; one that **never holds** is a contradiction (or something the generator cannot build) and throws. |
 | `RejectsInvalid()` | Values violating a constraint appear in `Validate` under its name, and `Apply` to them is refused naming it | You want proof every rule is named and enforced. Constraints the generator never violates are listed as unfalsifiable. |
+| `Laws(valid, counterExamples)` | Four laws in one line: a valid value breaks nothing; every rule has a name and names are unique; every rule has a **counter-example** (yours, or generated from a single-property edge value that only that rule rejects); each counter-example breaks **only its own rule** | You want a constraint set to be trustworthy: no rule that can never fire, no two rules that always fire together. It reports every failure at once and tells you when two rules overlap so a single cause cannot be isolated. |
 
 `ForAll` and `Preserves` take `gen:`/`start:` to replace the default (AutoBogus, kept only if valid). For types whose
 valid values are hard to hit by filtering, use the entities the actions can reach instead:
@@ -638,13 +639,23 @@ Know the limits:
 - **Tight constraints still defeat zero-config.** A realistic email, a balanced journal entry, plausible vitals: the default reaches
   some by luck (`"a@b..c"`) but not reliably. The error names the constraints that rejected everything; give the test a start
   (`Spec(start)`), `Use<T>(gen)`, or a Bogus rule (`f.Internet.Email()`).
-- **Not built by AutoGen:** interfaces and abstract types, and classes with no public constructor. It says so and points at
-  `AutoOptions.Use<T>(gen)`. `ImmutableArray`/`ImmutableList`/`ImmutableHashSet`/`ImmutableDictionary`, `FrozenSet`/`FrozenDictionary`,
-  `ReadOnlyCollection`, `SortedSet`, `System.Tuple`, `KeyValuePair` and value tuples are built.
-- **Foreign keys** are generated among the items of one collection: a type with an `Id` (or `<Type>Id`) and other `*Id` members of the same type
-  (`Person.ManagerId`) gets a valid forest in `Plausible`, and in `Mixed`/`Adversarial` a share of collections with a reference to nothing, to
-  itself, or round a cycle of two or three. References *between different collections* (an `Order.CustomerId` into a separate customer list) are not
-  generated; duplicate ids and `Start`/`End` pairs are.
+- **Not built by AutoGen:** interfaces and abstract types (give it `AutoOptions.Use<T>(gen)`), and classes with neither a public constructor nor a static
+  `From`/`Create`/`Of`/`New`/`Parse` factory. Everything else is: immutable, frozen and read-only collections, `System.Tuple`, `KeyValuePair`, value tuples,
+  `IPAddress`, `Version`, `Int128`, `UInt128`, `BigInteger`, `Half` and `Rune`.
+- **Value objects and typed ids** are built the way their author intended: `[JsonConstructor]` picks the constructor, and a type with a private constructor and a static
+  factory (`DocsetPath.From(string)`, `OrderId.Create(Guid)`) goes through it, redrawing when its guard refuses a value. A strongly-typed id that wraps a `Guid`, `string`, `int`
+  or `long` takes part in keys and foreign keys like the primitive does.
+- **Unions and `[Union]` types** (C# `union Shape(Circle, Square)`, or the polyfill of it) get every case, not the one a "most parameters" rule would pick.
+- **DataAnnotations** are respected: `[Range]`, `[StringLength]`, `[MaxLength]`, `[MinLength]`, `[Required]` and `[RegularExpression]` hold in `Plausible` data; `Mixed` and
+  `Adversarial` draw each rule's **boundary** (the smallest and largest valid value, and the one just outside) as an edge.
+- **At the nesting limit** a non-nullable object is its smallest valid value (collections empty, nested objects built from their own smallest parts), not `null`; only a type that
+  contains itself non-nullably ends in `null`. Elements of a `List<string?>` are sometimes `null`; elements of a `List<string>` never are.
+- **Foreign keys** are generated, not only valid ones:
+  - Among the items of one collection: an `Id` (or `<Type>Id`) and other `*Id` members of the same type (`Person.ManagerId`) give a valid forest in `Plausible`; in
+    `Mixed`/`Adversarial` a share of collections have a reference to nothing, to itself, or round a cycle of two or three.
+  - **Lists of keys** (`DirectReportIds`, `IncludedIds`): a valid graph, then a dangling include, a self-include, or two items including each other.
+  - **Between two collections of one object**: `Order.CustomerId` into a sibling `Customers` list (a member named `<ElementType>Id`): always valid in `Plausible`, sometimes dangling otherwise.
+  - Not generated: references between different *objects* (a key into a database, a repository elsewhere). Duplicate ids and `Start`/`End` pairs are generated too.
 
 An AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock) lives in the separate, optional
 [`Nullean.Entities.CsCheck.AutoBogus`](https://www.nuget.org/packages/Nullean.Entities.CsCheck.AutoBogus) package (`GenAutoBogus.Of<T>(configure)`), for teams that already

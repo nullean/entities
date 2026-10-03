@@ -71,6 +71,10 @@ internal sealed record PurchaseOrder(string Id, string CustomerId);
 
 internal sealed record Shop(IReadOnlyList<Customer> Customers, IReadOnlyList<PurchaseOrder> Orders);
 
+internal sealed record Doc(string Id, IReadOnlyList<string> IncludedIds);
+
+internal sealed record DocSet(IReadOnlyList<Doc> Docs);
+
 public class AutoGenRealWorldTests
 {
 	private static List<T> Draw<T>(AutoMode mode, int count = 400, Action<AutoOptions>? configure = null) =>
@@ -175,5 +179,33 @@ public class AutoGenRealWorldTests
 		plausible.Should().NotBeEmpty();
 		plausible.All(s => !DanglingOrder(s)).Should().BeTrue();
 		Draw<Shop>(AutoMode.Adversarial, 800).Where(s => s.Customers.Count > 0).Any(DanglingOrder).Should().BeTrue("an order for a customer that is not there");
+	}
+
+	private static bool Includes(DocSet set, Func<Doc, IEnumerable<string>, bool> bad) => set.Docs.Any(d => bad(d, d.IncludedIds));
+
+	private static bool HasCycle(DocSet set)
+	{
+		var byId = set.Docs.GroupBy(d => d.Id).ToDictionary(g => g.Key, g => g.First());
+
+		bool Reaches(string from, string target, HashSet<string> seen) =>
+			byId.TryGetValue(from, out var doc) && doc.IncludedIds.Any(next => next == target || (seen.Add(next) && Reaches(next, target, seen)));
+
+		return set.Docs.Any(d => Reaches(d.Id, d.Id, []));
+	}
+
+	[Test]
+	public void Lists_of_keys_are_valid_graphs_in_plausible_data_and_reach_dangling_self_and_cyclic_includes_in_adversarial_data()
+	{
+		var plausible = Draw<DocSet>(AutoMode.Plausible, 600).Where(s => s.Docs.Select(d => d.Id).Distinct().Count() == s.Docs.Count).ToList();
+
+		plausible.Should().NotBeEmpty();
+		plausible.All(s => !Includes(s, (d, ids) => ids.Any(i => s.Docs.All(x => x.Id != i)))).Should().BeTrue("no dangling include");
+		plausible.All(s => !HasCycle(s)).Should().BeTrue("no cycle");
+
+		var adversarial = Draw<DocSet>(AutoMode.Adversarial, 1000);
+
+		adversarial.Any(s => Includes(s, (d, ids) => ids.Any(i => s.Docs.All(x => x.Id != i)))).Should().BeTrue("an include of nothing");
+		adversarial.Any(s => Includes(s, (d, ids) => ids.Contains(d.Id))).Should().BeTrue("a doc that includes itself");
+		adversarial.Any(s => HasCycle(s) && !Includes(s, (d, ids) => ids.Contains(d.Id))).Should().BeTrue("a longer cycle");
 	}
 }

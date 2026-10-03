@@ -9,6 +9,7 @@ layer over `IObservable<T>` (`Nullean.Entities.Reactive`), and a property-test d
 ```sh
 ./build.sh build   # clean + compile
 ./build.sh test    # build + run every test project (see Layout for the list)
+./build.sh aot     # publish examples/Nullean.Entities.AotSmoke NativeAOT (trim/AOT warnings are errors) and run it
 ./build.sh pack    # build + test + pack NuGet packages
 ./build.sh release # pristine checkout check + pack
 ```
@@ -28,6 +29,9 @@ Test projects are TUnit and are run with `dotnet run`, one project at a time (`P
 | `tests/Nullean.Entities.Tests` | Sync constraint core tests, including `Idempotent`/`Monotonic`/`Conserves`. |
 | `tests/Nullean.Entities.Reactive.Tests` | Reactive operator (typed and predicate-based) + `ToReactive()` bridge + `AnyViolated`/`Violations` tests. |
 | `tests/Nullean.Entities.CsCheck.Tests` | `Script<TSut>`/`SampleWith`/`RunWith`/`Metamorphic` tests against a small `Counter` SUT, plus determinism tests for the Bogus-backed generators (same seed → same object). |
+| `examples/Nullean.Entities.AotSmoke` | Published NativeAOT by `./build.sh aot`: proves the core and Reactive packages are trim/AOT clean (they build with `IsAotCompatible`; the CsCheck packages and the generator do not). |
+| `examples/Nullean.Entities.Integration.Examples` | Recipes that need only the shared framework: an ASP.NET Core endpoint filter (`ValidationProblem` keyed by `Violation.Member`) and a Marten-style event-sourced aggregate. EF Core and MassTransit recipes are in `docs/integration.md` only. |
+| `examples/Nullean.Entities.Examples/Docs/DocsPlatform` | The docs-eng-team domain (catalog, documentation set, site, pipeline events) as constraints, a lifecycle machine and temporal rules. See `AUTOTEST_NOTES.md` section 6. |
 | `examples/Nullean.Entities.Reactive.Examples` | A ladder from simple to complex: a search box (temporal debounce with `UnlessInterruptedBy`), a retry client (exponential backoff), an order state machine — record-hierarchy events on net10.0 (`OrderStateExamples.cs`) and, on net11.0 only, the identical domain re-expressed with a real C# union and the predicate-based operators (`OrderStateExamplesNet11.cs`, `#if NET11_0_OR_GREATER`) — plus a design sketch (`StateMachineSketch.cs`) comparing four ways to attach constraints to a domain type. |
 | `tests/Nullean.Entities.Examples.Tests` | Every example domain is tested with AutoTest one-liners next to its hand-written `Validate_*`/`Channel_*` tests (`Instance.Spec().Enforced().Exhaustive()`, `ForAll`, `Preserves`, `RejectsInvalid`, ...); `AutoTests/AutoTestExamples.cs` is the showcase. `AUTOTEST_NOTES.md` records what did not convert and what the conversion found in the domains. |
 | `build/scripts` | F# Bullseye build runner. |

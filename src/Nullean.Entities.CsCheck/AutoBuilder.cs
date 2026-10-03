@@ -686,6 +686,19 @@ internal sealed class ObjectPlan
 				)
 			]
 			: [];
+		// A list of keys (DirectReportIds, IncludedIds): a many-valued reference to other items of the collection.
+		FksMany = Pk is { } key
+			? [
+				.. Enumerable.Range(0, names.Length).Where(
+					i =>
+						i != key
+						&& names[i].Length > 3
+						&& names[i].EndsWith("ids", StringComparison.OrdinalIgnoreCase)
+						&& AutoBuilder.TryCollection(types[i], out var element)
+						&& BaseType(element) == BaseType(types[key])
+				)
+			]
+			: [];
 	}
 
 	private static Type BaseType(Type t) => System.Nullable.GetUnderlyingType(t) ?? t;
@@ -844,6 +857,11 @@ internal sealed class ObjectPlan
 
 	/// <summary>Indexes of the references to a key of the same type (<c>ManagerId</c>, <c>ParentId</c>): the foreign keys among the items of a collection.</summary>
 	public int[] Fks { get; }
+
+	/// <summary>Indexes of the lists of keys (<c>DirectReportIds</c>, <c>IncludedIds</c>) that refer to other items of the collection.</summary>
+	public int[] FksMany { get; }
+
+	public Type CollectionType(int index) => Types[index];
 
 	/// <summary>Indexes of the arguments that look like an identity (<c>Id</c>, <c>Sku</c>, <c>Email</c>...).</summary>
 	public int[] Identity { get; }
@@ -1071,7 +1089,7 @@ internal sealed class CollectionGen(
 	/// </summary>
 	private void ReferenceKeys(List<object?[]> sets, ObjectPlan plan, PCG pcg)
 	{
-		if (plan.Pk is not { } pk || plan.Fks.Length == 0 || sets.Count == 0 || !options.Relational)
+		if (plan.Pk is not { } pk || (plan.Fks.Length == 0 && plan.FksMany.Length == 0) || sets.Count == 0 || !options.Relational)
 		{
 			return;
 		}
@@ -1120,6 +1138,57 @@ internal sealed class CollectionGen(
 			{
 				Forest(sets, keys, fk, nullable, pcg);
 			}
+		}
+		foreach (var many in plan.FksMany)
+		{
+			ReferenceMany(sets, keys, plan, pk, many, (valid, dangling, self), pcg);
+		}
+	}
+
+	// Lists of keys: a valid graph first (each item lists some earlier items, so no cycle), then, by mode, one list gets a key nothing has, its own key,
+	// or the two first items list each other.
+	private static void ReferenceMany(
+		List<object?[]> sets,
+		List<object?> keys,
+		ObjectPlan plan,
+		int pk,
+		int member,
+		(int Valid, int Dangling, int Self) weights,
+		PCG pcg
+	)
+	{
+		AutoBuilder.TryCollection(plan.CollectionType(member), out var elementType);
+		var lists = new List<List<object?>>();
+		for (var i = 0; i < sets.Count; i++)
+		{
+			var earlier = Enumerable.Range(0, i).Select(j => keys[j]).ToList();
+			lists.Add([.. earlier.OrderBy(_ => pcg.Next(1000)).Take((int)pcg.Next(3))]);
+		}
+		var roll = (int)pcg.Next(100);
+		if (roll >= weights.Valid)
+		{
+			var i = (int)pcg.Next((uint)sets.Count);
+			if (roll < weights.Valid + weights.Dangling)
+			{
+				lists[i].Add(Missing(keys, plan, pk, pcg));
+			}
+			else if (roll < weights.Valid + weights.Dangling + weights.Self)
+			{
+				lists[i].Add(keys[i]);
+			}
+			else if (sets.Count >= 2)
+			{
+				lists[0].Add(keys[1]);
+				lists[1].Add(keys[0]);
+			}
+			else
+			{
+				lists[0].Add(keys[0]);
+			}
+		}
+		for (var i = 0; i < sets.Count; i++)
+		{
+			sets[i][member] = AutoBuilder.Materialize(plan.CollectionType(member), elementType, lists[i]);
 		}
 	}
 
