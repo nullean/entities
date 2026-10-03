@@ -87,8 +87,17 @@ public class DeclaredMachineExamples
 				]
 			);
 
-		// the machine forbids Resolve on an Open ticket (it does nothing), but the method resolves it regardless: the rule lives only in Apply
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("Resolve").And.Contain("the machine says Open, but the entity is in Resolved");
+		// the machine forbids these on an Open ticket (they do nothing), but the methods change the status regardless: the rule lives only in Apply.
+		// Resolve, Close and Reopen are all unguarded, and which one a random walk meets first (they all diverge in one step) is not fixed.
+		act
+			.Should()
+			.Throw<Exception>()
+			.Which
+			.Message
+			.Should()
+			.MatchRegex("(Resolve|Close|Reopen)")
+			.And
+			.MatchRegex("the machine says Open, but the entity is in (Resolved|Closed|InProgress)");
 	}
 
 	[Test]

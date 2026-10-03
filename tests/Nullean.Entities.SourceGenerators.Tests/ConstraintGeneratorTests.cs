@@ -471,3 +471,94 @@ public class ConstraintGeneratorShapeTests
 		run.Generated.Should().BeEmpty();
 	}
 }
+
+public class AnnotationGeneratorShapeTests
+{
+	[Test]
+	public void A_Constraints_type_with_only_annotations_gets_a_generated_set_with_no_reflection()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using System.ComponentModel.DataAnnotations;
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			[Constraints]
+			public partial record Person([Required] string Name, [Range(1, 9)] int Level);
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		var source = run.SingleGeneratedSource();
+		source.Should().Contain("global::Nullean.Entities.IHaveConstraints<Person>");
+		source.Should().Contain("(\"NameRequired\", global::Nullean.Entities.Constraints<global::Sample.Person>.Always(x => x.Name,");
+		source.Should().Contain("(\"LevelRange\"");
+		source.Should().NotContain("Validator").And.NotContain("GetCustomAttribute").And.NotContain("typeof(");
+		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
+	}
+
+	[Test]
+	public void A_validation_attribute_that_is_not_supported_is_reported_as_info_not_skipped_silently()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using System.ComponentModel.DataAnnotations;
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			[Constraints]
+			public partial record Contact([Required] string Name, [Phone] string Number);
+			"""
+		);
+
+		var info = run.Diagnostics.Should().ContainSingle(d => d.Id == "NECG010").Which;
+		info.Severity.Should().Be(Microsoft.CodeAnalysis.DiagnosticSeverity.Info);
+		info.GetMessage().Should().Contain("Contact.Number").And.Contain("Phone");
+		run.SingleGeneratedSource().Should().Contain("NameRequired");
+	}
+
+	[Test]
+	public void A_type_without_annotations_is_unchanged()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public partial record Item(int Value)
+			{
+			    [Constraint]
+			    public static readonly Constraint<Item> Positive = Constraints<Item>.Always(i => i.Value > 0, "not positive");
+			}
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		run.SingleGeneratedSource().Should().NotContain("Annotation").And.Contain("(nameof(Positive), Positive)");
+	}
+
+	[Test]
+	public void A_name_that_collides_with_a_declared_constraint_gets_an_Annotation_suffix()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using System.ComponentModel.DataAnnotations;
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			[Constraints]
+			public partial record Item([Range(1, 5)] int Value)
+			{
+			    public static readonly Constraint<Item> ValueRange = Constraints<Item>.Always(i => i.Value != 3);
+			}
+			"""
+		);
+
+		var source = run.SingleGeneratedSource();
+		source.Should().Contain("(nameof(ValueRange), ValueRange)").And.Contain("\"ValueRangeAnnotation\"");
+	}
+}

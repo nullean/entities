@@ -345,6 +345,25 @@ StateMachine.FromMermaid(text);                           // and back: a diagram
 `Nullean.Entities.CsCheck` explores a machine (`machine.Spec().Exhaustive()`) and checks a real entity follows it (`machine.ConformTo(...)`).
 `Constraint<T>.Map` / `ConstraintSet<T>.Map` lift constraints through a projection while keeping kind, name, guards and edges.
 
+## DataAnnotations are constraints too
+
+A type with `[Constraints]` (or `[Constraint]` members) gets one generated constraint for each `[Required]`, `[Range]`, `[StringLength]`, `[MaxLength]`, `[MinLength]` and
+`[RegularExpression]` on its properties or primary-constructor parameters, with no opt-in and no declared constraint needed. The model you already annotate becomes a set you can
+`Apply`, `Probe` and `Laws`:
+
+```csharp
+[Constraints]
+public sealed partial record SignUp([Required] string Name, [Range(18, 120)] int Age, [RegularExpression("^[A-Z]{3}-[0-9]{3}$")] string Reference);
+
+SignUp.Constraints.Validate(new SignUp("Ada", 12, "ABC-123"));   // AgeRange, Member = "Age"
+```
+
+Names are `<Property><Attribute>` (`NameRequired`, `AgeRange`, `ReferencePattern`); if that collides with a constraint you declared, yours keeps the name and the annotation's gets an `Annotation` suffix.
+Each attribute means what DataAnnotations says it means: null passes everything except `[Required]`, an empty string passes `[RegularExpression]`, and a pattern must match the whole string.
+The generated code is plain C# with no `Validator` call and no reflection, so it is trim and AOT safe. `[ConstraintIgnore]` on a property leaves its annotations out. Any other validation
+attribute (`[Phone]`, a custom one, `IValidatableObject`) is reported as an Info diagnostic, `NECG010`, not skipped silently; write those as a `Constraint<T>`. Cross-field rules, collections and
+sequential rules still need constraints: annotations cover one property at a time.
+
 ## Rules over collections and graphs
 
 Most of the rules a real domain has are about *several* things at once: two items with one id, a reference to something that is not there, an include that loops.

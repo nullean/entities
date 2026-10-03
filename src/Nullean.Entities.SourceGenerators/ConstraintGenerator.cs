@@ -97,8 +97,9 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			return [];
 		}
 
-		return [
-			.. type
+		var found = ImmutableArray.CreateBuilder<MemberInfo>();
+		found.AddRange(
+			type
 				.GetMembers()
 				.Where(m => m is IFieldSymbol or IPropertySymbol && m.IsStatic)
 				.Where(m => !m.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnoreAttributeMetadataName))
@@ -112,8 +113,14 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 						})
 				)
 				.Where(t => TryClassify(t.MemberType, out var unusedKind, out var unusedTypeArgument))
-				.Select(t => new MemberInfo(type, t.MemberType, t.Member.Name, true, t.Member.Locations.FirstOrDefault() ?? Location.None)),
-		];
+				.Select(t => new MemberInfo(type, t.MemberType, t.Member.Name, true, t.Member.Locations.FirstOrDefault() ?? Location.None))
+		);
+		// A [Constraints] type that declares no Constraint<T> field but carries DataAnnotations still gets a set: the annotations are the rules.
+		if (found.Count == 0 && Annotations.For(type, "T", []).Entries.Count > 0)
+		{
+			found.Add(new MemberInfo(type, type, "", true, type.Locations.FirstOrDefault() ?? Location.None, AnnotationOnly: true));
+		}
+		return found.ToImmutable();
 	}
 
 	/// <summary>
@@ -172,6 +179,11 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			var hadMemberError = false;
 			foreach (var member in groupMembers)
 			{
+				if (member.AnnotationOnly)
+				{
+					valid.Add((member, ConstraintKind.Sync, containingType));
+					continue;
+				}
 				if (!member.IsStatic)
 				{
 					spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.MemberMustBeStatic, member.Location, member.MemberName));
@@ -218,9 +230,30 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 
 			var kind = kinds[0];
 			var typeArgument = typeArgs[0];
-			var orderedMembers = valid.Select(v => v.Member).ToImmutableArray();
+			var orderedMembers = valid.Select(v => v.Member).Where(m => !m.AnnotationOnly).ToImmutableArray();
+			AnnotationResult? annotations = null;
+			if (kind == ConstraintKind.Sync && typeArgument is INamedTypeSymbol namedArgument)
+			{
+				annotations = Annotations.For(
+					namedArgument,
+					namedArgument.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+					[.. orderedMembers.Select(m => m.MemberName)]
+				);
+				foreach (var unsupported in annotations.Unsupported)
+				{
+					spc.ReportDiagnostic(
+						Diagnostic.Create(
+							Diagnostics.UnsupportedAnnotation,
+							unsupported.Location,
+							namedArgument.Name,
+							unsupported.Property,
+							unsupported.Attribute
+						)
+					);
+				}
+			}
 			var source = kind == ConstraintKind.Sync
-				? GenerateSync(containingType, typeArgument, orderedMembers)
+				? GenerateSync(containingType, typeArgument, orderedMembers, annotations)
 				: GenerateReactive(containingType, typeArgument, orderedMembers);
 
 			spc.AddSource(HintName(containingType), SourceText.From(source, Encoding.UTF8));
@@ -256,7 +289,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		return false;
 	}
 
-	private static string GenerateSync(INamedTypeSymbol type, ITypeSymbol typeArgument, ImmutableArray<MemberInfo> members)
+	private static string GenerateSync(INamedTypeSymbol type, ITypeSymbol typeArgument, ImmutableArray<MemberInfo> members, AnnotationResult? annotations)
 	{
 		var selfAttach = SymbolEqualityComparer.Default.Equals(type, typeArgument);
 		var typeArgDisplay = typeArgument.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -284,9 +317,13 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			// `OrderConstraints.All` — "OrderConstraints.Constraints" would stutter.
 			selfAttach ? "Constraints" : "All",
 			"global::Nullean.Entities.ConstraintSet.From(",
-			members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})"),
+			[
+				.. members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})"),
+				.. (annotations?.Entries ?? []).Select(e => $"({Annotations.Quote(e.Name)}, {e.Expression})"),
+			],
 			nested,
-			ActionsMember(typeArgument, typeArgDisplay)
+			ActionsMember(typeArgument, typeArgDisplay),
+			annotations?.Fields
 		);
 	}
 
@@ -389,7 +426,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		string factoryCall,
 		IEnumerable<string> args,
 		string? nestedType = null,
-		string? actionsMember = null
+		string? actionsMember = null,
+		IEnumerable<string>? staticFields = null
 	)
 	{
 		var ns = type.ContainingNamespace.IsGlobalNamespace ? null : type.ContainingNamespace.ToDisplayString();
@@ -414,6 +452,11 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		}
 		sb.AppendLine($"{indent}partial {typeKind} {type.Name}{baseList}");
 		sb.AppendLine($"{indent}{{");
+		// Declared before the property: static initializers run in textual order, and the set's lambdas read these.
+		foreach (var field in staticFields ?? [])
+		{
+			sb.AppendLine($"{indent}    {field}");
+		}
 		sb.AppendLine($"{indent}    public static {propertyType} {propertyName} {{ get; }} =");
 		sb.AppendLine($"{indent}        {factoryCall}");
 		sb.AppendLine($"{indent}            {argList}");
@@ -457,5 +500,12 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		Reactive,
 	}
 
-	private sealed record MemberInfo(INamedTypeSymbol ContainingType, ITypeSymbol MemberType, string MemberName, bool IsStatic, Location Location);
+	private sealed record MemberInfo(
+		INamedTypeSymbol ContainingType,
+		ITypeSymbol MemberType,
+		string MemberName,
+		bool IsStatic,
+		Location Location,
+		bool AnnotationOnly = false
+	);
 }

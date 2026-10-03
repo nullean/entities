@@ -1,0 +1,134 @@
+using System.ComponentModel.DataAnnotations;
+using AwesomeAssertions;
+
+namespace Nullean.Entities.Tests;
+
+// The type declares no Constraint<T> field at all: its DataAnnotations are the rules, turned into a generated set.
+[Constraints]
+public sealed partial record Signup(
+	[Required] string Name,
+	[property: StringLength(10, MinimumLength = 3)] string Handle,
+	[Range(18, 120)] int Age,
+	[Range(0.5, 5.0)] double? Rating,
+	[RegularExpression("^[A-Z]{3}-[0-9]{3}$")] string Reference,
+	[MaxLength(5)] string? Note,
+	[property: ConstraintIgnore, Range(1, 2)] int Ignored = 1,
+	[property: Required(AllowEmptyStrings = true, ErrorMessage = "{0} must be present, even if empty.")] string? Comment = ""
+);
+
+// Annotations and a hand-written rule together: one set.
+[Constraints]
+public sealed partial record Booking([Range(1, 10)] int Guests, DateOnly From, DateOnly To)
+{
+	public static readonly Constraint<Booking> EndsAfterItStarts = Constraints<Booking>.Always(b => b.To > b.From);
+}
+
+public class AnnotationConstraintsTests
+{
+	private static readonly Signup Good = new("Ada", "adal", 30, 4.5, "ABC-123", "hi");
+
+	[Test]
+	public void Each_supported_annotation_becomes_one_named_constraint_and_ConstraintIgnore_leaves_a_property_out()
+	{
+		var names = Signup.Constraints.AsConstraints().Select(c => c.Name).ToList();
+
+		names.Should().BeEquivalentTo([
+			"NameRequired",
+			"HandleStringLength",
+			"AgeRange",
+			"RatingRange",
+			"ReferencePattern",
+			"NoteMaxLength",
+			"CommentRequired"
+		]);
+	}
+
+	[Test]
+	public void A_value_that_satisfies_every_annotation_is_valid() => Signup.Constraints.Validate(Good).Should().BeEmpty();
+
+	[Test]
+	public void Nulls_and_empty_strings_pass_everything_except_Required()
+	{
+		var lenient = Good with { Rating = null, Note = null, Reference = "" };
+
+		Signup.Constraints.Validate(lenient).Should().BeEmpty();
+	}
+
+	[Test]
+	[Arguments("", "NameRequired", "Name")]
+	[Arguments("   ", "NameRequired", "Name")]
+	public void Required_rejects_blank_strings(string name, string constraint, string member)
+	{
+		var violation = Signup.Constraints.Validate(Good with { Name = name }).Single();
+
+		violation.ConstraintId.Should().Be(constraint);
+		violation.Member.Should().Be(member);
+		violation.Message.Should().Be("The Name field is required.");
+	}
+
+	[Test]
+	[Arguments(17)]
+	[Arguments(121)]
+	public void Range_rejects_values_outside_its_bounds_and_names_the_member(int age)
+	{
+		var violation = Signup.Constraints.Validate(Good with { Age = age }).Single();
+
+		violation.ConstraintId.Should().Be("AgeRange");
+		violation.Member.Should().Be("Age");
+		violation.Evidence.Should().Be(age);
+		Signup.Constraints.Validate(Good with { Age = 18 }).Should().BeEmpty();
+		Signup.Constraints.Validate(Good with { Age = 120 }).Should().BeEmpty();
+	}
+
+	[Test]
+	public void Range_works_on_nullable_and_floating_point_properties()
+	{
+		Signup.Constraints.Validate(Good with { Rating = 0.4 }).Single().ConstraintId.Should().Be("RatingRange");
+		Signup.Constraints.Validate(Good with { Rating = 5.1 }).Single().ConstraintId.Should().Be("RatingRange");
+		Signup.Constraints.Validate(Good with { Rating = 0.5 }).Should().BeEmpty();
+		Signup.Constraints.Validate(Good with { Rating = double.NaN }).Single().ConstraintId.Should().Be("RatingRange");
+	}
+
+	[Test]
+	[Arguments("ab")]
+	[Arguments("abcdefghijk")]
+	public void StringLength_enforces_both_bounds(string handle) =>
+		Signup.Constraints.Validate(Good with { Handle = handle }).Single().ConstraintId.Should().Be("HandleStringLength");
+
+	[Test]
+	public void RegularExpression_must_match_the_whole_string()
+	{
+		Signup.Constraints.Validate(Good with { Reference = "ABC-1234" }).Single().ConstraintId.Should().Be("ReferencePattern");
+		Signup.Constraints.Validate(Good with { Reference = "xABC-123" }).Single().ConstraintId.Should().Be("ReferencePattern");
+		Signup.Constraints.Validate(Good with { Reference = "ABC-123" }).Should().BeEmpty();
+	}
+
+	[Test]
+	public void MaxLength_and_a_custom_error_message_with_the_member_name_filled_in()
+	{
+		Signup.Constraints.Validate(Good with { Note = "toolong" }).Single().ConstraintId.Should().Be("NoteMaxLength");
+		Signup.Constraints.Validate(Good with { Comment = null }).Single().Message.Should().Be("Comment must be present, even if empty.");
+	}
+
+	[Test]
+	public void Annotations_and_hand_written_constraints_share_one_set()
+	{
+		var names = Booking.Constraints.AsConstraints().Select(c => c.Name).ToList();
+
+		names.Should().BeEquivalentTo(["EndsAfterItStarts", "GuestsRange"]);
+		Booking
+			.Constraints
+			.Validate(new Booking(11, new DateOnly(2026, 1, 2), new DateOnly(2026, 1, 1)))
+			.Select(v => v.ConstraintId)
+			.Should()
+			.BeEquivalentTo(["GuestsRange", "EndsAfterItStarts"]);
+	}
+
+	[Test]
+	public void Apply_enforces_annotations_like_any_other_constraint()
+	{
+		var result = Signup.Constraints.Apply(Good, s => s with { Age = 5 });
+
+		result.Should().BeOfType<Result<Signup>.Fail>().Which.Violations.Should().ContainSingle().Which.Member.Should().Be("Age");
+	}
+}

@@ -4,6 +4,13 @@ using Nullean.Entities.CsCheck;
 
 namespace Nullean.Entities.CsCheck.Tests;
 
+[Constraints]
+internal sealed partial record Annotated(
+	[property: System.ComponentModel.DataAnnotations.Required] string Name,
+	[property: System.ComponentModel.DataAnnotations.StringLength(10, MinimumLength = 3)] string Handle,
+	[property: System.ComponentModel.DataAnnotations.Range(18, 120)] int Age
+);
+
 internal sealed record Stocked(string Sku, int Quantity, int Reserved);
 
 public class LawsTests
@@ -101,4 +108,16 @@ public class LawsTests
 
 		set.Laws(Valid, examples).Results.Should().ContainSingle();
 	}
+
+	[Test]
+	public void DataAnnotations_become_rules_that_pass_the_laws_with_generated_counter_examples()
+	{
+		var report = Annotated.Constraints.Laws(new Annotated("Ada", "adal", 30));
+
+		report.Results.Select(r => r.Constraint).Should().BeEquivalentTo(["NameRequired", "HandleStringLength", "AgeRange"]);
+		report.Results.Should().OnlyContain(r => r.CounterExample.StartsWith("generated:", StringComparison.Ordinal));
+	}
+
+	[Test]
+	public void Generated_data_breaks_every_annotation_without_a_hand_made_generator() => Annotated.Constraints.Probe().NeverViolated.Should().BeEmpty();
 }

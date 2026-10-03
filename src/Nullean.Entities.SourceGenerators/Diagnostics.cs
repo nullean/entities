@@ -76,4 +76,14 @@ internal static class Diagnostics
 		DiagnosticSeverity.Error,
 		isEnabledByDefault: true
 	);
+
+	// Info, not a warning: a consumer that treats warnings as errors must not fail to build because a model carries [Phone] or a custom validation attribute.
+	public static readonly DiagnosticDescriptor UnsupportedAnnotation = new(
+		"NECG010",
+		"Validation attribute is not turned into a constraint",
+		"'{0}.{1}' has [{2}], which the generator does not turn into a constraint; write it as a Constraint<T> if the rule should be checked, or mark the property [ConstraintIgnore]",
+		Category,
+		DiagnosticSeverity.Info,
+		isEnabledByDefault: true
+	);
 }
