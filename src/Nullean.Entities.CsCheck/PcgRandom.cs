@@ -17,14 +17,14 @@ namespace Nullean.Entities.CsCheck;
 ///
 /// Assign this to <see cref="Randomizer.localSeed"/> via <see cref="PcgRandomizer"/>.
 /// </remarks>
-internal sealed class PcgRandom : Random
+public sealed class PcgRandom : Random
 {
 	private PCG _pcg = null!;
 	private ulong _draws;
 	private ulong _magnitude;
 
 	/// <summary>Bind this instance to a new <see cref="PCG"/> for the upcoming <c>Generate</c> call.</summary>
-	internal void Bind(PCG pcg)
+	public void Bind(PCG pcg)
 	{
 		_pcg = pcg;
 		_draws = 0;
@@ -35,7 +35,7 @@ internal sealed class PcgRandom : Random
 	/// The size accumulated since the last <see cref="Bind"/>.
 	/// Primary key is draw count (fewer = simpler), secondary key is total normalised magnitude.
 	/// </summary>
-	internal Size Size => new((_draws << 40) | Math.Min(_magnitude, (1UL << 40) - 1));
+	public Size Size => new((_draws << 40) | Math.Min(_magnitude, (1UL << 40) - 1));
 
 	public override int Next() => Next(0, int.MaxValue);
 
@@ -126,11 +126,11 @@ internal sealed class PcgRandom : Random
 /// <see cref="Randomizer"/> has no virtual members, but its <c>localSeed</c> field is
 /// <c>protected</c>. Assigning it here is the only public-API-free path to a custom RNG.
 /// </remarks>
-internal sealed class PcgRandomizer : Randomizer
+public sealed class PcgRandomizer : Randomizer
 {
-	internal readonly PcgRandom PcgRandom;
+	public PcgRandom PcgRandom { get; }
 
-	internal PcgRandomizer(PcgRandom pcgRandom)
+	public PcgRandomizer(PcgRandom pcgRandom)
 	{
 		PcgRandom = pcgRandom;
 		localSeed = pcgRandom;

@@ -6,7 +6,7 @@ orientation.
 
 ## The one-paragraph version
 
-Three packages, one idea: a `Constraint<T>` is a named, syntax-level rule with a `Check` function,
+Three packages (plus an optional fourth), one idea: a `Constraint<T>` is a named, syntax-level rule with a `Check` function,
 and a `ConstraintSet<T>` is an ordered collection of them. `Nullean.Entities` is that idea alone —
 no CsCheck, no System.Reactive, so it costs a consumer nothing to hold constraints on a domain type
 — plus the `Idempotent`/`Monotonic`/`Conserves` shapes. `Nullean.Entities.Reactive` lifts constraints
@@ -47,6 +47,8 @@ CsCheck's `PCG` so seeds are reproducible and failures shrink.
   unavoidable either way.
 
 ## Current state
+
+`Nullean.Entities.CsCheck.AutoBogus` is the optional fourth: an AutoBogus-backed generator (`GenAutoBogus.Of<T>`) for teams that already configure `AutoFaker`; the default `GenAuto.Of<T>` does not use AutoBogus.
 
 Merged from two prior repos, `cscheck-bogus` and `cscheck-reactive`, kept as reference copies and
 not deleted. Formatting is enforced by [curb](https://curb.nullean.net) via the MSBuild integration

@@ -236,7 +236,7 @@ var genLine = GenFakerExtensions.Faker<OrderLine>(faker => faker
     .RuleFor(l => l.Quantity, f => f.Random.Int(1, 100))
     .RuleFor(l => l.Price,    f => f.Finance.Amount()));
 
-var genCustomer = GenAuto.Of<Customer>(); // fills every field, nested objects too — all shrinkable
+var genCustomer = GenAuto.Of<Customer>(); // fills every field, nested objects too: plausible values mixed with edge cases, all shrinkable
 
 var script = Script.For<OrderService>()
     .Step("Place",   genLine,       (svc, line)     => svc.PlaceOrder(line))
@@ -319,7 +319,8 @@ script.SampleWith(factory, events, spec, coverage: OrderLifecycle.Machine);
 |---|---|---|
 | `Nullean.Entities` | `Constraint<T>`, `ConstrainedValue`, `[Constraint]`/`[Constraints]` source generator | nothing |
 | `Nullean.Entities.Reactive` | `ReactiveConstraint<T>`, temporal operators, live monitoring | `System.Reactive` |
-| `Nullean.Entities.CsCheck` | `Script`, action-sequence testing, Bogus/AutoBogus generators | `CsCheck`, `Bogus` |
+| `Nullean.Entities.CsCheck` | One-line tests from constraints (`Exhaustive`, `ForAll`, `Preserves`, `Probe`, `ConformTo`), `Script` runs, hostile-by-default generated data (`GenAuto.Of<T>`), Bogus rules | `Nullean.Entities.Reactive`, `CsCheck`, `Bogus` |
+| `Nullean.Entities.CsCheck.AutoBogus` | *Optional.* An AutoBogus-backed generator for teams that already configure `AutoFaker` | `Nullean.Entities.CsCheck`, `Soenneker.Utils.AutoBogus` |
 
 ```sh
 dotnet add package Nullean.Entities

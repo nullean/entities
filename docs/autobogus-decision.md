@@ -1,11 +1,11 @@
 # Should Nullean.Entities.CsCheck keep AutoBogus?
 
-**Recommendation: stop depending on it by default. Keep `GenAuto.Bogus<T>` only as an opt-in package, and drop it entirely if
+**Done: AutoBogus is no longer a dependency of `Nullean.Entities.CsCheck`; it lives in the optional `Nullean.Entities.CsCheck.AutoBogus` package
+(`GenAutoBogus.Of<T>`). Remaining recommendation: drop that package entirely if
 nobody asks for it within a release.** This is the case for that, from measurements on this repo's own domains. The decision is yours.
 
 What exists today: `GenAuto.Of<T>()` is a new generator (`AutoBuilder`) that builds objects from their shape and draws every leaf from
-CsCheck's `PCG`. Bogus is used once, as a word list. `GenAuto.Bogus<T>()` is the old AutoBogus-backed generator, unchanged, and nothing
-has been removed. Both ran on all 25 example constraint sets (64 point-in-time rules) with the same seeds.
+CsCheck's `PCG`. Bogus is used once, as a word list. `GenAutoBogus.Of<T>()` (now in the separate `Nullean.Entities.CsCheck.AutoBogus` package) is the old AutoBogus-backed generator, unchanged. Both ran on all 25 example constraint sets (64 point-in-time rules) with the same seeds.
 
 ## 1. It breaks far more rules
 
@@ -82,7 +82,7 @@ Single-threaded the new generator is 7 to 9 times faster (most of that is Bogus 
 ## 6. What AutoBogus still does better, honestly
 
 - **Existing conventions.** A team that already configured `AutoFaker` (`Configure(c => c.WithBinder(...))`, per-type overrides, skip rules)
-  keeps that investment through `GenAuto.Bogus<T>(configure)`. The new generator's equivalent is `AutoOptions.Use<T>(gen)` and
+  keeps that investment through `GenAutoBogus.Of<T>(configure)`. The new generator's equivalent is `AutoOptions.Use<T>(gen)` and
   `AddStringEdges`; it has no conventions engine and will not grow one.
 - **Type coverage.** AutoBogus builds some types `AutoGen` does not: `ImmutableArray`/`ImmutableList`, `FrozenSet`, classes whose only
   constructors are non-public, `System.Tuple`, abstract types it can substitute. `AutoGen` fails with a clear message
@@ -92,15 +92,16 @@ Single-threaded the new generator is 7 to 9 times faster (most of that is Bogus 
 
 ## 7. Proposal
 
-1. **Now (done):** `GenAuto.Of<T>` is the new generator; `GenAuto.Bogus<T>` is the old one. No dependency removed.
-2. **Next release:** move `GenAuto.Bogus<T>` and the `Soenneker.Utils.AutoBogus` reference into `Nullean.Entities.CsCheck.AutoBogus`
-   (separate, optional package). The default install drops 11 packages; users who configured `AutoFaker` add one reference.
+1. **Done:** `GenAuto.Of<T>` is the new generator.
+2. **Done:** `GenAutoBogus.Of<T>` and the `Soenneker.Utils.AutoBogus` reference moved into `Nullean.Entities.CsCheck.AutoBogus`
+   (separate, optional package). The default install dropped 11 packages; users who configured `AutoFaker` add one reference. `PcgRandom`/`PcgRandomizer`
+   became public so the package can route Bogus through the PCG.
 3. **After that:** if the opt-in package has no downloads or issues in a release, delete it.
 4. Before step 2: add `ImmutableArray`/`ImmutableList`/`FrozenSet`/`System.Tuple` to `AutoGen` so the "type coverage" point does not apply
    to the common cases.
 
 The risk worth naming: this replaces a mature generator with new code. The mitigation is the test suite (determinism, edge reachability,
-shrinking, every catalog category, 25 real domains) and that `GenAuto.Bogus<T>` remains for a release.
+shrinking, every catalog category, 25 real domains) and that `GenAutoBogus.Of<T>` remains available in the optional package.
 
 *Method: throwaway tests (not committed) over the 25 constraint sets in `examples/`, 1,000 draws per generator per set from fixed
 PCG seeds; throughput in Release, 20,000 to 100,000 draws per thread after a 200-draw warm-up. Numbers vary by machine; the ratios are

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>An AutoBogus-backed CsCheck generator for Nullean.Entities.CsCheck: plausible Bogus data for any type, reproducible by seed and shrinkable, for teams that already configure AutoFaker.</Description>
+    <PackageTags>cscheck property-testing autobogus bogus fake-data</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Soenneker.Utils.AutoBogus" />
+    <ProjectReference Include="../../src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+  </ItemGroup>
+</Project>

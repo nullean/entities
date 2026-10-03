@@ -1,12 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Description>CsCheck property testing integration for Nullean.Entities: reactive scripts, shrinking, seed replay, and Bogus-backed generators routed through CsCheck's PCG.</Description>
+    <Description>CsCheck property testing integration for Nullean.Entities: state-machine exploration, hostile-by-default generated data, reactive and TimeProvider scripts, shrinking and seed replay.</Description>
     <PackageTags>cscheck property-testing reactive specification bogus fake-data</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CsCheck" />
     <PackageReference Include="Bogus" />
-    <PackageReference Include="Soenneker.Utils.AutoBogus" />
     <ProjectReference Include="../../src/Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
   </ItemGroup>
 </Project>

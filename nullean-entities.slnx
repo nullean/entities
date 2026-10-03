@@ -4,10 +4,12 @@
   <Project Path="src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" />
   <Project Path="src/Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
   <Project Path="src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+  <Project Path="src/Nullean.Entities.CsCheck.AutoBogus/Nullean.Entities.CsCheck.AutoBogus.csproj" />
   <Project Path="tests/Nullean.Entities.Tests/Nullean.Entities.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.SourceGenerators.Tests/Nullean.Entities.SourceGenerators.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Reactive.Tests/Nullean.Entities.Reactive.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.CsCheck.Tests/Nullean.Entities.CsCheck.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.CsCheck.AutoBogus.Tests/Nullean.Entities.CsCheck.AutoBogus.Tests.csproj" />
   <Project Path="examples/Nullean.Entities.Examples/Nullean.Entities.Examples.csproj" />
   <Project Path="examples/Nullean.Entities.Reactive.Examples/Nullean.Entities.Reactive.Examples.csproj" />
   <Project Path="tests/Nullean.Entities.Examples.Tests/Nullean.Entities.Examples.Tests.csproj" />

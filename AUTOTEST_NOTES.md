@@ -118,5 +118,4 @@ Found only after `GenAuto.Of<T>` started producing edge values (the first pass, 
 | `SupportTicket` | **`Resolve()` is unguarded**: resolving an `Open` ticket (the machine does nothing there) lands in `Resolved`. Only `Apply` stops it. Found by `ConformTo` on the part of the lifecycle the entity does implement. |
 | `Person` | The machine has `GoOnLeave` and `Return`; the entity has only `Terminate()`. `OnLeave` is unreachable in practice. |
 
-Not done: a Stateless adapter package (Stateless can describe its graph; if it can be exported as a Mermaid
-`stateDiagram-v2`, `StateMachine.FromMermaid` covers it without a dependency. Not verified against a specific Stateless version.). Guards that depend on runtime data are not representable in a declared machine.
+A declared machine cannot represent guards that depend on runtime data; those stay in the entity's own constraints (`Enforced()`).

@@ -45,4 +45,5 @@ let TestProjects =
       "tests/Nullean.Entities.SourceGenerators.Tests"
       "tests/Nullean.Entities.Reactive.Tests"
       "tests/Nullean.Entities.CsCheck.Tests"
+      "tests/Nullean.Entities.CsCheck.AutoBogus.Tests"
       "tests/Nullean.Entities.Examples.Tests" ]

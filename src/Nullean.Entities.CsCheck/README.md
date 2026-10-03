@@ -470,12 +470,6 @@ var machine = StateMachine.FromMermaid("""
     """);                                      // StateMachine<string, string>
 ```
 
-**From Stateless (or any library that can draw itself).** Libraries such as [Stateless](https://github.com/dotnet-state-machine/stateless) can
-describe their graph (DOT for certain, and Mermaid in recent versions: check yours). If you can get a Mermaid `stateDiagram-v2` out of it, read it with
-`StateMachine.FromMermaid` and you can explore it (`Spec()`) and check an entity against it (`ConformTo`) without a dependency on that library;
-a DOT graph needs converting first. Guards that depend on runtime data are not in the picture, so a guarded
-edge shows as always permitted: test those with the entity's own constraints and `Enforced()`.
-
 ### Reducer, event-sourced, mutable
 
 ```csharp
@@ -644,8 +638,9 @@ Know the limits:
 - **Relations between *different* objects** (a child whose foreign key points at nothing, at itself, or at a cycle) are not generated yet;
   duplicate ids and `Start`/`End` pairs are.
 
-`GenAuto.Bogus<T>(configure)` is the previous AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock). It is kept for teams that already
-configured `AutoFaker`. The measured case for and against keeping it is in [`docs/autobogus-decision.md`](https://github.com/nullean/entities/blob/main/docs/autobogus-decision.md).
+An AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock) lives in the separate, optional
+[`Nullean.Entities.CsCheck.AutoBogus`](https://www.nuget.org/packages/Nullean.Entities.CsCheck.AutoBogus) package (`GenAutoBogus.Of<T>(configure)`), for teams that already
+configured `AutoFaker`. The measured case for the split is in [`docs/autobogus-decision.md`](https://github.com/nullean/entities/blob/main/docs/autobogus-decision.md).
 
 Your own Bogus rules still work and still compose:
 
@@ -654,7 +649,7 @@ Gen<OrderLine> lines = GenFakerExtensions.Faker<OrderLine>(faker => faker
     .CustomInstantiator(f => new OrderLine(f.Commerce.Ean13(), f.Random.Int(1, 100), f.Finance.Amount(0.01m, 500m))));
 ```
 
-### What is routed through the PCG, and why it matters (user `Faker<T>` rules and `GenAuto.Bogus<T>`)
+### What is routed through the PCG, and why it matters (user `Faker<T>` rules, and the AutoBogus package)
 
 - One `Faker<T>`/`AutoFaker` per thread, created on first use and reused. Bogus takes a process-wide lock on every draw
   (`Randomizer.Locker`, an `internal static` that cannot be turned off), so a Bogus-backed generator stops scaling at about two
