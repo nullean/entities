@@ -36,13 +36,45 @@ public sealed record Violation(string Message, Severity Severity = Severity.Erro
 	/// <summary>Whatever value triggered the violation — attach it for logging/debugging.</summary>
 	public object? Evidence { get; init; }
 
+	/// <summary>
+	/// The member the violation is about (<c>"Email"</c>, <c>"Address.City"</c>), when the rule is about one: what a validation response (ProblemDetails
+	/// <c>errors</c>, ModelState) is keyed by. Filled by the selector overloads of <c>Always</c>, <c>Unique</c> and <c>References</c>.
+	/// </summary>
+	public string? Member { get; init; }
+
 	public int? Line { get; init; }
 	public int? Column { get; init; }
 	public string? File { get; init; }
 
 	public static Violation Error(string message) => new(message);
+	public static Violation Error(string member, string message) => new(message) { Member = member };
 	public static Violation Warning(string message) => new(message, Severity.Warning);
 	public static Violation Hint(string message) => new(message, Severity.Hint);
+}
+
+// ── ConstraintViolationException ──────────────────────────────────────────────
+
+/// <summary>
+/// What <c>ApplyOrThrow</c> and <c>Result.Unwrap</c> throw: the violations themselves, not only their messages joined into one string, so an
+/// application boundary can turn them into a validation response (see <see cref="Violation.Member"/>).
+/// </summary>
+public sealed class ConstraintViolationException : InvalidOperationException
+{
+	public ConstraintViolationException(IReadOnlyList<Violation> violations) : this(
+			violations,
+			$"Constraints violated: {string.Join(", ", violations.Select(v => v.Message))}"
+		)
+	{ }
+
+	public ConstraintViolationException(IReadOnlyList<Violation> violations, string message) : base(message) => Violations = violations;
+
+	public ConstraintViolationException() : this([]) { }
+
+	public ConstraintViolationException(string message) : this([], message) { }
+
+	public ConstraintViolationException(string message, Exception innerException) : base(message, innerException) => Violations = [];
+
+	public IReadOnlyList<Violation> Violations { get; }
 }
 
 // ── Result<T> ─────────────────────────────────────────────────────────────────
@@ -75,7 +107,7 @@ public abstract record Result<T>
 	public T Unwrap() => this switch
 	{
 		Ok o => o.Value,
-		Fail f => throw new InvalidOperationException($"Result is Fail: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
+		Fail f => throw new ConstraintViolationException(f.Violations, $"Result is Fail: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
 		_ => throw new UnreachableException(),
 	};
 }
@@ -200,10 +232,35 @@ public sealed class Constraint<T>
 		return this;
 	}
 
+	/// <summary>Prose for people and tooling: what the rule says, beyond its name. Optional.</summary>
+	public string? Description { get; private set; }
+
+	/// <summary>Names the rule in place. Do this where the rule is declared; <see cref="ConstraintSet.From"/> copies a rule that is named differently elsewhere.</summary>
 	public Constraint<T> Named(string name)
 	{
 		Name = name;
 		return this;
+	}
+
+	public Constraint<T> Describe(string description)
+	{
+		Description = description;
+		return this;
+	}
+
+	// The same rule as an independent object, so two sets can name one rule differently without sharing the name.
+	internal Constraint<T> Copy()
+	{
+		var copy = new Constraint<T>(Kind, _checkAt) { Name = Name, Description = Description };
+		if (Guard is { } guard)
+		{
+			copy.WithGuard(guard);
+		}
+		if (StateOf is { } stateOf && Edges is { } edges)
+		{
+			copy.WithEdges(stateOf, edges);
+		}
+		return copy;
 	}
 
 	/// <summary>
@@ -213,7 +270,11 @@ public sealed class Constraint<T>
 	/// </summary>
 	public Constraint<TOther> Map<TOther>(Func<TOther, T> project)
 	{
-		var mapped = new Constraint<TOther>(Kind, (previous, next, time) => CheckAt(project(previous), project(next), time)) { Name = Name };
+		var mapped = new Constraint<TOther>(Kind, (previous, next, time) => CheckAt(project(previous), project(next), time))
+		{
+			Name = Name,
+			Description = Description
+		};
 		if (Guard is { } guard)
 		{
 			mapped.WithGuard(other => guard(project(other)));
@@ -256,6 +317,209 @@ public static class Constraints<T>
 			ConstraintKind.PointInTime,
 			(_, next) => predicate(next) ? [] : [Violation.Error(message ?? $"{self.Name ?? "Constraint"} was violated.") with { Evidence = next }]
 		);
+		return self;
+	}
+
+	/// <summary>
+	/// Violated when <paramref name="predicate"/> is false for the value <paramref name="select"/> picks out. The violation carries that value as
+	/// evidence and the member's name as <see cref="Violation.Member"/> (taken from the text of <paramref name="select"/>, so
+	/// <c>Always(o =&gt; o.Email, ...)</c> reports <c>"Email"</c>; no expression tree, so it is trim and AOT safe).
+	/// </summary>
+	public static Constraint<T> Always<TValue>(
+		Func<T, TValue> select,
+		Func<TValue, bool> predicate,
+		string? message = null,
+		[CallerArgumentExpression(nameof(select))] string? selectExpression = null
+	)
+	{
+		Constraint<T> self = null!;
+		var member = MemberOf(selectExpression);
+		self = new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var value = select(next);
+			return predicate(value) ? [] : [new Violation(message ?? $"{self.Name ?? "Constraint"} was violated.") { Member = member, Evidence = value }];
+		});
+		return self;
+	}
+
+	/// <summary>"o =&gt; o.Address.City" becomes "Address.City"; anything that is not a plain member path becomes null.</summary>
+	internal static string? MemberOf(string? expression)
+	{
+		if (expression is null)
+		{
+			return null;
+		}
+		var arrow = expression.IndexOf("=>", StringComparison.Ordinal);
+		var body = (arrow >= 0 ? expression[(arrow + 2)..] : expression).Trim();
+		var dot = body.IndexOf('.', StringComparison.Ordinal);
+		if (dot < 0)
+		{
+			return null;
+		}
+		var path = body[(dot + 1)..];
+		return path.Length > 0 && path.All(c => char.IsLetterOrDigit(c) || c is '_' or '.') ? path : null;
+	}
+
+	/// <summary>
+	/// Violated by every key that more than one item has: a silent overwrite waiting to happen (two pages at one URL, two entries with one id).
+	/// Each duplicated key is one violation with the key as evidence.
+	/// </summary>
+	public static Constraint<T> Unique<TItem, TKey>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<TItem, TKey> key,
+		IEqualityComparer<TKey>? comparer = null,
+		string? message = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	)
+	{
+		Constraint<T> self = null!;
+		var member = MemberOf(itemsExpression);
+		self = new(
+			ConstraintKind.PointInTime,
+			(_, next) =>
+				[
+					.. items(next)
+						.GroupBy(key, comparer)
+						.Where(g => g.Count() > 1)
+						.Select(
+							g =>
+								new Violation(message ?? $"{self.Name ?? "Constraint"}: '{g.Key}' appears {g.Count()} times.")
+								{
+									Member = member,
+									Evidence = g.Key
+								}
+						),
+				]
+		);
+		return self;
+	}
+
+	/// <summary>
+	/// Referential integrity within a value: every key an item refers to (<paramref name="references"/>, none or many per item) must be one of
+	/// <paramref name="targets"/>. Each dangling reference is one violation, with the key as evidence.
+	/// </summary>
+	public static Constraint<T> References<TItem, TKey>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<TItem, IEnumerable<TKey>> references,
+		Func<T, IEnumerable<TKey>> targets,
+		IEqualityComparer<TKey>? comparer = null,
+		string? message = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	)
+	{
+		Constraint<T> self = null!;
+		var member = MemberOf(itemsExpression);
+		self = new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var known = new HashSet<TKey>(targets(next), comparer);
+			return [
+				.. items(next)
+					.SelectMany(references)
+					.Where(r => !known.Contains(r))
+					.Select(r => new Violation(message ?? $"{self.Name ?? "Constraint"}: '{r}' refers to nothing.") { Member = member, Evidence = r }),
+			];
+		});
+		return self;
+	}
+
+	/// <summary>
+	/// Violated by a cycle in a graph given as nodes with an id and the ids they point at (a table of contents that includes itself, an include
+	/// loop, a redirect loop). Each cycle found is one violation whose evidence is the path (<c>a -&gt; b -&gt; a</c>). Edges to ids that are not
+	/// nodes are ignored, and duplicate ids do not throw: the first node with an id is the one followed.
+	/// </summary>
+	public static Constraint<T> Acyclic<TNode, TKey>(
+		Func<T, IEnumerable<TNode>> nodes,
+		Func<TNode, TKey> id,
+		Func<TNode, IEnumerable<TKey>> edges,
+		IEqualityComparer<TKey>? comparer = null,
+		string? message = null,
+		[CallerArgumentExpression(nameof(nodes))] string? nodesExpression = null
+	) where TKey : notnull
+	{
+		Constraint<T> self = null!;
+		var member = MemberOf(nodesExpression);
+		self = new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var byId = new Dictionary<TKey, TNode>(comparer);
+			foreach (var node in nodes(next))
+			{
+				byId.TryAdd(id(node), node);
+			}
+			var state = new Dictionary<TKey, int>(comparer);
+			var path = new List<TKey>();
+			var found = new List<Violation>();
+			var equal = comparer ?? EqualityComparer<TKey>.Default;
+
+			void Visit(TKey key)
+			{
+				state[key] = 1;
+				path.Add(key);
+				foreach (var target in edges(byId[key]))
+				{
+					if (!byId.ContainsKey(target))
+					{
+						continue;
+					}
+					if (!state.TryGetValue(target, out var seen))
+					{
+						Visit(target);
+					}
+					else if (seen == 1)
+					{
+						var cycle = path.SkipWhile(k => !equal.Equals(k, target)).Append(target).ToList();
+						var text = string.Join(" -> ", cycle);
+						found.Add(new Violation(message ?? $"{self.Name ?? "Constraint"}: cycle {text}.") { Member = member, Evidence = text });
+					}
+				}
+				path.RemoveAt(path.Count - 1);
+				state[key] = 2;
+			}
+
+			foreach (var key in byId.Keys.ToList())
+			{
+				if (!state.ContainsKey(key))
+				{
+					Visit(key);
+				}
+			}
+			return found;
+		});
+		return self;
+	}
+
+	/// <summary>
+	/// Violated when a mapping points at something that itself maps onwards (redirect A to B while B redirects to C): the chain should be flattened
+	/// to A to C. Each chained item is one violation. A mapping onto itself is not a chain; <see cref="Acyclic{TNode, TKey}"/> reports loops.
+	/// </summary>
+	public static Constraint<T> NoChains<TItem, TKey>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<TItem, TKey> from,
+		Func<TItem, TKey> to,
+		IEqualityComparer<TKey>? comparer = null,
+		string? message = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	)
+	{
+		Constraint<T> self = null!;
+		var member = MemberOf(itemsExpression);
+		var equal = comparer ?? EqualityComparer<TKey>.Default;
+		self = new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var all = items(next).ToList();
+			var sources = new HashSet<TKey>(all.Where(i => !equal.Equals(from(i), to(i))).Select(from), comparer);
+			return [
+				.. all
+					.Where(i => !equal.Equals(from(i), to(i)) && sources.Contains(to(i)))
+					.Select(
+						i =>
+							new Violation(message ?? $"{self.Name ?? "Constraint"}: '{from(i)}' maps to '{to(i)}', which maps onwards.")
+							{
+								Member = member,
+								Evidence = (from(i), to(i))
+							}
+					),
+			];
+		});
 		return self;
 	}
 
@@ -662,7 +926,7 @@ public sealed class ConstraintSet<T>
 	public ApplyOutcome<T> ApplyDetailed(T current, Func<T, T> mutation, TimeProvider? time = null)
 	{
 		var next = mutation(current);
-		if (EqualityComparer<T>.Default.Equals(current, next))
+		if (IsNoop(current, next))
 			return new ApplyOutcome<T>.Noop(current);
 		var violations = RunAll(current, next, time);
 		return violations.Count == 0 ? new ApplyOutcome<T>.Applied(next) : new ApplyOutcome<T>.Failure(current, next, violations);
@@ -673,7 +937,8 @@ public sealed class ConstraintSet<T>
 	{
 		ApplyOutcome<T>.Applied a => a.Value,
 		ApplyOutcome<T>.Noop n => n.Value,
-		ApplyOutcome<T>.Failure f => throw new InvalidOperationException($"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
+		ApplyOutcome<T>.Failure f =>
+			throw new ConstraintViolationException(f.Violations, $"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
 		_ => throw new UnreachableException(),
 	};
 
@@ -689,7 +954,7 @@ public sealed class ConstraintSet<T>
 	)
 	{
 		var next = await mutation(current, cancellationToken).ConfigureAwait(false);
-		if (EqualityComparer<T>.Default.Equals(current, next))
+		if (IsNoop(current, next))
 		{
 			return new ApplyOutcome<T>.Noop(current);
 		}
@@ -729,6 +994,20 @@ public sealed class ConstraintSet<T>
 
 	// Called by ConstrainedValue<T>.Apply after it has already computed `next` to avoid calling
 	// the mutation twice — the channel needs the value upfront to short-circuit on equality.
+	// Equal values are a no-op, except a reference to a type without value equality that is the very same object: that is a class mutated in
+	// place (an EF entity, a classic aggregate), where "equal" only says the reference did not change. Those run the point-in-time constraints.
+	internal static bool IsNoop(T current, T next) =>
+		EqualityComparer<T>.Default.Equals(current, next) && !(current is not null && !typeof(T).IsValueType && ReferenceEquals(
+			current,
+			next
+		) && current is not IEquatable<T>);
+
+	/// <summary>
+	/// Checks a change you made yourself, with the "before" you kept: for an entity that is mutated in place, where <see cref="Apply"/> cannot see the
+	/// previous state. Take the snapshot (a copy, or the ORM's original values) before mutating, then pass both.
+	/// </summary>
+	public IReadOnlyList<Violation> Check(T before, T after, TimeProvider? time = null) => RunAll(before, after, time);
+
 	internal IReadOnlyList<Violation> RunAll(T current, T next, TimeProvider? time)
 	{
 		time ??= TimeProvider.System;
@@ -745,11 +1024,10 @@ public static class ConstraintSet
 	/// </summary>
 	public static ConstraintSet<T> From<T>(params (string Name, Constraint<T> Constraint)[] constraints)
 	{
-		foreach (var (name, constraint) in constraints)
-		{
-			constraint.Named(name);
-		}
-		return new([.. constraints.Select(c => c.Constraint)]);
+		// A rule already named differently (it is shared with another set) is copied, so each set keeps its own name for it.
+		return new([
+			.. constraints.Select(c => c.Constraint.Name is { } existing && existing != c.Name ? c.Constraint.Copy().Named(c.Name) : c.Constraint.Named(c.Name))
+		]);
 	}
 }
 
@@ -791,7 +1069,7 @@ public sealed class ConstrainedValue<T>
 	public ApplyOutcome<T> ApplyDetailed(Func<T, T> mutation)
 	{
 		var next = mutation(Current);
-		if (EqualityComparer<T>.Default.Equals(Current, next))
+		if (ConstraintSet<T>.IsNoop(Current, next))
 		{
 			return new ApplyOutcome<T>.Noop(Current);
 		}
@@ -813,7 +1091,8 @@ public sealed class ConstrainedValue<T>
 	{
 		ApplyOutcome<T>.Applied a => a.Value,
 		ApplyOutcome<T>.Noop n => n.Value,
-		ApplyOutcome<T>.Failure f => throw new InvalidOperationException($"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
+		ApplyOutcome<T>.Failure f =>
+			throw new ConstraintViolationException(f.Violations, $"Apply failed: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
 		_ => throw new UnreachableException(),
 	};
 

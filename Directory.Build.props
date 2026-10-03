@@ -30,9 +30,11 @@
          One project-wide NoWarn beats a `#pragma warning disable CS1591` repeated at the top
          of every file — see tests/Directory.Build.props, which already does the same for tests. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <!-- Bogus/AutoBogus use reflection and System.Reactive uses some reflection-based
-         operators; AOT compatibility is not claimed for any package in this repo. -->
+    <!-- The core and Reactive packages are trim/AOT clean (the analyzers run on every build, and
+         tests/Nullean.Entities.AotSmoke publishes them NativeAOT). The CsCheck packages and the source
+         generator are not: AutoGen, Bogus and AutoBogus rely on reflection. -->
     <IsAotCompatible>false</IsAotCompatible>
+    <IsAotCompatible Condition="'$(MSBuildProjectName)' == 'Nullean.Entities' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Reactive'">true</IsAotCompatible>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)build/keys/keypair.snk</AssemblyOriginatorKeyFile>
     <Authors>Nullean and contributors</Authors>

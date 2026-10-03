@@ -7,6 +7,7 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None);SubCommand>] Clean
     | [<CliPrefix(CliPrefix.None);SubCommand>] Build
     | [<CliPrefix(CliPrefix.None);SubCommand>] Test
+    | [<CliPrefix(CliPrefix.None);SubCommand>] Aot
     | [<CliPrefix(CliPrefix.None);SubCommand>] Pack
     | [<CliPrefix(CliPrefix.None);SubCommand>] Release
 
@@ -24,6 +25,7 @@ with
             | Clean -> "clean known output locations"
             | Build -> "runs build"
             | Test -> "runs build then tests"
+            | Aot -> "publishes examples/Nullean.Entities.AotSmoke NativeAOT (trim/AOT warnings are errors) and runs it"
             | Pack -> "builds and packs the NuGet packages"
             | Release -> "runs build, tests, then creates and validates packages"
             | SingleTarget _ -> "runs the provided sub command without running its dependencies"

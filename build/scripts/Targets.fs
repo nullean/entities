@@ -45,6 +45,12 @@ let private test (arguments:ParseResults<Arguments>) =
         for framework in Paths.Frameworks do
             exec "dotnet" ["run"; "--project"; project; "-c"; "Release"; "--framework"; framework]
 
+let private aot (arguments:ParseResults<Arguments>) =
+    exec "dotnet" ["publish"; "examples/Nullean.Entities.AotSmoke"; "-c"; "Release"; "-f"; "net10.0"]
+    let binary = Path.Combine(Paths.Root.FullName, ".artifacts", "publish", "Nullean.Entities.AotSmoke", "release_net10.0", if System.OperatingSystem.IsWindows() then "Nullean.Entities.AotSmoke.exe" else "Nullean.Entities.AotSmoke")
+    let code = execResult binary []
+    if code.HasValue && code.Value <> 0 then failwithf "AOT smoke app exited with %O" code
+
 let private pristineCheck (arguments:ParseResults<Arguments>) =
     let doCheck = arguments.TryGetResult CleanCheckout |> Option.defaultValue true
     match doCheck, Information.isCleanWorkingCopy "." with
@@ -85,6 +91,7 @@ let Setup (parsed:ParseResults<Arguments>) (arguments:Arguments) =
     target "pristinecheck" pristineCheck
     dep "build" ["clean"] build
     dep "test" ["build"] test
+    dep "aot" ["build"] aot
     dep "generatepackages" ["build"] generatePackages
     dep "validatepackages" ["generatepackages"] validatePackages
     dep "pack" ["test"; "generatepackages"; "validatepackages"] (fun _ -> printfn "Pack complete")

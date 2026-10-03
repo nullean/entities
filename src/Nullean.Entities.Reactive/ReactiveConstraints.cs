@@ -741,7 +741,7 @@ public static class ConstraintSetReactiveExtensions
 	/// </summary>
 	public static ReactiveConstraintSet<T> ToReactive<T>(this ConstraintSet<T> set)
 	{
-		var pairs = set.AsConstraints().Select(c => (c.Name!, ToReactiveConstraint(c))).ToArray();
+		var pairs = set.AsConstraints().Select((c, i) => (c.Name ?? $"constraint-{i + 1}", ToReactiveConstraint(c))).ToArray();
 		return ReactiveConstraintSet.From(pairs);
 	}
 

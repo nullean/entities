@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Publishes the core and Reactive packages NativeAOT and runs the result: `./build.sh aot`.
+       Trim and AOT warnings are errors, so a reflection-based API creeping into either package fails here. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>
