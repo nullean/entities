@@ -452,6 +452,46 @@ public static readonly StateMachine<OrderState> OrderLifecycle = StateMachine<Or
 );
 ```
 
+As written this is a *declaration*: the graph, the guards, the diagram and the tests below. Nothing in it says how to build a `Placed` from a `Draft`, so `Fire` cannot run it
+(it says so: "declared but cannot be fired"). Give an edge a factory and the same machine is the thing your service runs:
+
+```csharp
+public static readonly StateMachine<OrderState> OrderLifecycle = StateMachine<OrderState>.Define(m => m
+    .Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>(_ => new OrderState.Placed(0)))
+    .State<OrderState.Placed>(s => s
+        .On<int>("AddLines").To<OrderState.Placed>((p, n) => p with { Lines = p.Lines + n })   // takes an argument
+        .On("Confirm").To<OrderState.Confirmed>(_ => new OrderState.Confirmed(), when: p => p.Lines > 0)
+        .On("Cancel").To<OrderState.Cancelled>(_ => new OrderState.Cancelled()))
+    .State<OrderState.Confirmed>(s => s
+        .To<OrderState.Shipped>(_ => new OrderState.Shipped())                                  // unnamed: the trigger is "Shipped"
+        .On("Cancel").To<OrderState.Cancelled>(_ => new OrderState.Cancelled()))
+    .Terminal<OrderState.Shipped>()
+    .Terminal<OrderState.Cancelled>()
+);
+
+Result<OrderState> placed = OrderLifecycle.Fire(new OrderState.Draft(), "Place");           // Ok(Placed(0))
+OrderLifecycle.Fire(new OrderState.Placed(0), "Confirm");                                    // Fail: "'Confirm' is not permitted for this Placed: its guard rejected it"
+OrderLifecycle.Fire(new OrderState.Placed(2), "AddLines", 3);                                // Ok(Placed(5))
+OrderLifecycle.Permitted(new OrderState.Placed(2));                                          // ["AddLines", "Confirm", "Cancel"]
+OrderLifecycle.Transition(new OrderState.Placed(2), "Confirm");                              // Ok(Transitioned(From, "Confirm", To)): the event to publish
+```
+
+`Fire` never mutates anything and never throws for a refused transition: the failure carries the reason (wrong case, guard, missing or wrong argument, no factory) and the state it was
+attempted on. The factory runs only after the guard held, so it can assume the data the guard checked.
+
+To fire on the aggregate that holds the state, bind the machine to it. The result is the entity, and with a constraint set the new entity is checked against **every** rule, the
+sequential ones included (the machine's own rule is one: a change of state made by hand, outside `Fire`, is refused too):
+
+```csharp
+public sealed record Order(Guid Id, OrderState State, string? PaymentRef = null);
+
+var binding = OrderLifecycle.For<Order>(o => o.State, (o, s) => o with { State = s });
+var rules   = ConstraintSet.Merge(OrderConstraints.All, ConstraintSet.From(("lifecycle", binding.AsConstraint())));
+var service = binding.Enforce(rules);
+
+Result<Order> shipped = service.Fire(order, "Shipped");   // Fail if the order has no PaymentRef and a rule says shipped orders need one
+```
+
 `Define` throws `StateMachineDefinitionException` (NESM001–NESM004) if the graph fails exhaustiveness,
 reachability, dead-end, or trap checks — caught at startup, not buried in a log at runtime.
 

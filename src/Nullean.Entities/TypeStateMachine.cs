@@ -47,7 +47,22 @@ internal enum StateRole
 /// value's own data by <see cref="StateMachine{TState}.Allows"/> — never by the structural
 /// checks in <see cref="StateMachine{TState}.Build"/>, which only look at <see cref="From"/>/<see cref="To"/>.
 /// </summary>
-public sealed record StateMachineEdge<TState>(string Name, Type From, Type To, Func<TState, bool>? Guard = null);
+/// <remarks>
+/// <see cref="Create"/> is what makes an edge fireable: it builds the next state from the current one (and, for an edge declared with <c>On&lt;TArg&gt;</c>,
+/// from the argument, whose type is <see cref="ArgumentType"/>). An edge without one is declared only: <see cref="StateMachine{TState}.Allows"/>, the constraint
+/// and the walks use it, <see cref="StateMachine{TState}.Fire(TState, string)"/> reports it cannot run it.
+/// </remarks>
+public sealed record StateMachineEdge<TState>(
+	string Name,
+	Type From,
+	Type To,
+	Func<TState, bool>? Guard = null,
+	Func<TState, object?, TState>? Create = null,
+	Type? ArgumentType = null
+);
+
+/// <summary>What a service publishes after a successful <see cref="StateMachine{TState}.Transition(TState, string)"/>: the state it left, the trigger, and the state it entered.</summary>
+public sealed record Transitioned<TState>(TState From, string Trigger, TState To);
 
 // ── StateMachineDefinitionException ───────────────────────────────────────────
 
@@ -124,6 +139,95 @@ public sealed class StateMachine<TState>
 		}
 		return false;
 	}
+
+	/// <summary>
+	/// Runs the transition named <paramref name="trigger"/> out of <paramref name="state"/>: finds the edge by the state's case and the name,
+	/// evaluates its guard against <paramref name="state"/>, and returns the state its factory builds. A failure is a <see cref="Result{T}.Fail"/> whose
+	/// violation says why (not permitted from that case, the guard rejected it, the edge has no factory, an argument is needed), and whose
+	/// <c>Attempted</c> is <paramref name="state"/>, unchanged. Nothing is mutated; storing the new state is the caller's job (see <see cref="For{TEntity}"/>).
+	/// </summary>
+	public Result<TState> Fire(TState state, string trigger) => FireCore(state, trigger, null, null);
+
+	/// <summary><see cref="Fire(TState, string)"/> for a transition declared with <c>On&lt;TArg&gt;(name)</c>: <paramref name="argument"/> is handed to its factory.</summary>
+	public Result<TState> Fire<TArg>(TState state, string trigger, TArg argument) => FireCore(state, trigger, argument, typeof(TArg));
+
+	/// <summary><see cref="Fire(TState, string)"/>, returning the <see cref="Transitioned{TState}"/> event instead of only the new state.</summary>
+	public Result<Transitioned<TState>> Transition(TState state, string trigger) =>
+		Fire(state, trigger).Map(to => new Transitioned<TState>(state, trigger, to));
+
+	/// <summary><see cref="Transition(TState, string)"/> for a transition that takes an argument.</summary>
+	public Result<Transitioned<TState>> Transition<TArg>(TState state, string trigger, TArg argument) =>
+		Fire(state, trigger, argument).Map(to => new Transitioned<TState>(state, trigger, to));
+
+	/// <summary>The names of the transitions that may run from <paramref name="state"/> right now: declared out of its case, with a guard that holds.</summary>
+	public IReadOnlyList<string> Permitted(TState state)
+	{
+		var fromType = StateMachineRuntime.CaseTypeOf(state!);
+		return [.. _edges.Where(e => e.From == fromType && (e.Guard is null || e.Guard(state))).Select(e => e.Name).Distinct()];
+	}
+
+	/// <summary>True when <see cref="Fire(TState, string)"/> would run <paramref name="trigger"/> from <paramref name="state"/> (an edge with a factory, guard holding). A transition that takes an argument is not checked for its argument here.</summary>
+	public bool CanFire(TState state, string trigger)
+	{
+		var fromType = StateMachineRuntime.CaseTypeOf(state!);
+		return _edges.Any(e => e.From == fromType && e.Name == trigger && e.Create is not null && (e.Guard is null || e.Guard(state)));
+	}
+
+	/// <summary>Binds this machine to the aggregate that holds the state, so a service fires on the entity and gets the entity back. See <see cref="MachineBinding{TEntity, TState}"/>.</summary>
+	public MachineBinding<TEntity, TState> For<TEntity>(Func<TEntity, TState> getState, Func<TEntity, TState, TEntity> withState) =>
+		new(this, getState, withState);
+
+	private Result<TState> FireCore(TState state, string trigger, object? argument, Type? argumentType)
+	{
+		var fromType = StateMachineRuntime.CaseTypeOf(state!);
+		var named = _edges.Where(e => e.From == fromType && e.Name == trigger).ToArray();
+		if (named.Length == 0)
+		{
+			var permitted = Permitted(state);
+			return Reject(
+				state,
+				trigger,
+				$"'{trigger}' is not a transition out of {fromType.Name}" + (permitted.Count > 0
+					? $" (permitted: {string.Join(", ", permitted)})"
+					: " (it has none)")
+			);
+		}
+
+		var open = named.Where(e => e.Guard is null || e.Guard(state)).ToArray();
+		if (open.Length == 0)
+		{
+			return Reject(state, trigger, $"'{trigger}' is not permitted for this {fromType.Name}: its guard rejected it");
+		}
+
+		var matching = open.Where(
+			e => argumentType is null ? e.ArgumentType is null : e.ArgumentType is not null && e.ArgumentType.IsAssignableFrom(argumentType)
+		).ToArray();
+		if (matching.Length == 0)
+		{
+			return Reject(
+				state,
+				trigger,
+				argumentType is null
+					? $"'{trigger}' out of {fromType.Name} needs an argument of type {open[0].ArgumentType?.Name}: use Fire(state, trigger, argument)"
+					: $"'{trigger}' out of {fromType.Name} does not take a {argumentType.Name} argument"
+			);
+		}
+
+		var edge = matching.FirstOrDefault(e => e.Create is not null);
+		if (edge is null)
+		{
+			return Reject(
+				state,
+				trigger,
+				$"'{trigger}' out of {fromType.Name} is declared but cannot be fired: give its To<{matching[0].To.Name}> a factory that builds the next state"
+			);
+		}
+
+		return new Result<TState>.Ok(edge.Create!(state, argument));
+	}
+
+	private static Result<TState> Reject(TState state, string trigger, string message) =>
+		new Result<TState>.Fail(state, [Violation.Error(message) with { ConstraintId = $"transition:{trigger}", Evidence = state }]);
 
 	/// <summary>
 	/// Lifts this machine onto <see cref="Constraints{T}.Transitions(Func{T, T, bool}, string)"/>:

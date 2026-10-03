@@ -71,7 +71,7 @@ public sealed class StateMachineBuilder<TState>
 /// <summary>
 /// The per-state builder handed to the <c>configure</c> lambda of
 /// <see cref="StateMachineBuilder{TState}.Initial{T}"/>/<see cref="StateMachineBuilder{TState}.State{T}"/>.
-/// <see cref="To{TTo}"/> adds an unnamed transition, named after its own target type;
+/// <see cref="To{TTo}(Func{TFrom, bool})"/> adds an unnamed transition, named after its own target type;
 /// <see cref="On"/> names one explicitly first.
 /// </summary>
 [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Type-state machines find a union's cases and wrap and unwrap them by reflection. Use StateMachine<TState, TTrigger>, whose states are values, for trimmed or NativeAOT code.")]
@@ -81,7 +81,7 @@ public sealed class StateBuilder<TState, TFrom>
 
 	internal StateBuilder(StateMachineBuilder<TState> owner) => _owner = owner;
 
-	/// <summary>Starts a named transition out of <typeparamref name="TFrom"/> — call <see cref="TransitionNameBuilder{TState, TFrom}.To{TTo}"/> to finish it.</summary>
+	/// <summary>Starts a named transition out of <typeparamref name="TFrom"/> — call <see cref="TransitionNameBuilder{TState, TFrom}.To{TTo}(Func{TFrom, bool})"/> to finish it.</summary>
 	public TransitionNameBuilder<TState, TFrom> On(string name) => new(_owner, name);
 
 	/// <summary>
@@ -95,11 +95,24 @@ public sealed class StateBuilder<TState, TFrom>
 		_owner.AddEdge(new StateMachineEdge<TState>(typeof(TTo).Name, typeof(TFrom), typeof(TTo), StateMachineGuards.Wrap<TState, TFrom>(when)));
 		return this;
 	}
+
+	/// <summary>
+	/// <see cref="To{TTo}(Func{TFrom, bool}?)"/> that can also run: <paramref name="create"/> builds the next state from the current one, which is what
+	/// <see cref="StateMachine{TState}.Fire(TState, string)"/> returns.
+	/// </summary>
+	public StateBuilder<TState, TFrom> To<TTo>(Func<TFrom, TTo> create, Func<TFrom, bool>? when = null)
+	{
+		_owner.AddEdge(StateMachineGuards.Edge<TState, TFrom, TTo>(typeof(TTo).Name, create, when));
+		return this;
+	}
+
+	/// <summary>Starts a named transition that takes an argument when fired (<c>Fire(state, "Confirm", argument)</c>).</summary>
+	public TransitionNameBuilder<TState, TFrom, TArg> On<TArg>(string name) => new(_owner, name);
 }
 
 // ── TransitionNameBuilder<TState, TFrom> ──────────────────────────────────────
 
-/// <summary>Returned by <see cref="StateBuilder{TState, TFrom}.On"/> — call <see cref="To{TTo}"/> to name the transition's target.</summary>
+/// <summary>Returned by <see cref="StateBuilder{TState, TFrom}.On"/> — call <see cref="To{TTo}(Func{TFrom, bool})"/> to name the transition's target.</summary>
 [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Type-state machines find a union's cases and wrap and unwrap them by reflection. Use StateMachine<TState, TTrigger>, whose states are values, for trimmed or NativeAOT code.")]
 public sealed class TransitionNameBuilder<TState, TFrom>
 {
@@ -112,10 +125,40 @@ public sealed class TransitionNameBuilder<TState, TFrom>
 		_name = name;
 	}
 
-	/// <summary>Completes the named transition to <typeparamref name="TTo"/> — see <see cref="StateBuilder{TState, TFrom}.To{TTo}"/> for <paramref name="when"/>.</summary>
+	/// <summary>Completes the named transition to <typeparamref name="TTo"/> — see <see cref="StateBuilder{TState, TFrom}.To{TTo}(Func{TFrom, bool})"/> for <paramref name="when"/>.</summary>
 	public StateBuilder<TState, TFrom> To<TTo>(Func<TFrom, bool>? when = null)
 	{
 		_owner.AddEdge(new StateMachineEdge<TState>(_name, typeof(TFrom), typeof(TTo), StateMachineGuards.Wrap<TState, TFrom>(when)));
+		return new StateBuilder<TState, TFrom>(_owner);
+	}
+
+	/// <summary>Completes the named transition so it can run: <paramref name="create"/> builds the <typeparamref name="TTo"/> from the current state.</summary>
+	public StateBuilder<TState, TFrom> To<TTo>(Func<TFrom, TTo> create, Func<TFrom, bool>? when = null)
+	{
+		_owner.AddEdge(StateMachineGuards.Edge<TState, TFrom, TTo>(_name, create, when));
+		return new StateBuilder<TState, TFrom>(_owner);
+	}
+}
+
+// ── TransitionNameBuilder<TState, TFrom, TArg> ────────────────────────────────
+
+/// <summary>Returned by <see cref="StateBuilder{TState, TFrom}.On{TArg}"/>: a named transition whose factory also receives the argument it is fired with.</summary>
+[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Type-state machines find a union's cases and wrap and unwrap them by reflection. Use StateMachine<TState, TTrigger>, whose states are values, for trimmed or NativeAOT code.")]
+public sealed class TransitionNameBuilder<TState, TFrom, TArg>
+{
+	private readonly StateMachineBuilder<TState> _owner;
+	private readonly string _name;
+
+	internal TransitionNameBuilder(StateMachineBuilder<TState> owner, string name)
+	{
+		_owner = owner;
+		_name = name;
+	}
+
+	/// <summary>Completes the transition: <paramref name="create"/> builds the <typeparamref name="TTo"/> from the current state and the argument; <paramref name="when"/> guards on the current state.</summary>
+	public StateBuilder<TState, TFrom> To<TTo>(Func<TFrom, TArg, TTo> create, Func<TFrom, bool>? when = null)
+	{
+		_owner.AddEdge(StateMachineGuards.Edge<TState, TFrom, TArg, TTo>(_name, create, when));
 		return new StateBuilder<TState, TFrom>(_owner);
 	}
 }
@@ -133,6 +176,25 @@ internal static class StateMachineGuards
 {
 	public static Func<TState, bool>? Wrap<TState, TFrom>(Func<TFrom, bool>? when) =>
 		when is null ? null : state => when((TFrom)StateMachineRuntime.Unwrap(state!));
+
+	public static StateMachineEdge<TState> Edge<TState, TFrom, TTo>(string name, Func<TFrom, TTo> create, Func<TFrom, bool>? when) =>
+		new(
+			name,
+			typeof(TFrom),
+			typeof(TTo),
+			Wrap<TState, TFrom>(when),
+			(state, _) => StateMachineRuntime.Wrap<TState>(typeof(TTo), create((TFrom)StateMachineRuntime.Unwrap(state!))!)
+		);
+
+	public static StateMachineEdge<TState> Edge<TState, TFrom, TArg, TTo>(string name, Func<TFrom, TArg, TTo> create, Func<TFrom, bool>? when) =>
+		new(
+			name,
+			typeof(TFrom),
+			typeof(TTo),
+			Wrap<TState, TFrom>(when),
+			(state, argument) => StateMachineRuntime.Wrap<TState>(typeof(TTo), create((TFrom)StateMachineRuntime.Unwrap(state!), (TArg)argument!)!),
+			typeof(TArg)
+		);
 }
 
 // ── [StateMachine] attribute ──────────────────────────────────────────────────
