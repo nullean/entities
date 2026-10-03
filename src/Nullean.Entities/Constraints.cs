@@ -44,13 +44,21 @@ public sealed record Violation(string Message, Severity Severity = Severity.Erro
 
 	public int? Line { get; init; }
 	public int? Column { get; init; }
+	public int? Length { get; init; }
 	public string? File { get; init; }
+
+	/// <summary>The same violation, pointing at <paramref name="location"/> (a null location changes nothing).</summary>
+	public Violation At(SourceLocation? location) =>
+		location is null ? this : this with { File = location.File, Line = location.Line, Column = location.Column, Length = location.Length };
 
 	public static Violation Error(string message) => new(message);
 	public static Violation Error(string member, string message) => new(message) { Member = member };
 	public static Violation Warning(string message) => new(message, Severity.Warning);
 	public static Violation Hint(string message) => new(message, Severity.Hint);
 }
+
+/// <summary>Where in a source file a rule's subject came from (a YAML line, a TOC entry), for findings that should point back at it.</summary>
+public sealed record SourceLocation(string? File, int? Line = null, int? Column = null, int? Length = null);
 
 // ── ConstraintViolationException ──────────────────────────────────────────────
 
@@ -121,7 +129,11 @@ public abstract record ApplyOutcome<T>
 	private protected ApplyOutcome() { }
 
 	/// <summary>Mutation passed all constraints and <see cref="ConstrainedValue{T}.Current"/> was updated.</summary>
-	public sealed record Applied(T Value) : ApplyOutcome<T>;
+	public sealed record Applied(T Value) : ApplyOutcome<T>
+	{
+		/// <summary>The warnings and hints the change raised. Only errors reject a change, so these are what was accepted with a remark.</summary>
+		public IReadOnlyList<Violation> Notices { get; init; } = [];
+	}
 
 	/// <summary>
 	/// Mutation produced the same value (by <see cref="EqualityComparer{T}.Default"/>), so no
@@ -176,14 +188,13 @@ public sealed class Constraint<T>
 	/// equals the second (there is no real "previous"); for <see cref="ConstraintKind.Sequential"/>
 	/// it is the value before the mutation being checked.
 	/// </summary>
-	public Func<T, T, IEnumerable<Violation>> Check { get; }
+	public Func<T, T, IEnumerable<Violation>> Check => (previous, next) => _checkAt(previous, next, TimeProvider.System);
 
-	private readonly Func<T, T, TimeProvider, IEnumerable<Violation>> _checkAt;
+	private Func<T, T, TimeProvider, IEnumerable<Violation>> _checkAt;
 
 	internal Constraint(ConstraintKind kind, Func<T, T, IEnumerable<Violation>> check)
 	{
 		Kind = kind;
-		Check = check;
 		_checkAt = (prev, next, _) => check(prev, next);
 	}
 
@@ -194,7 +205,6 @@ public sealed class Constraint<T>
 	{
 		Kind = kind;
 		_checkAt = checkAt;
-		Check = (prev, next) => checkAt(prev, next, TimeProvider.System);
 	}
 
 	/// <summary>
@@ -242,6 +252,21 @@ public sealed class Constraint<T>
 		return this;
 	}
 
+	/// <summary>The severity this rule's violations were set to with <see cref="WithSeverity"/>, or null when each violation keeps its own.</summary>
+	public Severity? SeverityOverride { get; private set; }
+
+	/// <summary>
+	/// Reports every violation of this rule at <paramref name="severity"/>: a rule that is only a hint today (<c>Unique(...).WithSeverity(Severity.Hint)</c>) or a warning.
+	/// Works on every shape, including <see cref="Constraints{T}.Check"/>. Only errors reject a change in <c>Apply</c>.
+	/// </summary>
+	public Constraint<T> WithSeverity(Severity severity)
+	{
+		var inner = _checkAt;
+		_checkAt = (previous, next, time) => inner(previous, next, time).Select(v => v with { Severity = severity });
+		SeverityOverride = severity;
+		return this;
+	}
+
 	public Constraint<T> Describe(string description)
 	{
 		Description = description;
@@ -251,7 +276,7 @@ public sealed class Constraint<T>
 	// The same rule as an independent object, so two sets can name one rule differently without sharing the name.
 	internal Constraint<T> Copy()
 	{
-		var copy = new Constraint<T>(Kind, _checkAt) { Name = Name, Description = Description };
+		var copy = new Constraint<T>(Kind, _checkAt) { Name = Name, Description = Description, SeverityOverride = SeverityOverride };
 		if (Guard is { } guard)
 		{
 			copy.WithGuard(guard);
@@ -273,7 +298,8 @@ public sealed class Constraint<T>
 		var mapped = new Constraint<TOther>(Kind, (previous, next, time) => CheckAt(project(previous), project(next), time))
 		{
 			Name = Name,
-			Description = Description
+			Description = Description,
+			SeverityOverride = SeverityOverride
 		};
 		if (Guard is { } guard)
 		{
@@ -329,6 +355,7 @@ public static class Constraints<T>
 		Func<T, TValue> select,
 		Func<TValue, bool> predicate,
 		string? message = null,
+		Func<T, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(select))] string? selectExpression = null
 	)
 	{
@@ -337,7 +364,9 @@ public static class Constraints<T>
 		self = new(ConstraintKind.PointInTime, (_, next) =>
 		{
 			var value = select(next);
-			return predicate(value) ? [] : [new Violation(message ?? $"{self.Name ?? "Constraint"} was violated.") { Member = member, Evidence = value }];
+			return predicate(value)
+				? []
+				: [new Violation(message ?? $"{self.Name ?? "Constraint"} was violated.") { Member = member, Evidence = value }.At(at?.Invoke(next))];
 		});
 		return self;
 	}
@@ -369,6 +398,7 @@ public static class Constraints<T>
 		Func<TItem, TKey> key,
 		IEqualityComparer<TKey>? comparer = null,
 		string? message = null,
+		Func<TItem, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	)
 	{
@@ -387,7 +417,7 @@ public static class Constraints<T>
 								{
 									Member = member,
 									Evidence = g.Key
-								}
+								}.At(at?.Invoke(g.Skip(1).First()))
 						),
 				]
 		);
@@ -404,6 +434,7 @@ public static class Constraints<T>
 		Func<T, IEnumerable<TKey>> targets,
 		IEqualityComparer<TKey>? comparer = null,
 		string? message = null,
+		Func<TItem, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	)
 	{
@@ -414,9 +445,15 @@ public static class Constraints<T>
 			var known = new HashSet<TKey>(targets(next), comparer);
 			return [
 				.. items(next)
-					.SelectMany(references)
-					.Where(r => !known.Contains(r))
-					.Select(r => new Violation(message ?? $"{self.Name ?? "Constraint"}: '{r}' refers to nothing.") { Member = member, Evidence = r }),
+					.SelectMany(item => references(item).Where(r => !known.Contains(r)).Select(r => (Item: item, Reference: r)))
+					.Select(
+						d =>
+							new Violation(message ?? $"{self.Name ?? "Constraint"}: '{d.Reference}' refers to nothing.")
+							{
+								Member = member,
+								Evidence = d.Reference
+							}.At(at?.Invoke(d.Item))
+					),
 			];
 		});
 		return self;
@@ -433,6 +470,7 @@ public static class Constraints<T>
 		Func<TNode, IEnumerable<TKey>> edges,
 		IEqualityComparer<TKey>? comparer = null,
 		string? message = null,
+		Func<TNode, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(nodes))] string? nodesExpression = null
 	) where TKey : notnull
 	{
@@ -468,7 +506,11 @@ public static class Constraints<T>
 					{
 						var cycle = path.SkipWhile(k => !equal.Equals(k, target)).Append(target).ToList();
 						var text = string.Join(" -> ", cycle);
-						found.Add(new Violation(message ?? $"{self.Name ?? "Constraint"}: cycle {text}.") { Member = member, Evidence = text });
+						found.Add(
+							new Violation(message ?? $"{self.Name ?? "Constraint"}: cycle {text}.") { Member = member, Evidence = text }.At(
+								at?.Invoke(byId[target])
+							)
+						);
 					}
 				}
 				path.RemoveAt(path.Count - 1);
@@ -488,6 +530,38 @@ public static class Constraints<T>
 	}
 
 	/// <summary>
+	/// A dictionary whose key must be the entity's own key (<c>Repositories["kibana"].Name == "kibana"</c>): the key is stored twice, and the two drift.
+	/// Each entry whose key differs from its value's key is one violation, with the dictionary key as evidence.
+	/// </summary>
+	public static Constraint<T> KeysMatch<TKey, TValue>(
+		Func<T, IEnumerable<KeyValuePair<TKey, TValue>>> entries,
+		Func<TValue, TKey> key,
+		IEqualityComparer<TKey>? comparer = null,
+		string? message = null,
+		Func<TValue, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(entries))] string? entriesExpression = null
+	)
+	{
+		Constraint<T> self = null!;
+		var member = MemberOf(entriesExpression);
+		var equal = comparer ?? EqualityComparer<TKey>.Default;
+		self = new(ConstraintKind.PointInTime, (_, next) =>
+				[
+					.. entries(next)
+						.Where(e => !equal.Equals(e.Key, key(e.Value)))
+						.Select(
+							e =>
+								new Violation(message ?? $"{self.Name ?? "Constraint"}: the entry '{e.Key}' holds a value whose own key is '{key(e.Value)}'.")
+								{
+									Member = member,
+									Evidence = (e.Key, key(e.Value))
+								}.At(at?.Invoke(e.Value))
+						),
+				]);
+		return self;
+	}
+
+	/// <summary>
 	/// Violated when a mapping points at something that itself maps onwards (redirect A to B while B redirects to C): the chain should be flattened
 	/// to A to C. Each chained item is one violation. A mapping onto itself is not a chain; <see cref="Acyclic{TNode, TKey}"/> reports loops.
 	/// </summary>
@@ -497,6 +571,7 @@ public static class Constraints<T>
 		Func<TItem, TKey> to,
 		IEqualityComparer<TKey>? comparer = null,
 		string? message = null,
+		Func<TItem, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	)
 	{
@@ -516,7 +591,7 @@ public static class Constraints<T>
 							{
 								Member = member,
 								Evidence = (from(i), to(i))
-							}
+							}.At(at?.Invoke(i))
 					),
 			];
 		});
@@ -928,8 +1003,7 @@ public sealed class ConstraintSet<T>
 		var next = mutation(current);
 		if (IsNoop(current, next))
 			return new ApplyOutcome<T>.Noop(current);
-		var violations = RunAll(current, next, time);
-		return violations.Count == 0 ? new ApplyOutcome<T>.Applied(next) : new ApplyOutcome<T>.Failure(current, next, violations);
+		return Outcome(current, next, RunAll(current, next, time));
 	}
 
 	/// <summary>Like <see cref="ApplyDetailed"/>, but throws on <see cref="ApplyOutcome{T}.Failure"/>. Returns the new value for both <see cref="ApplyOutcome{T}.Applied"/> and <see cref="ApplyOutcome{T}.Noop"/>.</summary>
@@ -958,8 +1032,7 @@ public sealed class ConstraintSet<T>
 		{
 			return new ApplyOutcome<T>.Noop(current);
 		}
-		var violations = RunAll(current, next, time);
-		return violations.Count == 0 ? new ApplyOutcome<T>.Applied(next) : new ApplyOutcome<T>.Failure(current, next, violations);
+		return Outcome(current, next, RunAll(current, next, time));
 	}
 
 	/// <summary><see cref="Apply"/> for an awaited mutation.</summary>
@@ -1008,6 +1081,12 @@ public sealed class ConstraintSet<T>
 	/// </summary>
 	public IReadOnlyList<Violation> Check(T before, T after, TimeProvider? time = null) => RunAll(before, after, time);
 
+	// Only errors reject a change; warnings and hints ride along on the Applied outcome.
+	internal static ApplyOutcome<T> Outcome(T current, T next, IReadOnlyList<Violation> violations) =>
+		violations.Any(v => v.Severity == Severity.Error)
+			? new ApplyOutcome<T>.Failure(current, next, violations)
+			: new ApplyOutcome<T>.Applied(next) { Notices = violations };
+
 	internal IReadOnlyList<Violation> RunAll(T current, T next, TimeProvider? time)
 	{
 		time ??= TimeProvider.System;
@@ -1017,6 +1096,19 @@ public sealed class ConstraintSet<T>
 
 public static class ConstraintSet
 {
+	/// <summary>
+	/// One set over a pair, from a set for each half: the way a rule that needs two aggregates (a documentation set and the product catalog it refers
+	/// to, a navigation and the assembly it mounts) is written without a new type. Each constraint keeps its name and is checked on its own half.
+	/// </summary>
+	public static ConstraintSet<(TFirst First, TSecond Second)> Pair<TFirst, TSecond>(ConstraintSet<TFirst> first, ConstraintSet<TSecond> second) =>
+		new([
+			.. first.Map<(TFirst First, TSecond Second)>(p => p.First).AsConstraints(),
+			.. second.Map<(TFirst First, TSecond Second)>(p => p.Second).AsConstraints()
+		]);
+
+	/// <summary>The constraints of several sets over one type as a single set, in order (annotations, hand-written rules, a composite's rules).</summary>
+	public static ConstraintSet<T> Merge<T>(params ConstraintSet<T>[] sets) => new([.. sets.SelectMany(s => s.AsConstraints())]);
+
 	/// <summary>
 	/// Names every constraint from its tuple (mirroring Nullean.Entities.Reactive's
 	/// <c>ReactiveConstraintSet.From</c> — [Constraint] source gen passes (nameof(field), field),
@@ -1073,13 +1165,12 @@ public sealed class ConstrainedValue<T>
 		{
 			return new ApplyOutcome<T>.Noop(Current);
 		}
-		var violations = _constraints.RunAll(Current, next, _time);
-		if (violations.Count == 0)
+		var outcome = ConstraintSet<T>.Outcome(Current, next, _constraints.RunAll(Current, next, _time));
+		if (outcome is ApplyOutcome<T>.Applied)
 		{
 			Current = next;
-			return new ApplyOutcome<T>.Applied(next);
 		}
-		return new ApplyOutcome<T>.Failure(Current, next, violations);
+		return outcome;
 	}
 
 	/// <summary>

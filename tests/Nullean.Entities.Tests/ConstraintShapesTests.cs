@@ -17,6 +17,10 @@ internal sealed class MutableCounter
 
 internal sealed record Customer(string Email);
 
+internal sealed record Located(string Id, int Line, string? Ref = null);
+
+internal sealed record Doc(IReadOnlyList<Located> Items);
+
 public class ConstraintShapesTests
 {
 	private static readonly Constraint<Site> UniqueUrls = Constraints<Site>.Unique(s => s.Pages, p => p.Url);
@@ -161,5 +165,65 @@ public class ConstraintShapesTests
 
 		set.Check(before, counter).Should().ContainSingle();
 		set.Check(before, new MutableCounter { Value = 9 }).Should().BeEmpty();
+	}
+
+	private static SourceLocation Where(Located l) => new("docset.yml", l.Line, 3, l.Id.Length);
+
+	[Test]
+	public void A_warning_is_reported_but_does_not_reject_the_change_and_rides_on_the_Applied_outcome()
+	{
+		var set = ConstraintSet.From(
+			("EmailHasAt", Constraints<Customer>.Always(c => c.Email, e => e.Contains('@')).WithSeverity(Severity.Warning)),
+			("NotEmpty", Constraints<Customer>.Always(c => c.Email.Length > 0))
+		);
+
+		var outcome = set.ApplyDetailed(new Customer("a@b"), _ => new Customer("nobody"));
+
+		outcome.Should().BeOfType<ApplyOutcome<Customer>.Applied>().Which.Notices.Should().ContainSingle().Which.Severity.Should().Be(Severity.Warning);
+		set.Apply(new Customer("a@b"), _ => new Customer("nobody")).Should().BeOfType<Result<Customer>.Ok>();
+		set.Validate(new Customer("nobody")).Should().ContainSingle().Which.Severity.Should().Be(Severity.Warning);
+		set.Apply(new Customer("a@b"), _ => new Customer("")).Should().BeOfType<Result<Customer>.Fail>("the empty one is still an error");
+	}
+
+	[Test]
+	public void A_hint_works_on_the_escape_hatch_Check_and_survives_a_copy_into_another_set()
+	{
+		var rule = Constraints<Customer>.Check(c => [Violation.Error("x")]).WithSeverity(Severity.Hint);
+		var first = ConstraintSet.From(("Hinted", rule));
+		var second = ConstraintSet.From(("AlsoHinted", rule));
+
+		first.Validate(new Customer("a")).Single().Severity.Should().Be(Severity.Hint);
+		second.AsConstraints().Single().SeverityOverride.Should().Be(Severity.Hint);
+		second.Validate(new Customer("a")).Single().Severity.Should().Be(Severity.Hint);
+	}
+
+	[Test]
+	public void The_item_shapes_point_a_violation_at_the_item_that_caused_it()
+	{
+		var unique = ConstraintSet.From(("U", Constraints<Doc>.Unique(d => d.Items, i => i.Id, at: Where)));
+		var references = ConstraintSet.From(
+			("R", Constraints<Doc>.References<Located, string>(d => d.Items, i => i.Ref is null ? [] : [i.Ref], d => d.Items.Select(i => i.Id), at: Where))
+		);
+		var cycles = ConstraintSet.From(("C", Constraints<Doc>.Acyclic(d => d.Items, i => i.Id, i => i.Ref is null ? [] : [i.Ref], at: Where)));
+		var chains = ConstraintSet.From(("N", Constraints<Doc>.NoChains(d => d.Items, i => i.Id, i => i.Ref ?? i.Id, at: Where)));
+
+		unique
+			.Validate(new Doc([new("a", 1), new("b", 2), new("a", 7)]))
+			.Single()
+			.Should()
+			.Match<Violation>(v => v.File == "docset.yml" && v.Line == 7 && v.Column == 3 && v.Length == 1);
+		references.Validate(new Doc([new("a", 1), new("b", 9, "ghost")])).Single().Line.Should().Be(9);
+		cycles.Validate(new Doc([new("a", 4, "b"), new("b", 5, "a")])).Single().Line.Should().BeOneOf(4, 5);
+		chains.Validate(new Doc([new("a", 2, "b"), new("b", 3, "c"), new("c", 4)])).Single().Line.Should().Be(2);
+	}
+
+	[Test]
+	public void The_selector_overload_of_Always_takes_a_location()
+	{
+		var set = ConstraintSet.From(("E", Constraints<Located>.Always(l => l.Id, id => id.Length > 1, at: l => new SourceLocation("x.yml", l.Line))));
+
+		var violation = set.Validate(new Located("a", 12)).Single();
+
+		(violation.File, violation.Line, violation.Member).Should().Be(("x.yml", 12, "Id"));
 	}
 }
