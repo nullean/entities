@@ -22,7 +22,7 @@ public enum AutoMode
 }
 
 /// <summary>Options for <see cref="GenAuto.Of{T}(AutoMode, Action{AutoOptions})"/>.</summary>
-public sealed class AutoOptions
+public sealed partial class AutoOptions
 {
 	internal readonly Dictionary<Type, Gen<object?>> Custom = [];
 

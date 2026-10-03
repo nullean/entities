@@ -50,9 +50,27 @@ internal sealed class AutoBuilder(AutoOptions options)
 
 	private readonly NullabilityInfoContext _nullability = new();
 
-	public Gen<T> For<T>() => new CastGen<T>(Build(typeof(T), null, false, 0));
+	public Gen<T> For<T>() => new CastGen<T>(Scoped(Build(typeof(T), null, false, 0)));
 
-	public Gen<object?> ForType(Type type) => Build(type, null, false, 0);
+	public Gen<object?> ForType(Type type) => Scoped(Build(type, null, false, 0));
+
+	// The nesting limit cuts a type to a constant (or an empty collection). A type that takes part in a declared relation is given a few more levels first, because
+	// a constant cannot join a relation: a mount refers to a repository that was cut to one fixed value is a reference to nothing.
+	private bool AtLimit(Type type, int depth) =>
+		depth >= options.MaxDepth + (options.Relations.Any(r => (r.To == type || r.From == type) && r.Kind != RelationKind.Identity) ? 4 : 0);
+
+	// A declared relation's target must exist for a reference to be valid, so in plausible data a collection of targets is never empty.
+	private Func<bool>? PendingTargets(Type valueType)
+	{
+		var targets = options.Relations.Where(r => r.To == valueType && r.Kind is RelationKind.Reference or RelationKind.ReferenceList).ToList();
+		return targets.Count == 0 ? null : () => RelationScope.Current is { } scope && scope.HasPending(targets);
+	}
+
+	private bool AtLeastOne(Type elementType) =>
+		options.Mode == AutoMode.Plausible && options.Relations.Any(r => r.To == elementType && r.Kind is RelationKind.Reference or RelationKind.ReferenceList);
+
+	// Declared relations share keys across one root value, so the root opens a scope; with none declared there is nothing to share.
+	private Gen<object?> Scoped(Gen<object?> root) => options.Relations.Count == 0 ? root : new ScopedGen(root);
 
 	// ── Dispatch ─────────────────────────────────────────────────────────────
 
@@ -82,19 +100,26 @@ internal sealed class AutoBuilder(AutoOptions options)
 		}
 		if (TryDictionary(type, out var keyType, out var valueType))
 		{
-			return depth >= options.MaxDepth
+			return AtLimit(valueType, depth)
 				? new ConstGen(MaterializeDictionary(type, keyType, valueType, Array.Empty<(object?, object?)>()))
-				: new DictionaryGen(type, Build(keyType, "key", false, depth + 1), Build(valueType, "value", false, depth + 1), options);
+				: new DictionaryGen(
+					type,
+					Build(keyType, "key", false, depth + 1),
+					Build(valueType, "value", false, depth + 1),
+					options,
+					AtLeastOne(valueType),
+					PendingTargets(valueType)
+				);
 		}
 		if (TryCollection(type, out var elementType))
 		{
-			if (depth >= options.MaxDepth)
+			if (AtLimit(elementType, depth))
 			{
 				return new ConstGen(Materialize(type, elementType, []));
 			}
 			var elementInfo = info?.ElementType ?? info?.GenericTypeArguments.FirstOrDefault();
 			var elementsNullable = elementInfo?.ReadState == NullabilityState.Nullable && !elementType.IsValueType;
-			return new CollectionGen(type, elementType, Element(elementType, name, depth + 1), options, elementsNullable);
+			return new CollectionGen(type, elementType, Element(elementType, name, depth + 1), options, elementsNullable, AtLeastOne(elementType));
 		}
 		if (TryUnion(type, depth, out var union))
 		{
@@ -599,7 +624,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 
 	private Gen<object?> Object(Type type, int depth)
 	{
-		if (depth >= options.MaxDepth && !type.IsValueType)
+		if (AtLimit(type, depth) && !type.IsValueType)
 		{
 			return Terminal(type);
 		}
@@ -714,7 +739,69 @@ internal sealed class AutoBuilder(AutoOptions options)
 			}
 		}
 
-		return new ObjectPlan(type, ctor, parameters.Length, [.. setters], [.. gens], [.. names], [.. types], [.. nullables]);
+		var declared = new HashSet<int>();
+		var relationKeys = new List<RelationDecl>();
+		ApplyRelations(type, names, types, nullables, gens, declared, relationKeys);
+		var plan = new ObjectPlan(type, ctor, parameters.Length, [.. setters], [.. gens], [.. names], [.. types], [.. nullables]);
+		plan.SetRelations(declared, relationKeys);
+		return plan;
+	}
+
+	private readonly Dictionary<RelationDecl, Gen<object?>> _relationKeyGens = [];
+
+	// Wraps the members a declared relation is about: the target's key, the referring member, a keyed dictionary, an identity.
+	private void ApplyRelations(
+		Type type,
+		List<string> names,
+		List<Type> types,
+		List<bool> nullables,
+		List<Gen<object?>> gens,
+		HashSet<int> declared,
+		List<RelationDecl> relationKeys
+	)
+	{
+		static int IndexOf(List<string> names, string? member) =>
+			member is null ? -1 : names.FindIndex(n => string.Equals(n, member, StringComparison.OrdinalIgnoreCase));
+
+		foreach (var decl in options.Relations)
+		{
+			if (decl.To == type && decl.Kind is RelationKind.Reference or RelationKind.ReferenceList && IndexOf(
+					names,
+					decl.ToKeyMember
+				) is var keyIndex and >= 0)
+			{
+				gens[keyIndex] = new RelationKeyGen(decl, gens[keyIndex]);
+				relationKeys.Add(decl);
+				declared.Add(keyIndex);
+			}
+			if (decl.From != type)
+			{
+				continue;
+			}
+			var fromIndex = IndexOf(names, decl.FromMember);
+			if (fromIndex < 0)
+			{
+				continue;
+			}
+			switch (decl.Kind)
+			{
+				case RelationKind.Reference or RelationKind.ReferenceList:
+					if (!_relationKeyGens.TryGetValue(decl, out var keyGen))
+					{
+						_relationKeyGens[decl] = keyGen = Build(decl.KeyType, "id", false, 0);
+					}
+					gens[fromIndex] = new RelationRefGen(decl, gens[fromIndex], types[fromIndex], nullables[fromIndex], keyGen, options);
+					declared.Add(fromIndex);
+					break;
+				case RelationKind.KeyedBy:
+					gens[fromIndex] = new KeyedDictionaryGen(decl, gens[fromIndex], types[fromIndex], options);
+					declared.Add(fromIndex);
+					break;
+				case RelationKind.Identity:
+					gens[fromIndex] = new PoolGen(decl, gens[fromIndex], options);
+					break;
+			}
+		}
 	}
 }
 
@@ -822,6 +909,11 @@ internal sealed class ObjectPlan
 				}
 				for (var k = 0; k < bPlan.Names.Length; k++)
 				{
+					if (bPlan.IsDeclared(k))
+					{
+						continue;
+					}
+
 					if (bPlan.Names[k].Equals(aGen.ElementType.Name + "Id", StringComparison.OrdinalIgnoreCase) && BaseType(bPlan.Types[k]) == BaseType(
 							aPlan.Types[pk]
 						))
@@ -934,10 +1026,25 @@ internal sealed class ObjectPlan
 	public int? Pk { get; }
 
 	/// <summary>Indexes of the references to a key of the same type (<c>ManagerId</c>, <c>ParentId</c>): the foreign keys among the items of a collection.</summary>
-	public int[] Fks { get; }
+	public int[] Fks { get; private set; }
+
+	private HashSet<int> _declared = [];
+
+	/// <summary>The relations whose target key is one of this plan's members; a collection of these keeps drawing until every promised key exists.</summary>
+	public List<RelationDecl> RelationKeys { get; private set; } = [];
+
+	internal void SetRelations(HashSet<int> declared, List<RelationDecl> relationKeys)
+	{
+		_declared = declared;
+		RelationKeys = relationKeys;
+		Fks = [.. Fks.Where(i => !declared.Contains(i))];
+		FksMany = [.. FksMany.Where(i => !declared.Contains(i))];
+	}
+
+	internal bool IsDeclared(int member) => _declared.Contains(member);
 
 	/// <summary>Indexes of the lists of keys (<c>DirectReportIds</c>, <c>IncludedIds</c>) that refer to other items of the collection.</summary>
-	public int[] FksMany { get; }
+	public int[] FksMany { get; private set; }
 
 	public Type CollectionType(int index) => Types[index];
 
@@ -1098,7 +1205,8 @@ internal sealed class CollectionGen(
 	Type elementType,
 	(Gen<object?> Value, ObjectPlan? Plan) element,
 	AutoOptions options,
-	bool elementsNullable = false
+	bool elementsNullable = false,
+	bool atLeastOne = false
 ) : Gen<object?>
 {
 	public Type Target => target;
@@ -1110,6 +1218,10 @@ internal sealed class CollectionGen(
 	public override object? Generate(PCG pcg, Size? min, out Size size)
 	{
 		var count = (int)Count(pcg, options);
+		if (atLeastOne && count == 0)
+		{
+			count = 1;
+		}
 		size = new Size((ulong)count << 24);
 		var items = new List<object?>(count);
 
@@ -1120,6 +1232,11 @@ internal sealed class CollectionGen(
 			{
 				argSets.Add(plan.DrawArgs(pcg, options, out var s));
 				size.Add(s);
+			}
+			for (var extra = 0; extra < 50 && plan.RelationKeys.Count > 0 && RelationScope.Current is { } scope && scope.HasPending(plan.RelationKeys); extra++)
+			{
+				argSets.Add(plan.DrawArgs(pcg, options, out var more));
+				size.Add(more);
 			}
 			DuplicateIdentity(argSets, plan, pcg);
 			ReferenceKeys(argSets, plan, pcg);
@@ -1363,21 +1480,49 @@ internal sealed class CollectionGen(
 	}
 }
 
-internal sealed class DictionaryGen(Type target, Gen<object?> key, Gen<object?> value, AutoOptions options) : Gen<object?>
+internal sealed class DictionaryGen(
+	Type target,
+	Gen<object?> key,
+	Gen<object?> value,
+	AutoOptions options,
+	bool atLeastOne = false,
+	Func<bool>? hasPending = null
+) : Gen<object?>
 {
 	public override object? Generate(PCG pcg, Size? min, out Size size)
 	{
 		var count = (int)CollectionGen.Count(pcg, options);
+		if (atLeastOne && count == 0)
+		{
+			count = 1;
+		}
 		size = new Size((ulong)count << 24);
 		var pairs = new List<(object?, object?)>(count);
 		var args = target.GetGenericArguments();
+		var used = new HashSet<object?>();
+		// A repeated key would silently replace an entry, taking whatever the value was with it (a repository a mount refers to), so keys are redrawn.
+		object? NewKey(PCG source, out Size keySize)
+		{
+			var drawn = key.Generate(source, null, out keySize);
+			for (var attempt = 0; attempt < 10 && drawn is not null && !used.Add(drawn); attempt++)
+			{
+				drawn = key.Generate(source, null, out keySize);
+			}
+			return drawn;
+		}
+
 		for (var i = 0; i < count; i++)
 		{
-			var k = key.Generate(pcg, null, out var ks);
+			var k = NewKey(pcg, out var ks);
 			var v = value.Generate(pcg, null, out var vs);
 			size.Add(ks);
 			size.Add(vs);
 			pairs.Add((k, v));
+		}
+		// Targets that references promised, and no entry has taken yet, are drawn until they exist.
+		for (var extra = 0; extra < 50 && hasPending?.Invoke() == true; extra++)
+		{
+			pairs.Add((NewKey(pcg, out _), value.Generate(pcg, null, out _)));
 		}
 		return AutoBuilder.MaterializeDictionary(target, args[0], args[1], pairs);
 	}

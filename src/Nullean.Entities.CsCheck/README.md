@@ -656,7 +656,20 @@ Know the limits:
     `Mixed`/`Adversarial` a share of collections have a reference to nothing, to itself, or round a cycle of two or three.
   - **Lists of keys** (`DirectReportIds`, `IncludedIds`): a valid graph, then a dangling include, a self-include, or two items including each other.
   - **Between two collections of one object**: `Order.CustomerId` into a sibling `Customers` list (a member named `<ElementType>Id`): always valid in `Plausible`, sometimes dangling otherwise.
-  - Not generated: references between different *objects* (a key into a database, a repository elsewhere). Duplicate ids and `Start`/`End` pairs are generated too.
+  - **Declared relations**, for the references the names do not give away (a list of ids on one object into a collection on another, a URI built from a repository name, a dictionary keyed by
+    its entity's own name, a path that must be unique across every level of a tree). They are declared with expressions, so the member names are checked by the compiler:
+
+    ```csharp
+    GenAuto.Of<Site>(AutoMode.Mixed, o => o
+        .References<Docset, Product, string>(d => d.Products, p => p.Id)                                   // list of ids -> products anywhere in the value
+        .Reference<Mount, Repo, string, Uri>(m => m.Source, r => r.Name, name => new Uri($"{name}://x")) // a value built from the key
+        .KeyedBy<Assembly, string, Repo>(a => a.Repositories, r => r.Name)                                 // dictionary key = entity key
+        .Identity<TocNode, string>(n => n.Path));                                                          // unique across every level of a tree
+    ```
+
+    Plausible data always refers to something that exists, whichever side is generated first (a reference that comes first promises a key, and the target takes it); `Mixed` and `Adversarial`
+    sometimes refer to nothing, let a dictionary key drift, or repeat a path at two levels. Types in a declared relation get four more levels before the nesting limit cuts them to a constant.
+  - Not generated: references to something outside the generated value (a key into a database, a repository elsewhere). Duplicate ids and `Start`/`End` pairs are generated too.
 
 An AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock) lives in the separate, optional
 [`Nullean.Entities.CsCheck.AutoBogus`](https://www.nuget.org/packages/Nullean.Entities.CsCheck.AutoBogus) package (`GenAutoBogus.Of<T>(configure)`), for teams that already
