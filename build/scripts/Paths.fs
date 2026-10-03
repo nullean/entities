@@ -43,7 +43,10 @@ let mapNugetToProject =
 /// The console apps under examples/Apps. `apps` runs each; one that exits non-zero (a scenario stopped behaving as narrated) fails the build.
 let Apps =
     [ "examples/Apps/OrderFulfilment"
-      "examples/Apps/Banking" ]
+      "examples/Apps/Banking"
+      "examples/Apps/SupportDesk"
+      "examples/Apps/EventSourcedCart"
+      "examples/Apps/Inventory" ]
 
 let TestProjects =
     [ "tests/Nullean.Entities.Tests"

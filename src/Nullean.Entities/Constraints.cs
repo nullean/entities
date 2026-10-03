@@ -1038,8 +1038,13 @@ public sealed class ConstraintSet<T>
 	/// </summary>
 	public IReadOnlyList<Constraint<T>> AsConstraints() => _constraints;
 
-	/// <summary>Every constraint in the set lifted through <paramref name="project"/> (see <see cref="Constraint{T}.Map{TOther}"/>), names preserved.</summary>
-	public ConstraintSet<TOther> Map<TOther>(Func<TOther, T> project) => new([.. _constraints.Select(c => c.Map(project))]);
+	/// <summary>
+	/// Every constraint in the set lifted through <paramref name="project"/> (see <see cref="Constraint{T}.Map{TOther}"/>), names preserved, or prefixed with
+	/// <paramref name="prefix"/>. Prefix when two sets are lifted into one that both have a rule of the same name (two aggregates that each have <c>SkusAreUnique</c>):
+	/// names are how a violation, <c>Probe</c> and <c>Laws</c> tell rules apart, and the prefix also says which part a violation is about.
+	/// </summary>
+	public ConstraintSet<TOther> Map<TOther>(Func<TOther, T> project, string? prefix = null) =>
+		new([.. _constraints.Select(c => prefix is null ? c.Map(project) : c.Map(project).Named($"{prefix}{c.Name}"))]);
 
 	/// <summary>
 	/// Runs every <see cref="ConstraintKind.PointInTime"/> constraint over the single

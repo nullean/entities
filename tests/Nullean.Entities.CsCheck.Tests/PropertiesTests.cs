@@ -104,4 +104,25 @@ public class ConstraintPropertiesTests
 
 		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Never");
 	}
+
+	[Test]
+	public void Two_rules_with_the_same_name_are_reported_instead_of_crashing_Probe()
+	{
+		var first = ConstraintSet.From(("NotLocked", Constraints<Door>.Always(d => d.State != DoorState.Locked, "must not be locked")));
+		var merged = ConstraintSet.Merge(first, first);
+
+		var act = () => merged.Probe(samples: 10);
+
+		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Two constraints are named 'NotLocked'").And.Contain("prefix");
+	}
+
+	[Test]
+	public void A_prefix_on_Map_makes_two_lifted_sets_distinguishable()
+	{
+		var rules = ConstraintSet.From(("NotLocked", Constraints<Door>.Always(d => d.State != DoorState.Locked, "must not be locked")));
+		var both = ConstraintSet.Merge(rules.Map<(Door A, Door B)>(p => p.A, prefix: "A."), rules.Map<(Door A, Door B)>(p => p.B, prefix: "B."));
+
+		both.AsConstraints().Select(c => c.Name).Should().Equal("A.NotLocked", "B.NotLocked");
+		both.Probe(samples: 50).NeverViolated.Should().BeEmpty();
+	}
 }

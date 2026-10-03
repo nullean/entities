@@ -516,7 +516,7 @@ warnings and hints it let through are on `ApplyOutcome.Applied.Notices`. A viola
 selector form of `Always` take `at:` (a function from the offending item to a `SourceLocation`) so a finding can point back at the line it came from.
 
 More shapes for the references real models use (`Tree.Map` rebuilds an immutable tree bottom-up, for rewriting one; `Acyclic` is iterative, so a chain a million deep is fine): `KeysMatch(a => a.Repositories, r => r.Name)` (a dictionary keyed by its entity's own name), `Tree.Flatten(roots, n => n.Children)` (every node of a
-tree, so `Unique` and `References` run across all levels), and `ConstraintSet.Pair(a, b)` / `ConstraintSet.Merge(a, b)` for a rule over two aggregates and for joining sets.
+tree, so `Unique` and `References` run across all levels), and `ConstraintSet.Pair(a, b)` / `ConstraintSet.Merge(a, b)` for a rule over two aggregates and for joining sets. `set.Map(project, prefix: "Catalog.")` lifts a set onto a bigger value: pass a prefix when two lifted sets would otherwise have a rule of the same name (names are how a violation, `Probe` and `Laws` tell rules apart).
 
 ## DataAnnotations are constraints too
 

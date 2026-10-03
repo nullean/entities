@@ -8,5 +8,8 @@
     <ProjectReference Include="../../src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
     <ProjectReference Include="../../examples/Apps/OrderFulfilment/OrderFulfilment.csproj" />
     <ProjectReference Include="../../examples/Apps/Banking/Banking.csproj" />
+    <ProjectReference Include="../../examples/Apps/SupportDesk/SupportDesk.csproj" />
+    <ProjectReference Include="../../examples/Apps/EventSourcedCart/EventSourcedCart.csproj" />
+    <ProjectReference Include="../../examples/Apps/Inventory/Inventory.csproj" />
   </ItemGroup>
 </Project>

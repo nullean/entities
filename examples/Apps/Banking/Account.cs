@@ -37,8 +37,8 @@ public sealed record Transfer(Account From, Account To, Money Amount)
 public static class TransferRules
 {
 	public static readonly ConstraintSet<Transfer> All = ConstraintSet.Merge(
-		AccountConstraints.All.Map<Transfer>(t => t.From),
-		AccountConstraints.All.Map<Transfer>(t => t.To),
+		AccountConstraints.All.Map<Transfer>(t => t.From, prefix: "From."),
+		AccountConstraints.All.Map<Transfer>(t => t.To, prefix: "To."),
 		ConstraintSet.From(
 			("money-is-conserved", Constraints<Transfer>.Conserves(t => t.From.Balance + t.To.Balance, "A transfer cannot create or destroy money")),
 			("accounts-differ", Constraints<Transfer>.Always(t => t.From.Number != t.To.Number, "An account cannot transfer to itself")),

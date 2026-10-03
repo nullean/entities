@@ -190,8 +190,17 @@ public static class ConstraintProperties
 		}
 	}
 
-	private static List<string> PointInTimeNames<T>(ConstraintSet<T> constraints) =>
-		[.. constraints.AsConstraints().Where(c => c.Kind == ConstraintKind.PointInTime).Select((c, i) => c.Name ?? $"constraint{i}")];
+	private static List<string> PointInTimeNames<T>(ConstraintSet<T> constraints)
+	{
+		List<string> names = [.. constraints.AsConstraints().Where(c => c.Kind == ConstraintKind.PointInTime).Select((c, i) => c.Name ?? $"constraint{i}")];
+		if (names.GroupBy(n => n).FirstOrDefault(g => g.Count() > 1) is { } duplicate)
+		{
+			throw new InvalidOperationException(
+				$"Two constraints are named '{duplicate.Key}'. Probe and Laws tell rules apart by name: name them uniquely (Named), or pass a prefix where two sets are lifted into one (set.Map(project, prefix: \"Catalog.\"))."
+			);
+		}
+		return names;
+	}
 
 	private static void Sample<T>(Gen<T>? gen, int count, Action<T> each)
 	{
