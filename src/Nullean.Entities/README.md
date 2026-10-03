@@ -346,6 +346,15 @@ StateMachine.FromMermaid(text);                           // and back: a diagram
 `Nullean.Entities.CsCheck` explores a machine (`machine.Spec().Exhaustive()`) and checks a real entity follows it (`machine.ConformTo(...)`).
 `Constraint<T>.Map` / `ConstraintSet<T>.Map` lift constraints through a projection while keeping kind, name, guards and edges.
 
+## Severity, locations, and what `Apply` rejects
+
+`constraint.WithSeverity(Severity.Warning)` (or `Hint`) sets the severity of a rule's violations, on any shape. `Validate` returns all of them; `Apply` rejects a change only for **errors**, and the
+warnings and hints it let through are on `ApplyOutcome.Applied.Notices`. A violation carries `File`, `Line`, `Column` and `Length`; `Unique`, `References`, `Acyclic`, `NoChains`, `KeysMatch` and the
+selector form of `Always` take `at:` (a function from the offending item to a `SourceLocation`) so a finding can point back at the line it came from.
+
+More shapes for the references real models use: `KeysMatch(a => a.Repositories, r => r.Name)` (a dictionary keyed by its entity's own name), `Tree.Flatten(roots, n => n.Children)` (every node of a
+tree, so `Unique` and `References` run across all levels), and `ConstraintSet.Pair(a, b)` / `ConstraintSet.Merge(a, b)` for a rule over two aggregates and for joining sets.
+
 ## DataAnnotations are constraints too
 
 A type with `[Constraints]` (or `[Constraint]` members) gets one generated constraint for each `[Required]`, `[Range]`, `[StringLength]`, `[MaxLength]`, `[MinLength]` and

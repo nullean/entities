@@ -123,23 +123,28 @@ A declared machine cannot represent guards that depend on runtime data; those st
 
 ## 6. A docs-platform domain, from docs-eng-team's investigation
 
-`examples/Nullean.Entities.Examples/Docs/DocsPlatform` expresses 13 of the constraints catalogued in the docs-eng-team domain-model investigation (plus the product-lifecycle ordering and the link-index deadline, which it found missing) (`docs/domain-model/constraints.md`),
-shaped like docs-builder's `erd-model` aggregates (`Catalog`, `Product` with a lifecycle machine, `DocumentationSet`, `Site`, a pipeline event log). Tests are in
-`tests/Nullean.Entities.Examples.Tests/Docs`.
+`examples/Nullean.Entities.Examples/Docs/DocsPlatform` expresses 16 of the constraints catalogued in the docs-eng-team domain-model investigation (`docs/domain-model/constraints.md`), plus the
+product-lifecycle ordering and the link-index deadline, which it found missing. It is shaped like docs-builder's `erd-model` aggregates, which refer to each other in four ways, none of them the
+`<Element>Id` convention:
 
-| Kind of rule | Rules written | How |
-|---|---|---|
-| Uniqueness | G87 product ids (case-insensitive), N1 page URLs, D101 redirect sources, G67 path prefixes | `Unique` |
-| Referential integrity | V1/G80 product to versioning system, D106 redirect target exists, G62/I6 mount to toc, includes to tocs | `References` |
-| Graph | D69 toc include cycles, N30 redirect chains | `Acyclic`, `NoChains` |
-| Cross-field | G89 base not after current, N25 redirect shadows a live page | `Always` with a selector, `Check` |
-| Lifecycle | the ordering of preview, beta, GA, deprecated and removed, which the investigation found nowhere | `StateMachine`, `ConformTo`, `Exhaustive` |
-| Temporal | N38 registry only moves forward, N48 publish only after links validated, link index updated within 10 minutes of a green build | `Temporal<T>`, `Trace.Check` |
-| Temporal, for every command sequence | the publish step cannot publish an unvalidated manifest | event-sourced `Exhaustive(rules)` |
+| How it refers | In docs-builder | In the example | Rule |
+|---|---|---|---|
+| a list of id strings into another aggregate | `DocumentationSetDefinition.Products` to `Product` | `Docset.Products` to `Catalog` | `References` over the pair `DocsetInCatalog` (I2/D22) |
+| an id into another aggregate | `CodexGroup` to `CodexGroupDefinition.Id` | `Docset.CodexGroup` to `CodexConfig` | `Check` over `DocsetInCodex` (D29) |
+| a dictionary key that repeats the entity's name | `AssemblyConfiguration.Repositories` | `Assembly.Repositories` | `KeysMatch` |
+| a URI | a mount's `Source` (`repo://path`) to a repository | `Mount.Source` to `Assembly` | `References` over `NavigationInAssembly` (G62/I6) |
+| a path inside a tree | `TocItem.Children`, identity is a `DocsetPath` | `TocNode` | `Unique` over `Tree.Flatten` (D74), `..` check |
+| an include graph, before expansion | `toc.yml` includes | `TocIncludes` | `Acyclic` (D69), `References` |
 
-What the tests show: `Probe()` finds a counter-example to every rule from **generated data alone** (duplicates, dangling references, include cycles, redirect
-chains, inverted versions), with no hand-written generator. `Laws()` passes for each set, and it told us something true about the rules: a redirect chain cannot be
-written so that it breaks only `RedirectsAreNotChained`, because the middle hop is either not a page (breaks `RedirectTargetsExist`) or is one (breaks `RedirectsDoNotShadowPages`).
+Also: G87 unique product ids, G89 base not after current, V1/G80 versioning system exists, N1 page URLs, D101 redirect sources, D106 redirect targets, N30 redirect chains, N25 a redirect shadows a
+live page, G67 mount prefixes; a product lifecycle as a `StateMachine` (Exhaustive, `ConformTo`); N38, N48 and the link-index deadline as `Temporal` rules, and N48 proved for every command sequence with
+event-sourced `Exhaustive(rules)`.
 
-Not expressed: the C1-C3 compatibility rules (an old config file must keep loading), which are about files on disk and belong in golden-file tests, and the rules that need
-a *different repository's* data (I3: a cross-link resolves in another repository's manifest), which would be a composite over the link registry.
+What the tests show: with the relations declared to AutoGen (`References`, `Reference`, `KeyedBy`, `Identity`), `Probe()` finds a counter-example to **every** rule from generated data alone: a dangling
+product id, a mount of a repository nothing has, a dictionary key that drifted, a file listed at two depths, an include cycle. `Laws()` passes for each set, and told us something true twice: a redirect
+chain cannot be written so that it breaks only `RedirectsAreNotChained` (the middle hop is either not a page or is one), and a missing root also puts every file outside it.
+
+Layers: a cycle rule belongs on the include graph before expansion; the expanded tree cannot hold one (see `docs/integration.md`).
+
+Not expressed: the C1-C3 compatibility rules (an old config file must keep loading), which are about files on disk and belong in golden-file tests; and the rules that need a *different repository's* data
+(I3: a cross-link resolves in another repository's manifest), which would be a pair over the link registry and a manifest.

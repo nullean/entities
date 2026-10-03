@@ -63,7 +63,8 @@ Every project multi-targets `net10.0;net11.0` (the source generator stays on `ne
 generated `Actions` into one-line `Exhaustive`/`Sample`/`Mermaid`/`Faults`/`Conform`/`Commutes` tests;
 `tests/Nullean.Entities.Examples.Tests` runs them against every example domain (see `AUTOTEST_NOTES.md` for what did not convert).
 
-The core and Reactive packages are trim/AOT clean and verified by publishing `examples/Nullean.Entities.AotSmoke` NativeAOT (`./build.sh aot`); the CsCheck packages and the generator are
+`Nullean.Entities.FileSystem` (file rules over System.IO.Abstractions) and `Nullean.Entities.CsCheck.FileSystem` (generated MockFileSystem worlds) are two more optional packages.
+The core, Reactive and FileSystem packages are trim/AOT clean and verified by publishing `examples/Nullean.Entities.AotSmoke` NativeAOT (`./build.sh aot`); the CsCheck packages and the generator are
 not, by design (reflection). The `[Constraints]` generator also turns DataAnnotations into constraints (no opt-in) and supports nested types; generic types are still refused (NECG004).
 `Violation.Member`, `ConstraintViolationException`, `Unique`/`References`/`Acyclic`/`NoChains`, `Laws()`, and AutoGen's value-object, union, abstract-type, DataAnnotations and foreign-key support are
 documented in the package READMEs; `docs/integration.md` covers real services and `AUTOTEST_NOTES.md` section 6 the docs-platform example.

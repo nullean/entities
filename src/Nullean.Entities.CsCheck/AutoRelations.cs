@@ -191,7 +191,10 @@ internal sealed class RelationRefGen(
 			var items = new List<object?>();
 			for (var i = pcg.Next(4); i > 0; i--)
 			{
-				items.Add(Key(pcg, state));
+				if (Key(pcg, state) is { } reference)
+				{
+					items.Add(reference);
+				}
 			}
 			return AutoBuilder.Materialize(memberType, elementType, items);
 		}
@@ -231,6 +234,40 @@ internal sealed class RelationRefGen(
 				state.Dangling.Add(missing);
 			}
 			return missing;
+		}
+		if (decl.From == decl.To)
+		{
+			// A relation from a type to itself (an include graph, a parent link). Plausible data refers only to EARLIER items, so it is a forest or a DAG and never a cycle;
+			// the other modes also refer to the item itself, and forward to an item not generated yet, which is what closes a cycle. The key member is drawn before the
+			// referring member, so the last key that exists is this item's own.
+			var roll = (int)pcg.Next(100);
+			var self = options.Mode switch
+			{
+				AutoMode.Plausible => 0,
+				AutoMode.Adversarial => 20,
+				_ => 10
+			};
+			var forward = options.Mode switch
+			{
+				AutoMode.Plausible => 0,
+				AutoMode.Adversarial => 25,
+				_ => 12
+			};
+			if (state.Existing.Count > 0 && roll < self)
+			{
+				return state.Existing[^1];
+			}
+			if (roll < self + forward)
+			{
+				var ahead = Fresh(pcg, state);
+				if (ahead is not null)
+				{
+					state.Pending.Add(ahead);
+				}
+				return ahead;
+			}
+			var earlier = state.Existing.Count - 1;
+			return earlier > 0 ? state.Existing[(int)pcg.Next((uint)earlier)] : null;
 		}
 		if (state.Existing.Count > 0)
 		{

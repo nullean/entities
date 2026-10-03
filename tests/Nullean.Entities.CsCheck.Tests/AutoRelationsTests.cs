@@ -32,6 +32,10 @@ internal static class Rel
 
 	public sealed record Toc(IReadOnlyList<Node> Nodes);
 
+	public sealed record TocFile(string Path, IReadOnlyList<string> Includes);
+
+	public sealed record IncludeGraph(IReadOnlyList<TocFile> Files);
+
 	public static string RepoOf(Mount m) => Uri.UnescapeDataString(m.Source.AbsolutePath.TrimStart('/'));
 }
 
@@ -123,5 +127,25 @@ public class AutoRelationsTests
 		var report = rules.Probe(GenAuto.Of<Rel.CatalogFirst>(AutoMode.Mixed, ProductsDeclared));
 
 		report.NeverViolated.Should().BeEmpty();
+	}
+
+	private static void IncludesDeclared(AutoOptions o) => o.References<Rel.TocFile, Rel.TocFile, string>(f => f.Includes, f => f.Path);
+
+	private static ConstraintSet<Rel.IncludeGraph> Acyclic() =>
+		ConstraintSet.From(("Acyclic", Constraints<Rel.IncludeGraph>.Acyclic(g => g.Files, f => f.Path, f => f.Includes)));
+
+	[Test]
+	public void A_relation_from_a_type_to_itself_is_a_dag_in_plausible_data_and_closes_cycles_in_the_other_modes()
+	{
+		var plausible = Draw<Rel.IncludeGraph>(AutoMode.Plausible, IncludesDeclared, 800);
+
+		plausible.Any(g => g.Files.Any(f => f.Includes.Count > 0)).Should().BeTrue("some files include others");
+		plausible.All(g => Acyclic().Validate(g).Count == 0).Should().BeTrue("includes only point at earlier files");
+		plausible.All(g => g.Files.All(f => f.Includes.All(i => g.Files.Any(x => x.Path == i)))).Should().BeTrue("and at files that exist");
+
+		var adversarial = Draw<Rel.IncludeGraph>(AutoMode.Adversarial, IncludesDeclared, 1000);
+
+		adversarial.Any(g => Acyclic().Validate(g).Count > 0).Should().BeTrue("a cycle");
+		adversarial.Any(g => g.Files.Any(f => f.Includes.Contains(f.Path))).Should().BeTrue("a file that includes itself");
 	}
 }

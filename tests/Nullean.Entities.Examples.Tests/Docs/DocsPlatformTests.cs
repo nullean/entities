@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using CsCheck;
 using Nullean.Entities.CsCheck;
 using Nullean.Entities.Examples.Docs.DocsPlatform;
 
@@ -10,11 +11,6 @@ public class DocsPlatformTests
 	private static readonly Catalog ValidCatalog = new(
 		[new("elasticsearch", "Elasticsearch", ProductLifecycle.Ga, "stack"), new("apm", "APM", ProductLifecycle.Beta, "stack")],
 		[new("stack", new Version(8, 0), new Version(9, 1))]
-	);
-
-	private static readonly Site ValidSite = new(
-		[new("/docs/a", "toc-a"), new("/docs/b", "toc-b")],
-		[new("toc-a", ["toc-b"]), new("toc-b", [])]
 	);
 
 	private static readonly DocumentationSet ValidSet = new("kibana", [new("/a"), new("/b")], [new("/old", "/a")]);
@@ -30,19 +26,6 @@ public class DocsPlatformTests
 				["ProductIdsAreUnique"] = c => c with { Products = [.. c.Products, c.Products[0] with { Id = "ELASTICSEARCH" }] },
 				["VersioningSystemsExist"] = c => c with { Products = [c.Products[0] with { VersioningSystemId = "nothing" }] },
 				["BaseIsNotAfterCurrent"] = c => c with { VersioningSystems = [new("stack", new Version(9, 2), new Version(9, 1))] },
-			}
-		);
-
-	[Test]
-	public void The_site_rules_pass_the_laws() =>
-		SiteConstraints.All.Laws(
-			ValidSite,
-			new Dictionary<string, Func<Site, Site>>
-			{
-				["PathPrefixesAreUnique"] = s => s with { Mounts = [.. s.Mounts, new Mount("/docs/a", "toc-b")] },
-				["MountsPointAtTocs"] = s => s with { Mounts = [.. s.Mounts, new Mount("/docs/c", "ghost")] },
-				["IncludesPointAtTocs"] = s => s with { Tocs = [.. s.Tocs, new Toc("toc-c", ["ghost"])] },
-				["TocsAreAcyclic"] = s => s with { Tocs = [new Toc("toc-a", ["toc-b"]), new Toc("toc-b", ["toc-a"])] },
 			}
 		);
 
@@ -88,11 +71,127 @@ public class DocsPlatformTests
 	public void Generated_catalogs_break_every_catalog_rule() => CatalogConstraints.All.Probe().NeverViolated.Should().BeEmpty();
 
 	[Test]
-	public void Generated_sites_break_every_site_rule_including_toc_include_cycles() => SiteConstraints.All.Probe().NeverViolated.Should().BeEmpty();
-
-	[Test]
 	public void Generated_documentation_sets_break_every_documentation_set_rule() =>
 		DocumentationSetConstraints.All.Probe(samples: 3000).NeverViolated.Should().BeEmpty();
+
+	// ── docs-builder's real shapes: ids into other aggregates, a dictionary keyed by name, a URI, a tree identified by path ─────────
+
+	private static readonly Assembly ValidAssembly = new(new Dictionary<string, Repository> { ["kibana"] = new("kibana"), ["apm"] = new("apm") });
+
+	private static readonly Navigation ValidNavigation = new([new(MountUri.Make("kibana"), "/kibana"), new(MountUri.Make("apm"), "/apm")]);
+
+	private static readonly Docset ValidDocset = new(
+		"kibana",
+		["elasticsearch"],
+		"observability",
+		[new("index.md", [new("guide.md", []), new("ref.md", [new("api.md", [])])])]
+	);
+
+	[Test]
+	public void The_assembly_and_navigation_rules_pass_the_laws()
+	{
+		AssemblyConstraints.All.Laws(
+			ValidAssembly,
+			new Dictionary<string, Func<Assembly, Assembly>>
+			{
+				["RepositoryKeysMatchNames"] = _ => new Assembly(new Dictionary<string, Repository> { ["kibana"] = new("kibana-other") }),
+			}
+		);
+		NavigationConstraints.All.Laws(
+			ValidNavigation,
+			new Dictionary<string, Func<Navigation, Navigation>>
+			{
+				["PathPrefixesAreUnique"] = n => new Navigation([.. n.Mounts, new Mount(MountUri.Make("apm"), "/kibana")]),
+			}
+		);
+		NavigationInAssemblyConstraints.All.Laws(
+			new NavigationInAssembly(ValidNavigation, ValidAssembly),
+			new Dictionary<string, Func<NavigationInAssembly, NavigationInAssembly>>
+			{
+				["MountIsARepository"] = p => p with { Navigation = new Navigation([new Mount(MountUri.Make("ghost"), "/x")]) },
+			}
+		);
+	}
+
+	[Test]
+	public void The_docset_rules_pass_the_laws()
+	{
+		DocsetConstraints.All.Laws(
+			ValidDocset,
+			new Dictionary<string, Func<Docset, Docset>>
+			{
+				["NoFileIsListedTwice"] = d => d with { Toc = [new TocNode("a.md", [new TocNode("b.md", [new TocNode("a.md", [])])])] },
+				["FilesStayInTheirFolder"] = d => d with { Toc = [new TocNode("../x.md", [])] },
+			}
+		);
+		DocsetInCatalogConstraints.All.Laws(
+			new DocsetInCatalog(ValidDocset, ValidCatalog),
+			new Dictionary<string, Func<DocsetInCatalog, DocsetInCatalog>>
+			{
+				["ProductsExist"] = p => p with { Docset = p.Docset with { Products = ["ghost"] } },
+			}
+		);
+		DocsetInCodexConstraints.All.Laws(
+			new DocsetInCodex(ValidDocset, new CodexConfig([new CodexGroup("observability", "Observability")])),
+			new Dictionary<string, Func<DocsetInCodex, DocsetInCodex>>
+			{
+				["CodexGroupExists"] = p => p with { Docset = p.Docset with { CodexGroup = "ghost" } },
+			}
+		);
+		TocIncludesConstraints.All.Laws(
+			new TocIncludes([new TocFile("a.yml", ["b.yml"]), new TocFile("b.yml", [])]),
+			new Dictionary<string, Func<TocIncludes, TocIncludes>>
+			{
+				["IncludesAreAcyclic"] = _ => new TocIncludes([new TocFile("a.yml", ["b.yml"]), new TocFile("b.yml", ["a.yml"])]),
+				["IncludesExist"] = _ => new TocIncludes([new TocFile("a.yml", ["ghost.yml"])]),
+			}
+		);
+	}
+
+	private static Gen<T> Both<T>(Action<AutoOptions> declare) =>
+		Gen.OneOf(GenAuto.Of<T>(AutoMode.Mixed, declare), GenAuto.Of<T>(AutoMode.Adversarial, declare));
+
+	[Test]
+	public void With_the_relations_declared_generated_data_breaks_every_cross_aggregate_and_tree_rule()
+	{
+		AssemblyConstraints
+			.All
+			.Probe(Both<Assembly>(o => o.KeyedBy<Assembly, string, Repository>(a => a.Repositories, r => r.Name)))
+			.NeverViolated
+			.Should()
+			.BeEmpty();
+		NavigationConstraints.All.Probe(Both<Navigation>(o => o.Identity<Mount, string>(m => m.PathPrefix))).NeverViolated.Should().BeEmpty();
+		NavigationInAssemblyConstraints
+			.All
+			.Probe(
+				Both<NavigationInAssembly>(o =>
+						o
+							.Reference<Mount, Repository, string, Uri>(m => m.Source, r => r.Name, MountUri.Make)
+							.KeyedBy<Assembly, string, Repository>(a => a.Repositories, r => r.Name))
+			)
+			.NeverViolated
+			.Should()
+			.BeEmpty();
+		DocsetInCatalogConstraints
+			.All
+			.Probe(Both<DocsetInCatalog>(o => o.References<Docset, Product, string>(d => d.Products, p => p.Id)))
+			.NeverViolated
+			.Should()
+			.BeEmpty();
+		DocsetInCodexConstraints
+			.All
+			.Probe(Both<DocsetInCodex>(o => o.Reference<Docset, CodexGroup, string>(d => d.CodexGroup, g => g.Id)), samples: 2000)
+			.NeverViolated
+			.Should()
+			.BeEmpty();
+		DocsetConstraints.All.Probe(Both<Docset>(o => o.Identity<TocNode, string>(n => n.Path)), samples: 3000).NeverViolated.Should().BeEmpty();
+		TocIncludesConstraints
+			.All
+			.Probe(Both<TocIncludes>(o => o.References<TocFile, TocFile, string>(f => f.Includes, f => f.Path)))
+			.NeverViolated
+			.Should()
+			.BeEmpty();
+	}
 
 	// ── Lifecycles ────────────────────────────────────────────────────────────────────────────────
 

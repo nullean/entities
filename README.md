@@ -295,6 +295,8 @@ compile time. See [Nullean.Entities.CsCheck](src/Nullean.Entities.CsCheck/README
 | `Nullean.Entities` | `Constraint<T>`, `ConstrainedValue`, `[Constraint]`/`[Constraints]` source generator | nothing |
 | `Nullean.Entities.Reactive` | `ReactiveConstraint<T>`, temporal operators, live monitoring | `System.Reactive` |
 | `Nullean.Entities.CsCheck` | One-line tests from constraints (`Exhaustive`, `ForAll`, `Preserves`, `Probe`, `ConformTo`), `Script` runs, hostile-by-default generated data (`GenAuto.Of<T>`), Bogus rules | `Nullean.Entities.Reactive`, `CsCheck`, `Bogus` |
+| `Nullean.Entities.FileSystem` | *Optional.* Rules for `IFileInfo`/`IDirectoryInfo` (`Exist`, `StayInside`, `NotSymlink`, `NoHiddenSegments`, `HaveExtension`); trim and AOT clean | `Nullean.Entities`, `System.IO.Abstractions` |
+| `Nullean.Entities.CsCheck.FileSystem` | *Optional.* `UseFileSystem()`: generated `MockFileSystem` worlds for models that hold the file system | `Nullean.Entities.CsCheck`, `Nullean.Entities.FileSystem`, `System.IO.Abstractions.TestingHelpers` |
 | `Nullean.Entities.CsCheck.AutoBogus` | *Optional.* An AutoBogus-backed generator for teams that already configure `AutoFaker` | `Nullean.Entities.CsCheck`, `Soenneker.Utils.AutoBogus` |
 
 ```sh
