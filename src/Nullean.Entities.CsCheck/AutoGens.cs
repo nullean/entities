@@ -77,3 +77,31 @@ internal sealed class CastGen<T>(Gen<object?> inner) : Gen<T>
 {
 	public override T Generate(PCG pcg, Size? min, out Size size) => (T)inner.Generate(pcg, min, out size)!;
 }
+
+/// <summary>Picks one case of a union and wraps a value of that case type in the union's matching constructor.</summary>
+internal sealed class UnionGen(Type type, (System.Reflection.ConstructorInfo Constructor, Gen<object?> Value)[] cases) : Gen<object?>
+{
+	public override object? Generate(PCG pcg, Size? min, out Size size)
+	{
+		var start = (int)pcg.Next((uint)cases.Length);
+		for (var i = 0; i < cases.Length; i++)
+		{
+			var (constructor, value) = cases[(start + i) % cases.Length];
+			var inner = value.Generate(pcg, min, out size);
+			if (inner is null)
+			{
+				continue;
+			}
+			try
+			{
+				return constructor.Invoke([inner]);
+			}
+			catch (System.Reflection.TargetInvocationException)
+			{
+				// the case's own guard refused this value: try the next case
+			}
+		}
+		size = new Size(0);
+		return Activator.CreateInstance(type);
+	}
+}

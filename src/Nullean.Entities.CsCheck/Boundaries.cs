@@ -68,18 +68,29 @@ public static class ConstraintBoundaries
 	)
 	{
 		baseline ??= AutoDefaults.ValidStarts(constraints, time)[0];
+		var results = Swaps(constraints, baseline, time).Select(w => new BoundaryResult(w.Property, w.Value, w.RejectedBy, w.Hostile)).ToList();
+		var report = new BoundaryReport(ConstraintProperties.SafePrint(baseline), results);
+		writeLine?.Invoke(report.ToString());
+		return report;
+	}
+
+	/// <summary>One edge value swapped into one property of the baseline, with the constraints that rejected the result (the instance is null when the constructor refused).</summary>
+	internal sealed record Swap<T>(string Property, string Value, T? Instance, IReadOnlyList<string> RejectedBy, bool Hostile);
+
+	internal static IEnumerable<Swap<T>> Swaps<T>(ConstraintSet<T> constraints, T baseline, TimeProvider? time)
+	{
 		var builder = new AutoBuilder(new AutoOptions { Mode = AutoMode.Adversarial });
 		var plan = builder.Plan(typeof(T), 0);
 		var args = plan.ReadArgs(baseline!) ?? throw new InvalidOperationException(
 			$"{typeof(T).Name} has constructor or settable members that are not readable properties, so single values cannot be swapped."
 		);
-		var results = new List<BoundaryResult>();
 
 		for (var i = 0; i < args.Length; i++)
 		{
 			foreach (var edge in Edges(builder, plan.Types[i]))
 			{
-				object? instance;
+				object? instance = null;
+				string? refused = null;
 				try
 				{
 					var swapped = (object?[])args.Clone();
@@ -88,16 +99,17 @@ public static class ConstraintBoundaries
 				}
 				catch (System.Reflection.TargetInvocationException e)
 				{
-					results.Add(new BoundaryResult(plan.Names[i], Show(edge), [$"constructor: {e.InnerException?.GetType().Name}"], LooksHostile(edge)));
+					refused = $"constructor: {e.InnerException?.GetType().Name}";
+				}
+				if (refused is not null)
+				{
+					yield return new Swap<T>(plan.Names[i], Show(edge), default, [refused], LooksHostile(edge));
 					continue;
 				}
 				var rejectedBy = ConstraintProperties.SafeValidate(constraints, (T)instance!, time).Select(v => v.ConstraintId ?? "?").Distinct().ToList();
-				results.Add(new BoundaryResult(plan.Names[i], Show(edge), rejectedBy, LooksHostile(edge)));
+				yield return new Swap<T>(plan.Names[i], Show(edge), (T)instance!, rejectedBy, LooksHostile(edge));
 			}
 		}
-		var report = new BoundaryReport(ConstraintProperties.SafePrint(baseline), results);
-		writeLine?.Invoke(report.ToString());
-		return report;
 	}
 
 	private static IEnumerable<object?> Edges(AutoBuilder builder, Type type)

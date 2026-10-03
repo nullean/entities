@@ -56,7 +56,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 
 	// ── Dispatch ─────────────────────────────────────────────────────────────
 
-	private Gen<object?> Build(Type type, string? name, bool nullable, int depth)
+	private Gen<object?> Build(Type type, string? name, bool nullable, int depth, NullabilityInfo? info = null)
 	{
 		if (options.Custom.TryGetValue(type, out var custom))
 		{
@@ -66,11 +66,11 @@ internal sealed class AutoBuilder(AutoOptions options)
 		{
 			return new NullGen(Build(underlying, name, false, depth), options.NullPercent);
 		}
-		var inner = BuildNonNull(type, name, depth);
+		var inner = BuildNonNull(type, name, depth, info);
 		return nullable && !type.IsValueType ? new NullGen(inner, options.NullPercent) : inner;
 	}
 
-	private Gen<object?> BuildNonNull(Type type, string? name, int depth)
+	private Gen<object?> BuildNonNull(Type type, string? name, int depth, NullabilityInfo? info = null)
 	{
 		if (TryLeaf(type, name, out var leaf))
 		{
@@ -92,20 +92,88 @@ internal sealed class AutoBuilder(AutoOptions options)
 			{
 				return new ConstGen(Materialize(type, elementType, []));
 			}
-			return new CollectionGen(type, elementType, Element(elementType, name, depth + 1), options);
+			var elementInfo = info?.ElementType ?? info?.GenericTypeArguments.FirstOrDefault();
+			var elementsNullable = elementInfo?.ReadState == NullabilityState.Nullable && !elementType.IsValueType;
+			return new CollectionGen(type, elementType, Element(elementType, name, depth + 1), options, elementsNullable);
+		}
+		if (TryUnion(type, depth, out var union))
+		{
+			return union;
 		}
 		return Object(type, depth);
 	}
 
+	// ── Unions ───────────────────────────────────────────────────────────────
+	// A C# union (`union Shape(Circle, Square)`, or the polyfill of it) is a type marked [Union] / implementing IUnion with one public
+	// constructor per case type. Each draw picks a case and builds it, so every case is reached, not the one a "most parameters" rule would choose.
+
+	internal static bool IsUnion(Type type) =>
+		type.GetCustomAttributes(false).Any(a => a.GetType().FullName == "System.Runtime.CompilerServices.UnionAttribute")
+		|| type.GetInterfaces().Any(i => i.FullName == "System.Runtime.CompilerServices.IUnion");
+
+	private bool TryUnion(Type type, int depth, out Gen<object?> gen)
+	{
+		gen = null!;
+		if (!IsUnion(type))
+		{
+			return false;
+		}
+		var cases = new List<(ConstructorInfo Constructor, Gen<object?> Value)>();
+		foreach (var constructor in type.GetConstructors(BindingFlags.Public | BindingFlags.Instance).Where(c => c.GetParameters().Length == 1))
+		{
+			try
+			{
+				cases.Add((constructor, Build(constructor.GetParameters()[0].ParameterType, null, false, depth + 1)));
+			}
+			catch (NotSupportedException)
+			{
+				// a case AutoGen cannot build is never chosen
+			}
+		}
+		if (cases.Count == 0)
+		{
+			return false;
+		}
+		gen = new UnionGen(type, [.. cases]);
+		return true;
+	}
+
+	// The smallest valid value of a type, for where the nesting limit cuts: a collection is empty, a nested object is built from its own smallest
+	// parts. Only a type that contains itself non-nullably ends in null, because there is nothing smaller to build.
+	private readonly HashSet<Type> _terminal = [];
+
+	private Gen<object?> Terminal(Type type)
+	{
+		if (!_terminal.Add(type))
+		{
+			return new ConstGen(null);
+		}
+		try
+		{
+			var plan = Plan(type, options.MaxDepth);
+			return new ConstGen(new ObjectGen(plan, options).Generate(new PCG(1u, 1UL), null, out _));
+		}
+		catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
+		{
+			return new ConstGen(null);
+		}
+		finally
+		{
+			_terminal.Remove(type);
+		}
+	}
+
 	private (Gen<object?> Value, ObjectPlan? Plan) Element(Type elementType, string? name, int depth)
 	{
-		var plan = IsObject(elementType) ? Plan(elementType, depth) : null;
+		var plan = IsObject(elementType) && !IsUnion(elementType) ? Plan(elementType, depth) : null;
 		return (plan is null ? Build(elementType, name, false, depth) : new ObjectGen(plan, options), plan);
 	}
 
 	private static bool IsObject(Type type) =>
 		!type.IsEnum && !type.IsPrimitive && type != typeof(string) && type != typeof(decimal) && type != typeof(Guid) && type != typeof(DateTime) && type != typeof(DateTimeOffset)
-		&& type != typeof(DateOnly) && type != typeof(TimeOnly) && type != typeof(TimeSpan) && type != typeof(Uri) && Nullable.GetUnderlyingType(type) is null
+		&& type != typeof(DateOnly) && type != typeof(TimeOnly) && type != typeof(TimeSpan) && type != typeof(Uri) && !ExtraLeaves.Handles(
+			type
+		) && Nullable.GetUnderlyingType(type) is null
 		&& !type.IsArray && !TryCollection(type, out _) && !TryDictionary(type, out _, out _);
 
 	// ── Leaves ───────────────────────────────────────────────────────────────
@@ -160,6 +228,11 @@ internal sealed class AutoBuilder(AutoOptions options)
 		if (type == typeof(Guid))
 		{
 			gen = Leaf(pcg => (new Guid([.. BitConverter.GetBytes(pcg.Next64()), .. BitConverter.GetBytes(pcg.Next64())]), 0UL), Boxed(EdgeCatalog.Guids));
+			return true;
+		}
+		if (ExtraLeaves.For(type, options) is { } extra)
+		{
+			gen = extra;
 			return true;
 		}
 		if (type == typeof(Uri))
@@ -450,10 +523,46 @@ internal sealed class AutoBuilder(AutoOptions options)
 	{
 		if (depth >= options.MaxDepth && !type.IsValueType)
 		{
-			return new ConstGen(null);
+			return Terminal(type);
 		}
 		return new ObjectGen(Plan(type, depth), options);
 	}
+
+	// A record's [Range] sits on its constructor parameter unless it is written [property: Range], so look at both.
+	private static IEnumerable<Attribute> ParameterAttributes(Type type, ParameterInfo parameter) =>
+		parameter.GetCustomAttributes(true).OfType<Attribute>()
+			.Concat(
+				parameter.Name is null
+					? []
+					: type.GetProperty(parameter.Name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)?.GetCustomAttributes(
+						true
+					).OfType<Attribute>() ?? []
+			);
+
+	private Gen<object?> Annotate(Gen<object?> gen, Type memberType, IEnumerable<Attribute> attributes)
+	{
+		if (options.Custom.ContainsKey(memberType))
+		{
+			return gen;
+		}
+		var rules = AutoAnnotations.RulesFor(memberType, attributes);
+		return rules.Count == 0 ? gen : new AnnotatedGen(gen, rules, options);
+	}
+
+	private static readonly string[] FactoryNames = ["From", "Create", "Of", "New", "Parse", "FromString", "FromValue"];
+
+	private static MethodInfo? Factory(Type type) =>
+		type.GetMethods(BindingFlags.Public | BindingFlags.Static)
+			.Where(
+				m =>
+					m.ReturnType == type && Array.IndexOf(
+						FactoryNames,
+						m.Name
+					) >= 0 && !m.IsGenericMethodDefinition && m.GetParameters().Length > 0 && m.GetParameters().All(p => !p.ParameterType.IsByRef)
+			)
+			.OrderByDescending(m => m.GetParameters().Length)
+			.ThenBy(m => Array.IndexOf(FactoryNames, m.Name))
+			.FirstOrDefault();
 
 	internal ObjectPlan Plan(Type type, int depth)
 	{
@@ -464,8 +573,16 @@ internal sealed class AutoBuilder(AutoOptions options)
 			);
 		}
 		var constructors = type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
-		var ctor = constructors.OrderByDescending(c => c.GetParameters().Length).FirstOrDefault();
-		if (ctor is null && !type.IsValueType)
+		// [JsonConstructor] says which constructor is the real one; otherwise the one with the most parameters (a record's primary constructor).
+		MethodBase? ctor = constructors.FirstOrDefault(c => c.GetCustomAttributes(false).Any(a => a.GetType().Name == "JsonConstructorAttribute"))
+		?? constructors.OrderByDescending(c => c.GetParameters().Length).FirstOrDefault();
+		var usable = ctor is ConstructorInfo { } found && (found.GetParameters().Length > 0 || !type.IsValueType);
+		if (!usable && Factory(type) is { } factory)
+		{
+			// A value object with a private constructor and a static From/Create/Parse: build it the way its author intended.
+			ctor = factory;
+		}
+		else if (ctor is null && !type.IsValueType)
 		{
 			throw new NotSupportedException(
 				$"AutoGen cannot build {type.Name}: no public constructor. Provide a generator with AutoOptions.Use<{type.Name}>(gen)."
@@ -479,8 +596,9 @@ internal sealed class AutoBuilder(AutoOptions options)
 		var nullables = new List<bool>();
 		foreach (var p in parameters)
 		{
-			var nullable = _nullability.Create(p).ReadState == NullabilityState.Nullable;
-			gens.Add(Build(p.ParameterType, p.Name, nullable, depth + 1));
+			var info = _nullability.Create(p);
+			var nullable = info.ReadState == NullabilityState.Nullable;
+			gens.Add(Annotate(Build(p.ParameterType, p.Name, nullable, depth + 1, info), p.ParameterType, ParameterAttributes(type, p)));
 			names.Add(p.Name ?? "");
 			types.Add(p.ParameterType);
 			nullables.Add(nullable || System.Nullable.GetUnderlyingType(p.ParameterType) is not null);
@@ -498,8 +616,15 @@ internal sealed class AutoBuilder(AutoOptions options)
 			}
 			try
 			{
-				var nullable = _nullability.Create(prop).ReadState == NullabilityState.Nullable;
-				gens.Add(Build(prop.PropertyType, prop.Name, nullable, depth + 1));
+				var info = _nullability.Create(prop);
+				var nullable = info.ReadState == NullabilityState.Nullable;
+				gens.Add(
+					Annotate(
+						Build(prop.PropertyType, prop.Name, nullable, depth + 1, info),
+						prop.PropertyType,
+						prop.GetCustomAttributes(true).OfType<Attribute>()
+					)
+				);
 				names.Add(prop.Name);
 				types.Add(prop.PropertyType);
 				nullables.Add(nullable || System.Nullable.GetUnderlyingType(prop.PropertyType) is not null);
@@ -518,7 +643,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 internal sealed class ObjectPlan
 {
 	private readonly Type _type;
-	private readonly ConstructorInfo? _ctor;
+	private readonly MethodBase? _ctor;
 	private readonly int _ctorCount;
 	private readonly PropertyInfo[] _setters;
 	private readonly Gen<object?>[] _gens;
@@ -526,7 +651,7 @@ internal sealed class ObjectPlan
 
 	public ObjectPlan(
 		Type type,
-		ConstructorInfo? ctor,
+		MethodBase? ctor,
 		int ctorCount,
 		PropertyInfo[] setters,
 		Gen<object?>[] gens,
@@ -550,7 +675,7 @@ internal sealed class ObjectPlan
 				i =>
 					EdgeCatalog.LooksLikeIdentity(
 						names[i]
-					) && (types[i] == typeof(string) || types[i] == typeof(Guid) || types[i] == typeof(int) || types[i] == typeof(long))
+					) && IsKeyType(types[i])
 			)
 		];
 		Pk = FindPrimaryKey(type, names, types);
@@ -565,13 +690,124 @@ internal sealed class ObjectPlan
 
 	private static Type BaseType(Type t) => System.Nullable.GetUnderlyingType(t) ?? t;
 
+	private static bool IsPrimitiveKey(Type t) => t == typeof(string) || t == typeof(Guid) || t == typeof(int) || t == typeof(long);
+
+	// A key is a string, Guid, int or long, or a strongly-typed id that wraps one (record struct OrderId(Guid Value)).
+	private static bool IsKeyType(Type t)
+	{
+		var b = BaseType(t);
+		if (IsPrimitiveKey(b))
+		{
+			return true;
+		}
+		if (b.IsPrimitive || b.IsEnum || !(b.IsValueType || b.IsSealed))
+		{
+			return false;
+		}
+		var props = b.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.GetIndexParameters().Length == 0).ToList();
+		return props.Count == 1 && IsPrimitiveKey(props[0].PropertyType);
+	}
+
+	private List<CrossReference>? _cross;
+
+	/// <summary>
+	/// Two collection members whose items refer to each other by key: <c>Customers</c> (items with an <c>Id</c>) and <c>Orders</c> (items with a
+	/// <c>CustomerId</c>). Found by name, so no attribute is needed.
+	/// </summary>
+	private List<CrossReference> FindCrossReferences()
+	{
+		var found = new List<CrossReference>();
+		for (var a = 0; a < _gens.Length; a++)
+		{
+			if (_gens[a] is not CollectionGen { ElementPlan: { Pk: { } pk } aPlan } aGen)
+			{
+				continue;
+			}
+			for (var b = 0; b < _gens.Length; b++)
+			{
+				if (b == a || _gens[b] is not CollectionGen { ElementPlan: { } bPlan } bGen)
+				{
+					continue;
+				}
+				for (var k = 0; k < bPlan.Names.Length; k++)
+				{
+					if (bPlan.Names[k].Equals(aGen.ElementType.Name + "Id", StringComparison.OrdinalIgnoreCase) && BaseType(bPlan.Types[k]) == BaseType(
+							aPlan.Types[pk]
+						))
+					{
+						found.Add(new CrossReference(a, b, pk, k, aPlan, bPlan, bGen.Target, bGen.ElementType));
+					}
+				}
+			}
+		}
+		return found;
+	}
+
+	private sealed record CrossReference(int A, int B, int APk, int BFk, ObjectPlan APlan, ObjectPlan BPlan, Type BTarget, Type BElement);
+
+	/// <summary>
+	/// Makes <c>Order.CustomerId</c> point at a customer in the same object: always, in plausible data; in the other modes some of the time at a customer
+	/// that is not there, which is the referential-integrity case a hand-written generator forgets.
+	/// </summary>
+	public void ApplyCrossReferences(object?[] args, AutoOptions options, PCG pcg)
+	{
+		if (!options.Relational)
+		{
+			return;
+		}
+		_cross ??= FindCrossReferences();
+		foreach (var reference in _cross)
+		{
+			var owners = (args[reference.A] as System.Collections.IEnumerable)?.Cast<object?>().Where(o => o is not null).ToList();
+			var children = (args[reference.B] as System.Collections.IEnumerable)?.Cast<object?>().ToList();
+			if (owners is null || children is null || owners.Count == 0 || children.Count == 0)
+			{
+				continue;
+			}
+			var keys = owners.Select(o => reference.APlan.ReadArgs(o!)?[reference.APk]).Where(k => k is not null).ToList();
+			if (keys.Count == 0)
+			{
+				continue;
+			}
+			var dangling = options.Mode switch
+			{
+				AutoMode.Plausible => 0u,
+				AutoMode.Adversarial => 75u,
+				_ => 35u,
+			};
+			var broken = pcg.Next(100) < dangling ? (int)pcg.Next((uint)children.Count) : -1;
+			var nullable = reference.BPlan.Nullable[reference.BFk];
+			for (var i = 0; i < children.Count; i++)
+			{
+				if (children[i] is not { } child || reference.BPlan.ReadArgs(child) is not { } childArgs)
+				{
+					continue;
+				}
+				childArgs[reference.BFk] = i == broken
+					? CollectionGen.Missing(keys, reference.APlan, reference.APk, pcg)
+					: nullable && pcg.Next(100) < 10 ? null : keys[(int)pcg.Next((uint)keys.Count)];
+				try
+				{
+					children[i] = reference.BPlan.Construct(childArgs);
+				}
+				catch (TargetInvocationException)
+				{
+					// the child's own constructor refused this reference: keep the child as drawn
+				}
+			}
+			args[reference.B] = AutoBuilder.Materialize(reference.BTarget, reference.BElement, children);
+		}
+	}
+
+	/// <summary>A fresh value for member <paramref name="index"/>, drawn the way the plan would.</summary>
+	public object? DrawMember(int index, PCG pcg) => _gens[index].Generate(pcg, null, out _);
+
 	private static int? FindPrimaryKey(Type type, string[] names, Type[] types)
 	{
 		for (var i = 0; i < names.Length; i++)
 		{
 			var isKeyName = names[i].Equals("id", StringComparison.OrdinalIgnoreCase) || names[i].Equals(type.Name + "Id", StringComparison.OrdinalIgnoreCase);
-			var t = BaseType(types[i]);
-			if (isKeyName && (t == typeof(string) || t == typeof(Guid) || t == typeof(int) || t == typeof(long)))
+			if (isKeyName && IsKeyType(types[i]))
 			{
 				return i;
 			}
@@ -718,7 +954,12 @@ internal sealed class ObjectPlan
 
 	public object? Construct(object?[] args)
 	{
-		var instance = _ctor is null ? Activator.CreateInstance(_type) : _ctor.Invoke(args[.._ctorCount]);
+		var instance = _ctor switch
+		{
+			null => Activator.CreateInstance(_type),
+			ConstructorInfo c => c.Invoke(args[.._ctorCount]),
+			_ => ((MethodInfo)_ctor).Invoke(null, args[.._ctorCount]),
+		};
 		for (var i = 0; i < _setters.Length; i++)
 		{
 			_setters[i].SetValue(instance, args[_ctorCount + i]);
@@ -739,6 +980,7 @@ internal sealed class ObjectGen(ObjectPlan plan, AutoOptions options) : Gen<obje
 		for (var attempt = 0; attempt < 20; attempt++)
 		{
 			var args = plan.DrawArgs(pcg, options, out size);
+			plan.ApplyCrossReferences(args, options, pcg);
 			try
 			{
 				return plan.Construct(args);
@@ -755,8 +997,20 @@ internal sealed class ObjectGen(ObjectPlan plan, AutoOptions options) : Gen<obje
 	}
 }
 
-internal sealed class CollectionGen(Type target, Type elementType, (Gen<object?> Value, ObjectPlan? Plan) element, AutoOptions options) : Gen<object?>
+internal sealed class CollectionGen(
+	Type target,
+	Type elementType,
+	(Gen<object?> Value, ObjectPlan? Plan) element,
+	AutoOptions options,
+	bool elementsNullable = false
+) : Gen<object?>
 {
+	public Type Target => target;
+
+	public Type ElementType => elementType;
+
+	public ObjectPlan? ElementPlan => element.Plan;
+
 	public override object? Generate(PCG pcg, Size? min, out Size size)
 	{
 		var count = (int)Count(pcg, options);
@@ -797,6 +1051,16 @@ internal sealed class CollectionGen(Type target, Type elementType, (Gen<object?>
 				items[1] = items[0]; // duplicates, or the same instance twice
 			}
 		}
+		if (elementsNullable && options.NullPercent > 0)
+		{
+			for (var i = 0; i < items.Count; i++)
+			{
+				if (pcg.Next(100) < (uint)options.NullPercent)
+				{
+					items[i] = null;
+				}
+			}
+		}
 		return AutoBuilder.Materialize(target, elementType, items);
 	}
 
@@ -828,7 +1092,7 @@ internal sealed class CollectionGen(Type target, Type elementType, (Gen<object?>
 			}
 			else if (roll < valid + dangling)
 			{
-				sets[(int)pcg.Next((uint)sets.Count)][fk] = Missing(keys, pcg);
+				sets[(int)pcg.Next((uint)sets.Count)][fk] = Missing(keys, plan, pk, pcg);
 			}
 			else if (roll < valid + dangling + self)
 			{
@@ -880,11 +1144,22 @@ internal sealed class CollectionGen(Type target, Type elementType, (Gen<object?>
 	}
 
 	// A key value no item has.
-	private static object Missing(List<object?> keys, PCG pcg)
+	internal static object? Missing(List<object?> keys, ObjectPlan plan, int pk, PCG pcg)
 	{
 		var sample = keys.FirstOrDefault(k => k is not null);
 		switch (sample)
 		{
+			case not null when sample is not (Guid or int or long or string):
+				// a strongly-typed id: draw until one is not among the keys
+				for (var attempt = 0; attempt < 8; attempt++)
+				{
+					var fresh = plan.DrawMember(pk, pcg);
+					if (!keys.Contains(fresh))
+					{
+						return fresh;
+					}
+				}
+				return sample;
 			case Guid:
 				var bytes = new byte[16];
 				BitConverter.GetBytes(pcg.Next64()).CopyTo(bytes, 0);
