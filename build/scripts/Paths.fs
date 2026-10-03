@@ -40,6 +40,11 @@ let mapNugetToProject =
 
 // Test projects discovered under tests/, run in dependency order (Entities has no deps,
 // Reactive depends on Entities, CsCheck depends on Reactive).
+/// The console apps under examples/Apps. `apps` runs each; one that exits non-zero (a scenario stopped behaving as narrated) fails the build.
+let Apps =
+    [ "examples/Apps/OrderFulfilment"
+      "examples/Apps/Banking" ]
+
 let TestProjects =
     [ "tests/Nullean.Entities.Tests"
       "tests/Nullean.Entities.SourceGenerators.Tests"
@@ -48,4 +53,5 @@ let TestProjects =
       "tests/Nullean.Entities.CsCheck.AutoBogus.Tests"
       "tests/Nullean.Entities.FileSystem.Tests"
       "tests/Nullean.Entities.CsCheck.FileSystem.Tests"
-      "tests/Nullean.Entities.Examples.Tests" ]
+      "tests/Nullean.Entities.Examples.Tests"
+      "tests/Nullean.Entities.Apps.Tests" ]

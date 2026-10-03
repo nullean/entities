@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Tests the services of the example apps (examples/Apps) the way a user would test their own: unit tests on the always-valid
+       values, the service checked against its declared machine, and the same checks catching a service that is subtly wrong. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="AwesomeAssertions" />
+    <ProjectReference Include="../../src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+    <ProjectReference Include="../../examples/Apps/OrderFulfilment/OrderFulfilment.csproj" />
+    <ProjectReference Include="../../examples/Apps/Banking/Banking.csproj" />
+  </ItemGroup>
+</Project>

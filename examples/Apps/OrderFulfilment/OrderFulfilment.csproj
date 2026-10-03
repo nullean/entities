@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- A console app that runs the order lifecycle for real: a type-state machine, an always-valid Email, rules enforced on every
+       transition, an async service wired through dependency injection. `dotnet run`, or `./build.sh apps` (which fails if it stops
+       behaving as narrated). tests/Nullean.Entities.Apps.Tests tests the same service. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <RootNamespace>OrderFulfilment</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <Compile Include="../Shared/Narrator.cs" Link="Narrator.cs" />
+    <ProjectReference Include="../../../src/Nullean.Entities/Nullean.Entities.csproj" />
+    <ProjectReference Include="../../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

@@ -25,6 +25,8 @@
     <!-- System.IO.Abstractions 22.2.0: the file-system types docs-builder's domain holds (IFileSystem, IFileInfo, IDirectoryInfo); the TestingHelpers package is the MockFileSystem the generator builds. -->
     <PackageVersion Include="System.IO.Abstractions" Version="22.2.0" />
     <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="22.2.0" />
+    <!-- The example apps (examples/Apps) wire their services through dependency injection, as a real application does. The library does not depend on it. -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <!-- Bogus 35.6.5: realistic fake data generation. -->
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <!-- Soenneker.Utils.AutoBogus: maintained AutoBogus fork for net9/10, Bogus >= 35.6.5. -->
