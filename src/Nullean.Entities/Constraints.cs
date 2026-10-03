@@ -118,6 +118,63 @@ public abstract record Result<T>
 		Fail f => throw new ConstraintViolationException(f.Violations, $"Result is Fail: {string.Join(", ", f.Violations.Select(v => v.Message))}"),
 		_ => throw new UnreachableException(),
 	};
+
+	// A failure carried across a change of type has nothing of the new type that was "attempted", so Attempted is default there;
+	// the violations are what carry over.
+
+	/// <summary>Transforms the value of an <see cref="Ok"/>; a <see cref="Fail"/> keeps its violations (its <c>Attempted</c> is default, there being no attempted <typeparamref name="TOut"/>).</summary>
+	public Result<TOut> Map<TOut>(Func<T, TOut> map) => this switch
+	{
+		Ok o => new Result<TOut>.Ok(map(o.Value)),
+		Fail f => new Result<TOut>.Fail(default!, f.Violations),
+		_ => throw new UnreachableException(),
+	};
+
+	/// <summary>Continues with a step that can fail itself. Stops at the first <see cref="Fail"/>; to gather the violations of independent results use <see cref="Result.Combine{T1, T2, TOut}"/>.</summary>
+	public Result<TOut> Bind<TOut>(Func<T, Result<TOut>> next) => this switch
+	{
+		Ok o => next(o.Value),
+		Fail f => new Result<TOut>.Fail(default!, f.Violations),
+		_ => throw new UnreachableException(),
+	};
+
+	/// <summary>Query syntax: <c>from a in x select f(a)</c>. Same as <see cref="Map{TOut}"/>.</summary>
+	public Result<TOut> Select<TOut>(Func<T, TOut> map) => Map(map);
+
+	/// <summary>Query syntax: <c>from a in x from b in y(a) select f(a, b)</c>. Stops at the first failure, like <see cref="Bind{TOut}"/>.</summary>
+	public Result<TOut> SelectMany<TNext, TOut>(Func<T, Result<TNext>> next, Func<T, TNext, TOut> project) =>
+		Bind(a => next(a).Map(b => project(a, b)));
+
+	/// <summary>The value, or <paramref name="fallback"/> when this is a <see cref="Fail"/>.</summary>
+	public T GetValueOrDefault(T fallback) => this is Ok o ? o.Value : fallback;
+
+	/// <summary>The violations of a <see cref="Fail"/>; empty for an <see cref="Ok"/>.</summary>
+	public IReadOnlyList<Violation> ViolationsOrEmpty => this is Fail f ? f.Violations : [];
+}
+
+/// <summary>Builds and combines <see cref="Result{T}"/>s.</summary>
+public static class Result
+{
+	public static Result<T> Ok<T>(T value) => new Result<T>.Ok(value);
+
+	/// <summary>Combines independent results: when several fail, <b>every</b> violation is kept (a <c>from ... from ...</c> query would stop at the first), so a form or a constructor reports all that is wrong at once.</summary>
+	public static Result<TOut> Combine<T1, T2, TOut>(Result<T1> first, Result<T2> second, Func<T1, T2, TOut> combine) => (first, second) switch
+	{
+		(Result<T1>.Ok a, Result<T2>.Ok b) => new Result<TOut>.Ok(combine(a.Value, b.Value)),
+		_ => new Result<TOut>.Fail(default!, [.. first.ViolationsOrEmpty, .. second.ViolationsOrEmpty]),
+	};
+
+	/// <inheritdoc cref="Combine{T1, T2, TOut}"/>
+	public static Result<TOut> Combine<T1, T2, T3, TOut>(
+		Result<T1> first,
+		Result<T2> second,
+		Result<T3> third,
+		Func<T1, T2, T3, TOut> combine
+	) => (first, second, third) switch
+	{
+		(Result<T1>.Ok a, Result<T2>.Ok b, Result<T3>.Ok c) => new Result<TOut>.Ok(combine(a.Value, b.Value, c.Value)),
+		_ => new Result<TOut>.Fail(default!, [.. first.ViolationsOrEmpty, .. second.ViolationsOrEmpty, .. third.ViolationsOrEmpty]),
+	};
 }
 
 // ── ApplyOutcome<T> ───────────────────────────────────────────────────────────
@@ -126,7 +183,8 @@ public abstract record Result<T>
 
 public abstract record ApplyOutcome<T>
 {
-	private protected ApplyOutcome() { }
+	private protected ApplyOutcome()
+	{ }
 
 	/// <summary>Mutation passed all constraints and <see cref="ConstrainedValue{T}.Current"/> was updated.</summary>
 	public sealed record Applied(T Value) : ApplyOutcome<T>
@@ -1103,6 +1161,19 @@ public sealed class ConstraintSet<T>
 	/// </summary>
 	public IReadOnlyList<Violation> Check(T before, T after, TimeProvider? time = null) => RunAll(before, after, time);
 
+	/// <summary>
+	/// Checks a value you have just built, for a factory (<c>public static Result&lt;Money&gt; Create(...) =&gt; Constraints.Validated(new Money(...))</c>):
+	/// <see cref="Result{T}.Ok"/> unless an <see cref="Severity.Error"/> rule is violated, with warnings and hints left out. The point-in-time rules only,
+	/// as <see cref="Validate"/>; a rule about a change has no "before" here.
+	/// </summary>
+	public Result<T> Validated(T value, TimeProvider? time = null) =>
+		Validate(value, time) is var violations && violations.Any(v => v.Severity == Severity.Error)
+			? new Result<T>.Fail(value, violations)
+			: new Result<T>.Ok(value);
+
+	/// <summary><see cref="Validated"/> that throws a <see cref="ConstraintViolationException"/> instead of returning a failure, and returns the value otherwise. For a boundary where an invalid value is a bug, not an input.</summary>
+	public T Ensure(T value, TimeProvider? time = null) => Validated(value, time).Unwrap();
+
 	// Only errors reject a change; warnings and hints ride along on the Applied outcome.
 	internal static ApplyOutcome<T> Outcome(T current, T next, IReadOnlyList<Violation> violations) =>
 		violations.Any(v => v.Severity == Severity.Error)
@@ -1262,5 +1333,9 @@ public readonly struct ConstrainedValueBuilder<T>
 
 	/// <param name="constraints">The set every mutation is checked against.</param>
 	/// <param name="time">The clock time-aware constraints read; defaults to <see cref="TimeProvider.System"/>.</param>
+	/// <remarks>
+	/// The initial value is not checked: a channel can start over data that is already invalid (a legacy row) and be repaired through <c>Apply</c>.
+	/// To refuse an invalid start, check it first: <c>ConstrainedValue.For(constraints.Ensure(initial)).Enforce(constraints)</c>.
+	/// </remarks>
 	public ConstrainedValue<T> Enforce(ConstraintSet<T> constraints, TimeProvider? time = null) => new(_initial, constraints, time);
 }

@@ -97,6 +97,30 @@ var result = OrderConstraints.All.Apply(order, o => o.Confirm());
 build; remove one and it disappears. No list to maintain, no drift between field name and constraint
 name.
 
+## Building a value that cannot be invalid
+
+Constraints guard changes (`Apply`) and check values you already have (`Validate`). To make a type that cannot be *created* invalid, put the check in a factory, not in the constructor:
+
+```csharp
+public sealed record Money
+{
+    private Money(decimal amount, string currency) => (Amount, Currency) = (amount, currency);
+    public decimal Amount { get; }
+    public string Currency { get; }
+
+    private static readonly ConstraintSet<Money> Rules = ConstraintSet.From(
+        ("non-negative", Constraints<Money>.Always(m => m.Amount >= 0, "Amount cannot be negative")),
+        ("iso-currency", Constraints<Money>.Always(m => m.Currency.Length == 3, "Currency must be a 3-letter code")));
+
+    public static Result<Money> Create(decimal amount, string currency) => Rules.Validated(new Money(amount, currency));
+}
+```
+
+- `Validated(value)` returns `Ok` unless an `Error` rule is violated (warnings and hints do not reject); `Ensure(value)` is the same but throws `ConstraintViolationException`, for a place where an invalid value is a bug.
+- Compose with `Map`, `Bind` and query syntax (`from m in Money.Create(...) from c in Currency.Parse(...) select ...`), which stop at the first failure, or with `Result.Combine(a, b, (x, y) => ...)`, which keeps **every** violation: use it to report all that is wrong with a form at once.
+- Why not validate inside the constructor? The rules usually live in a static field of the same type, so a constructor that reads them depends on static initialisation order; and `with` copies and deserialisers go around constructors anyway. Check at the boundary instead: the factory, and `Apply` for everything after.
+- `ConstrainedValue.For(x).Enforce(set)` does not check `x`, so a channel can be started over legacy data and repaired through `Apply`. Use `ConstrainedValue.For(set.Ensure(x))` to refuse an invalid start.
+
 ## Safe mutation
 
 `Apply` runs a mutation, checks every constraint against the result, and only commits if all of
@@ -161,13 +185,13 @@ public static partial class OrderSpec
 }
 
 // Generic code takes the value and infers T from it — no need to know OrderSpec exists:
-static ConstraintSet<T> ConstraintsFor<T>(IConstraintsFor<T> spec) => spec.Constraints;
+static ConstraintSet<T> ConstraintsFor<T>(IConstraintsFor<T> spec) => spec.All;
 
-ConstraintsFor(OrderSpec.Instance); // == OrderSpec.Constraints
+ConstraintsFor(OrderSpec.Instance); // == OrderSpec.All
 ```
 
 The interface is never on the spec class's own base list, even if you declare it as an ordinary
-(non-static) class: `IConstraintsFor<T>.Constraints` is an instance member, and `OrderSpec.Constraints`
+(non-static) class: `IConstraintsFor<T>.All` is an instance member, and `OrderSpec.All`
 is (and stays) `static` either way, so there is nothing on `OrderSpec` itself that could implement it.
 A nested `OrderSpec.TypeConstraints` is a zero-size singleton (`readonly struct`, one static field)
 that forwards to it instead — one path, regardless of how the spec class is declared. `OrderSpec.Instance`
@@ -195,7 +219,7 @@ public static partial class OrderConstraints
     public static readonly Constraint<Order> TotalNeverNegative = Constraints<Order>.Always(o => o.Total >= 0);
     public static readonly Constraint<Order> CancelIsIdempotent = Constraints<Order>.Idempotent(o => o.Cancel());
 
-    // Generated: OrderConstraints.Constraints (ConstraintSet<Order>), from both fields above —
+    // Generated: OrderConstraints.All (ConstraintSet<Order>), from both fields above —
     // neither needed [Constraint]. Add a third static Constraint<Order> field and it's included
     // automatically on the next build; forget to make it static, or declare the type non-partial,
     // and the build fails the same way an [Constraint] mistake would (NECG001 etc.) — see the
