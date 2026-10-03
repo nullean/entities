@@ -41,6 +41,62 @@ var alwaysPositive = Constraints<Item>.Check(
 );
 ```
 
+## The problem with guards
+
+A guard in a service method enforces a rule at one call site. Add a second path into the same
+operation and the guard has to be copied. Forget to copy it and nothing fails at compile time — the
+rule just silently stops applying.
+
+```csharp
+// Before: a rule written three ways, in three places, drifting apart
+public void Confirm(Order order)
+{
+    if (order.Lines.Count == 0)
+        throw new InvalidOperationException("Cannot confirm an empty order.");
+    // ...
+}
+
+public async Task ConfirmAsync(Order order)
+{
+    if (order.Lines.Count == 0)           // same rule, copy-pasted
+        throw new InvalidOperationException("Cannot confirm an empty order.");
+    // ...
+}
+
+public void BulkConfirm(IEnumerable<Order> orders)
+{
+    foreach (var o in orders.Where(o => o.Lines.Count > 0)) // different expression, same intent
+    {
+        // ...
+    }
+}
+```
+
+```csharp
+// After: one rule, applied at every call site
+[Constraints]
+public static partial class OrderConstraints
+{
+    public static readonly Constraint<Order> MustHaveLines =
+        Constraints<Order>.Always(o => o.Lines.Count > 0, "An order must have at least one line.");
+
+    public static readonly Constraint<Order> LegalStatusTransitions = Constraints<Order>
+        .Transitions(o => o.Status)
+        .Allow(OrderStatus.Pending, OrderStatus.Confirmed)
+        .Allow(OrderStatus.Confirmed, OrderStatus.Shipped)
+        .Allow(OrderStatus.Pending, OrderStatus.Cancelled)
+        .Allow(OrderStatus.Confirmed, OrderStatus.Cancelled);
+}
+
+// Every caller uses the same set — the rule cannot drift
+var result = OrderConstraints.All.Apply(order, o => o.Confirm());
+```
+
+`[Constraints]` auto-discovers every `Constraint<Order>` field on `OrderConstraints` and generates
+`OrderConstraints.All` — a `ConstraintSet<Order>`. Add a new field and it's included on the next
+build; remove one and it disappears. No list to maintain, no drift between field name and constraint
+name.
+
 ## Safe mutation
 
 `Apply` runs a mutation, checks every constraint against the result, and only commits if all of
@@ -345,6 +401,49 @@ StateMachine.FromMermaid(text);                           // and back: a diagram
 
 `Nullean.Entities.CsCheck` explores a machine (`machine.Spec().Exhaustive()`) and checks a real entity follows it (`machine.ConformTo(...)`).
 `Constraint<T>.Map` / `ConstraintSet<T>.Map` lift constraints through a projection while keeping kind, name, guards and edges.
+
+## Declared type-state machines
+
+There are two ways to declare a machine. [State machines as data](#state-machines-as-data) above (`StateMachine<TState, TTrigger>`) is for states that are values: an enum or a string, moved by named triggers. This one is for domains where each state is its own shape — not just an enum value but a type carrying data —
+`StateMachine<TState>` declares the graph once and validates it eagerly at startup:
+
+```csharp
+private abstract record OrderState
+{
+    public sealed record Draft : OrderState;
+    public sealed record Placed(int Lines) : OrderState;
+    public sealed record Confirmed : OrderState;
+    public sealed record Shipped : OrderState;
+    public sealed record Cancelled : OrderState;
+}
+
+public static readonly StateMachine<OrderState> OrderLifecycle = StateMachine<OrderState>.Define(m => m
+    .Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>())
+    .State<OrderState.Placed>(s => s
+        .On("Confirm").To<OrderState.Confirmed>(when: p => p.Lines > 0)
+        .On("Cancel").To<OrderState.Cancelled>())
+    .State<OrderState.Confirmed>(s => s.To<OrderState.Shipped>().On("Cancel").To<OrderState.Cancelled>())
+    .Terminal<OrderState.Shipped>()
+    .Terminal<OrderState.Cancelled>()
+);
+```
+
+`Define` throws `StateMachineDefinitionException` (NESM001–NESM004) if the graph fails exhaustiveness,
+reachability, dead-end, or trap checks — caught at startup, not buried in a log at runtime.
+
+From a defined machine you get:
+
+```csharp
+OrderLifecycle.AsConstraint()  // Constraint<OrderState> — drops into ConstraintSet.From(...)
+OrderLifecycle.AsReactive()    // ReactiveConstraint<OrderState> — checks an event stream
+OrderLifecycle.ToMermaid()     // Mermaid diagram — paste into your README or docs
+OrderLifecycle.Walks()         // Gen<IReadOnlyList<StateMachineStep<T>>> — CsCheck graph walks
+OrderLifecycle.RealizedWalks() // Gen<IReadOnlyList<RealizedStep<T>>> — guard-aware walks with real values
+```
+
+For enum-shaped state machines, `Constraints<T>.Transitions(selector).Allow(from, to)` stays the right
+tool — `StateMachine<TState>` is for the case where each state carries its own data and a guard needs
+to inspect it.
 
 ## Severity, locations, and what `Apply` rejects
 

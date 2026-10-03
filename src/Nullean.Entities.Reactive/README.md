@@ -1,51 +1,45 @@
 # Nullean.Entities.Reactive
 
-Temporal and structural constraints over `IObservable<TEvent>` streams, for the events a
-[`Nullean.Entities`](https://www.nuget.org/packages/Nullean.Entities) constraint set can't reach on
-its own: "never twice", "after X, then Y within N seconds", legal state transitions.
+The events a point-in-time constraint can't see — temporal ordering, gaps between events, and
+liveness over an `IObservable<TEvent>` stream.
 
-## The idea
-
-A `ReactiveConstraint<TEvent>` is an immutable descriptor — like `Constraint<T>`, it lives anywhere,
-and attaching it to a stream is a separate step from declaring it:
-
-```csharp
-using static Nullean.Entities.Reactive.Constraints<OrderEvent>;
-
-var neverShippedAfterCancellation = Never<OrderEvent.Cancelled, OrderEvent.Shipped>(
-    (cancelled, shipped) => cancelled.OrderId == shipped.OrderId
-);
-
-MonitoredConstraint<OrderEvent> running = neverShippedAfterCancellation.Attach(orderEvents);
-running.Verdicts.Subscribe(verdict => Console.WriteLine(verdict));
-```
-
-`using static Constraints<TEvent>` is the intended way to read these — `Never`, `NeverTwice`,
-`Always`, `Transitions`, `After` read like prose once the type parameter is fixed for the file.
+A `Constraint<T>` from [`Nullean.Entities`](https://www.nuget.org/packages/Nullean.Entities) checks
+a value at a point in time. It can't answer "was Shipped ever emitted after a Cancelled?" or "did
+every Placed order eventually ship?" — those need a running observer on the stream. That's what this
+package is.
 
 ## Structural operators
 
 | Operator | Violated when |
 |---|---|
-| `Never<T1, T2>(pair)` | two *consecutive* events of type `T1`/`T2` satisfy `pair` |
-| `NeverTwice<T>(key)` | two *non-adjacent* events of type `T` share the same `key` |
+| `Never<T1, T2>(pair)` | two consecutive events of type `T1`/`T2` (among those two types) satisfy `pair` |
+| `NeverTwice<T>(key)` | two events of type `T`, anywhere in the stream, share the same `key` |
 | `Always<T>(predicate)` | any event of type `T` fails `predicate` |
-| `Transitions((from, to)[])` | a consecutive pair isn't in the allowed-transition table |
-| `Transitions((TEvent, TEvent) -> bool)` | a consecutive pair fails a transition guard |
+| `Transitions((from, to)[])` | a raw-stream-adjacent pair isn't in the allowed-transition table |
 
-`Never<T1, T2>`'s "consecutive" filters every other event type out *first* — it means consecutive
-among `T1`/`T2` occurrences, not consecutive in the raw stream. That's the right tool only when
-`T1`/`T2` are the sole events of interest for the key (a terminal state that precludes ever seeing
-the other again, e.g. `Never<Cancelled, Shipped>`). If a legitimate event type can sit between them
-— `Placed → Confirmed → Shipped`, skipping straight to `Never<Placed, Shipped>` to forbid skipping
-`Confirmed` — that intermediate `Confirmed` gets filtered out too, making `Placed`/`Shipped` look
-falsely adjacent for the ordinary, legal path. Use `Transitions((TEvent, TEvent) -> bool)` instead;
-it checks raw-stream-adjacent pairs, so the intervening `Confirmed` actually counts.
+```csharp
+using static Nullean.Entities.Reactive.Constraints<OrderEvent>;
+
+// A cancelled order can never be shipped
+var neverShippedAfterCancellation = Never<OrderEvent.Cancelled, OrderEvent.Shipped>(
+    (cancelled, shipped) => cancelled.OrderId == shipped.OrderId
+);
+
+// The same order cannot be placed twice in a stream
+var neverPlacedTwice = NeverTwice<OrderEvent.Placed>(e => e.OrderId);
+```
+
+`Never<T1, T2>` filters every other event type out first — "consecutive" means consecutive among
+`T1`/`T2` occurrences, not in the raw stream. Use it only when `T1`/`T2` are terminal relative to
+each other (a `Cancelled` that truly precludes `Shipped`). When a legitimate intermediate event type
+sits between them — `Placed → Confirmed → Shipped`, where you want to forbid skipping `Confirmed` —
+use `Transitions(...)` instead, which checks raw-stream-adjacent pairs and counts the intervening
+`Confirmed`.
 
 ## Temporal operators
 
-`After<TTrigger>().Then<TNext>().Within(window)` builds a constraint that watches for `TTrigger`,
-then requires `TNext` within `window`:
+`After<TTrigger>().Then<TNext>().Within(window)` watches for a trigger event and requires a
+matching follow-up within a deadline:
 
 ```csharp
 var confirmedShipsOrCancels = After<OrderEvent.Confirmed>()
@@ -53,146 +47,134 @@ var confirmedShipsOrCancels = After<OrderEvent.Confirmed>()
         m1: (confirmed, shipped) => shipped.OrderId == confirmed.OrderId,
         m2: (confirmed, cancelled) => cancelled.OrderId == confirmed.OrderId
     )
-    .Within(TimeSpan.FromSeconds(60));
+    .Within(TimeSpan.FromHours(48));
 ```
 
-Without `.Required()`, a trigger that never fires leaves the constraint `Pending` — vacuously
-`Holds`, not violated. `.Required()` makes a fired trigger with no matching follow-up a violation.
-`.UnlessInterruptedBy<TInterrupt>()` lifts the obligation (to `Holds`) if `TInterrupt` fires first.
+`.Required()` makes an unmatched trigger (no follow-up at all before stream end) a violation rather
+than leaving it `Pending`. `.UnlessInterruptedBy<TInterrupt>()` lifts the obligation if a specific
+event fires first — useful for SLA windows that don't apply once a ticket is closed:
 
-### Liveness, unbounded
+```csharp
+var firstResponseWithinSla = After<TicketEvent.Opened>()
+    .Then<TicketEvent.Responded>((opened, responded) => opened.TicketId == responded.TicketId)
+    .Within(TimeSpan.FromHours(1))
+    .Required()
+    .UnlessInterruptedBy<TicketEvent.Closed>();
+```
 
-Everything above is bounded — `.Then().Within()` needs a trigger and a deadline. `Eventually<T>` is
-the unconditional "did this ever happen at all" shape instead: it tracks an open set of pending
-instances (keyed by `scope`) across the whole stream rather than a sliding window from the last
-trigger, and the only point "never" can be told apart from "not yet" is when the stream itself
-completes — so it resolves to `Violated` (naming whichever scope keys are still open) only on
-`OnCompleted`, and stays `Pending` forever against a stream that never completes. That makes it the
-right fit for a bounded run (a CsCheck-generated walk, a recorded session), not a live dashboard.
+## Liveness
+
+`Eventually<T>` is the unconditional "did this ever happen for every instance we opened" shape —
+no deadline, no trigger, just a tracked open set across the whole stream:
 
 ```csharp
 Constraints<OrderEvent>.Eventually<OrderEvent.Shipped>(
-    scope: e => e.OrderId, from: e => e is OrderEvent.Placed,
+    scope: e => e.OrderId,
+    from: e => e is OrderEvent.Placed,
     message: "Every placed order eventually ships."
 );
 ```
 
-See [`Nullean.Entities.CsCheck`'s testing-qualities table](../Nullean.Entities.CsCheck#testing-qualities-not-just-assertions)
-for how this and the rest of the qualities line up against CsCheck's different samplers.
+It resolves to `Violated` (listing whichever scope keys are still open) only on `OnCompleted` —
+"never" and "not yet" are indistinguishable mid-stream. That makes it the right tool for a bounded
+run (a CsCheck-generated walk, a recorded integration test session), not a live production feed
+that never completes.
+
+## Declared state machines
+
+A `StateMachine<TState>` defined in `Nullean.Entities` lifts directly onto an event stream:
+
+```csharp
+var reactive = OrderLifecycle.AsReactive();
+// ReactiveConstraint<OrderState> — checked on every event
+```
+
+The same graph that drives `AsConstraint()` (for point-in-time checks against a current state value)
+drives `AsReactive()` (for a running observer over the stream) — one declaration, two uses.
 
 ## Sets and live state
 
-`ReactiveConstraintSet<TEvent>.From(...)` groups named constraints and shares one subscription to
-the source stream across all of them (`events.Publish().RefCount()`):
+`ReactiveConstraintSet<TEvent>.From(...)` groups named constraints and shares one subscription to the
+source stream across all of them:
 
 ```csharp
 var spec = ReactiveConstraintSet.From(
-    (nameof(neverShippedBeforeConfirmed), neverShippedBeforeConfirmed),
+    (nameof(neverShippedAfterCancellation), neverShippedAfterCancellation),
     (nameof(confirmedShipsOrCancels), confirmedShipsOrCancels)
 );
 
 MonitoredConstraintSet<OrderEvent> monitored = spec.Attach(orderEvents);
-monitored["neverShippedBeforeConfirmed"].Current; // Pending | Holds | Violated
-monitored.State.Subscribe(state => Dashboard.Render(state.Verdicts));
+
+// Synchronous snapshot — "has anything violated so far"
+bool clean = !monitored.AnyViolated;
+
+// Subscribe to live verdict changes
+monitored.State.Subscribe(state =>
+{
+    foreach (var (name, verdict) in state.Verdicts)
+        dashboard.Update(name, verdict);
+});
 ```
 
-`Verdict` is `Pending`, `Holds`, or `Violated(at, evidence)` — `MonitoredConstraint<TEvent>.Verdicts`
-replays the current verdict to a subscriber that arrives late, so `MonitoredConstraintSet.State`
-never silently drops a constraint that had already settled before something subscribed to it.
+`Verdict` is `Pending`, `Holds`, or `Violated(at, evidence)`. `MonitoredConstraint<TEvent>.Verdicts`
+replays the current verdict to a late subscriber, so nothing is silently missed because a constraint
+already settled before something subscribed. `AnyViolated` and `Violations` are the two cheap
+synchronous reads — `Nullean.Entities.CsCheck`'s `SampleWith` uses `AnyViolated` as CsCheck's own
+`equal` check so a violation becomes a real, reproducible, shrinkable CsCheck failure.
 
-`MonitoredConstraintSet<TEvent>.AnyViolated` is a cheap synchronous snapshot — "has anything violated
-so far" — for a caller that just needs a yes/no rather than subscribing to `State` and tracking it
-itself. It's what lets `Nullean.Entities.CsCheck`'s `SampleWith` use a `MonitoredConstraintSet` as
-CsCheck's own `equal` check (`equal: (sut, _) => !monitored.AnyViolated`), so a violation becomes a
-real, reproducible CsCheck failure. `.Violations` is the detail behind it: every constraint currently
-`Violated`, by name, which is what `RunWith` reports on a shrunk failing case.
+## Auto-discovery: `[Constraints]`
 
-## Predicate-based operators, for event shapes without a shared base type
-
-Every operator above is generic over a case type with `where T : TEvent` — exactly right for a
-record hierarchy, where a case genuinely *is* a `TEvent`. It does not typecheck for a C# 11
-discriminated union: `readonly union OrderEvent(Placed, Shipped);` makes `Placed`/`Shipped` ordinary
-sibling top-level types with compiler-synthesized pattern-matching support, not real subtypes of
-`OrderEvent` — `where T : OrderEvent` is rejected outright (CS0701, "not a valid constraint") since
-the union itself compiles to a sealed type.
-
-`Never`, `NeverTwice`, `Always`, `Eventually`, and `After().Then().Within()` (collapsed into one
-`AfterUntil` primitive, since there's no type parameter to hang builder steps off) each have a
-predicate-based counterpart that classifies with a `Func<TEvent,bool>` instead:
+The same `[Constraints]` attribute from `Nullean.Entities` bundles `ReactiveConstraint<TEvent>`
+fields too:
 
 ```csharp
-Constraints<OrderEventUnion>.Never(
-    isT1: e => e is Cancelled, isT2: e => e is Shipped,
-    pair: (c, s) => c is Cancelled cc && s is Shipped ss && cc.OrderId == ss.OrderId
-);
+[Constraints]
+public static partial class OrderEventSpec
+{
+    public static readonly ReactiveConstraint<OrderEvent> NeverShippedAfterCancellation =
+        Constraints<OrderEvent>.Never<OrderEvent.Cancelled, OrderEvent.Shipped>(
+            (c, s) => c.OrderId == s.OrderId
+        );
 
-Constraints<OrderEventUnion>.AfterUntil(
-    isTrigger: e => e is Confirmed,
-    isNext: (trigger, e) => trigger is Confirmed c
-        && e switch { Shipped s => s.OrderId == c.OrderId, Cancelled ca => ca.OrderId == c.OrderId, _ => false },
-    window: TimeSpan.FromSeconds(60)
-);
+    public static readonly ReactiveConstraint<OrderEvent> ConfirmedShipsOrCancels =
+        Constraints<OrderEvent>.After<OrderEvent.Confirmed>()
+            .Then<OrderEvent.Shipped, OrderEvent.Cancelled>(
+                m1: (c, s) => s.OrderId == c.OrderId,
+                m2: (c, ca) => ca.OrderId == c.OrderId
+            )
+            .Within(TimeSpan.FromHours(48));
+}
+
+// Generated: public static ReactiveConstraintSet<OrderEvent> All { get; }
 ```
 
-They work identically against a plain record hierarchy too — reach for the typed overloads there,
-since `e is Placed p` reads better than a bare `Func<TEvent,bool>` when the compiler can check the
-type parameter for you. `Transitions(Func<TEvent,TEvent,bool>)` already took no type parameter and
-needs no counterpart. See `examples/Nullean.Entities.Reactive.Examples`' net11.0-only
-`OrderStateExamplesNet11.cs` for a full worked example against a real union, including a `switch`
-with compiler-enforced exhaustiveness.
+`OrderEventSpec.All` is what you pass to `SampleWith` in `Nullean.Entities.CsCheck` — or attach
+directly to a live stream.
 
 ## Lifting the sync core
 
-`ConstraintSet<T>.ToReactive()` converts a plain, synchronous `Nullean.Entities` constraint set into
-a `ReactiveConstraintSet<T>` that re-checks every constraint on each event — for constraints that
-were written once and need to run continuously, without the temporal/structural vocabulary above. A
-point-in-time constraint (`Always`, `When().Requires()`) checks every event on its own; a sequential
-one (`Transitions`) checks each consecutive pair, the same way `ConstraintSet<T>.Apply` would:
+`ConstraintSet<T>.ToReactive()` re-checks a plain synchronous constraint set on every event —
+point-in-time constraints fire per event, sequential ones fire on each consecutive pair:
 
 ```csharp
-ReactiveConstraintSet<Item> reactive = itemConstraints.ToReactive();
+ReactiveConstraintSet<Order> reactive = OrderConstraints.All.ToReactive();
 ```
 
-If `TEvent` implements `IHaveConstraints<TEvent>` (from `Nullean.Entities`), `AttachConstraints()`
-does both steps at once: `events.AttachConstraints()`.
+If `TEvent` implements `IHaveConstraints<TEvent>`, `events.AttachConstraints()` does both steps at
+once.
 
-## Exhaustive constraint sets: `[Constraint]`
+## C# 11 discriminated unions
 
-The same `[Constraint]` attribute and generator from `Nullean.Entities` bundle `ReactiveConstraint<T>`
-fields too — tag every one that belongs to an event union with `[Constraint]` on a companion "spec"
-class (there's no reactive-native self-attach shape; see below):
+Every typed operator (`Never<T1, T2>`, `After<TTrigger>()`, etc.) requires `where T : TEvent`,
+which a C# 11 union's case types cannot satisfy. Predicate-based counterparts handle them:
 
 ```csharp
-// Cancelled is terminal — nothing ever un-cancels an order back onto a path to Shipped — so
-// Never<Cancelled,Shipped> is safe regardless of what else the domain adds between them. See the
-// caveat above the operator table: for a non-terminal pair, with a real intermediate state (e.g.
-// forbidding Shipped without a prior Confirmed), Transitions is the correct choice, not Never<T1,T2>.
-public abstract record OrderEvent
-{
-    public sealed record Placed(Guid OrderId) : OrderEvent;
-    public sealed record Cancelled(Guid OrderId) : OrderEvent;
-    public sealed record Shipped(Guid OrderId) : OrderEvent;
-}
-
-public static partial class OrderEventSpec
-{
-    [Constraint]
-    public static readonly ReactiveConstraint<OrderEvent> NeverShippedAfterCancellation =
-        Constraints<OrderEvent>.Never<OrderEvent.Cancelled, OrderEvent.Shipped>((c, s) => c.OrderId == s.OrderId);
-}
-
-// Generated: public static ReactiveConstraintSet<OrderEvent> Constraints { get; } = ...
+Constraints<OrderEventUnion>.Never(
+    isT1: e => e is Cancelled,
+    isT2: e => e is Shipped,
+    pair: (c, s) => c is Cancelled cc && s is Shipped ss && cc.OrderId == ss.OrderId
+);
 ```
-
-Every generated spec class also gets a nested `TypeConstraints` struct implementing
-`IReactiveConstraintsFor<TEvent>` — a plain instance interface, so `OrderEventSpec.Instance`
-(a forwarding shortcut for `OrderEventSpec.TypeConstraints.Instance`, generated on the outer class so
-you never have to spell out `TypeConstraints`) is a value generic code can take as a parameter and
-infer `TEvent` from, the same as the sync `IConstraintsFor<T>` in `Nullean.Entities`. It's never on
-the spec class's own base list (`Constraints` is `static` there regardless of whether the class
-itself is). There's no reactive self-attach interface parallel to `IHaveConstraints<T>`: an event
-union that wants to declare its own reactive rules on itself still goes through a companion spec
-class, or lifts a sync `IHaveConstraints<T>` set with `ToReactive()`/`AttachConstraints()` above.
 
 ## Relationship to the core temporal rules
 
@@ -213,8 +195,8 @@ dotnet add package Nullean.Entities.Reactive
 ## Links
 
 - [Source & full documentation](https://github.com/nullean/entities)
-- [Nullean.Entities](https://www.nuget.org/packages/Nullean.Entities) — the synchronous core this
-  package lifts onto a stream.
+- [Nullean.Entities](https://www.nuget.org/packages/Nullean.Entities) — the synchronous core
 - [Nullean.Entities.CsCheck](https://www.nuget.org/packages/Nullean.Entities.CsCheck) — drives a
-  `ReactiveConstraintSet<TEvent>` from a CsCheck-generated action sequence.
+  generated action sequence through `SampleWith` and checks these constraints against the resulting
+  event stream
 - License: MIT
