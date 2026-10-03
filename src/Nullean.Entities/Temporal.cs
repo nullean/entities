@@ -65,6 +65,15 @@ public interface IMonitor<TEvent>
 
 	/// <summary>The stream has ended: unresolved liveness obligations become violations; a satisfied one reports <see cref="Verdict.Holds"/>.</summary>
 	Verdict Finish(DateTimeOffset at);
+
+	/// <summary>An independent copy with the same history, so a search can branch from a monitored state.</summary>
+	IMonitor<TEvent> Clone();
+
+	/// <summary>
+	/// A string that is equal for two monitors that will react identically to every future event, deadlines taken relative to <paramref name="now"/>.
+	/// Lets an exhaustive search treat them as one state. Null when the rule cannot be explored that way (it only resolves at <see cref="Finish"/>).
+	/// </summary>
+	string? StateKey(DateTimeOffset now);
 }
 
 internal abstract class MonitorBase<TEvent> : IMonitor<TEvent>
@@ -90,6 +99,12 @@ internal abstract class MonitorBase<TEvent> : IMonitor<TEvent>
 	public virtual Verdict Tick(DateTimeOffset now) => Current;
 
 	public virtual Verdict Finish(DateTimeOffset at) => Current;
+
+	public virtual IMonitor<TEvent> Clone() => (IMonitor<TEvent>)MemberwiseClone();
+
+	public abstract string? StateKey(DateTimeOffset now);
+
+	protected static string Describe(object? value) => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? "";
 
 	protected void Violate(DateTimeOffset at, object evidence)
 	{
@@ -215,6 +230,8 @@ public static class Temporal<TEvent>
 		private bool _hasPrevious;
 		private TEvent _previous = default!;
 
+		public override string? StateKey(DateTimeOffset now) => _hasPrevious && isT1(_previous) ? Describe(_previous) : "-";
+
 		protected override void OnEvent(TEvent e, DateTimeOffset at)
 		{
 			if (!isT1(e) && !isT2(e))
@@ -232,7 +249,16 @@ public static class Temporal<TEvent>
 
 	private sealed class NeverTwiceMonitor(Func<TEvent, bool> isRelevant, Func<TEvent, object> key) : MonitorBase<TEvent>
 	{
-		private readonly HashSet<object> _seen = [];
+		private HashSet<object> _seen = [];
+
+		public override IMonitor<TEvent> Clone()
+		{
+			var copy = (NeverTwiceMonitor)MemberwiseClone();
+			copy._seen = [.. _seen];
+			return copy;
+		}
+
+		public override string? StateKey(DateTimeOffset now) => string.Join("|", _seen.Select(Describe).Order(StringComparer.Ordinal));
 
 		protected override void OnEvent(TEvent e, DateTimeOffset at)
 		{
@@ -245,6 +271,8 @@ public static class Temporal<TEvent>
 
 	private sealed class AlwaysMonitor(Func<TEvent, bool> isRelevant, Func<TEvent, bool> predicate) : MonitorBase<TEvent>
 	{
+		public override string? StateKey(DateTimeOffset now) => "";
+
 		protected override void OnEvent(TEvent e, DateTimeOffset at)
 		{
 			if (isRelevant(e) && !predicate(e))
@@ -259,6 +287,8 @@ public static class Temporal<TEvent>
 		private bool _hasPrevious;
 		private TEvent _previous = default!;
 
+		public override string? StateKey(DateTimeOffset now) => _hasPrevious ? Describe(_previous) : "-";
+
 		protected override void OnEvent(TEvent e, DateTimeOffset at)
 		{
 			if (_hasPrevious && !isValid(_previous, e))
@@ -272,6 +302,8 @@ public static class Temporal<TEvent>
 
 	internal sealed class WhenMonitor(Func<TEvent, bool> guard, Func<TEvent, bool> requirement) : MonitorBase<TEvent>
 	{
+		public override string? StateKey(DateTimeOffset now) => "";
+
 		protected override void OnEvent(TEvent e, DateTimeOffset at)
 		{
 			if (guard(e) && !requirement(e))
@@ -288,8 +320,17 @@ public static class Temporal<TEvent>
 		string message
 	) : MonitorBase<TEvent>
 	{
-		private readonly HashSet<object> _pending = [];
+		private HashSet<object> _pending = [];
 		private bool _finished;
+
+		public override IMonitor<TEvent> Clone()
+		{
+			var copy = (EventuallyMonitor)MemberwiseClone();
+			copy._pending = [.. _pending];
+			return copy;
+		}
+
+		public override string? StateKey(DateTimeOffset now) => null;
 
 		protected override void OnEvent(TEvent e, DateTimeOffset at)
 		{
@@ -330,8 +371,18 @@ public static class Temporal<TEvent>
 		string describe
 	) : MonitorBase<TEvent>
 	{
-		private readonly List<(TEvent Trigger, DateTimeOffset Deadline)> _open = [];
+		private List<(TEvent Trigger, DateTimeOffset Deadline)> _open = [];
 		private bool _anyTrigger;
+
+		public override IMonitor<TEvent> Clone()
+		{
+			var copy = (AfterMonitor)MemberwiseClone();
+			copy._open = [.. _open];
+			return copy;
+		}
+
+		public override string? StateKey(DateTimeOffset now) =>
+			required ? null : string.Join("|", _open.Select(o => $"{Describe(o.Trigger)}@{(o.Deadline - now).Ticks}").Order(StringComparer.Ordinal));
 
 		public override DateTimeOffset? NextDeadline => _open.Count == 0 ? null : _open.Min(o => o.Deadline);
 

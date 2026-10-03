@@ -237,9 +237,13 @@ public static partial class EntitySpec
 					null,
 					(state, _) => decide(state, c).Aggregate(state, evolve)
 				));
+		var set = constraints ?? ConstraintSet.From<TState>();
 		return new EventSourcedSpec<TState, TCommand, TEvent>(
-			For(constraints ?? ConstraintSet.From<TState>(), new EntityActions<TState>([.. actions]), initial),
+			For(set, new EntityActions<TState>([.. actions]), initial),
+			initial,
+			set,
 			decide,
+			evolve,
 			byName
 		);
 	}
@@ -268,13 +272,28 @@ public static partial class EntitySpec
 /// <summary>An event-sourced model: see <see cref="EntitySpec.EventSourced{TState, TCommand, TEvent}"/>.</summary>
 public sealed class EventSourcedSpec<TState, TCommand, TEvent>
 {
+	private static readonly DateTimeOffset Origin = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+	private readonly TState _initial;
+	private readonly ConstraintSet<TState> _constraints;
 	private readonly Func<TState, TCommand, IEnumerable<TEvent>> _decide;
+	private readonly Func<TState, TEvent, TState> _evolve;
 	private readonly Dictionary<string, TCommand> _commands;
 
-	internal EventSourcedSpec(EntitySpec<TState> spec, Func<TState, TCommand, IEnumerable<TEvent>> decide, Dictionary<string, TCommand> commands)
+	internal EventSourcedSpec(
+		EntitySpec<TState> spec,
+		TState initial,
+		ConstraintSet<TState> constraints,
+		Func<TState, TCommand, IEnumerable<TEvent>> decide,
+		Func<TState, TEvent, TState> evolve,
+		Dictionary<string, TCommand> commands
+	)
 	{
 		Spec = spec;
+		_initial = initial;
+		_constraints = constraints;
 		_decide = decide;
+		_evolve = evolve;
 		_commands = commands;
 	}
 
@@ -295,7 +314,7 @@ public sealed class EventSourcedSpec<TState, TCommand, TEvent>
 	)
 	{
 		var interval = stepInterval ?? TimeSpan.FromSeconds(1);
-		var origin = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+		var origin = Origin;
 		Spec.SampleTraces(
 			steps =>
 			{
@@ -318,4 +337,85 @@ public sealed class EventSourcedSpec<TState, TCommand, TEvent>
 			iter
 		);
 	}
+
+	/// <summary>
+	/// Proves the temporal <paramref name="rules"/> over the emitted events for every command sequence, not a sample: explores the product of the folded
+	/// state and every rule's monitor (each command advances a virtual clock by <paramref name="stepInterval"/>), so the state constraints and the
+	/// rules are checked together and a violation comes with a shortest command sequence. Two states are the same when their folded state and
+	/// every monitor's pending obligations (deadlines relative to now) are equal, which is what lets the search close.
+	/// </summary>
+	/// <remarks>
+	/// Only rules that are decided by a prefix of the events can be proved this way: <c>Never</c>, <c>NeverTwice</c>, <c>Always</c>, <c>Transitions</c>,
+	/// <c>When</c> and <c>After().Then().Within()</c>. <c>Eventually</c> and <c>Required()</c> only resolve when the stream ends, so a search that
+	/// stops at a bound would call them violated for no reason; they are rejected, and belong in <see cref="SampleEvents"/>.
+	/// Events are told apart by <c>ToString()</c>, so use records (or override it).
+	/// </remarks>
+	public SpecReport Exhaustive(
+		TemporalRuleSet<TEvent> rules,
+		TimeSpan? stepInterval = null,
+		int maxStates = 100_000,
+		int maxDepth = int.MaxValue,
+		bool requireClosed = true,
+		Action<string>? writeLine = null
+	)
+	{
+		var interval = stepInterval ?? TimeSpan.FromSeconds(1);
+		var monitors = new List<IMonitor<TEvent>>();
+		foreach (var (name, rule) in rules.Rules)
+		{
+			var monitor = rule.CreateMonitor();
+			if (monitor.StateKey(Origin) is null)
+			{
+				throw new NotSupportedException(
+					$"Rule '{name}' only resolves when the event stream ends (Eventually, Required()), so it cannot be proved by exploring command sequences up to a bound. Check it with SampleEvents instead."
+				);
+			}
+			monitors.Add(monitor);
+		}
+
+		var names = rules.Rules.Select(r => r.Name).ToList();
+		var lifted = _constraints.Map<Observed<TState, TEvent>>(o => o.State);
+		var temporal = new List<(string, Constraint<Observed<TState, TEvent>>)>();
+		for (var index = 0; index < names.Count; index++)
+		{
+			var (i, name) = (index, names[index]);
+			temporal.Add(($"temporal: {name}",
+				Constraints<Observed<TState, TEvent>>.Check(o =>
+						o.Monitors[i].Current.IsViolated
+							? [
+								new Violation($"{name} violated at {o.Monitors[i].Current.ViolationAt:HH:mm:ss}: {o.Monitors[i].Current.ViolationEvidence}")
+								{
+									Evidence = o.Monitors[i].Current.ViolationEvidence
+								}
+							]
+							: [])));
+		}
+		var set = ConstraintSet.From([.. lifted.AsConstraints().Select(c => (c.Name ?? "constraint", c)), .. temporal]);
+
+		var actions = _commands.Select(c =>
+			new EntityAction<Observed<TState, TEvent>>(c.Key, null, (o, _) =>
+			{
+				var at = o.At + interval;
+				List<IMonitor<TEvent>> next = [.. o.Monitors.Select(m => m.Clone())];
+				var events = _decide(o.State, c.Value).ToList();
+				foreach (var monitor in next)
+				{
+					foreach (var e in events)
+					{
+						monitor.Observe(e, at);
+					}
+					monitor.Tick(at);
+				}
+				return new Observed<TState, TEvent>(events.Aggregate(o.State, _evolve), next, at);
+			}));
+
+		return EntitySpec
+			.For(set, new EntityActions<Observed<TState, TEvent>>([.. actions]), new Observed<TState, TEvent>(_initial, monitors, Origin))
+			.Key(o => (StructuralKey.Of(o.State), string.Join("¦", o.Monitors.Select(m => m.StateKey(o.At)))))
+			.Print(o => Convert.ToString(o.State, System.Globalization.CultureInfo.InvariantCulture) ?? "")
+			.Exhaustive(maxStates, maxDepth, requireCoverage: false, requireClosed: requireClosed, writeLine: writeLine);
+	}
 }
+
+/// <summary>The folded state plus every temporal monitor and the virtual clock: one node of the product explored by <c>EventSourcedSpec.Exhaustive</c>.</summary>
+internal sealed record Observed<TState, TEvent>(TState State, IReadOnlyList<IMonitor<TEvent>> Monitors, DateTimeOffset At);

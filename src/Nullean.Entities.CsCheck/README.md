@@ -479,7 +479,8 @@ EntitySpec.FromReducer(0, (int n, string c) => c == "inc" ? n + 1 : Math.Max(0, 
 // Event sourcing: state is the fold of events; temporal rules apply to the events each command emits
 var doors = EntitySpec.EventSourced(DoorState.Closed, Decide, Evolve, [Open, Close, Lock, Unlock], stateRules);
 doors.Spec.Exhaustive();                                     // state constraints, proved
-doors.SampleEvents(neverOpenedRightAfterLocked, stepInterval: TimeSpan.FromSeconds(1));   // temporal rules over the emitted events, on random walks
+doors.Exhaustive(neverOpenedRightAfterLocked);               // the same, plus temporal rules over the emitted events, for every command sequence
+doors.SampleEvents(neverOpenedRightAfterLocked);             // random walks: for rules that cannot be proved by a bounded search
 
 // A mutable class: rebuilt by replaying the actions on a fresh instance, so no clone method is needed
 EntitySpec.ForMutable(() => new MutableDoor(), rules.Map<MutableDoor>(d => new Door(d.State)))
@@ -487,8 +488,12 @@ EntitySpec.ForMutable(() => new MutableDoor(), rules.Map<MutableDoor>(d => new D
     .Exhaustive();
 ```
 
-Notes: the event-sourced `Exhaustive` proves the **state** constraints; temporal rules over events are checked on random walks (`SampleEvents`),
-not exhaustively, because an open obligation would have to be part of the explored state. Use `Transitions` (raw adjacency) rather than `Never<A, B>`
+Notes: `doors.Spec.Exhaustive()` proves the **state** constraints. `doors.Exhaustive(rules)` also proves temporal rules over the emitted events: it explores
+the product of the folded state and each rule's monitor (open obligations, with their deadlines relative to now, are part of the state), advancing a
+virtual clock by `stepInterval` per command, so a violation comes with the shortest command sequence. A command that emits nothing still lets time pass,
+so a bounded-response rule is refuted by the commands that "wait". It supports `Never`, `NeverTwice`, `Always`, `Transitions`, `When` and
+`After().Then().Within()`; `Eventually` and `Required()` only resolve when the stream ends, so they are rejected (not silently skipped) and belong in
+`SampleEvents`. Events are told apart by `ToString()`, so use records. Use `Transitions` (raw adjacency) rather than `Never<A, B>`
 for "A must not directly precede B": `Never` ignores events of other types in between. A mutable class costs a replay per transition, fine for the
 bounded searches `Exhaustive` does, so give it a `snapshot` that says what makes two states the same (default: public properties, structurally).
 `ConstraintSet.Map(project)` lifts constraints written for one type onto another (a wrapper, a projection) while keeping names, guards and edges.
@@ -633,10 +638,13 @@ Know the limits:
 - **Tight constraints still defeat zero-config.** A realistic email, a balanced journal entry, plausible vitals: the default reaches
   some by luck (`"a@b..c"`) but not reliably. The error names the constraints that rejected everything; give the test a start
   (`Spec(start)`), `Use<T>(gen)`, or a Bogus rule (`f.Internet.Email()`).
-- **Not built by AutoGen:** interfaces and abstract types, classes with no public constructor, `ImmutableArray`, `FrozenSet`,
-  `System.Tuple`. It says so and points at `AutoOptions.Use<T>(gen)`.
-- **Relations between *different* objects** (a child whose foreign key points at nothing, at itself, or at a cycle) are not generated yet;
-  duplicate ids and `Start`/`End` pairs are.
+- **Not built by AutoGen:** interfaces and abstract types, and classes with no public constructor. It says so and points at
+  `AutoOptions.Use<T>(gen)`. `ImmutableArray`/`ImmutableList`/`ImmutableHashSet`/`ImmutableDictionary`, `FrozenSet`/`FrozenDictionary`,
+  `ReadOnlyCollection`, `SortedSet`, `System.Tuple`, `KeyValuePair` and value tuples are built.
+- **Foreign keys** are generated among the items of one collection: a type with an `Id` (or `<Type>Id`) and other `*Id` members of the same type
+  (`Person.ManagerId`) gets a valid forest in `Plausible`, and in `Mixed`/`Adversarial` a share of collections with a reference to nothing, to
+  itself, or round a cycle of two or three. References *between different collections* (an `Order.CustomerId` into a separate customer list) are not
+  generated; duplicate ids and `Start`/`End` pairs are.
 
 An AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock) lives in the separate, optional
 [`Nullean.Entities.CsCheck.AutoBogus`](https://www.nuget.org/packages/Nullean.Entities.CsCheck.AutoBogus) package (`GenAutoBogus.Of<T>(configure)`), for teams that already

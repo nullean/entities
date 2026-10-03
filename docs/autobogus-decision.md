@@ -84,8 +84,8 @@ Single-threaded the new generator is 7 to 9 times faster (most of that is Bogus 
 - **Existing conventions.** A team that already configured `AutoFaker` (`Configure(c => c.WithBinder(...))`, per-type overrides, skip rules)
   keeps that investment through `GenAutoBogus.Of<T>(configure)`. The new generator's equivalent is `AutoOptions.Use<T>(gen)` and
   `AddStringEdges`; it has no conventions engine and will not grow one.
-- **Type coverage.** AutoBogus builds some types `AutoGen` does not: `ImmutableArray`/`ImmutableList`, `FrozenSet`, classes whose only
-  constructors are non-public, `System.Tuple`, abstract types it can substitute. `AutoGen` fails with a clear message
+- **Type coverage.** AutoBogus builds some types `AutoGen` does not: classes whose only constructors are non-public, abstract types it can
+  substitute. (`ImmutableArray`/`ImmutableList`, `FrozenSet`, `System.Tuple` are built by `AutoGen` now.) `AutoGen` fails with a clear message
   ("provide `AutoOptions.Use<T>(gen)`"); none of the 25 example domains hit it, but a real codebase might.
 - **Not our code to maintain.** The new generator is about 900 lines (builder, edge catalog, corpus) we now own, including
   a catalog of hostile strings that should be reviewed by someone who knows the injection and Unicode corners better than I do.
@@ -97,7 +97,7 @@ Single-threaded the new generator is 7 to 9 times faster (most of that is Bogus 
    (separate, optional package). The default install dropped 11 packages; users who configured `AutoFaker` add one reference. `PcgRandom`/`PcgRandomizer`
    became public so the package can route Bogus through the PCG.
 3. **After that:** if the opt-in package has no downloads or issues in a release, delete it.
-4. Before step 2: add `ImmutableArray`/`ImmutableList`/`FrozenSet`/`System.Tuple` to `AutoGen` so the "type coverage" point does not apply
+4. Done: `ImmutableArray`/`ImmutableList`/`FrozenSet`/`System.Tuple` are built by `AutoGen`, so the "type coverage" point does not apply
    to the common cases.
 
 The risk worth naming: this replaces a mature generator with new code. The mitigation is the test suite (determinism, edge reachability,

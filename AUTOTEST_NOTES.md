@@ -45,8 +45,9 @@ attempts, rejected by A, B" message; each test supplies a start (`Spec(start)`) 
 ### Generated data is now hostile by default (was: plausible, not adversarial)
 `GenAuto.Of<T>` mixes in edge values (see the CsCheck README table), so Money and Temperature no longer need a hand-made `raw:`
 generator. Not done yet:
-- **Relations between different objects** (a child whose key points at nothing, itself, or a cycle). Duplicate ids and `Start/End` pairs are generated.
-- **Types AutoGen cannot build:** `ImmutableArray`/`ImmutableList`, `FrozenSet`, `System.Tuple`, classes with no public constructor.
+- **Foreign keys between different collections** (`Order.CustomerId` into a separate customer list). Within one collection they are generated: valid forests,
+  and a reference to nothing, to itself or round a cycle (`Person.ManagerId`). Duplicate ids and `Start/End` pairs are generated too.
+- **Types AutoGen cannot build:** interfaces, abstract types, classes with no public constructor. (`ImmutableArray`, `FrozenSet`, `System.Tuple` and friends are built now.)
 - **Overlap and rest-period rules over time slots** (`RoomBooking`, `ShiftRoster`) are still never violated (structured, not leaf, relations).
 
 ### Argument domains

@@ -325,13 +325,13 @@ public class OtherModelTests
 		_ => state,
 	};
 
-	private static EventSourcedSpec<DoorState, DoorCommand, DoorEvent> Doors(bool buggyOpen) =>
+	private static EventSourcedSpec<DoorState, DoorCommand, DoorEvent> Doors(bool buggyOpen, bool stateConstraints = true) =>
 		EntitySpec.EventSourced<DoorState, DoorCommand, DoorEvent>(
 			DoorState.Closed,
 			(state, command) => Decide(state, command, buggyOpen),
 			Evolve,
 			[DoorCommand.Open, DoorCommand.Close, DoorCommand.Lock, DoorCommand.Unlock],
-			DoorConstraints.All.Map<DoorState>(state => new Door(state))
+			stateConstraints ? DoorConstraints.All.Map<DoorState>(state => new Door(state)) : null
 		);
 
 	// A door must be unlocked before it is opened: Locked must never be directly followed by Opened. Transitions looks at raw
@@ -359,6 +359,91 @@ public class OtherModelTests
 		var act = () => Doors(buggyOpen: true).SampleEvents(NoOpenWhileLocked, iter: 400);
 
 		act.Should().Throw<CsCheckException>().Which.Message.Should().Contain("NeverOpenedAfterLocked");
+	}
+
+	[Test]
+	public void Temporal_rules_are_proved_for_every_command_sequence_when_the_decide_is_correct()
+	{
+		var report = Doors(buggyOpen: false).Exhaustive(NoOpenWhileLocked);
+
+		report.Closed.Should().BeTrue();
+	}
+
+	[Test]
+	public void Exhaustive_temporal_checking_finds_the_shortest_command_sequence_that_breaks_a_rule_the_state_constraints_do_not_have()
+	{
+		var act = () => Doors(buggyOpen: true, stateConstraints: false).Exhaustive(NoOpenWhileLocked);
+
+		var message = act.Should().Throw<Exception>().Which.Message;
+		message.Should().Contain("NeverOpenedAfterLocked");
+		message.Should().Contain("Lock").And.Contain("Open");
+	}
+
+	// Open emits Opened, Resolve emits Resolved; a command that does nothing still lets a second go by.
+	private static EventSourcedSpec<int, string, string> Tickets() =>
+		EntitySpec.EventSourced<int, string, string>(
+			0,
+			(state, command) =>
+				(command, state) switch
+				{
+					("Open", 0) => ["Opened"],
+					("Resolve", 1) => ["Resolved"],
+					_ => [],
+				},
+			(state, e) => e == "Opened" ? 1 : 0,
+			["Open", "Resolve", "Wait"]
+		);
+
+	[Test]
+	public void A_bounded_response_rule_is_proved_or_refuted_by_the_commands_that_let_time_pass()
+	{
+		var rules = TemporalRuleSet<string>.From(
+			("ResolvedWithinTwoSeconds", Temporal<string>.AfterUntil(e => e == "Opened", (_, e) => e == "Resolved", TimeSpan.FromSeconds(2)))
+		);
+
+		// A command that emits nothing still lets a second go by: Open, then two more of them, leaves the ticket unresolved past the deadline.
+		var act = () => Tickets().Exhaustive(rules);
+
+		var message = act.Should().Throw<Exception>().Which.Message;
+		message.Should().Contain("ResolvedWithinTwoSeconds").And.Contain("1 Open").And.Contain("3 ");
+	}
+
+	[Test]
+	public void A_bounded_response_rule_holds_when_no_command_lets_the_deadline_pass()
+	{
+		var rules = TemporalRuleSet<string>.From(
+			("ResolvedWithinTwoSeconds", Temporal<string>.AfterUntil(
+				e => e == "Opened",
+				(_, e) => e == "Resolved",
+				TimeSpan.FromSeconds(2),
+				e => e == "Resolved"
+			))
+		);
+		var spec = EntitySpec.EventSourced<int, string, string>(
+			0,
+			(state, command) =>
+				(command, state) switch
+				{
+					("Open", 0) => ["Opened", "Resolved"],
+					_ => [],
+				},
+			(state, e) => 0,
+			["Open"]
+		);
+
+		spec.Exhaustive(rules).Closed.Should().BeTrue();
+	}
+
+	[Test]
+	public void Rules_that_only_resolve_when_the_stream_ends_are_rejected_not_silently_skipped()
+	{
+		var liveness = TemporalRuleSet<DoorEvent>.From(
+			("EveryOpenIsClosed", Temporal<DoorEvent>.Eventually<DoorEvent.Closed>(_ => "door", e => e is DoorEvent.Opened))
+		);
+
+		var act = () => Doors(buggyOpen: false).Exhaustive(liveness);
+
+		act.Should().Throw<NotSupportedException>().Which.Message.Should().Contain("EveryOpenIsClosed").And.Contain("SampleEvents");
 	}
 
 	[Test]

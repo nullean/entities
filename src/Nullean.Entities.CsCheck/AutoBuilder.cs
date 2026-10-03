@@ -5,6 +5,9 @@
 // edge values (EdgeCatalog) in with plausible ones (Corpus, small numbers, dates near 2026).
 
 using System.Collections;
+using System.Collections.Frozen;
+using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Numerics;
 using System.Reflection;
@@ -17,6 +20,33 @@ internal sealed class AutoBuilder(AutoOptions options)
 	private static readonly Type DictionaryDefinition = typeof(Dictionary<int, int>).GetGenericTypeDefinition();
 	private static readonly Type IDictionaryDefinition = typeof(IDictionary<int, int>).GetGenericTypeDefinition();
 	private static readonly Type IReadOnlyDictionaryDefinition = typeof(IReadOnlyDictionary<int, int>).GetGenericTypeDefinition();
+	private static readonly Type ImmutableDictionaryDefinition = typeof(ImmutableDictionary<int, int>).GetGenericTypeDefinition();
+	private static readonly Type IImmutableDictionaryDefinition = typeof(IImmutableDictionary<int, int>).GetGenericTypeDefinition();
+	private static readonly Type FrozenDictionaryDefinition = typeof(FrozenDictionary<int, int>).GetGenericTypeDefinition();
+	private static readonly Type ReadOnlyDictionaryDefinition = typeof(ReadOnlyDictionary<int, int>).GetGenericTypeDefinition();
+	private static readonly Type SortedDictionaryDefinition = typeof(SortedDictionary<int, int>).GetGenericTypeDefinition();
+
+	private static readonly Type[] CollectionDefinitions =
+	[
+		typeof(List<>),
+		typeof(IList<>),
+		typeof(ICollection<>),
+		typeof(IEnumerable<>),
+		typeof(IReadOnlyList<>),
+		typeof(IReadOnlyCollection<>),
+		typeof(HashSet<>),
+		typeof(ISet<>),
+		typeof(IReadOnlySet<>),
+		typeof(ImmutableArray<>),
+		typeof(ImmutableList<>),
+		typeof(IImmutableList<>),
+		typeof(ImmutableHashSet<>),
+		typeof(IImmutableSet<>),
+		typeof(FrozenSet<>),
+		typeof(ReadOnlyCollection<>),
+		typeof(Collection<>),
+		typeof(SortedSet<>),
+	];
 
 	private readonly NullabilityInfoContext _nullability = new();
 
@@ -53,7 +83,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 		if (TryDictionary(type, out var keyType, out var valueType))
 		{
 			return depth >= options.MaxDepth
-				? new ConstGen(MaterializeDictionary(keyType, valueType, Array.Empty<(object?, object?)>()))
+				? new ConstGen(MaterializeDictionary(type, keyType, valueType, Array.Empty<(object?, object?)>()))
 				: new DictionaryGen(type, Build(keyType, "key", false, depth + 1), Build(valueType, "value", false, depth + 1), options);
 		}
 		if (TryCollection(type, out var elementType))
@@ -265,10 +295,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 		{
 			return false;
 		}
-		var definition = type.GetGenericTypeDefinition();
-		if (definition == typeof(List<>) || definition == typeof(IList<>) || definition == typeof(ICollection<>) || definition == typeof(IEnumerable<>)
-			|| definition == typeof(IReadOnlyList<>) || definition == typeof(IReadOnlyCollection<>) || definition == typeof(HashSet<>) || definition == typeof(ISet<>)
-			|| definition == typeof(IReadOnlySet<>))
+		if (Array.IndexOf(CollectionDefinitions, type.GetGenericTypeDefinition()) >= 0)
 		{
 			elementType = type.GetGenericArguments()[0];
 			return true;
@@ -284,7 +311,16 @@ internal sealed class AutoBuilder(AutoOptions options)
 			return false;
 		}
 		var definition = type.GetGenericTypeDefinition();
-		if (definition == DictionaryDefinition || definition == IDictionaryDefinition || definition == IReadOnlyDictionaryDefinition)
+		if (
+			definition == DictionaryDefinition
+			|| definition == IDictionaryDefinition
+			|| definition == IReadOnlyDictionaryDefinition
+			|| definition == ImmutableDictionaryDefinition
+			|| definition == IImmutableDictionaryDefinition
+			|| definition == FrozenDictionaryDefinition
+			|| definition == ReadOnlyDictionaryDefinition
+			|| definition == SortedDictionaryDefinition
+		)
 		{
 			var args = type.GetGenericArguments();
 			keyType = args[0];
@@ -321,10 +357,57 @@ internal sealed class AutoBuilder(AutoOptions options)
 		{
 			array.SetValue(items[i], i);
 		}
+		if (definition is null)
+		{
+			return array;
+		}
+		if (definition == typeof(ImmutableArray<>))
+		{
+			return CreateRange(typeof(ImmutableArray), element, array);
+		}
+		if (definition == typeof(ImmutableList<>) || definition == typeof(IImmutableList<>))
+		{
+			return CreateRange(typeof(ImmutableList), element, array);
+		}
+		if (definition == typeof(ImmutableHashSet<>) || definition == typeof(IImmutableSet<>))
+		{
+			return CreateRange(typeof(ImmutableHashSet), element, array);
+		}
+		if (definition == typeof(FrozenSet<>))
+		{
+			var toFrozen = typeof(FrozenSet).GetMethods().First(m => m.Name == "ToFrozenSet" && m.GetParameters().Length == 2);
+			return toFrozen.MakeGenericMethod(element).Invoke(null, [array, null])!;
+		}
+		if (definition == typeof(ReadOnlyCollection<>))
+		{
+			return Activator.CreateInstance(target, [array])!;
+		}
+		if (definition == typeof(Collection<>))
+		{
+			var collection = (IList)Activator.CreateInstance(target)!;
+			foreach (var item in items)
+			{
+				collection.Add(item);
+			}
+			return collection;
+		}
+		if (definition == typeof(SortedSet<>))
+		{
+			return Activator.CreateInstance(target, [array])!;
+		}
 		return array;
 	}
 
-	internal static object MaterializeDictionary(Type key, Type value, IReadOnlyList<(object? Key, object? Value)> pairs)
+	// ImmutableArray.CreateRange<T>(IEnumerable<T>) and friends: one static factory class per immutable collection.
+	private static object CreateRange(Type factory, Type element, Array items)
+	{
+		var method = factory.GetMethods(BindingFlags.Public | BindingFlags.Static).First(
+			m => m.Name == "CreateRange" && m.GetParameters().Length == 1 && m.IsGenericMethodDefinition
+		);
+		return method.MakeGenericMethod(element).Invoke(null, [items])!;
+	}
+
+	internal static object MaterializeDictionary(Type target, Type key, Type value, IReadOnlyList<(object? Key, object? Value)> pairs)
 	{
 		var dictionary = (IDictionary)Activator.CreateInstance(DictionaryDefinition.MakeGenericType(key, value))!;
 		foreach (var (k, v) in pairs)
@@ -333,6 +416,30 @@ internal sealed class AutoBuilder(AutoOptions options)
 			{
 				dictionary[k] = v;
 			}
+		}
+		var definition = target.IsGenericType ? target.GetGenericTypeDefinition() : null;
+		if (definition == ImmutableDictionaryDefinition || definition == IImmutableDictionaryDefinition)
+		{
+			var create = typeof(ImmutableDictionary).GetMethods().First(
+				m => m.Name == "CreateRange" && m.GetParameters().Length == 1 && m.GetGenericArguments().Length == 2
+			);
+			return create.MakeGenericMethod(key, value).Invoke(null, [dictionary])!;
+		}
+		if (definition == FrozenDictionaryDefinition)
+		{
+			var freeze = typeof(FrozenDictionary).GetMethods().First(
+				m =>
+					m.Name == "ToFrozenDictionary" && m.GetGenericArguments().Length == 2 && m.GetParameters().Length == 2 && m
+						.GetParameters()[0]
+						.ParameterType
+						.GetGenericArguments()[0]
+						.IsGenericType
+			);
+			return freeze.MakeGenericMethod(key, value).Invoke(null, [dictionary, null])!;
+		}
+		if (definition == ReadOnlyDictionaryDefinition || definition == SortedDictionaryDefinition)
+		{
+			return Activator.CreateInstance(target, [dictionary])!;
 		}
 		return dictionary;
 	}
@@ -369,12 +476,14 @@ internal sealed class AutoBuilder(AutoOptions options)
 		var gens = new List<Gen<object?>>();
 		var names = new List<string>();
 		var types = new List<Type>();
+		var nullables = new List<bool>();
 		foreach (var p in parameters)
 		{
 			var nullable = _nullability.Create(p).ReadState == NullabilityState.Nullable;
 			gens.Add(Build(p.ParameterType, p.Name, nullable, depth + 1));
 			names.Add(p.Name ?? "");
 			types.Add(p.ParameterType);
+			nullables.Add(nullable || System.Nullable.GetUnderlyingType(p.ParameterType) is not null);
 		}
 
 		var setters = new List<PropertyInfo>();
@@ -393,6 +502,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 				gens.Add(Build(prop.PropertyType, prop.Name, nullable, depth + 1));
 				names.Add(prop.Name);
 				types.Add(prop.PropertyType);
+				nullables.Add(nullable || System.Nullable.GetUnderlyingType(prop.PropertyType) is not null);
 				setters.Add(prop);
 			}
 			catch (NotSupportedException)
@@ -401,7 +511,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 			}
 		}
 
-		return new ObjectPlan(type, ctor, parameters.Length, [.. setters], [.. gens], [.. names], [.. types]);
+		return new ObjectPlan(type, ctor, parameters.Length, [.. setters], [.. gens], [.. names], [.. types], [.. nullables]);
 	}
 }
 
@@ -414,9 +524,19 @@ internal sealed class ObjectPlan
 	private readonly Gen<object?>[] _gens;
 	private readonly (int Low, int High)[] _relations;
 
-	public ObjectPlan(Type type, ConstructorInfo? ctor, int ctorCount, PropertyInfo[] setters, Gen<object?>[] gens, string[] names, Type[] types)
+	public ObjectPlan(
+		Type type,
+		ConstructorInfo? ctor,
+		int ctorCount,
+		PropertyInfo[] setters,
+		Gen<object?>[] gens,
+		string[] names,
+		Type[] types,
+		bool[] nullable
+	)
 	{
 		Names = names;
+		Nullable = nullable;
 		Types = types;
 		_type = type;
 		_ctor = ctor;
@@ -433,6 +553,30 @@ internal sealed class ObjectPlan
 					) && (types[i] == typeof(string) || types[i] == typeof(Guid) || types[i] == typeof(int) || types[i] == typeof(long))
 			)
 		];
+		Pk = FindPrimaryKey(type, names, types);
+		Fks = Pk is { } pk
+			? [
+				.. Enumerable.Range(0, names.Length).Where(
+					i => i != pk && names[i].EndsWith("id", StringComparison.OrdinalIgnoreCase) && BaseType(types[i]) == BaseType(types[pk])
+				)
+			]
+			: [];
+	}
+
+	private static Type BaseType(Type t) => System.Nullable.GetUnderlyingType(t) ?? t;
+
+	private static int? FindPrimaryKey(Type type, string[] names, Type[] types)
+	{
+		for (var i = 0; i < names.Length; i++)
+		{
+			var isKeyName = names[i].Equals("id", StringComparison.OrdinalIgnoreCase) || names[i].Equals(type.Name + "Id", StringComparison.OrdinalIgnoreCase);
+			var t = BaseType(types[i]);
+			if (isKeyName && (t == typeof(string) || t == typeof(Guid) || t == typeof(int) || t == typeof(long)))
+			{
+				return i;
+			}
+		}
+		return null;
 	}
 
 	/// <summary>The constructor parameters, then the settable properties, by name.</summary>
@@ -455,6 +599,15 @@ internal sealed class ObjectPlan
 		}
 		return args;
 	}
+
+	/// <summary>Whether each member may be null (a nullable reference or <c>Nullable&lt;T&gt;</c>).</summary>
+	public bool[] Nullable { get; }
+
+	/// <summary>The index of the primary key (<c>Id</c> or <c>&lt;Type&gt;Id</c>) when the type has one.</summary>
+	public int? Pk { get; }
+
+	/// <summary>Indexes of the references to a key of the same type (<c>ManagerId</c>, <c>ParentId</c>): the foreign keys among the items of a collection.</summary>
+	public int[] Fks { get; }
 
 	/// <summary>Indexes of the arguments that look like an identity (<c>Id</c>, <c>Sku</c>, <c>Email</c>...).</summary>
 	public int[] Identity { get; }
@@ -619,6 +772,7 @@ internal sealed class CollectionGen(Type target, Type elementType, (Gen<object?>
 				size.Add(s);
 			}
 			DuplicateIdentity(argSets, plan, pcg);
+			ReferenceKeys(argSets, plan, pcg);
 			foreach (var args in argSets)
 			{
 				try
@@ -644,6 +798,106 @@ internal sealed class CollectionGen(Type target, Type elementType, (Gen<object?>
 			}
 		}
 		return AutoBuilder.Materialize(target, elementType, items);
+	}
+
+	/// <summary>
+	/// Makes the foreign keys among the items (<c>Person.ManagerId</c> pointing at another <c>Person.Id</c>) mean something. Plausible data is a valid
+	/// forest (every reference points at an earlier item, or nothing); otherwise a share of collections get the cases that break referential
+	/// integrity: a reference to nothing, to itself, or round a cycle of two or three.
+	/// </summary>
+	private void ReferenceKeys(List<object?[]> sets, ObjectPlan plan, PCG pcg)
+	{
+		if (plan.Pk is not { } pk || plan.Fks.Length == 0 || sets.Count == 0 || !options.Relational)
+		{
+			return;
+		}
+		var keys = sets.Select(s => s[pk]).ToList();
+		var (valid, dangling, self, cycle) = options.Mode switch
+		{
+			AutoMode.Plausible => (100, 0, 0, 0),
+			AutoMode.Adversarial => (10, 30, 20, 30),
+			_ => (45, 20, 10, 15),
+		};
+		foreach (var fk in plan.Fks)
+		{
+			var roll = (int)pcg.Next(100);
+			var nullable = plan.Nullable[fk];
+			if (roll < valid)
+			{
+				Forest(sets, keys, fk, nullable, pcg);
+			}
+			else if (roll < valid + dangling)
+			{
+				sets[(int)pcg.Next((uint)sets.Count)][fk] = Missing(keys, pcg);
+			}
+			else if (roll < valid + dangling + self)
+			{
+				var i = (int)pcg.Next((uint)sets.Count);
+				sets[i][fk] = keys[i];
+			}
+			else if (roll < valid + dangling + self + cycle)
+			{
+				if (sets.Count < 2)
+				{
+					sets[0][fk] = keys[0];
+					continue;
+				}
+				var length = sets.Count >= 3 && pcg.Next(2) == 0 ? 3 : 2;
+				for (var k = 0; k < length; k++)
+				{
+					sets[k][fk] = keys[(k + 1) % length];
+				}
+			}
+			else if (nullable)
+			{
+				sets[(int)pcg.Next((uint)sets.Count)][fk] = null;
+			}
+			else
+			{
+				Forest(sets, keys, fk, nullable, pcg);
+			}
+		}
+	}
+
+	// A valid forest: each item refers to an earlier one, or to nothing (a root). A root with a non-nullable reference refers to itself.
+	private static void Forest(List<object?[]> sets, List<object?> keys, int fk, bool nullable, PCG pcg)
+	{
+		for (var i = 0; i < sets.Count; i++)
+		{
+			if (i == 0)
+			{
+				sets[0][fk] = nullable ? null : keys[0];
+			}
+			else if (nullable && pcg.Next(100) < 15)
+			{
+				sets[i][fk] = null;
+			}
+			else
+			{
+				sets[i][fk] = keys[(int)pcg.Next((uint)i)];
+			}
+		}
+	}
+
+	// A key value no item has.
+	private static object Missing(List<object?> keys, PCG pcg)
+	{
+		var sample = keys.FirstOrDefault(k => k is not null);
+		switch (sample)
+		{
+			case Guid:
+				var bytes = new byte[16];
+				BitConverter.GetBytes(pcg.Next64()).CopyTo(bytes, 0);
+				BitConverter.GetBytes(pcg.Next64()).CopyTo(bytes, 8);
+				return new Guid(bytes);
+			case int:
+				return keys.OfType<int>().DefaultIfEmpty(0).Max() + 1;
+			case long:
+				return keys.OfType<long>().DefaultIfEmpty(0).Max() + 1;
+			default:
+				var candidate = $"missing-{pcg.Next(10_000)}";
+				return keys.Contains(candidate) ? candidate + "-x" : candidate;
+		}
 	}
 
 	private void DuplicateIdentity(List<object?[]> argSets, ObjectPlan plan, PCG pcg)
@@ -703,6 +957,6 @@ internal sealed class DictionaryGen(Type target, Gen<object?> key, Gen<object?> 
 			size.Add(vs);
 			pairs.Add((k, v));
 		}
-		return AutoBuilder.MaterializeDictionary(args[0], args[1], pairs);
+		return AutoBuilder.MaterializeDictionary(target, args[0], args[1], pairs);
 	}
 }
