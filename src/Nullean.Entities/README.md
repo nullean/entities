@@ -368,6 +368,9 @@ public sealed partial record SignUp([Required] string Name, [Range(18, 120)] int
 SignUp.Constraints.Validate(new SignUp("Ada", 12, "ABC-123"));   // AgeRange, Member = "Age"
 ```
 
+A companion class picks them up too, even with no rule of its own: `[Constraints<Order>] public static partial class OrderRules;` generates `OrderRules.All` (and `OrderRules.Instance`, `OrderRules.Actions`) from the
+annotations on `Order`, plus any `Constraint<Order>` field you add. A plain `[Constraints]` companion that already declares `Constraint<Order>` fields gets them as well. A member about a different type is an error (NECG007).
+
 Names are `<Property><Attribute>` (`NameRequired`, `AgeRange`, `ReferencePattern`); if that collides with a constraint you declared, yours keeps the name and the annotation's gets an `Annotation` suffix.
 Each attribute means what DataAnnotations says it means: null passes everything except `[Required]`, an empty string passes `[RegularExpression]`, and a pattern must match the whole string.
 The generated code is plain C# with no `Validator` call and no reflection, so it is trim and AOT safe. `[ConstraintIgnore]` on a property leaves its annotations out. Any other validation

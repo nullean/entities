@@ -618,3 +618,73 @@ public class NestedTypeGeneratorShapeTests
 		run.Generated.Should().BeEmpty();
 	}
 }
+
+public class GenericConstraintsAttributeShapeTests
+{
+	[Test]
+	public void A_Constraints_of_T_companion_generates_a_set_for_T_with_its_annotations()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using System.ComponentModel.DataAnnotations;
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public sealed record Order([Required] string Number, [Range(1, 9)] int Quantity);
+
+			[Constraints<Order>]
+			public static partial class OrderRules;
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		var source = run.SingleGeneratedSource();
+		source.Should().Contain("ConstraintSet<global::Sample.Order>").And.Contain("\"NumberRequired\"").And.Contain("\"QuantityRange\"");
+		source.Should().Contain("TypeConstraints : global::Nullean.Entities.IConstraintsFor<global::Sample.Order>").And.NotContain("IHaveConstraints");
+		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
+	}
+
+	[Test]
+	public void A_member_about_another_type_is_an_inconsistent_type_argument()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public sealed record Order(int Quantity);
+			public sealed record Customer(string Name);
+
+			[Constraints<Order>]
+			public static partial class OrderRules
+			{
+			    public static readonly Constraint<Customer> NamePresent = Constraints<Customer>.Always(c => c.Name.Length > 0);
+			}
+			"""
+		);
+
+		run.HasDiagnostic("NECG007").Should().BeTrue();
+		run.Generated.Should().BeEmpty();
+	}
+
+	[Test]
+	public void The_type_can_name_itself_and_then_is_self_attached()
+	{
+		var run = GeneratorTestHost.Run(
+			"""
+			using System.ComponentModel.DataAnnotations;
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			[Constraints<Order>]
+			public partial record Order([Required] string Number);
+			"""
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		run.SingleGeneratedSource().Should().Contain("IHaveConstraints<Order>").And.Contain("\"NumberRequired\"");
+	}
+}

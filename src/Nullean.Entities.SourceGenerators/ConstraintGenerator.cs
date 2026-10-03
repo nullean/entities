@@ -44,6 +44,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 {
 	private const string ConstraintAttributeMetadataName = "Nullean.Entities.ConstraintAttribute";
 	private const string ConstraintsAttributeMetadataName = "Nullean.Entities.ConstraintsAttribute";
+	private const string GenericConstraintsAttributeMetadataName = "Nullean.Entities.ConstraintsAttribute`1";
 	private const string ConstraintIgnoreAttributeMetadataName = "Nullean.Entities.ConstraintIgnoreAttribute";
 
 	public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -64,7 +65,15 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			transform: static (ctx, ct) => AnalyzeAutoType(ctx, ct)
 		);
 
-		var merged = explicitMembers.Collect().Combine(autoDiscoveredMembers.Collect()).Select(static (pair, _) => Merge(pair.Left, pair.Right));
+		// [Constraints<T>]: the same discovery, with the type the rules are about named by the attribute.
+		var genericMembers = context.SyntaxProvider.ForAttributeWithMetadataName(
+			GenericConstraintsAttributeMetadataName,
+			predicate: static (node, _) => node is ClassDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax,
+			transform: static (ctx, ct) => AnalyzeGenericType(ctx, ct)
+		);
+
+		var allAuto = autoDiscoveredMembers.Collect().Combine(genericMembers.Collect()).Select(static (pair, _) => pair.Left.AddRange(pair.Right));
+		var merged = explicitMembers.Collect().Combine(allAuto).Select(static (pair, _) => Merge(pair.Left, pair.Right));
 
 		context.RegisterSourceOutput(merged, static (spc, all) => Generate(spc, all));
 	}
@@ -98,23 +107,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		}
 
 		var found = ImmutableArray.CreateBuilder<MemberInfo>();
-		found.AddRange(
-			type
-				.GetMembers()
-				.Where(m => m is IFieldSymbol or IPropertySymbol && m.IsStatic)
-				.Where(m => !m.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnoreAttributeMetadataName))
-				.Select(
-					m =>
-						(Member: m, MemberType: m switch
-						{
-							IFieldSymbol f => f.Type,
-							IPropertySymbol p => p.Type,
-							_ => null!
-						})
-				)
-				.Where(t => TryClassify(t.MemberType, out var unusedKind, out var unusedTypeArgument))
-				.Select(t => new MemberInfo(type, t.MemberType, t.Member.Name, true, t.Member.Locations.FirstOrDefault() ?? Location.None))
-		);
+		found.AddRange(AutoMembers(type));
 		// A [Constraints] type that declares no Constraint<T> field but carries DataAnnotations still gets a set: the annotations are the rules.
 		if (found.Count == 0 && Annotations.For(type, "T", []).Entries.Count > 0)
 		{
@@ -122,6 +115,39 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		}
 		return found.ToImmutable();
 	}
+
+	/// <summary>
+	/// <c>[Constraints&lt;T&gt;]</c>: the type's own static constraint members, plus a marker that says the set is about <c>T</c> whether or not any member exists, so T's
+	/// DataAnnotations are bundled in and a member about some other type is caught as an inconsistent type argument.
+	/// </summary>
+	private static ImmutableArray<MemberInfo> AnalyzeGenericType(GeneratorAttributeSyntaxContext ctx, CancellationToken _)
+	{
+		if (ctx.TargetSymbol is not INamedTypeSymbol type || ctx.Attributes[0].AttributeClass?.TypeArguments.FirstOrDefault() is not { } about)
+		{
+			return [];
+		}
+		return [
+			.. AutoMembers(type),
+			new MemberInfo(type, about, "", true, type.Locations.FirstOrDefault() ?? Location.None, AnnotationOnly: true, AnnotationType: about)
+		];
+	}
+
+	private static IEnumerable<MemberInfo> AutoMembers(INamedTypeSymbol type) =>
+		type
+			.GetMembers()
+			.Where(m => m is IFieldSymbol or IPropertySymbol && m.IsStatic)
+			.Where(m => !m.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnoreAttributeMetadataName))
+			.Select(
+				m =>
+					(Member: m, MemberType: m switch
+					{
+						IFieldSymbol f => f.Type,
+						IPropertySymbol p => p.Type,
+						_ => null!
+					})
+			)
+			.Where(t => TryClassify(t.MemberType, out var unusedKind, out var unusedTypeArgument))
+			.Select(t => new MemberInfo(type, t.MemberType, t.Member.Name, true, t.Member.Locations.FirstOrDefault() ?? Location.None));
 
 	/// <summary>
 	/// A type read via [Constraints] takes over entirely for that type: its explicit [Constraint]
@@ -183,7 +209,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			{
 				if (member.AnnotationOnly)
 				{
-					valid.Add((member, ConstraintKind.Sync, containingType));
+					valid.Add((member, ConstraintKind.Sync, member.AnnotationType ?? containingType));
 					continue;
 				}
 				if (!member.IsStatic)
@@ -531,6 +557,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		string MemberName,
 		bool IsStatic,
 		Location Location,
-		bool AnnotationOnly = false
+		bool AnnotationOnly = false,
+		ITypeSymbol? AnnotationType = null
 	);
 }

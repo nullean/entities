@@ -898,6 +898,19 @@ public sealed class ConstraintsAttribute : Attribute
 }
 
 /// <summary>
+/// <see cref="ConstraintsAttribute"/> for a companion class that names the type its constraints are about: <c>[Constraints&lt;Order&gt;] public static partial class OrderRules</c>.
+/// The generated <c>All</c> set contains the class's static <see cref="Constraint{T}"/> members and one constraint for every DataAnnotation on <typeparamref name="T"/>, so a
+/// companion with no hand-written rule at all still gets the rules <c>Order</c> already declares with <c>[Required]</c>, <c>[Range]</c> and the rest. A member of another type
+/// argument is an error (NECG007).
+/// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+#pragma warning disable CA1813
+public class ConstraintsAttribute<T> : Attribute
+#pragma warning restore CA1813
+{
+}
+
+/// <summary>
 /// Excludes a static <see cref="Constraint{T}"/>/<c>ReactiveConstraint&lt;TEvent&gt;</c> member
 /// from a <see cref="ConstraintsAttribute"/>-tagged type's automatic discovery. Has no effect on a
 /// type using the per-member <see cref="ConstraintAttribute"/> opt-in instead — there, simply not

@@ -33,6 +33,22 @@ public static partial class Billing
 	}
 }
 
+// The entity is annotated; the companion class declares nothing of its own, and still gets the rules.
+public sealed record Order([Required] string Number, [Range(1, 100)] int Quantity)
+{
+	public Order Ship() => this;
+}
+
+[Constraints<Order>]
+public static partial class OrderRules;
+
+// A plain [Constraints] companion that declares Constraint<Order> fields gets Order's annotations too.
+[Constraints]
+public static partial class OrderConstraints
+{
+	public static readonly Constraint<Order> NotThirteen = Constraints<Order>.Always(o => o.Quantity != 13);
+}
+
 public class AnnotationConstraintsTests
 {
 	private static readonly Signup Good = new("Ada", "adal", 30, 4.5, "ABC-123", "hi");
@@ -147,5 +163,21 @@ public class AnnotationConstraintsTests
 	{
 		Billing.Line.Constraints.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["NotThirteen", "QuantityRange"]);
 		Billing.Line.Constraints.Validate(new Billing.Line(11)).Single().ConstraintId.Should().Be("QuantityRange");
+	}
+
+	[Test]
+	public void A_Constraints_of_T_companion_with_no_members_gets_the_annotations_of_T()
+	{
+		OrderRules.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["NumberRequired", "QuantityRange"]);
+		OrderRules.All.Validate(new Order("A-1", 500)).Single().Member.Should().Be("Quantity");
+		OrderRules.Instance.All.Should().BeSameAs(OrderRules.All);
+		OrderRules.Instance.Actions!.Select(a => a.Name).Should().Contain("Ship");
+	}
+
+	[Test]
+	public void A_plain_Constraints_companion_with_fields_also_picks_up_the_annotations_of_its_type()
+	{
+		OrderConstraints.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["NotThirteen", "NumberRequired", "QuantityRange"]);
+		OrderConstraints.All.Validate(new Order("", 13)).Select(v => v.ConstraintId).Should().BeEquivalentTo(["NotThirteen", "NumberRequired"]);
 	}
 }
