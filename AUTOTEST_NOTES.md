@@ -160,8 +160,8 @@ version conflicts (their `Constraint<TModel>`/`Finding` and our `Constraint<T>`/
 **Generation.** `GenAuto` builds all of `GlobalCatalog`, `ProductCatalog`, `DocumentationSetDefinition`, `ResolvedDocumentationSet`, `SiteNavigationDefinition`, `AssemblyConfiguration`, `LinkRegistry`, `LinkManifest`,
 `ChangelogConfiguration`, `CodexConfiguration` and `DocsetDiscovery` in all three modes (100 of 100 draws each), with no `Use<T>` and no hand-written generator except `UseFileSystem()` for the `IFileInfo`/`IDirectoryInfo`/
 `IFileSystem` members. That includes their real C# `union`s (`TocItem`: all seven cases reached, no default union), typed paths (`DocsetPath`), `FrozenDictionary`, `IReadOnlySet` and `[Equatable]` records.
-`ResolvedDocumentationSet.SourceFile`/`ScopeDirectory` share one file-system world in 300 of 300 draws; the source file exists in 100% (plausible), 86% (mixed) and 70% (adversarial). The default `MaxDepth` keeps trees tiny
-(about 2 nodes on average, 10 at most); raise `MaxDepth` and `MaxCollection` for realistic docsets.
+`ResolvedDocumentationSet.SourceFile`/`ScopeDirectory` share one file-system world in 300 of 300 draws; the source file exists in 100% (plausible), 86% (mixed) and 70% (adversarial). The default sizes keep trees tiny
+(about 2 nodes on average, 10 at most); `o.Large()` gives realistic ones. (`MaxCollection` had no effect above 4 when the spike ran; it now scales the distribution and narrows with depth.)
 
 **Derived invariants.** `AssemblyConfiguration` derives `AvailableRepositories` and `PrivateRepositories` from `ReferenceRepositories`. Generated data cannot know that (private-is-available was violated in 300 of 300 plausible draws).
 `Normalize<AssemblyConfiguration>(Derive)`, where `Derive` is the loader's own derivation, makes plausible data satisfy all five invariants written against it (0 violations), leaves about a third of mixed data and most adversarial data
@@ -179,13 +179,13 @@ breaking them, which is what the rules need to be tested against. Navigation mou
 
 **NativeAOT.** A console app referencing their domain project, `Nullean.Entities` and `Nullean.Entities.FileSystem`, applying `Unique` and `References` to a real `SiteNavigationDefinition`, publishes NativeAOT with no IL warnings and runs.
 
-**Performance (Release, one core).** `Unique` over `Tree.Flatten`, `Acyclic` and `References` on 11,000, 37,000 and 137,000 items: 1 to 3 ms, 4 to 11 ms, 15 to 45 ms, with up to 38 MB allocated at 137,000 items (`References`; `Unique` over a tree is 4 to 16 MB). `Acyclic` is recursive and handled a
-137,000-long include chain; an include chain a million deep would not, which no real docset approaches.
+**Performance (Release, one core).** `Unique` over `Tree.Flatten`, `Acyclic` and `References` on 11,000, 37,000 and 137,000 items: 1 to 3 ms, 4 to 11 ms, 15 to 45 ms, with up to 38 MB allocated at 137,000 items (`References`; `Unique` over a tree is 4 to 16 MB). `Acyclic` is iterative and handles a
+million-long include chain.
 
 **What the spike changed in the library:** `Normalize<T>`; identities declared with `Identity` are unique in plausible data (a shared depth-limit constant had been the source of "repeated" paths); depth-limit values are drawn
 fresh instead of shared.
 
-### The branch (`feature/erd-model-entities` in docs-builder, commit `fe203348c`, nothing pushed)
+### The branch (`feature/erd-model-entities` in docs-builder, commits `fe203348c` and `afb394905`, nothing pushed)
 
 A new worktree off `feature/erd-model`'s HEAD (your uncommitted work there is untouched). It adds `tests/Elastic.Documentation.Entities.Tests` (not in `docs-builder.slnx`; it needs a checkout of this repository through the
 `NulleanEntitiesRoot` property, and passes `NulleanSingleTfm=true` so docs-builder's stable 10.0.300 SDK can evaluate our multi-targeted projects) and two small fixes in the domain.
@@ -204,6 +204,7 @@ A new worktree off `feature/erd-model`'s HEAD (your uncommitted work there is un
 3. **A .NET runtime bug.** `Uri.TryCreate("file://\u202E/", UriKind.Absolute, out _)` throws `IndexOutOfRangeException` (a `Try*` method should never throw), reproduced on a bare console app on .NET 10.0.8. A `file://` URI whose host is only U+202E (RIGHT-TO-LEFT OVERRIDE, in the adversarial edge catalog) triggers it, and it was the
    reason fix 2 first appeared not to work. The fix wraps the call. This is worth reporting to dotnet/runtime; not done here.
 
-Left as a suggestion, not changed: an invalid `path_prefix` is now skipped by the duplicate check, so nothing reports it; a new constraint ("path_prefix is a legal URL path") would, but adding one changes their golden list and laws.
+A second commit on the branch (`afb394905`) adds the rule that was missing once the duplicate check started skipping an unbuildable prefix: `path-prefix-is-a-url-path`, with its counter-example in their laws harness. Their suites
+(73, 849) and the shipped configuration still pass.
 
 **Not done:** pushing either branch; reporting the runtime bug upstream.
