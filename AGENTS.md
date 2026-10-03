@@ -10,6 +10,7 @@ layer over `IObservable<T>` (`Nullean.Entities.Reactive`), and a property-test d
 ./build.sh build   # clean + compile
 ./build.sh test    # build + run every test project (see Layout for the list)
 ./build.sh aot     # publish examples/Nullean.Entities.AotSmoke NativeAOT (trim/AOT warnings are errors) and run it
+./build.sh apps    # run every console app under examples/Apps (`Paths.Apps`); one that exits non-zero fails the build. `test` depends on it
 ./build.sh pack    # build + test + pack NuGet packages
 ./build.sh release # pristine checkout check + pack
 ```
@@ -38,6 +39,9 @@ Test projects are TUnit and are run with `dotnet run`, one project at a time (`P
 | `examples/Nullean.Entities.Examples/Docs/DocsPlatform` | The docs-eng-team domain (catalog, documentation set, site, pipeline events) as constraints, a lifecycle machine and temporal rules. See `AUTOTEST_NOTES.md` section 6. |
 | `examples/Nullean.Entities.Reactive.Examples` | A ladder from simple to complex: a search box (temporal debounce with `UnlessInterruptedBy`), a retry client (exponential backoff), an order state machine — record-hierarchy events on net10.0 (`OrderStateExamples.cs`) and, on net11.0 only, the identical domain re-expressed with a real C# union and the predicate-based operators (`OrderStateExamplesNet11.cs`, `#if NET11_0_OR_GREATER`) — plus a design sketch (`StateMachineSketch.cs`) comparing four ways to attach constraints to a domain type. |
 | `tests/Nullean.Entities.Examples.Tests` | Every example domain is tested with AutoTest one-liners next to its hand-written `Validate_*`/`Channel_*` tests (`Instance.Spec().Enforced().Exhaustive()`, `ForAll`, `Preserves`, `RejectsInvalid`, ...); `AutoTests/AutoTestExamples.cs` is the showcase. `AUTOTEST_NOTES.md` records what did not convert and what the conversion found in the domains. |
+| `examples/Apps/*` | Eight console apps (OrderFulfilment, Banking, SupportDesk, EventSourcedCart, Inventory, DataAudit, OrgChart, DocsSiteBuild), each an Exe with a narrated `Program.cs` that exits non-zero when a scenario stops behaving, a service wired through `Microsoft.Extensions.DependencyInjection` (the libraries do not depend on it), and a README of what to copy. `examples/Apps/Shared/Narrator.cs` is linked into each. New app: add the folder, a `ProjectReference` in `tests/Nullean.Entities.Apps.Tests`, the slnx entry and `Paths.Apps`. |
+| `tests/Nullean.Entities.Apps.Tests` | Tests the apps' services the way a user would: by example, against the declared machine (`ConformsTo`), by the rules on the state they expose (`SampleState`), as properties, and with `Probe`/`Laws` on generated data. |
+| `docs/first-use-review.md` | A review of the library from six points of view (newcomer, DDD expert, DBA, functional programmer, property-test expert, verification student): what each expected, what was built, what is open. |
 | `build/scripts` | F# Bullseye build runner. |
 | `build/keys` | Nullean strong-name key — never regenerate, it breaks strong-naming. |
 

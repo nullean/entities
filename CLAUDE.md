@@ -73,5 +73,9 @@ There are two state machines, and they are complementary: `StateMachine<TState, 
 `StateMachine<TState>` (states are case types of a union or record hierarchy, with guards over the case values, structural checks NESM001-004 at definition time, `Walks()` and `RealizedWalks()`; it finds union cases by reflection,
 so it is marked `[RequiresUnreferencedCode]`). `RealizedWalks(mode:, configure:)` draws its case values with AutoGen.
 
+`StateMachine<TState>` also runs: an edge can carry a factory (`To<Placed>(d => new Placed(0))`, `On<int>("AddLines").To<Placed>((p, n) => ...)`), so `Fire`, `Transition`, `Permitted` and `machine.For<TEntity>(get, with)` (a `MachineBinding` that fires on an aggregate and checks a constraint set) work; an edge without a factory is declared only.
+`ConstraintSet.Validated`/`Ensure` and `Result.Map/Bind/Combine` are the construction story (check in a factory, not a constructor); `Script.SampleState`, `machine.ConformsTo` and `ConformToService` test a service with no Rx. `examples/Apps` has eight runnable console apps
+(`./build.sh apps`, tested in `tests/Nullean.Entities.Apps.Tests`) and `docs/first-use-review.md` records what building them found. `Apply` runs no rule for a result equal to its input: use `ApplyDetailed` where "nothing happened" is an error.
+
 Still open: the spike questions in `AGENTS.md` that gate a 1.0 (shrinking quality, early-exit cost,
 global-lock throughput, `faker.ToGen()` support).

@@ -343,6 +343,24 @@ subtypes of the union — the same problem `Nullean.Entities.Reactive`'s predica
 operators solve further up this page. It works unchanged whether `OrderState` is a real union, the
 pre-union abstract-record-with-sealed-nested-cases shape, or — trivially — a single type.
 
+### Running it
+
+As declared above the machine is a *specification*: it can say whether a transition is allowed, but nothing in it builds a `Placed` from a `Draft`. Give an edge a factory and the same declaration is what a service runs:
+
+```csharp
+.Initial<Draft>(s => s.On("Place").To<Placed>(_ => new Placed(Lines: 0)))
+.State<Placed>(s => s
+    .On<int>("AddLines").To<Placed>((p, n) => p with { Lines = p.Lines + n })              // takes an argument
+    .On("Confirm").To<Confirmed>(_ => new Confirmed(), when: p => p.Lines > 0))            // the guard runs first
+
+Result<OrderState> next = OrderLifecycle.Machine.Fire(state, "Confirm");                    // Fail says why: wrong case, guard, missing argument
+OrderLifecycle.Machine.Permitted(state);                                                    // the triggers that may run right now
+var binding = OrderLifecycle.Machine.For<Order>(o => o.State, (o, s) => o with { State = s });
+Result<Order> order = binding.Enforce(OrderConstraints.All).Fire(order, "Confirm");         // fire on the aggregate; every rule is checked on the result
+```
+
+A service built this way (load, `Fire`, save, publish `Transitioned`), and the tests that check it against the machine, are in [`examples/Apps/OrderFulfilment`](examples/Apps/OrderFulfilment). Edges without a factory keep working for everything that does not run the machine (`Allows`, the constraint, the walks).
+
 From one declaration, everything else derives:
 
 ```csharp
@@ -374,19 +392,22 @@ coverage.FullyCovered.Should().BeTrue();
 A `coverage:` parameter that wires this into `SampleWith` directly is still open — `Script<TSut>`
 has no notion of "the entity's state" to diff before and after a step yet.
 
-Coverage is still manual: `NewCoverageTracker()` gives a tracker to `Record` real `(from, to)` pairs
-into as a `Script<TSut>` run actually produces them:
+## Examples you can run
 
-```csharp
-var coverage = OrderLifecycle.Machine.NewCoverageTracker();
-// from inside the events: handler, as each event arrives:
-coverage.Record(previousState, nextState);
-// after the run:
-coverage.FullyCovered.Should().BeTrue();
-```
+Eight console apps in [`examples/Apps`](examples/Apps), each a `Program.cs` that narrates its scenarios and exits non-zero if one stops behaving (`./build.sh apps` runs them all). Each has a README that says what to copy into your own code, and its service is tested in `tests/Nullean.Entities.Apps.Tests`.
 
-A `coverage:` parameter that wires this into `SampleWith` directly is still open — `Script<TSut>`
-has no notion of "the entity's state" to diff before and after a step yet.
+| App | Shows |
+|---|---|
+| [`OrderFulfilment`](examples/Apps/OrderFulfilment) | A type-state machine that *runs* (`Fire`, guards, an aggregate binding), an always-valid `Email`, a service with no rules of its own, tested against its machine, including a sloppy service that is caught |
+| [`Banking`](examples/Apps/Banking) | `Money` and `Iban` that cannot be invalid, `Result.Combine` for every input error at once, a `Transfer` that `Conserves` money, concurrent transfers |
+| [`SupportDesk`](examples/Apps/SupportDesk) | A value machine with a timeout, a service on a `TimeProvider`, an SLA rule watched live and audited from the log |
+| [`EventSourcedCart`](examples/Apps/EventSourcedCart) | Pure decide/evolve, rules checked before append, every reachable cart explored exhaustively |
+| [`Inventory`](examples/Apps/Inventory) | Two aggregates and the rule between them, `Probe` and `Laws` against generated data |
+| [`DataAudit`](examples/Apps/DataAudit) | Auditing rows that already exist: streaming, severities, which rules the schema should also enforce |
+| [`OrgChart`](examples/Apps/OrgChart) | A nested tree edited by tree surgery, a rule set per kind of edit, and why `ApplyDetailed` matters for "nothing changed" |
+| [`DocsSiteBuild`](examples/Apps/DocsSiteBuild) | File rules on the real disk and on generated `MockFileSystem` worlds |
+
+[`docs/first-use-review.md`](docs/first-use-review.md) is a review of the library from six points of view (a newcomer, a domain-modelling expert, a DBA, a functional programmer, a property-test expert, a verification student), what each expected, and what is built and what is still open.
 
 ## Packages
 

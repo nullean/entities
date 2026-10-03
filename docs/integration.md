@@ -158,3 +158,7 @@ If the model holds `IFileInfo` / `IDirectoryInfo` / `IFileSystem` (docs-builder'
 
 If your service is published NativeAOT, `Nullean.Entities`, `Nullean.Entities.Reactive` and `Nullean.Entities.FileSystem` are analyzed and published NativeAOT in this repository's CI (`./build.sh aot`).
 The `Nullean.Entities.CsCheck` packages are for tests only and are not AOT-compatible.
+
+## Complete, runnable versions
+
+The recipes above are fragments. [`examples/Apps`](../examples/Apps) has eight console apps that run end to end and are tested like a real service would be: an order service on a type-state machine, a bank transfer, a support desk on virtual time, an event-sourced cart (the Marten pattern, in memory), inventory across two aggregates, an audit of existing rows, a hierarchy edited as a tree, and a docs build over a file system. See [`docs/first-use-review.md`](first-use-review.md) for what building them found.
