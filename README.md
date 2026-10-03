@@ -252,9 +252,9 @@ The supported axes today and what's coming:
 | Invariant, Idempotency, Monotonicity, Conservation | ✅ `ConstraintSet<T>.Validate`, `Idempotent`, `Monotonic`, `Conserves` |
 | Absence, Temporal, Liveness | ✅ `Script.SampleWith` + `ReactiveConstraintSet` |
 | Confluence | ✅ `Script.Metamorphic` |
-| Model-based (SUT state vs machine prediction) | ⏳ needs `StateMachine` |
+| Model-based (SUT state vs machine prediction) | 🟡 `StateMachine<TState>.AsConstraint`/`AsReactive` check legality; wiring a prediction into `Script` itself is still open |
 | Parallel / linearizability | ⏳ |
-| Vacancy (every transition exercised) | ⏳ needs `StateMachine` |
+| Vacancy (every transition exercised) | 🟡 `StateMachine<TState>.NewCoverageTracker()` is manual; a `coverage:` parameter on `SampleWith` is still open |
 
 See [Nullean.Entities.CsCheck](src/Nullean.Entities.CsCheck/README.md) for the full API.
 
@@ -287,6 +287,106 @@ compile time. See [Nullean.Entities.CsCheck](src/Nullean.Entities.CsCheck/README
 - DataAnnotations (`[Required]`, `[Range]`, `[StringLength]`, ...) on a `[Constraints]` type become generated constraints, so an annotated model is already a set you can test.
 - [`docs/integration.md`](docs/integration.md) shows where to call a set in ASP.NET Core, Marten-style event-sourced aggregates, EF Core and MassTransit.
 - The core and Reactive packages are trim and AOT clean, and a NativeAOT build of both is part of the repository's own build (`./build.sh aot`).
+
+## Type-state machines
+
+When each state is its own shape (a union case or a record carrying data) rather than a value, `StateMachine<TState>` declares the graph over the case types and, unlike `Transitions(...)`, it proves the declared states form a structurally sound graph, then derives a
+`Constraint<TState>`, a `ReactiveConstraint<TEvent>`, a Mermaid diagram and a CsCheck walk generator
+from that one declaration.
+
+The API groups transitions by `From` state, so the declaration reads like a diagram, and lives in
+a companion class:
+
+```csharp
+public readonly union OrderState(Draft, Placed, Confirmed, Shipped, Cancelled);
+
+public static partial class OrderLifecycle
+{
+    [StateMachine]
+    public static readonly StateMachine<OrderState> Machine = StateMachine<OrderState>.Define(m => m
+        .Initial<Draft>(s => s
+            .On("Place").To<Placed>())
+
+        .State<Placed>(s => s
+            .On("Confirm").To<Confirmed>(when: p => p.Lines.Count > 0)
+            .On("Cancel").To<Cancelled>())
+
+        .State<Confirmed>(s => s
+            .To<Shipped>()             // .On() is optional — unnamed transitions take their target's name
+            .On("Cancel").To<Cancelled>())
+
+        .Terminal<Shipped>()
+        .Terminal<Cancelled>());
+}
+```
+
+`Define` refuses the machine — throwing `StateMachineDefinitionException` — the moment it's built if:
+
+- any case of `OrderState` is not mentioned in the machine, or any edge's `From`/`To` points at a
+  type nobody declared with its own `Initial`/`State`/`Terminal` call — `To<TTo>` takes no
+  `where TTo : OrderState` constraint, so this is the same mistake either way *(NESM001 — exhaustiveness)*
+- any state is unreachable from `Initial` *(NESM002)*
+- any non-terminal state has no outgoing transition *(NESM003 — dead end)*
+- any state cannot reach a terminal *(NESM004 — trap)*
+
+These are structural checks; guards are deliberately ignored. Whether a guard actually lets a
+transition fire at runtime is exactly what `AsConstraint`/`AsReactive` and the property tester
+answer. This happens eagerly, at the static field's own initializer — a misdeclared machine fails
+the moment anything touches it, same as a real compile error in practice, just not one yet: an
+analyzer reporting the same four checks as true build diagnostics, the way `[Constraint]`'s
+NECG001–007 do, is still open. `[StateMachine]` on the field above is reserved for that; applying it
+today costs nothing and marks the intent.
+
+`TState`'s cases are types, not values — `Initial`/`State`/`Terminal`/`To` are all generic over a
+case type, never constrained by `where T : TState`, because a C# 11 union's case types aren't
+subtypes of the union — the same problem `Nullean.Entities.Reactive`'s predicate-based temporal
+operators solve further up this page. It works unchanged whether `OrderState` is a real union, the
+pre-union abstract-record-with-sealed-nested-cases shape, or — trivially — a single type.
+
+From one declaration, everything else derives:
+
+```csharp
+Constraint<OrderState>                           guard    = OrderLifecycle.Machine.AsConstraint();
+ReactiveConstraint<OrderEvent>                    monitor  = OrderLifecycle.Machine.AsReactive(stateOf: e => e.State);
+Gen<IReadOnlyList<StateMachineStep<OrderState>>>  walks    = OrderLifecycle.Machine.Walks();
+Gen<IReadOnlyList<RealizedStep<OrderState>>>      realized = OrderLifecycle.Machine.RealizedWalks();
+string                                            diagram  = OrderLifecycle.Machine.ToMermaid();
+```
+
+`Walks()` generates graph-level walks — by declared state and edge, not real values, so guards are
+ignored the same way the structural checks ignore them. `RealizedWalks()` closes that gap: it fills
+every state along the way with a real value, via `GenAuto` (no per-type setup), so the `Confirm` guard above (`p => p.Lines.Count > 0`) is checked
+against a real generated `OrderState.Placed`, and a transition is only ever reported live when that
+guard actually holds for it. A walk that reaches a state where every live edge's guard rejects the
+generated value stops there, the same as a true structural dead end.
+
+Coverage is still manual: `NewCoverageTracker()` gives a tracker to `Record` real `(from, to)` pairs
+into as a `Script<TSut>` run actually produces them:
+
+```csharp
+var coverage = OrderLifecycle.Machine.NewCoverageTracker();
+// from inside the events: handler, as each event arrives:
+coverage.Record(previousState, nextState);
+// after the run:
+coverage.FullyCovered.Should().BeTrue();
+```
+
+A `coverage:` parameter that wires this into `SampleWith` directly is still open — `Script<TSut>`
+has no notion of "the entity's state" to diff before and after a step yet.
+
+Coverage is still manual: `NewCoverageTracker()` gives a tracker to `Record` real `(from, to)` pairs
+into as a `Script<TSut>` run actually produces them:
+
+```csharp
+var coverage = OrderLifecycle.Machine.NewCoverageTracker();
+// from inside the events: handler, as each event arrives:
+coverage.Record(previousState, nextState);
+// after the run:
+coverage.FullyCovered.Should().BeTrue();
+```
+
+A `coverage:` parameter that wires this into `SampleWith` directly is still open — `Script<TSut>`
+has no notion of "the entity's state" to diff before and after a step yet.
 
 ## Packages
 

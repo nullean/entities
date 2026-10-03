@@ -69,5 +69,9 @@ not, by design (reflection). The `[Constraints]` generator also turns DataAnnota
 `Violation.Member`, `ConstraintViolationException`, `Unique`/`References`/`Acyclic`/`NoChains`, `Laws()`, and AutoGen's value-object, union, abstract-type, DataAnnotations and foreign-key support are
 documented in the package READMEs; `docs/integration.md` covers real services and `AUTOTEST_NOTES.md` section 6 the docs-platform example.
 
+There are two state machines, and they are complementary: `StateMachine<TState, TTrigger>` (states are values, moved by named triggers; Mermaid in and out, `ConformTo`, `Spec()`; trim/AOT clean) and
+`StateMachine<TState>` (states are case types of a union or record hierarchy, with guards over the case values, structural checks NESM001-004 at definition time, `Walks()` and `RealizedWalks()`; it finds union cases by reflection,
+so it is marked `[RequiresUnreferencedCode]`). `RealizedWalks(mode:, configure:)` draws its case values with AutoGen.
+
 Still open: the spike questions in `AGENTS.md` that gate a 1.0 (shrinking quality, early-exit cost,
 global-lock throughput, `faker.ToGen()` support).
