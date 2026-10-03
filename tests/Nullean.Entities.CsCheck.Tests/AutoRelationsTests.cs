@@ -36,6 +36,8 @@ internal static class Rel
 
 	public sealed record IncludeGraph(IReadOnlyList<TocFile> Files);
 
+	public sealed record Derived(IReadOnlyList<int> All, IReadOnlyList<int> Evens);
+
 	public static string RepoOf(Mount m) => Uri.UnescapeDataString(m.Source.AbsolutePath.TrimStart('/'));
 }
 
@@ -147,5 +149,36 @@ public class AutoRelationsTests
 
 		adversarial.Any(g => Acyclic().Validate(g).Count > 0).Should().BeTrue("a cycle");
 		adversarial.Any(g => g.Files.Any(f => f.Includes.Contains(f.Path))).Should().BeTrue("a file that includes itself");
+	}
+
+	private static bool EvensAreDerived(Rel.Derived d) => d.Evens.All(e => e % 2 == 0 && d.All.Contains(e));
+
+	[Test]
+	public void Normalize_makes_a_derived_invariant_hold_in_plausible_data_and_leaves_it_broken_in_adversarial_data()
+	{
+		static void Declare(AutoOptions o) => o.Normalize<Rel.Derived>(d => d with { Evens = [.. d.All.Where(x => x % 2 == 0)] });
+
+		Draw<Rel.Derived>(AutoMode.Plausible, Declare, 400).All(EvensAreDerived).Should().BeTrue("plausible data is always passed through the derivation");
+		var mixed = Draw<Rel.Derived>(AutoMode.Mixed, Declare, 600);
+		mixed.Any(EvensAreDerived).Should().BeTrue();
+		mixed.Any(d => !EvensAreDerived(d)).Should().BeTrue("mixed data is passed through it only about half the time");
+		Draw<Rel.Derived>(AutoMode.Adversarial, Declare, 600).Any(d => !EvensAreDerived(d)).Should().BeTrue("adversarial data never is");
+	}
+
+	[Test]
+	public void An_identity_declared_across_a_tree_is_unique_in_plausible_data()
+	{
+		var tocs = Draw<Rel.Toc>(AutoMode.Plausible, PathsDeclared, 600);
+
+		tocs.All(t => Flat(t.Nodes).GroupBy(n => n.Path).All(g => g.Count() == 1)).Should().BeTrue("no path is listed twice anywhere in a plausible tree");
+	}
+
+	[Test]
+	public void A_value_cut_off_at_the_nesting_limit_is_a_fresh_value_each_time_not_one_shared_instance()
+	{
+		var trees = Draw<Rel.Node>(AutoMode.Plausible, o => o.MaxDepth = 1, 200);
+
+		var leaves = trees.SelectMany(t => Tree.Flatten([t], n => n.Children)).Where(n => n.Children.Count == 0).ToList();
+		leaves.Distinct(ReferenceEqualityComparer.Instance).Count().Should().BeGreaterThan(1, "each cut-off leaf is drawn again, not the same constant");
 	}
 }

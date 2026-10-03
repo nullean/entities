@@ -669,6 +669,8 @@ Know the limits:
 
     Plausible data always refers to something that exists, whichever side is generated first (a reference that comes first promises a key, and the target takes it); `Mixed` and `Adversarial`
     sometimes refer to nothing, let a dictionary key drift, or repeat a path at two levels. Types in a declared relation get four more levels before the nesting limit cuts them to a constant.
+  - **Derived invariants**: a member computed from others (`PrivateRepositories` is the private subset of `AvailableRepositories`) cannot be guessed. `o.Normalize<AssemblyConfiguration>(Derive)` applies a function
+    you give it, typically the loader's own derivation: always to plausible data, to about half of mixed data, never to adversarial data, so the invariant holds where it should and is still broken where a rule needs testing.
   - Not generated: references to something outside the generated value (a key into a database, a repository elsewhere). Duplicate ids and `Start`/`End` pairs are generated too.
 
 An AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock) lives in the separate, optional

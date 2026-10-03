@@ -338,8 +338,22 @@ internal sealed class PoolGen(RelationDecl decl, Gen<object?> inner, AutoOptions
 	public override object? Generate(PCG pcg, Size? min, out Size size)
 	{
 		var value = inner.Generate(pcg, min, out size);
-		if (RelationScope.Current is not { } scope || options.Mode == AutoMode.Plausible)
+		if (RelationScope.Current is not { } scope)
 		{
+			return value;
+		}
+		if (options.Mode == AutoMode.Plausible)
+		{
+			// Plausible data keeps the identity unique across the whole root, so a rule against duplicates holds.
+			var seen = scope.For(decl).Existing;
+			for (var attempt = 0; attempt < 12 && value is not null && seen.Contains(value); attempt++)
+			{
+				value = inner.Generate(pcg, min, out size);
+			}
+			if (value is not null)
+			{
+				seen.Add(value);
+			}
 			return value;
 		}
 		var pool = scope.For(decl).Pool;
@@ -359,6 +373,19 @@ internal sealed class PoolGen(RelationDecl decl, Gen<object?> inner, AutoOptions
 public sealed partial class AutoOptions
 {
 	internal List<RelationDecl> Relations { get; } = [];
+
+	internal Dictionary<Type, Func<object, object>> Normalizers { get; } = [];
+
+	/// <summary>
+	/// <paramref name="fix"/> turns a generated <typeparamref name="T"/> into one that satisfies the invariants only the domain knows: a value derived from other members
+	/// (<c>PrivateRepositories</c> is the private subset of <c>AvailableRepositories</c>), which a generator cannot guess. Typically the type's own derivation function, the one the
+	/// loader uses. Plausible data is always passed through it, <c>Mixed</c> half of the time, <c>Adversarial</c> never, so the other modes still see the values the invariant forbids.
+	/// </summary>
+	public AutoOptions Normalize<T>(Func<T, T> fix)
+	{
+		Normalizers[typeof(T)] = value => fix((T)value)!;
+		return this;
+	}
 
 	internal bool ScopeRequired { get; private set; }
 

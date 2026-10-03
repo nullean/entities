@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Not part of nullean-entities.slnx. A spike that generates and checks docs-builder's real domain types (feature/erd-model) with this repository's libraries.
+    Run it from this repository's root, so this repository's global.json applies:
+
+      dotnet run -c Release (project: docs/spikes/docs-builder) with the property DocsBuilderRoot set to the docs-builder worktree
+
+    Findings: AUTOTEST_NOTES.md section 7. It builds docs-builder's projects in place (into that tree's ignored .artifacts); it changes nothing tracked.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1591;NETSDK1057</NoWarn>
+    <DocsBuilderRoot Condition="'$(DocsBuilderRoot)' == ''">$(HOME)/.supacode/repos/docs-builder/feature/erd-model</DocsBuilderRoot>
+    <EntitiesRoot>$(MSBuildThisFileDirectory)../../../</EntitiesRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(DocsBuilderRoot)/src/Elastic.Documentation/Elastic.Documentation.csproj" />
+    <ProjectReference Include="$(EntitiesRoot)src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+    <ProjectReference Include="$(EntitiesRoot)src/Nullean.Entities.FileSystem/Nullean.Entities.FileSystem.csproj" />
+    <ProjectReference Include="$(EntitiesRoot)src/Nullean.Entities.CsCheck.FileSystem/Nullean.Entities.CsCheck.FileSystem.csproj" />
+  </ItemGroup>
+</Project>

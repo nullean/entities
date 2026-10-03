@@ -148,3 +148,41 @@ Layers: a cycle rule belongs on the include graph before expansion; the expanded
 
 Not expressed: the C1-C3 compatibility rules (an old config file must keep loading), which are about files on disk and belong in golden-file tests; and the rules that need a *different repository's* data
 (I3: a cross-link resolves in another repository's manifest), which would be a pair over the link registry and a manifest.
+
+## 7. Spike: docs-builder's real domain (`feature/erd-model`)
+
+`docs/spikes/docs-builder` is a console project (not in the solution) that references docs-builder's `Elastic.Documentation` project and this repository's packages by path, and runs them against the real
+aggregates. It builds docs-builder in place and changes nothing tracked; no branch was created in that repository (this session's tooling cannot run git outside its own worktree).
+
+**Linking.** docs-builder's domain project (net10.0, `LangVersion=preview`, `TreatWarningsAsErrors`, NativeAOT-compatible) and `Nullean.Entities.CsCheck`, `.FileSystem` and `.CsCheck.FileSystem` build and run together. No name or
+version conflicts (their `Constraint<TModel>`/`Finding` and our `Constraint<T>`/`Violation` coexist; alias one).
+
+**Generation.** `GenAuto` builds all of `GlobalCatalog`, `ProductCatalog`, `DocumentationSetDefinition`, `ResolvedDocumentationSet`, `SiteNavigationDefinition`, `AssemblyConfiguration`, `LinkRegistry`, `LinkManifest`,
+`ChangelogConfiguration`, `CodexConfiguration` and `DocsetDiscovery` in all three modes (100 of 100 draws each), with no `Use<T>` and no hand-written generator except `UseFileSystem()` for the `IFileInfo`/`IDirectoryInfo`/
+`IFileSystem` members. That includes their real C# `union`s (`TocItem`: all seven cases reached, no default union), typed paths (`DocsetPath`), `FrozenDictionary`, `IReadOnlySet` and `[Equatable]` records.
+`ResolvedDocumentationSet.SourceFile`/`ScopeDirectory` share one file-system world in 300 of 300 draws; the source file exists in 100% (plausible), 86% (mixed) and 70% (adversarial). The default `MaxDepth` keeps trees tiny
+(about 2 nodes on average, 10 at most); raise `MaxDepth` and `MaxCollection` for realistic docsets.
+
+**Derived invariants.** `AssemblyConfiguration` derives `AvailableRepositories` and `PrivateRepositories` from `ReferenceRepositories`. Generated data cannot know that (private-is-available was violated in 300 of 300 plausible draws).
+`Normalize<AssemblyConfiguration>(Derive)`, where `Derive` is the loader's own derivation, makes plausible data satisfy all five invariants written against it (0 violations), leaves about a third of mixed data and most adversarial data
+breaking them, which is what the rules need to be tested against. Navigation mounts that must name an assembly repository needed the same treatment (`Normalize<NavigationInAssembly>` rewriting the mounts' schemes).
+
+**What the generated data found in docs-builder's own code**
+
+| Finding | Evidence |
+|---|---|
+| **`path-prefixes-unique` throws.** `SiteNavigationDefinition.CollectPathPrefixes` builds `new Uri($"{scheme}://{prefix}/")`, which throws `UriFormatException` for a `path_prefix` that is not a legal host. A constraint should report, not throw | threw in 113 of 300 mixed and 145 of 300 adversarial navigations |
+| `DocumentationSetConstraints.All` also throws on hostile data (which rule was not pinned down) | 59 of 300 mixed, 125 of 300 adversarial |
+| Nothing checks that a docset's `products` exist in the catalog (D22): none of their rules ever mentions an unknown docset product id | ours flagged one in 130 of 300 mixed and 188 of 300 adversarial pairs; theirs in 0 |
+| Nothing checks that a mount names a repository the assembly has | ours flagged 151 of 300 mixed and 170 of 300 adversarial |
+| Where their prefix rules do not throw, they agree with the `Unique` re-expression 1:1 | plausible: 0 and 0; mixed: 71 flagged by both, 0 by only one |
+
+**NativeAOT.** A console app referencing their domain project, `Nullean.Entities` and `Nullean.Entities.FileSystem`, applying `Unique` and `References` to a real `SiteNavigationDefinition`, publishes NativeAOT with no IL warnings and runs.
+
+**Performance (Release, one core).** `Unique` over `Tree.Flatten`, `Acyclic` and `References` on 11,000, 37,000 and 137,000 items: 1 to 3 ms, 4 to 11 ms, 15 to 45 ms, with up to 38 MB allocated at 137,000 items (`References`; `Unique` over a tree is 4 to 16 MB). `Acyclic` is recursive and handled a
+137,000-long include chain; an include chain a million deep would not, which no real docset approaches.
+
+**What the spike changed in the library:** `Normalize<T>`; identities declared with `Identity` are unique in plausible data (a shared depth-limit constant had been the source of "repeated" paths); depth-limit values are drawn
+fresh instead of shared.
+
+**Not done:** porting the rules into docs-builder's own constraint sets and golden snapshots, running their `ConstraintSetTests` laws harness against ours, finding which `DocumentationSetConstraints` rule throws, and the git branch.

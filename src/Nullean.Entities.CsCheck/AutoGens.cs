@@ -124,3 +124,24 @@ internal sealed class ChoiceGen(Gen<object?>[] cases) : Gen<object?>
 		return null;
 	}
 }
+
+/// <summary>Passes the inner value through the type's normalizer: always in plausible data, half the time in mixed, never in adversarial.</summary>
+internal sealed class NormalizedGen(Gen<object?> inner, Func<object, object> fix, AutoOptions options) : Gen<object?>
+{
+	public override object? Generate(PCG pcg, Size? min, out Size size)
+	{
+		var value = inner.Generate(pcg, min, out size);
+		if (value is null)
+		{
+			return null;
+		}
+		return Applies(pcg, options) ? fix(value) : value;
+	}
+
+	internal static bool Applies(PCG pcg, AutoOptions options) => options.Mode switch
+	{
+		AutoMode.Plausible => true,
+		AutoMode.Adversarial => false,
+		_ => pcg.Next(2) == 0,
+	};
+}

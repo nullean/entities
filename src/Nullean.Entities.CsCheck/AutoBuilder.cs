@@ -85,6 +85,10 @@ internal sealed class AutoBuilder(AutoOptions options)
 			return new NullGen(Build(underlying, name, false, depth), options.NullPercent);
 		}
 		var inner = BuildNonNull(type, name, depth, info);
+		if (options.Normalizers.TryGetValue(type, out var normalizer))
+		{
+			inner = new NormalizedGen(inner, normalizer, options);
+		}
 		return nullable && !type.IsValueType ? new NullGen(inner, options.NullPercent) : inner;
 	}
 
@@ -254,7 +258,10 @@ internal sealed class AutoBuilder(AutoOptions options)
 		try
 		{
 			var plan = Plan(type, options.MaxDepth);
-			return new ConstGen(new ObjectGen(plan, options).Generate(new PCG(1u, 1UL), null, out _));
+			var terminal = new ObjectGen(plan, options);
+			// Built once to prove it can be, then drawn fresh each time: a shared instance would appear at several places in one value, and look like a repeated key.
+			terminal.Generate(new PCG(1u, 1UL), null, out _);
+			return terminal;
 		}
 		catch (Exception e) when (e is NotSupportedException or InvalidOperationException)
 		{
@@ -1213,6 +1220,9 @@ internal sealed class CollectionGen(
 {
 	public Type Target => target;
 
+	private object? Normalize(object? value, PCG pcg) =>
+		value is not null && options.Normalizers.TryGetValue(elementType, out var fix) && NormalizedGen.Applies(pcg, options) ? fix(value) : value;
+
 	public Type ElementType => elementType;
 
 	public ObjectPlan? ElementPlan => element.Plan;
@@ -1246,7 +1256,7 @@ internal sealed class CollectionGen(
 			{
 				try
 				{
-					items.Add(plan.Construct(args));
+					items.Add(Normalize(plan.Construct(args), pcg));
 				}
 				catch (TargetInvocationException)
 				{
