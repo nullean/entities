@@ -323,6 +323,28 @@ await foreach (var (order, violations) in OrderConstraints.All.ValidateAsync(db.
 `ApplyDetailedAsync` returns the three-way `ApplyOutcome<T>` (`Applied`, `Noop`, `Failure`). Constraints themselves stay synchronous: a rule that
 has to call a service is better expressed as a mutation that does the call and a constraint on its result.
 
+## State machines as data
+
+A lifecycle is often a picture first. `StateMachine<TState, TTrigger>` declares it as a value (states, triggers, which trigger moves which
+state where, optional timeouts) and nothing more: it does not run your entity, it describes it.
+
+```csharp
+var machine = StateMachine
+    .Define<OrderStatus, string>(OrderStatus.Pending)
+    .Permit("Confirm", OrderStatus.Pending,   OrderStatus.Confirmed)
+    .Permit("Ship",    OrderStatus.Confirmed, OrderStatus.Shipped)
+    .Permit("Cancel",  [OrderStatus.Pending, OrderStatus.Confirmed], OrderStatus.Cancelled)
+    .Build();
+
+machine.Fire(OrderStatus.Pending, "Confirm");            // Confirmed; machine.TryFire(...) for "what if", Permitted(state) for "what can I do"
+machine.AsConstraint<Order>(o => o.Status);               // the Transitions allow-list, derived from the diagram
+machine.ToMermaid();                                      // stateDiagram-v2
+StateMachine.FromMermaid(text);                           // and back: a diagram in the docs can be the specification
+```
+
+`Nullean.Entities.CsCheck` explores a machine (`machine.Spec().Exhaustive()`) and checks a real entity follows it (`machine.ConformTo(...)`).
+`Constraint<T>.Map` / `ConstraintSet<T>.Map` lift constraints through a projection while keeping kind, name, guards and edges.
+
 ## Install
 
 ```sh

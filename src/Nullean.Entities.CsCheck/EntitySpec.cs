@@ -35,7 +35,7 @@ internal readonly struct Keyed<T>(T value, Func<T, object?> key) : IEquatable<Ke
 /// <summary>One step of a walk: the action taken, its argument, and the entity before and after.</summary>
 public sealed record EntityStep<T>(string Action, string Argument, object? ArgumentValue, T Before, T After);
 
-public static class EntitySpec
+public static partial class EntitySpec
 {
 	/// <summary>A spec for a type that declares its own constraints (<c>EntitySpec.For&lt;Order&gt;()</c>), with generated starting states.</summary>
 	public static EntitySpec<T> For<T>() where T : IHaveConstraints<T> => For(T.Constraints, T.Actions);
@@ -463,6 +463,43 @@ public sealed class EntitySpec<T>
 			iter: iter,
 			print: t => $"from {_print(t.s)}: {action}({t.x}) is not idempotent"
 		);
+	}
+
+	/// <summary>
+	/// Random walks (with shrinking) handed to <paramref name="check"/> as the list of steps taken; it returns null when the walk is fine or a message
+	/// describing what is wrong. For checks that need the whole walk rather than one step: temporal rules over what each step emitted.
+	/// </summary>
+	public void SampleTraces(
+		Func<IReadOnlyList<EntityStep<T>>, string?> check,
+		int minSteps = 1,
+		int maxSteps = 24,
+		string? seed = null,
+		long iter = -1,
+		int time = -1,
+		int threads = -1
+	)
+	{
+		foreach (var start in Starts())
+		{
+			CheckStart(start);
+			var (spec, domains) = Build(start, autoFaults: false);
+			spec.GenTrace(minSteps, maxSteps)
+				.Sample(
+					trace =>
+					{
+						var problem = check([.. trace.Steps.Select(t => ToStep(t, domains))]);
+						if (problem is not null)
+						{
+							throw new InvalidOperationException(problem);
+						}
+					},
+					seed: seed,
+					iter: iter,
+					time: time,
+					threads: threads,
+					print: trace => trace.ToString(v => _print(v.Value))
+				);
+		}
 	}
 
 	/// <summary>

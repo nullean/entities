@@ -135,7 +135,7 @@ public sealed class Constraint<T>
 	/// Set by <see cref="Named"/>, or by the (nameof(field), field) tuple <see cref="ConstraintSet"/>'s
 	/// From threads through — see [Constraint] source gen, which builds that tuple automatically.
 	/// </summary>
-	public string? Name { get; private set; }
+	public string? Name { get; internal set; }
 
 	public ConstraintKind Kind { get; }
 
@@ -204,6 +204,25 @@ public sealed class Constraint<T>
 	{
 		Name = name;
 		return this;
+	}
+
+	/// <summary>
+	/// The same rule over a different type, reached through <paramref name="project"/>: a constraint on an <c>Order</c> becomes a constraint on
+	/// an <c>(Order, Audit)</c> pair, a wrapper, or an aggregate that holds one. Kind, name, <see cref="Guard"/> and transition edges carry over,
+	/// so tooling that reads them (coverage, diagrams) sees through the projection.
+	/// </summary>
+	public Constraint<TOther> Map<TOther>(Func<TOther, T> project)
+	{
+		var mapped = new Constraint<TOther>(Kind, (previous, next, time) => CheckAt(project(previous), project(next), time)) { Name = Name };
+		if (Guard is { } guard)
+		{
+			mapped.WithGuard(other => guard(project(other)));
+		}
+		if (StateOf is { } stateOf && Edges is { } edges)
+		{
+			mapped.WithEdges(other => stateOf(project(other)), edges);
+		}
+		return mapped;
 	}
 }
 
@@ -599,6 +618,9 @@ public sealed class ConstraintSet<T>
 	/// execution model without this package depending on that model.
 	/// </summary>
 	public IReadOnlyList<Constraint<T>> AsConstraints() => _constraints;
+
+	/// <summary>Every constraint in the set lifted through <paramref name="project"/> (see <see cref="Constraint{T}.Map{TOther}"/>), names preserved.</summary>
+	public ConstraintSet<TOther> Map<TOther>(Func<TOther, T> project) => new([.. _constraints.Select(c => c.Map(project))]);
 
 	/// <summary>
 	/// Runs every <see cref="ConstraintKind.PointInTime"/> constraint over the single

@@ -109,3 +109,14 @@ Found only after `GenAuto.Of<T>` started producing edge values (the first pass, 
 | `StockItem` | With `0` and `-1` in the argument domain `Restock` grows without bound: the enforced search needs a `Boundary`. |
 | `DateRange` | With only early dates in the domain `Extend` can never move the end forward under `Enforced`: domains need the late extreme (now included). |
 | library | A constraint that **throws** on hostile input (the `Order.Total` overflow, the `OrgChart` duplicate-id `ToDictionary`) used to abort the run; it is now reported as a violation ("X threw OverflowException") by `Valid`, `Probe`, `RejectsInvalid`, `Preserves`, `ShouldSatisfy` and `Boundaries`. |
+
+## 5. Findings from declaring the lifecycles as machines
+
+| Domain | Finding |
+|---|---|
+| `SupportTicket` | The declared machine has `AwaitCustomer` and `CustomerReplied`; the entity has no method for either, so `ConformTo` fails before any walk. `AwaitingCustomer` is unreachable in practice. |
+| `SupportTicket` | **`Resolve()` is unguarded**: resolving an `Open` ticket (the machine does nothing there) lands in `Resolved`. Only `Apply` stops it. Found by `ConformTo` on the part of the lifecycle the entity does implement. |
+| `Person` | The machine has `GoOnLeave` and `Return`; the entity has only `Terminate()`. `OnLeave` is unreachable in practice. |
+
+Not done: a Stateless adapter package (Stateless can describe its graph; if it can be exported as a Mermaid
+`stateDiagram-v2`, `StateMachine.FromMermaid` covers it without a dependency. Not verified against a specific Stateless version.). Guards that depend on runtime data are not representable in a declared machine.

@@ -110,6 +110,7 @@ dotnet add package Nullean.Entities.CsCheck
 | Does my real implementation match the model? | Conformance / model-based (`Spec.Conform`) | `spec.Conform(create, apply, agrees)` | A repository, cache or API that drifts from the entity |
 | Is my service safe under concurrency? | Linearizability (`SampleParallel`) | `script.SampleParallelWith(...)` | Races that break a rule |
 | Does a deadline or timeout hold for any timing? | Property sampling with virtual time | `script.SampleWith(...)` with `.Delays(...)` | Rules that fail only at an unlucky gap |
+| Does my entity follow the lifecycle diagram? | Conformance (`Spec.Conform`) against a declared machine | `machine.ConformTo(entity, ...)` | A state the entity cannot reach; a trigger it performs when it should not |
 | Did behaviour change by accident? | Regression by hash (`Check.Hash`) | `spec.Snapshot(expected)` | Changed lifecycles, with the new hash to commit |
 | Did my green test prove anything? | Coverage / classification | `Coverage<TEvent>`; built into `Exhaustive` | A constraint that held because it never ran |
 | Which of my rules can this data even break? | Property sampling, inverted | `set.Probe()`, `set.RejectsInvalid()` | Tautologies, contradictions, unnamed rules |
@@ -407,6 +408,96 @@ If a raw run reports a bug on something you know `Apply` would stop, that is the
 
 Runnable versions of all of this: [`AutoTestExamples.cs`](https://github.com/nullean/entities/blob/main/tests/Nullean.Entities.Examples.Tests/AutoTests/AutoTestExamples.cs)
 and the per-domain tests next to it. What did and did not convert cleanly is in [`AUTOTEST_NOTES.md`](https://github.com/nullean/entities/blob/main/AUTOTEST_NOTES.md).
+
+## Ways to declare a state machine
+
+The record-with-methods style above is one way. Every front-end below produces an `EntitySpec`, so the same one-liners work: `Exhaustive`,
+`Sample`, `Mermaid`, `Snapshot`, `Faults`, `Conform`, `Commutes`.
+
+| Your model is | Declare it as | Start with |
+|---|---|---|
+| An immutable record whose methods return the next value | `[Constraints]` generates the actions | `OrderConstraints.Instance.Spec()` |
+| **A literal diagram**: states, triggers, edges | `StateMachine.Define<TState, TTrigger>(initial).Permit(...)` | `machine.Spec()`, `machine.ConformTo(entity, ...)` |
+| A diagram in the docs (Mermaid) | `StateMachine.FromMermaid(text)` | the same, so the diagram is the specification |
+| A reducer: `(state, command) => state` (Elm, MVU, F#) | a function and the commands | `EntitySpec.FromReducer(initial, reduce, commands, constraints)` |
+| Event sourcing: `Decide(state, command) -> events`, `Evolve(state, event) -> state` | two functions | `EntitySpec.EventSourced(initial, decide, evolve, commands, constraints)` |
+| A class that mutates in place (an EF aggregate, a service) | a factory and `Do(...)` actions | `EntitySpec.ForMutable(factory, constraints).Do("Open", d => d.Open())` |
+| One record type per state, or a C# union (typestate) | `Transitions(x => x.GetType())` on the constraint | the record style; state is keyed by case type |
+
+### A declared machine: the diagram is the specification
+
+```csharp
+public static readonly StateMachine<TicketStatus, string> Machine = StateMachine
+    .Define<TicketStatus, string>(TicketStatus.Open)
+    .Permit("Assign",          TicketStatus.Open,              TicketStatus.InProgress)
+    .Permit("AwaitCustomer",   TicketStatus.InProgress,        TicketStatus.AwaitingCustomer)
+    .Permit("CustomerReplied", TicketStatus.AwaitingCustomer,  TicketStatus.InProgress)
+    .Permit("Resolve",         [TicketStatus.InProgress, TicketStatus.AwaitingCustomer], TicketStatus.Resolved)
+    .Permit("Close",           TicketStatus.Resolved,          TicketStatus.Closed)
+    .After(TimeSpan.FromDays(14), TicketStatus.Resolved, TicketStatus.Closed)   // by itself, after 14 days
+    .Build();
+
+Machine.Spec().Exhaustive();             // every state reachable, every edge taken: a state nothing leads to fails here, by name
+Machine.ToMermaid();                     // the diagram, generated rather than drawn
+Machine.AsConstraint<SupportTicket>(t => t.Status);   // the Transitions allow-list, so it cannot drift from the diagram
+
+Machine.ConformTo(Open(), t => t.Status,
+    bindings: [("Assign", t => t.Assign("agent-1")), ("Resolve", t => t.Resolve(now)), ("Close", t => t.Close())]);
+```
+
+`ConformTo` walks the **machine** and applies the same trigger to your real entity, asserting after each step that the entity is in the
+state the machine says. It fails in two distinct ways, both useful:
+
+- **A trigger with no binding** ("the machine declares `AwaitCustomer`, `CustomerReplied`, the entity has no way to do them") is reported
+  before any walk. The declared state is one the entity can never reach. Running this on the example domains is how `SupportTicket`'s
+  unreachable `AwaitingCustomer` and `Person`'s unreachable `OnLeave` show up at declaration time instead of by a missed coverage edge.
+- **A divergence** ("after Resolve in Open the machine says Open, but the entity is in Resolved"): the entity does something the machine forbids.
+  `SupportTicket.Resolve()` is unguarded, and only `Apply` stops it; conformance sees the method, not `Apply`.
+
+`ConformToMutable(create, stateOf, bindings: [(trigger, d => d.Open())])` is the same for a class that changes in place. Timeouts (`After`) are
+explored by `Spec()`; conformance does not test them because that needs a clock (use `ManualTimeProvider` with a temporal rule).
+
+Mermaid in, machine out:
+
+```csharp
+var machine = StateMachine.FromMermaid("""
+    stateDiagram-v2
+        [*] --> Trial
+        Trial --> Active : Activate
+        Trial --> Expired : after 14d
+        Active --> Cancelled : Cancel
+        Cancelled --> [*]
+    """);                                      // StateMachine<string, string>
+```
+
+**From Stateless (or any library that can draw itself).** Libraries such as [Stateless](https://github.com/dotnet-state-machine/stateless) can
+describe their graph (DOT for certain, and Mermaid in recent versions: check yours). If you can get a Mermaid `stateDiagram-v2` out of it, read it with
+`StateMachine.FromMermaid` and you can explore it (`Spec()`) and check an entity against it (`ConformTo`) without a dependency on that library;
+a DOT graph needs converting first. Guards that depend on runtime data are not in the picture, so a guarded
+edge shows as always permitted: test those with the entity's own constraints and `Enforced()`.
+
+### Reducer, event-sourced, mutable
+
+```csharp
+// A reducer: each command is an action; constraints on the state apply as usual
+EntitySpec.FromReducer(0, (int n, string c) => c == "inc" ? n + 1 : Math.Max(0, n - 1), ["inc", "dec"], nonNegative).Boundary(n => n < 4).Exhaustive();
+
+// Event sourcing: state is the fold of events; temporal rules apply to the events each command emits
+var doors = EntitySpec.EventSourced(DoorState.Closed, Decide, Evolve, [Open, Close, Lock, Unlock], stateRules);
+doors.Spec.Exhaustive();                                     // state constraints, proved
+doors.SampleEvents(neverOpenedRightAfterLocked, stepInterval: TimeSpan.FromSeconds(1));   // temporal rules over the emitted events, on random walks
+
+// A mutable class: rebuilt by replaying the actions on a fresh instance, so no clone method is needed
+EntitySpec.ForMutable(() => new MutableDoor(), rules.Map<MutableDoor>(d => new Door(d.State)))
+    .Do("Open", d => d.Open()).Do("Lock", d => d.Lock())
+    .Exhaustive();
+```
+
+Notes: the event-sourced `Exhaustive` proves the **state** constraints; temporal rules over events are checked on random walks (`SampleEvents`),
+not exhaustively, because an open obligation would have to be part of the explored state. Use `Transitions` (raw adjacency) rather than `Never<A, B>`
+for "A must not directly precede B": `Never` ignores events of other types in between. A mutable class costs a replay per transition, fine for the
+bounded searches `Exhaustive` does, so give it a `snapshot` that says what makes two states the same (default: public properties, structurally).
+`ConstraintSet.Map(project)` lifts constraints written for one type onto another (a wrapper, a projection) while keeping names, guards and edges.
 
 ## Simple property tests
 
