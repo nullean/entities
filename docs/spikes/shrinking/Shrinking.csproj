@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Not part of nullean-entities.slnx. Answers AGENTS.md spike questions 1 (shrinking quality) and 2 (early exit cost). Run from the repository root:
+
+      dotnet run on the project docs/spikes/shrinking, in Release
+
+    Results are recorded in AGENTS.md. Timings depend on the machine; the shape of the comparison is what is recorded.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1591;NETSDK1057</NoWarn>
+    <EntitiesRoot>$(MSBuildThisFileDirectory)../../../</EntitiesRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(EntitiesRoot)src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+  </ItemGroup>
+</Project>

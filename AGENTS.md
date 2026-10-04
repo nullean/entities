@@ -155,20 +155,34 @@ here if that changes.
 
 ## Spike questions (answer before 1.0; answers go here)
 
-1. **Shrinking quality.** A property failing only when Lines > 3 and a SKU contains `7` should
-   shrink to ~4 lines. Compare single-node `Size` vs chained-per-RuleFor `Size`. Record the winner
-   and why. — Open.
-2. **Early exit cost.** Once running size passes `min`, abort generation. Benchmark vs always
-   generating and reporting size. Record the result. — Open.
+1. **Shrinking quality.** Measured with `docs/spikes/shrinking` (200 runs per variant; the failing property is "more than 3 lines and a quantity over 50", so the minimum is
+   4 lines). How sizes combine decides what "simpler" means, and the same random draws give different results:
+
+   | Size combined as | Shrunk to exactly 4 lines | Shrunk max quantity (median; best 51) | Property calls |
+   |---|---|---|---|
+   | Chained, `Append` per part (a hand-chained CsCheck generator behaves the same: 200/200, quantity 85) | 200/200 | 84 | 932 |
+   | Packed: draw count in the high bits, magnitude below (the Bogus path, `PcgRandom.Size`) | 200/200 | 86 | 696 |
+   | Single node, `Add` of every part (what `GenAuto` does per constructor argument and per item) | 181/200, worst 5 lines | 60 | 644 |
+
+   Answer: **chained wins for structure.** A sum lets a bigger structure with small values beat the minimal structure with large values, so it sometimes stops at 5 or 6 lines but gets
+   closer on the numbers; ordering the structure first (chained or packed) reaches the minimal structure essentially every time and leaves the values coarse. Fewer items is usually the
+   more useful minimal case, so chained or packed is the right default. `GenAuto` uses the sum and has not been changed: the spike also found that its collection counts are
+   `picked * MaxCollection / 4`, so with `MaxCollection = 12` the only counts are 0, 3, 6, 9 and 12. A failure at 4 or 5 items is unreachable and always shrinks to 6 (0/200 reached 4),
+   which is a larger weakness than the sum. Both are candidate changes to `AutoBuilder`'s `CollectionGen`/`DrawArgs`; neither is made. — Answered.
+2. **Early exit cost.** Measured in the same spike. A candidate that cannot be smaller than the best failure so far is generated in full and then skipped (72% of all candidates in a real
+   `GenAuto` tree shrink). Stopping as soon as the running size is no longer below `min`:
+   on a value of up to 400 lines, median shrink time 12.6 ms to 0.22 ms (single-node sum) and 89 ms to 0.15 ms (chained), with the same number of property calls; on a realistic `GenAuto`
+   tree (`Large()`), the whole shrink is about 1.5 ms, so the most early exit could save is about 1 ms. Caveat: a skipped candidate that stops early consumes fewer draws, so the search
+   follows a different path afterwards; on the sum it reached the 4-line minimum a little less often (144/200 against 159/200), on the chained size the same (199 against 200).
+   Answer: **not worth it for the sizes this library generates**; it matters only for values with hundreds of items, and then it is a large win. `GenAuto` does not do it, and nothing
+   here needs it. Revisit if someone generates very large values and shrinks them. — Answered.
 3. **Global lock throughput.** Measured (Release, draws/second): AutoBogus-backed `Order` 71k on 1 thread, 120k on 4, 97k on 8;
    the CsCheck-native `GenAuto.Of<Order>()` 617k, 1.84M, 1.61M. Bogus's `Randomizer.Locker` is an `internal static` taken inside every
    draw and cannot be disabled, so a Bogus-backed generator stops scaling at about 2 threads. Answer: `GenAuto.Of<T>` no longer draws
    from Bogus at all (a one-time corpus, picked by index); only user `Faker<T>` rules still take the lock. Details and the case for dropping
    the AutoBogus dependency: `docs/autobogus-decision.md`. — Answered.
-4. **Existing fakers.** `faker.ToGen()` on an existing `Faker<T>` needs `FakerHub`, which is
-   `protected internal`. Decision: support it via reflection, or support only `Gen.Faker<T>(configure)`?
-   — Open; `Gen.Faker<T>(configure)` (fresh `Faker<T>` per call, not adapting an existing instance)
-   is what shipped.
+4. **Existing fakers.** `faker.ToGen()` on an existing `Faker<T>` needs `FakerHub`, which is `protected internal`. Decision: support only `Gen.Faker<T>(configure)` (a fresh `Faker<T>`
+   per call, not adapting an existing instance), which is what shipped. Not supporting `ToGen()` through reflection is settled. — Answered.
 5. **Reproducibility.** A test asserts that `CsCheck_Seed` replays to the identical object. Do
    not ship without this. — Done: `tests/Nullean.Entities.CsCheck.Tests/DeterminismTests.cs`.
 6. **`Script<TSut>` implementation.** Driving a SUT from a generated action sequence, replaying a
