@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Validates the option objects a Nullean.Argh command receives against Nullean.Entities constraints, reporting violations as --flag errors with exit code 2.</Description>
+    <PackageTags>constraints validation cli argh</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Nullean.Argh.Interfaces" />
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+  </ItemGroup>
+</Project>

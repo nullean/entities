@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Publishes the core and Reactive packages NativeAOT and runs the result: `./build.sh aot`.
+  <!-- Publishes the core, Reactive, FileSystem and DependencyInjection packages NativeAOT and runs the result: `./build.sh aot`.
        Trim and AOT warnings are errors, so a reflection-based API creeping into either package fails here. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -12,6 +12,8 @@
     <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
     <ProjectReference Include="../../src/Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
     <ProjectReference Include="../../src/Nullean.Entities.FileSystem/Nullean.Entities.FileSystem.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.Extensions.DependencyInjection/Nullean.Entities.Extensions.DependencyInjection.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>
