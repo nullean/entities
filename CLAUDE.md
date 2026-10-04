@@ -77,5 +77,6 @@ so it is marked `[RequiresUnreferencedCode]`). `RealizedWalks(mode:, configure:)
 `ConstraintSet.Validated`/`Ensure` and `Result.Map/Bind/Combine` are the construction story (check in a factory, not a constructor); `Script.SampleState`, `machine.ConformsTo` and `ConformToService` test a service with no Rx. `examples/Apps` has eight runnable console apps
 (`./build.sh apps`, tested in `tests/Nullean.Entities.Apps.Tests`) and `docs/first-use-review.md` records what building them found. `Apply` runs no rule for a result equal to its input: use `ApplyDetailed` where "nothing happened" is an error.
 
-All the spike questions in `AGENTS.md` are answered (shrinking quality and early-exit cost with `docs/spikes/shrinking`); the two changes the spike suggests for `GenAuto` (collection
-counts that can reach every value, chained sizes) are recorded there and not made.
+All the spike questions in `AGENTS.md` are answered (shrinking quality and early-exit cost with `docs/spikes/shrinking`), and what they found is fixed in `GenAuto`: collection counts can reach every
+value up to `MaxCollection`, sizes put structure first, collections that plan at least `AutoOptions.EarlyExitFrom` items stop early while shrinking, and `Probe` reports how large and deep the values it
+drew were (`ProbeReport.Reach`).

@@ -31,7 +31,33 @@ public static class EarlyExit
 			}
 		}
 		Console.WriteLine();
+		GenAutoBig(runs);
 		Realistic(Math.Max(10, runs / 5));
+	}
+
+	// The shipped GenAuto, on a value with hundreds of items, with early exit off, at its default threshold and applied everywhere.
+	private static void GenAutoBig(int runs)
+	{
+		Console.WriteLine(
+			$"GenAuto itself, MaxCollection 400 ({runs} runs each); EarlyExitFrom is the number of items a collection must plan before it may stop early"
+		);
+		foreach (var after in new[] { int.MaxValue, 32, 0 })
+		{
+			var gen = GenAuto
+				.Of<OrderR>(AutoMode.Plausible, o =>
+				{
+					o.MaxCollection = 400;
+					o.EarlyExitFrom = after;
+				})
+				.Select(o => new Shape(o.Lines.Count, o.Lines.Count == 0 ? 0 : o.Lines.Max(l => l.Qty)));
+			var results = Quality.Shrink(gen, runs);
+			var failing = results.Where(r => r.Failed).ToList();
+			var label = after == int.MaxValue ? "never" : after == 0 ? "everywhere" : $"from {after} items";
+			Console.WriteLine(
+				$"  early exit {label,-16}: shrunk to 4 lines {failing.Count(r => r.Final.Lines == 4),3}/{failing.Count}, median {Median(failing.Select(r => (int)r.Microseconds))} us, median {Median(failing.Select(r => r.Calls))} property calls"
+			);
+		}
+		Console.WriteLine();
 	}
 
 	private static void Realistic(int runs)

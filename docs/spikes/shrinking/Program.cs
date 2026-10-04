@@ -70,7 +70,7 @@ public static class Program
 
 		Quality.Report("native (chained CsCheck gens)", Quality.Shrink(native, runs));
 		Quality.Report("auto   (GenAuto, MaxCollection 4: counts 0..4)", Quality.Shrink(Auto(4), runs));
-		Quality.Report("auto   (GenAuto, MaxCollection 12: counts are only 0, 3, 6, 9, 12)", Quality.Shrink(Auto(12), runs));
+		Quality.Report("auto   (GenAuto, MaxCollection 12; reached 4 lines 0/200 before the count fix)", Quality.Shrink(Auto(12), runs));
 		Quality.Report("faker  (Bogus, one size per object)", Quality.Shrink(faker, runs));
 
 		SizeStyles.Run(runs);

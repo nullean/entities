@@ -6,6 +6,28 @@ using CsCheck;
 
 namespace Nullean.Entities.CsCheck;
 
+/// <summary>
+/// How generated values report their <see cref="Size"/>, which CsCheck minimises while shrinking. Structure comes first: every collection item counts one in the high bits, and the
+/// magnitude of the leaves (a number, a string's length) is added below, clamped so a few large numbers cannot spill into the structure. Fewer items beats smaller numbers, which is
+/// what shrinks a failure to its fewest items; the sum this replaced let a bigger structure with small values win and stopped at 5 or 6 items.
+/// </summary>
+internal static class AutoSizes
+{
+	public const int StructureShift = 40;
+
+	/// <summary>The most one leaf adds, so about 256 of the largest leaves fit below the structure bits.</summary>
+	public const ulong LeafCap = (1UL << 32) - 1;
+
+	/// <summary>
+	/// Early exit. CsCheck passes the smallest failing size so far as <paramref name="min"/> and only runs the property on a candidate below it; the rest are generated in full and
+	/// skipped. Once a collection's running <paramref name="size"/> is not below <paramref name="min"/>, no further item can make it so, and the candidate will be skipped anyway.
+	/// A value is "big" when a collection plans at least <see cref="AutoOptions.EarlyExitFrom"/> items (known before any is drawn), so a small value is generated exactly as before
+	/// and only a big one is cut short, from its first item.
+	/// </summary>
+	public static bool CannotBeSmaller(AutoOptions options, Size? min, int planned, Size size) =>
+		min is { } floor && planned >= options.EarlyExitFrom && !Size.IsLessThan(size, floor);
+}
+
 internal sealed class ConstGen(object? value) : Gen<object?>
 {
 	public override object? Generate(PCG pcg, Size? min, out Size size)
@@ -21,7 +43,7 @@ internal sealed class FuncGen(Func<PCG, (object? Value, ulong Size)> draw) : Gen
 	public override object? Generate(PCG pcg, Size? min, out Size size)
 	{
 		var (value, s) = draw(pcg);
-		size = new Size(s);
+		size = new Size(Math.Min(s, AutoSizes.LeafCap));
 		return value;
 	}
 }

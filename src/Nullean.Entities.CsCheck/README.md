@@ -972,6 +972,11 @@ Know the limits:
     - **Size**: collections get `MaxCollection` scaled across the distribution (it now has an effect above 4) and narrow by one at each level of nesting, so a tree stays a few dozen nodes however deep it goes. `o.Large()` is the preset for
     realistic trees (`MaxDepth` 6, up to eight per collection); the defaults keep property tests quick. `MaxDepth` counts a collection and then its element as two levels, so a tree of N levels of nodes needs a `MaxDepth` of about 2N:
     a rule about a chain of six (`Probe` reports it as never violated) needs `MaxDepth = 16`, not 6.
+    Every count from none to `MaxCollection` can occur, so a failure at exactly four items is as reachable at `MaxCollection` 12 as at 4, and it shrinks to four. Sizes put structure first (items before magnitudes), which is what shrinks a
+    failure to its fewest items. A collection that plans at least `EarlyExitFrom` (32) items stops drawing while CsCheck is shrinking once it can no longer beat the smallest failure so far: automatic for big values, a shrink of a
+    400-item value takes about a millisecond instead of 25, and smaller values are generated exactly as without it (`0` applies it everywhere, `int.MaxValue` never).
+  - **`Probe` says how big the values were.** `ProbeReport.Reach` (`LargestCollection`, `Depth`) and a line under the table: "The generated values went up to N items in a collection and D levels deep", with a reminder to raise `MaxCollection` or
+    `MaxDepth` when a rule is never violated. A rule about more than that cannot fail on values that never had it, which is a limit of the generator and not a tautology.
   - Not generated: references to something outside the generated value (a key into a database, a repository elsewhere). Duplicate ids and `Start`/`End` pairs are generated too.
 
 An AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock) lives in the separate, optional
