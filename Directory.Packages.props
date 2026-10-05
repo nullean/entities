@@ -27,6 +27,13 @@
     <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="22.2.0" />
     <!-- The example apps (examples/Apps) wire their services through dependency injection, as a real application does. The library does not depend on it. -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <!-- Microsoft.Extensions.* 10.0.0: the DI and Options abstractions the integration packages build on. -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.0" />
+    <!-- Nullean.Argh 0.21.0: ArghValidation, which Nullean.Entities.Argh builds on. -->
+    <PackageVersion Include="Nullean.Argh.Interfaces" Version="0.21.0" />
+    <PackageVersion Include="Nullean.Argh" Version="0.21.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.0" />
     <!-- Bogus 35.6.5: realistic fake data generation. -->
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <!-- Soenneker.Utils.AutoBogus: maintained AutoBogus fork for net9/10, Bogus >= 35.6.5. -->

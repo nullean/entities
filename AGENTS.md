@@ -33,6 +33,9 @@ Test projects are TUnit and are run with `dotnet run`, one project at a time (`P
 | `docs/spikes/docs-builder` | A spike (not in the solution) that runs these libraries against docs-builder's real `feature/erd-model` domain types: generation, ported rules compared with theirs, NativeAOT, performance. Findings in `AUTOTEST_NOTES.md` section 7. |
 | `src/Nullean.Entities.FileSystem` | Constraint shapes for `IFileInfo`/`IDirectoryInfo` (System.IO.Abstractions): `Files<T>.Exist`, `StayInside`, `NotSymlink`, `NoHiddenSegments`, `HaveExtension`. Trim/AOT clean (the smoke app publishes it). |
 | `src/Nullean.Entities.CsCheck.FileSystem` | `AutoOptions.UseFileSystem()`: one `MockFileSystem` world per generated value, shared by every file-system member, with missing/empty/symlinked/hidden/outside-the-root/wrong-case files. Needs `AutoOptions.NeedsScope()`/`AutoScope` from the CsCheck package. |
+| `src/Nullean.Entities.Extensions.DependencyInjection` | `AddConstraints<T>()` / `ConstraintRegistry` (type-erased `TryValidate(object)`, no reflection), `OptionsBuilder<T>.ValidateConstraints()`, `ViolationErrors`. What the two framework packages below build on. Trim/AOT clean. |
+| `src/Nullean.Entities.AspNetCore` | `ValidateWith<T>()` / `ValidateConstraints()` endpoint filters, `ConstraintViolationExceptionHandler` (`AddConstraintProblemDetails()`), `Result<T>`/`ApplyOutcome<T>.ToHttpResult()`, MVC `ConstraintActionFilter`. |
+| `src/Nullean.Entities.Argh` | `ArghConstraints.Register<T>()`: registers a constraint set as a Nullean.Argh `ArghValidation` validator, so a violation prints as `Error: --flag: message` + the flag help rows + the usage line, exit 2, for `[AsParameters]` and global/namespace options and `TryParseArgh`. Needs Nullean.Argh 0.21 (`ArghValidation`). |
 | `src/Nullean.Entities.SourceGenerators/Annotations.cs` | Part of the `[Constraint]` generator: DataAnnotations (`[Required]`, `[Range]`, `[StringLength]`, `[MaxLength]`, `[MinLength]`, `[RegularExpression]`) become generated constraints on every `[Constraints]` type, not opt-in; other validation attributes get the Info diagnostic NECG010. |
 | `examples/Nullean.Entities.AotSmoke` | Published NativeAOT by `./build.sh aot`: proves the core and Reactive packages are trim/AOT clean (they build with `IsAotCompatible`; the CsCheck packages and the generator do not). |
 | `examples/Nullean.Entities.Integration.Examples` | Recipes that need only the shared framework: an ASP.NET Core endpoint filter (`ValidationProblem` keyed by `Violation.Member`) and a Marten-style event-sourced aggregate. EF Core and MassTransit recipes are in `docs/integration.md` only. |
@@ -121,6 +124,12 @@ nest them, so there is no `Name.Case1`. Group cases in a plain container class i
   document this, do not fight it.
 - Use **Soenneker.Utils.AutoBogus** (not the abandoned nickdodd79/AutoBogus). Set
   `autoFaker.Faker.Random = new PcgRandomizer(pcgRandom)` per-generate, not once at construction.
+
+## Spiked and dropped: ASP.NET Core built-in validation resolver
+
+An `IValidatableInfoResolver` (Microsoft.Extensions.Validation) would let `services.AddValidation()` validate registered constraint types with no per-endpoint filter. Not shipped:
+on net10.0 the whole surface is flagged evaluation-only (ASP0029, "subject to change or removal"), and net11.0 already changed it (`IValidatableTypeInfo` / `IValidatableParameterInfo` out
+parameters replace `IValidatableInfo`, so one source file cannot serve both TFMs). Revisit once it is stable; until then `ValidateWith`/`ValidateConstraints()` cover the minimal-API case.
 
 ## Suppressing warnings
 

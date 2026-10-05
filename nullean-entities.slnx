@@ -7,6 +7,9 @@
   <Project Path="src/Nullean.Entities.CsCheck.AutoBogus/Nullean.Entities.CsCheck.AutoBogus.csproj" />
   <Project Path="src/Nullean.Entities.FileSystem/Nullean.Entities.FileSystem.csproj" />
   <Project Path="src/Nullean.Entities.CsCheck.FileSystem/Nullean.Entities.CsCheck.FileSystem.csproj" />
+  <Project Path="src/Nullean.Entities.Extensions.DependencyInjection/Nullean.Entities.Extensions.DependencyInjection.csproj" />
+  <Project Path="src/Nullean.Entities.AspNetCore/Nullean.Entities.AspNetCore.csproj" />
+  <Project Path="src/Nullean.Entities.Argh/Nullean.Entities.Argh.csproj" />
   <Project Path="tests/Nullean.Entities.Tests/Nullean.Entities.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.SourceGenerators.Tests/Nullean.Entities.SourceGenerators.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Reactive.Tests/Nullean.Entities.Reactive.Tests.csproj" />
@@ -22,6 +25,9 @@
   <Project Path="examples/Apps/OrderFulfilment/OrderFulfilment.csproj" />
   <Project Path="examples/Apps/OrgChart/OrgChart.csproj" />
   <Project Path="examples/Apps/SupportDesk/SupportDesk.csproj" />
+  <Project Path="tests/Nullean.Entities.Extensions.DependencyInjection.Tests/Nullean.Entities.Extensions.DependencyInjection.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.AspNetCore.Tests/Nullean.Entities.AspNetCore.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.Argh.Tests/Nullean.Entities.Argh.Tests.csproj" />
   <Project Path="examples/Nullean.Entities.AotSmoke/Nullean.Entities.AotSmoke.csproj" />
   <Project Path="examples/Nullean.Entities.Examples/Nullean.Entities.Examples.csproj" />
   <Project Path="examples/Nullean.Entities.Integration.Examples/Nullean.Entities.Integration.Examples.csproj" />

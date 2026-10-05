@@ -1,7 +1,9 @@
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Nullean.Entities.AspNetCore;
 using Nullean.Entities.CsCheck;
+using Nullean.Entities.Extensions.DependencyInjection;
 using Nullean.Entities.Integration.Examples.AspNet;
 using Nullean.Entities.Integration.Examples.Marten;
 

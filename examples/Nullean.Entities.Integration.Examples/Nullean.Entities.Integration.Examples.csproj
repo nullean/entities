@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Integration recipes that need nothing beyond the shared framework: ASP.NET Core (minimal API endpoint filter) and a Marten-style
+  <!-- Integration recipes that need nothing beyond the shared framework: ASP.NET Core (the Nullean.Entities.AspNetCore package) and a Marten-style
        event-sourced aggregate. The EF Core and MassTransit recipes need those packages, so they are in docs/integration.md only. -->
   <PropertyGroup>
     <RootNamespace>Nullean.Entities.Integration.Examples</RootNamespace>
@@ -7,6 +7,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.AspNetCore/Nullean.Entities.AspNetCore.csproj" />
     <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>

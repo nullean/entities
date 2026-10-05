@@ -418,6 +418,9 @@ Eight console apps in [`examples/Apps`](examples/Apps), each a `Program.cs` that
 | `Nullean.Entities.CsCheck` | One-line tests from constraints (`Exhaustive`, `ForAll`, `Preserves`, `Probe`, `ConformTo`), `Script` runs, hostile-by-default generated data (`GenAuto.Of<T>`), Bogus rules | `Nullean.Entities.Reactive`, `CsCheck`, `Bogus` |
 | `Nullean.Entities.FileSystem` | *Optional.* Rules for `IFileInfo`/`IDirectoryInfo` (`Exist`, `StayInside`, `NotSymlink`, `NoHiddenSegments`, `HaveExtension`); trim and AOT clean | `Nullean.Entities`, `System.IO.Abstractions` |
 | `Nullean.Entities.CsCheck.FileSystem` | *Optional.* `UseFileSystem()`: generated `MockFileSystem` worlds for models that hold the file system | `Nullean.Entities.CsCheck`, `Nullean.Entities.FileSystem`, `System.IO.Abstractions.TestingHelpers` |
+| `Nullean.Entities.Extensions.DependencyInjection` | *Optional.* `AddConstraints<T>()`, `IOptions` validation with `ValidateConstraints()` | `Nullean.Entities`, `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Options` |
+| `Nullean.Entities.AspNetCore` | *Optional.* Endpoint filters, exception handler, result mapping and an MVC filter that answer violations with a 400 `ValidationProblem` | `Nullean.Entities.Extensions.DependencyInjection`, ASP.NET Core |
+| `Nullean.Entities.Argh` | *Optional.* `ArghConstraints.Register<T>()`: a [Nullean.Argh](https://github.com/nullean/argh) command's option objects are validated against constraints and reported as `Error: --flag: message` | `Nullean.Entities`, `Nullean.Argh.Interfaces` ≥ 0.21 |
 | `Nullean.Entities.CsCheck.AutoBogus` | *Optional.* An AutoBogus-backed generator for teams that already configure `AutoFaker` | `Nullean.Entities.CsCheck`, `Soenneker.Utils.AutoBogus` |
 
 ```sh

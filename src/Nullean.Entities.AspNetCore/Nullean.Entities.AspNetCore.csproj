@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>ASP.NET Core integration for Nullean.Entities: endpoint filters, a global exception handler, result mapping and an MVC action filter that answer constraint violations with a ValidationProblem.</Description>
+    <PackageTags>constraints validation aspnetcore minimal-api problem-details</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+    <ProjectReference Include="../Nullean.Entities.Extensions.DependencyInjection/Nullean.Entities.Extensions.DependencyInjection.csproj" />
+  </ItemGroup>
+</Project>

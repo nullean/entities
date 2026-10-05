@@ -1,11 +1,15 @@
 using System.Reactive.Subjects;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Nullean.Entities;
 using Nullean.Entities.AotSmoke;
+using Nullean.Entities.Extensions.DependencyInjection;
 using Nullean.Entities.Reactive;
 
 // Exercises the AOT-relevant surface of the core and Reactive packages. Exit code 0 means every check held.
 
 var failures = new List<string>();
+var account0 = new Account("A-0", -1m);
 
 void Expect(bool condition, string what)
 {
@@ -14,6 +18,24 @@ void Expect(bool condition, string what)
 		failures.Add(what);
 	}
 }
+
+// The DI registry and options validation: no reflection, so both survive NativeAOT
+var services = new ServiceCollection().AddConstraints<Account>().BuildServiceProvider();
+var registry = services.GetRequiredService<IConstraintRegistry>();
+Expect(registry.TryValidate(account0, out var registered) && registered.Count == 1, "registry validates a registered type");
+Expect(!registry.TryValidate("unregistered", out _), "registry ignores an unregistered type");
+var optionsServices = new ServiceCollection()
+	.AddOptions<AccountOptions>()
+	.Configure(o => o.Balance = -5m)
+	.ValidateConstraints(AccountOptions.Rules)
+	.Services
+	.BuildServiceProvider();
+var rejected = false;
+try
+{ _ = optionsServices.GetRequiredService<IOptions<AccountOptions>>().Value; }
+catch (OptionsValidationException)
+{ rejected = true; }
+Expect(rejected, "options validation rejects a bad value");
 
 // Generated constraints, Apply and its Result
 var account = new Account("A-1", 100m);
