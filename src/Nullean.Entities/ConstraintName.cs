@@ -9,7 +9,7 @@ namespace Nullean.Entities;
 public static class ConstraintName
 {
 	/// <summary>
-	/// The constraint id for a member name: <c>PathPrefixesUnique</c> becomes <c>path-prefixes-unique</c>, <c>URLPath</c> becomes <c>url-path</c>, <c>Value2Max</c> becomes <c>value2-max</c>.
+	/// The constraint id for a member name: <c>PathPrefixesUnique</c> becomes <c>path-prefixes-unique</c>, <c>URLPath</c> becomes <c>url-path</c>, <c>EntryTitleMax80</c> becomes <c>entry-title-max-80</c>.
 	/// The source generator names every constraint this way, so <c>ConstraintName.Of(nameof(Rules.PathPrefixesUnique))</c> is the id a violation of that rule carries.
 	/// </summary>
 	public static string Of(string memberName)
@@ -34,6 +34,10 @@ public static class ConstraintName
 				{
 					_ = sb.Append('-');
 				}
+			}
+			if (char.IsDigit(c) && sb.Length > 0 && char.IsLetter(sb[sb.Length - 1]))
+			{
+				_ = sb.Append('-');
 			}
 			_ = sb.Append(char.ToLowerInvariant(c));
 		}

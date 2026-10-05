@@ -35,6 +35,14 @@ internal static partial class StockRules
 public class StaticPropertyConstraintsTests
 {
 	[Test]
+	[Arguments("PathPrefixesUnique", "path-prefixes-unique")]
+	[Arguments("URLPath", "url-path")]
+	[Arguments("EntryTitleMax80", "entry-title-max-80")]
+	[Arguments("Under100", "under-100")]
+	[Arguments("Rule_Two", "rule-two")]
+	public void ConstraintName_makes_kebab_case_ids(string member, string id) => ConstraintName.Of(member).Should().Be(id);
+
+	[Test]
 	public void Auto_properties_are_the_rules_and_their_kebab_case_names_are_the_ids()
 	{
 		StockRules.All.AsConstraints().Select(c => c.Name).Should().Equal("on-hand-is-not-negative", "reserved-within-on-hand");
@@ -65,7 +73,7 @@ public class SelfAttachedConstraintsTests
 	public void Generated_Constraints_reflects_every_field_not_just_the_first()
 	{
 		var violations = GeneratedItem.Constraints.Validate(new GeneratedItem(200));
-		violations.Should().ContainSingle(v => v.ConstraintId == "under100");
+		violations.Should().ContainSingle(v => v.ConstraintId == "under-100");
 	}
 
 	[Test]
