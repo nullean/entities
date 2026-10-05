@@ -179,7 +179,7 @@ here if that changes.
    so a few large numbers cannot spill into the structure). The spike also found that collection counts were `picked * MaxCollection / 4`, so with `MaxCollection = 12` the only counts were
    0, 3, 6, 9 and 12: a failure at 4 or 5 items was unreachable and always shrank to 6 (0/200 reached 4). Each quarter of the distribution is now a range of counts, so every count from 0 to
    `MaxCollection` can occur in Plausible and Mixed data (identical to before at the default 4), and hostile data has every count from 0 to 5 and a wide one. With both changes the same
-   generator reaches 4 lines in 100/100 runs. `AutoCountsTests` keeps both true, and `Probe` now reports how large and deep the generated values were (`ProbeReport.Reach`), so a rule that
+   generator reaches 4 lines in 100/100 runs of the spike (about 99% over 400; the rest stop one item short). `AutoCountsTests` keeps both true, and `Probe` now reports how large and deep the generated values were (`ProbeReport.Reach`), so a rule that
    is "never violated" because the generator never got that big can be told from a tautology. — Answered and fixed.
 2. **Early exit cost.** Measured in the same spike. A candidate that cannot be smaller than the best failure so far is generated in full and then skipped (about 70% of all candidates in a real
    `GenAuto` tree shrink). Stopping as soon as the running size is no longer below `min`: on a value of up to 400 lines, median shrink time 12.6 ms to 0.22 ms (single-node sum) and
@@ -187,7 +187,7 @@ here if that changes.
    Caveat: a skipped candidate that stops early consumes fewer draws, so the search follows a different path afterwards; on the single-node sum it reached the 4-line minimum a little less
    often (144/200 against 159/200), on the chained size the same. **Done, automatically for big values:** a collection that plans at least `AutoOptions.EarlyExitFrom` (default 32) items stops
    drawing them while shrinking once its size cannot beat the bound; a smaller collection is generated exactly as before (tested). On `GenAuto` with `MaxCollection = 400`, a shrink takes
-   about 26 ms without it and 1 ms with it, and finds the same minimum (100/100 either way). An earlier threshold of "after 64 items drawn" saved only 2.6x, because every skipped
+   about 26 ms without it and 1 ms with it, and finds the same minimum as often (396 of 400 runs without it, 398 of 400 with it; the rest stop one item short, which CsCheck's bounded search does anyway). An earlier threshold of "after 64 items drawn" saved only 2.6x, because every skipped
    candidate still drew 64 items first; the planned count is known before anything is drawn. — Answered and done.
 3. **Global lock throughput.** Measured (Release, draws/second): AutoBogus-backed `Order` 71k on 1 thread, 120k on 4, 97k on 8;
    the CsCheck-native `GenAuto.Of<Order>()` 617k, 1.84M, 1.61M. Bogus's `Randomizer.Locker` is an `internal static` taken inside every

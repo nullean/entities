@@ -185,7 +185,7 @@ internal static class AutoDefaults
 
 	public static InvalidOperationException NoValidValues<T>(int attempts, Dictionary<string, int> rejections)
 	{
-		var sb = new StringBuilder($"AutoBogus produced no valid {typeof(T).Name} in {attempts} attempts. Most rejecting constraints: ");
+		var sb = new StringBuilder($"The generator produced no valid {typeof(T).Name} in {attempts} attempts. Most rejecting constraints: ");
 		sb.Append(string.Join(", ", rejections.OrderByDescending(r => r.Value).Take(5).Select(r => $"{r.Key} ({r.Value})")));
 		sb.Append(". Pass a starting value (Spec(initial)) or a generator that builds valid ones.");
 		return new InvalidOperationException(sb.ToString());
