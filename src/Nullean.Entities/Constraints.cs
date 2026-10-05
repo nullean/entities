@@ -459,6 +459,7 @@ public static partial class Constraints<T>
 		string? message = null,
 		Func<TItem, SourceLocation?>? at = null,
 		Func<TKey, int, string>? describe = null,
+		Func<TKey, IReadOnlyList<TItem>, string>? describeGroup = null,
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	)
 	{
@@ -474,7 +475,10 @@ public static partial class Constraints<T>
 						.Select(
 							g =>
 								new Violation(
-									describe?.Invoke(g.Key, g.Count()) ?? message ?? $"{self.Name ?? "Constraint"}: '{g.Key}' appears {g.Count()} times."
+									describeGroup?.Invoke(g.Key, [.. g]) ?? describe?.Invoke(
+										g.Key,
+										g.Count()
+									) ?? message ?? $"{self.Name ?? "Constraint"}: '{g.Key}' appears {g.Count()} times."
 								)
 
 								{

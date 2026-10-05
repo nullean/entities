@@ -257,6 +257,78 @@ public class ConstraintVocabularyTests
 	}
 
 	[Test]
+	public void Each_with_the_root_can_name_what_the_item_was_checked_against()
+	{
+		var set = ConstraintSet.From(
+			("known", Constraints<Release>.Each(r => r.Versions, (r, v) => r.Flags.Contains(v) ? null : $"'{v}' is not among {string.Join(", ", r.Flags)}"))
+		);
+
+		set.Validate(Make(versions: ["a", "z"], flags: ["a", "b"])).Single().Message.Should().Be("'z' is not among a, b");
+	}
+
+	[Test]
+	public void EachCheck_lets_one_item_report_several_violations_of_different_severity()
+	{
+		var set = ConstraintSet.From(
+			("item", Constraints<Release>.EachCheck(r => r.Versions, (_, v) => v == "bad" ? [Violation.Error("bad one"), Violation.Warning("also odd")] : []))
+		);
+
+		var found = set.Validate(Make(versions: ["ok", "bad"]));
+
+		found.Select(v => (v.Message, v.Severity)).Should().Equal(("bad one", Severity.Error), ("also odd", Severity.Warning));
+		found.Should().OnlyContain(v => v.Member == "Versions" && (string?)v.Evidence == "bad");
+	}
+
+	[Test]
+	public void OneOf_describe_sees_the_value_and_the_allowed_set()
+	{
+		var set = ConstraintSet.From(
+			("env", Constraints<Release>.OneOf(r => r.Env, ["a", "b"], describe: (v, allowed) => $"Environment '{v}' (allowed: {string.Join("|", allowed)})"))
+		);
+
+		set.Validate(Make(env: "x")).Single().Message.Should().Be("Environment 'x' (allowed: a|b)");
+	}
+
+	[Test]
+	public void Unique_describeGroup_sees_every_member_of_the_group()
+	{
+		var rule = Constraints<IReadOnlyList<Mount>>.Unique(
+			m => m,
+			m => m.Path.Length,
+			describeGroup: (len, members) => $"{members.Count} paths of length {len}: {string.Join(", ", members.Select(m => m.Path))}"
+		);
+
+		ConstraintSet.From(("u", rule)).Validate([new("ab"), new("cd"), new("e")]).Single().Message.Should().Be("2 paths of length 2: ab, cd");
+	}
+
+	[Test]
+	public void Disjoint_and_EachUsed_find_shared_keys_and_orphans()
+	{
+		var shared = ConstraintSet.From(("d", Constraints<Release>.Disjoint(r => r.Versions, r => r.Flags)));
+		var orphans = ConstraintSet.From(("o", Constraints<Release>.EachUsed(r => r.Versions, v => v, r => r.Flags)));
+
+		shared.Validate(Make(versions: ["a", "b"], flags: ["b", "c"])).Single().Evidence.Should().Be("b");
+		orphans.Validate(Make(versions: ["a", "b"], flags: ["b"])).Single().Evidence.Should().Be("a");
+	}
+
+	[Test]
+	public void NoPrefixes_TextNotSegment_reports_only_the_ambiguous_pair()
+	{
+		var rule = Constraints<IReadOnlyList<Mount>>.NoPrefixes(m => m, m => m.Path, PrefixMatch.TextNotSegment);
+
+		ConstraintSet.From(("m", rule)).Validate([new("a/b"), new("a/b/c"), new("a/bc")]).Single().Evidence.Should().Be(("a/b", "a/bc"));
+	}
+
+	[Test]
+	public void MonotonicPerKey_compares_each_entry_with_its_own_earlier_value()
+	{
+		var rule = Constraints<IReadOnlyList<(string Id, int At)>>.MonotonicPerKey(e => e, e => e.Id, e => e.At, MonotonicDirection.NonDecreasing);
+		var set = ConstraintSet.From(("at", rule));
+
+		set.Check([("a", 5), ("b", 5)], [("a", 6), ("b", 4), ("c", 1)]).Select(v => v.Evidence).Should().Equal((5, 4));
+	}
+
+	[Test]
 	public void A_rule_can_be_a_warning_until_a_date_and_an_error_after()
 	{
 		var rule = Constraints<Release>.Always(_ => false, "late").WithSeverityUntil(

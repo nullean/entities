@@ -14,6 +14,9 @@ public enum PrefixMatch
 
 	/// <summary>Plain text: <c>reference/elasticsearch</c> is also a prefix of <c>reference/elasticsearch-plugins</c>, the way a naive <c>StartsWith</c> sees it.</summary>
 	Text,
+
+	/// <summary>Only the ambiguous case: <c>reference/apm</c> and <c>reference/apm-agents</c>, where a text prefix is not a segment prefix. A real nesting (<c>reference/apm/x</c>) is not reported.</summary>
+	TextNotSegment,
 }
 
 #pragma warning disable CA1000
@@ -67,20 +70,22 @@ public static partial class Constraints<T>
 		IEqualityComparer<TValue>? comparer = null,
 		string? message = null,
 		Func<T, SourceLocation?>? at = null,
+		Func<TValue, TValue[], string>? describe = null,
 		[CallerArgumentExpression(nameof(select))] string? selectExpression = null
 	)
 	{
 		var list = allowed.ToArray();
-		return OneOf(select, _ => list, comparer, message, at, selectExpression);
+		return OneOf(select, _ => list, comparer, message, at, describe, selectExpression);
 	}
 
-	/// <summary><see cref="OneOf{TValue}(Func{T, TValue}, IEnumerable{TValue}, IEqualityComparer{TValue}, string, Func{T, SourceLocation}, string)"/> where the allowed values come from the value being checked (the keys of another dictionary in the same model).</summary>
+	/// <summary>The same as the overload with fixed allowed values, where the allowed values come from the value being checked (the keys of another dictionary in the same model).</summary>
 	public static Constraint<T> OneOf<TValue>(
 		Func<T, TValue> select,
 		Func<T, IEnumerable<TValue>> allowed,
 		IEqualityComparer<TValue>? comparer = null,
 		string? message = null,
 		Func<T, SourceLocation?>? at = null,
+		Func<TValue, TValue[], string>? describe = null,
 		[CallerArgumentExpression(nameof(select))] string? selectExpression = null
 	)
 	{
@@ -91,7 +96,7 @@ public static partial class Constraints<T>
 			var value = select(next);
 			return new HashSet<TValue>(list, comparer).Contains(value)
 				? []
-				: [new Violation(message ?? NotOneOf(value, list)) { Member = member, Evidence = value }.At(at?.Invoke(next))];
+				: [new Violation(describe?.Invoke(value, list) ?? message ?? NotOneOf(value, list)) { Member = member, Evidence = value }.At(at?.Invoke(next))];
 		});
 	}
 
@@ -101,19 +106,21 @@ public static partial class Constraints<T>
 		IEnumerable<TValue> allowed,
 		IEqualityComparer<TValue>? comparer = null,
 		string? message = null,
+		Func<TValue, TValue[], string>? describe = null,
 		[CallerArgumentExpression(nameof(values))] string? valuesExpression = null
 	)
 	{
 		var list = allowed.ToArray();
-		return EachOneOf(values, _ => list, comparer, message, valuesExpression);
+		return EachOneOf(values, _ => list, comparer, message, describe, valuesExpression);
 	}
 
-	/// <summary><see cref="EachOneOf{TValue}(Func{T, IEnumerable{TValue}}, IEnumerable{TValue}, IEqualityComparer{TValue}, string, string)"/> with the allowed values taken from the value being checked.</summary>
+	/// <summary>The same as the overload with fixed allowed values, with the allowed values taken from the value being checked.</summary>
 	public static Constraint<T> EachOneOf<TValue>(
 		Func<T, IEnumerable<TValue>> values,
 		Func<T, IEnumerable<TValue>> allowed,
 		IEqualityComparer<TValue>? comparer = null,
 		string? message = null,
+		Func<TValue, TValue[], string>? describe = null,
 		[CallerArgumentExpression(nameof(values))] string? valuesExpression = null
 	)
 	{
@@ -125,7 +132,7 @@ public static partial class Constraints<T>
 			return [
 				.. values(next)
 					.Where(v => !known.Contains(v))
-					.Select(v => new Violation(message ?? NotOneOf(v, list)) { Member = member, Evidence = v }),
+					.Select(v => new Violation(describe?.Invoke(v, list) ?? message ?? NotOneOf(v, list)) { Member = member, Evidence = v }),
 			];
 		});
 	}
@@ -297,7 +304,8 @@ public static partial class Constraints<T>
 					{
 						continue;
 					}
-					if (match == PrefixMatch.Segment && !(outer.EndsWith(separator) || inner[outer.Length] == separator))
+					var onSegment = outer.EndsWith(separator) || inner[outer.Length] == separator;
+					if (match == PrefixMatch.Segment ? !onSegment : match == PrefixMatch.TextNotSegment && onSegment)
 					{
 						continue;
 					}
@@ -309,6 +317,141 @@ public static partial class Constraints<T>
 				}
 			}
 			return found;
+		});
+	}
+	/// <summary><see cref="Each{TItem}(Func{T, IEnumerable{TItem}}, Func{TItem, string}, Func{TItem, SourceLocation}, string)"/> where the check also needs the value that holds the items (the catalogue an item refers into, the other items).</summary>
+	public static Constraint<T> Each<TItem>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<T, TItem, string?> problem,
+		Func<TItem, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	)
+	{
+		var member = MemberOf(itemsExpression);
+		return new(
+			ConstraintKind.PointInTime,
+			(_, next) =>
+				[
+					.. items(next)
+						.Select(item => (Item: item, Problem: problem(next, item)))
+						.Where(r => r.Problem is not null)
+						.Select(r => new Violation(r.Problem!) { Member = member, Evidence = r.Item }.At(at?.Invoke(r.Item))),
+				]
+		);
+	}
+
+	/// <summary>
+	/// Every item is checked by <paramref name="check"/>, which returns any number of violations of any severity: one item that breaks several rules,
+	/// or a warning for some items and an error for others. A violation without a member gets the collection's; one without a location gets <paramref name="at"/>'s.
+	/// </summary>
+	public static Constraint<T> EachCheck<TItem>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<T, TItem, IEnumerable<Violation>> check,
+		Func<TItem, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	)
+	{
+		var member = MemberOf(itemsExpression);
+		return new(
+			ConstraintKind.PointInTime,
+			(_, next) =>
+				[
+					.. items(next)
+						.SelectMany(
+							item =>
+								check(next, item)
+									.Select(v => (v.Member is null ? v with { Member = member } : v) with { Evidence = v.Evidence ?? item })
+									.Select(v => v.Line is null ? v.At(at?.Invoke(item)) : v)
+						),
+				]
+		);
+	}
+
+	/// <summary>Nothing may be in both <paramref name="first"/> and <paramref name="second"/>: a page both listed and excluded, a key both added and already present. One violation per shared key.</summary>
+	public static Constraint<T> Disjoint<TKey>(
+		Func<T, IEnumerable<TKey>> first,
+		Func<T, IEnumerable<TKey>> second,
+		IEqualityComparer<TKey>? comparer = null,
+		string? message = null,
+		Func<TKey, string>? describe = null,
+		[CallerArgumentExpression(nameof(first))] string? firstExpression = null
+	)
+	{
+		var member = MemberOf(firstExpression);
+		return new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var other = new HashSet<TKey>(second(next), comparer);
+			return [
+				.. first(next)
+					.Distinct(comparer)
+					.Where(other.Contains)
+					.Select(k => new Violation(describe?.Invoke(k) ?? message ?? $"'{k}' is in both collections.") { Member = member, Evidence = k }),
+			];
+		});
+	}
+
+	/// <summary>Every item must be used: <paramref name="used"/> lists the keys that are referred to, and an item whose key is not among them is an orphan (a declaration nothing uses, a mounted source nothing links to).</summary>
+	public static Constraint<T> EachUsed<TItem, TKey>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<TItem, TKey> key,
+		Func<T, IEnumerable<TKey>> used,
+		IEqualityComparer<TKey>? comparer = null,
+		string? message = null,
+		Func<TItem, string>? describe = null,
+		Func<TItem, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	)
+	{
+		var member = MemberOf(itemsExpression);
+		return new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var seen = new HashSet<TKey>(used(next), comparer);
+			return [
+				.. items(next)
+					.Where(i => !seen.Contains(key(i)))
+					.Select(
+						i =>
+							new Violation(describe?.Invoke(i) ?? message ?? $"'{key(i)}' is never used.") { Member = member, Evidence = key(i) }.At(
+								at?.Invoke(i)
+							)
+					),
+			];
+		});
+	}
+
+	/// <summary><see cref="Monotonic{TValue}"/> for every item of a collection, matched by key across the change: each entry's timestamp or counter may only move one way. Items that are new or gone are not compared.</summary>
+	public static Constraint<T> MonotonicPerKey<TItem, TKey, TValue>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<TItem, TKey> key,
+		Func<TItem, TValue> value,
+		MonotonicDirection direction,
+		string? message = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	) where TKey : notnull
+	{
+		var member = MemberOf(itemsExpression);
+		return new(ConstraintKind.Sequential, (prev, next) =>
+		{
+			var before = items(prev).GroupBy(key).ToDictionary(g => g.Key, g => value(g.First()));
+			return [
+				.. items(next)
+					.Where(i => before.ContainsKey(key(i)))
+					.Select(i => (Key: key(i), Before: before[key(i)], After: value(i)))
+					.Where(
+						r =>
+							direction == MonotonicDirection.NonDecreasing
+								? Comparer<TValue>.Default.Compare(r.After, r.Before) < 0
+								: Comparer<TValue>.Default.Compare(r.After, r.Before) > 0
+					)
+					.Select(
+						r =>
+							new Violation(message ?? $"'{r.Key}' moved from {r.Before} to {r.After}, but may only be {direction}.")
+							{
+								Member = member,
+								Evidence = (r.Before, r.After)
+							}
+					),
+			];
 		});
 	}
 }
