@@ -17,20 +17,54 @@ package signatures against the version you use.
 | What must happen over time (publish only after validation, reply within 10 minutes) | `Temporal<TEvent>` rules, checked over an event log or a live stream |
 | "Does my implementation follow the lifecycle diagram?" | `StateMachine<,>` and `ConformTo` in a test |
 
-## ASP.NET Core minimal APIs
+## ASP.NET Core (`Nullean.Entities.AspNetCore`)
 
-Reject a bad request body with a standard `ValidationProblem`, keyed by member (`Violation.Member`) or, for rules that are not about one member, by the rule's name:
+Reject a bad request with a standard `ValidationProblem`, keyed by member (`Violation.Member`) or, for rules that are not about one member, by the rule's name. Register the
+constraints once with `services.AddConstraints<T>()` (from `Nullean.Entities.Extensions.DependencyInjection`), then pick the hook that fits:
 
 ```csharp
+// One endpoint, with the set named or taken from T.Constraints:
 app.MapPost("/signup", (SignUp body) => Results.Created("/signup/1", body))
-   .ValidateWith(SignUpRules);                       // 400 + errors { "Email": ["Email must contain an @."] }
+   .ValidateWith<RouteHandlerBuilder, SignUp>();      // 400 + errors { "Email": ["must be an email address"] }
 
-// in a handler that applies a change and lets a violation throw:
-catch (ConstraintViolationException e) { return e.ToProblem(); }
+// A whole group: every argument whose type was registered is validated, no reflection:
+app.MapGroup("/api").ValidateConstraints();
+
+// Handlers that apply a change and let a violation throw need no try/catch:
+services.AddConstraintProblemDetails();               // + app.UseExceptionHandler()
+SignUp.Constraints.ApplyOrThrow(current, next);       // ConstraintViolationException becomes a 400
+
+// Or return the outcome: Result<T> and ApplyOutcome<T> map to 200 / 400.
+return SignUp.Constraints.Apply(current, change).ToHttpResult();
 ```
 
-`ConstraintFilter<T>`, `ValidateWith` and `ToProblem` are in `examples/Nullean.Entities.Integration.Examples/AspNet`. They are twenty lines; copy them. The filter validates the
-body only (`Validate`, point-in-time rules). For a change to an existing entity, call `Apply`/`ApplyOrThrow` in the handler so sequential rules (`Transitions`, `Monotonic`) see the before and after.
+For MVC controllers, `services.AddControllers().AddConstraintValidation()` validates registered action arguments into `ModelState`; an `[ApiController]` answers with its usual 400.
+`ModelState.AddViolations(violations, prefix)` is public for code that validates by hand.
+
+The filters validate the body only (`Validate`, point-in-time rules). For a change to an existing entity, call `Apply`/`ApplyOrThrow` in the handler so sequential rules
+(`Transitions`, `Monotonic`) see the before and after. The example is in `examples/Nullean.Entities.Integration.Examples/AspNet`.
+
+## Options (`Nullean.Entities.Extensions.DependencyInjection`)
+
+```csharp
+services.AddOptions<ServerOptions>().BindConfiguration("Server").ValidateConstraints(ServerRules).ValidateOnStart();
+```
+
+A violation fails startup with `OptionsValidationException`, with failures worded `Member: message`.
+
+## Command-line apps (`Nullean.Entities.Argh`)
+
+For a [Nullean.Argh](https://github.com/nullean/argh) command, register the constraints for its option type and a violation fails the way Argh's own checks do:
+
+```csharp
+ArghConstraints.Register<ServeOptions>();             // before RunAsync; or Register(ServeRules.All) for a companion's set
+
+app.Map("serve", ([AsParameters("serve")] ServeOptions options) => ...);
+// $ app serve --serve-port 70000
+// Error: --serve-port: must be between 1 and 65535        (then the flag's help rows and the usage line; exit code 2, handler not run)
+```
+
+It works through Argh's `ArghValidation` hook, so it covers `[AsParameters]`, global and namespace options, and `TryParseArgh` in tests. Needs Nullean.Argh 0.21.
 
 ## Marten and event sourcing (Decide / Evolve)
 
