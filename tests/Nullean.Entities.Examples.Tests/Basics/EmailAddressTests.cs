@@ -35,7 +35,7 @@ public class EmailAddressTests
 	[Test]
 	public void Probe_shows_the_default_generator_reaches_both_valid_and_invalid_addresses()
 	{
-		var entry = Constraints.Probe(throwOnContradiction: false).Entries.Single(e => e.Constraint == "ValidFormat");
+		var entry = Constraints.Probe(throwOnContradiction: false).Entries.Single(e => e.Constraint == "valid-format");
 
 		entry.Held.Should().BeGreaterThan(0);
 		entry.Violated.Should().BeGreaterThan(0);

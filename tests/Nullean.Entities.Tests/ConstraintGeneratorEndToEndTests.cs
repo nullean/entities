@@ -27,14 +27,14 @@ public class SelfAttachedConstraintsTests
 	public void Generated_Constraints_bundles_every_Constraint_field()
 	{
 		var violations = GeneratedItem.Constraints.Validate(new GeneratedItem(-1));
-		violations.Should().ContainSingle(v => v.ConstraintId == "Positive");
+		violations.Should().ContainSingle(v => v.ConstraintId == "positive");
 	}
 
 	[Test]
 	public void Generated_Constraints_reflects_every_field_not_just_the_first()
 	{
 		var violations = GeneratedItem.Constraints.Validate(new GeneratedItem(200));
-		violations.Should().ContainSingle(v => v.ConstraintId == "Under100");
+		violations.Should().ContainSingle(v => v.ConstraintId == "under100");
 	}
 
 	[Test]
@@ -79,7 +79,7 @@ public class CompanionClassConstraintsTests
 		var violations = GeneratedOrderSpec.All.Validate(order);
 
 		violations.Should().HaveCount(2);
-		violations.Select(v => v.ConstraintId).Should().Contain(["TotalNonNegative", "PaymentRefRequired"]);
+		violations.Select(v => v.ConstraintId).Should().Contain(["total-non-negative", "payment-ref-required"]);
 	}
 
 	[Test]

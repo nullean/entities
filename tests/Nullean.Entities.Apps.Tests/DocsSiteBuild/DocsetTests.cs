@@ -59,7 +59,7 @@ public class DocsetTests
 		var fs = World("title: T\npage: index.md\nimage: ../outside.svg\n");
 		fs.AddFile("/outside.svg", new MockFileData("<svg/>"));
 
-		DocsetRules.All.Validate(Load(fs)).Should().ContainSingle(v => v.ConstraintId == nameof(DocsetRules.FilesStayInTheDocset));
+		DocsetRules.All.Validate(Load(fs)).Should().ContainSingle(v => v.ConstraintId == ConstraintName.Of(nameof(DocsetRules.FilesStayInTheDocset)));
 	}
 
 	[Test]
@@ -68,7 +68,7 @@ public class DocsetTests
 		var fs = World("title: T\npage: ../docs-other/secret.md\n");
 		fs.AddFile("/docs-other/secret.md", new MockFileData("secret"));
 
-		DocsetRules.All.Validate(Load(fs)).Select(v => v.ConstraintId).Should().Contain(nameof(DocsetRules.FilesStayInTheDocset));
+		DocsetRules.All.Validate(Load(fs)).Select(v => v.ConstraintId).Should().Contain(ConstraintName.Of(nameof(DocsetRules.FilesStayInTheDocset)));
 	}
 
 	[Test]
@@ -80,7 +80,7 @@ public class DocsetTests
 
 		var ids = DocsetRules.All.Validate(Load(fs)).Select(v => v.ConstraintId).ToList();
 
-		ids.Should().Contain(nameof(DocsetRules.NoSymlinks)).And.Contain(nameof(DocsetRules.NoHiddenFolders));
+		ids.Should().Contain(ConstraintName.Of(nameof(DocsetRules.NoSymlinks))).And.Contain(ConstraintName.Of(nameof(DocsetRules.NoHiddenFolders)));
 	}
 
 	[Test]
@@ -89,11 +89,16 @@ public class DocsetTests
 		var fs = World("title: T\npage: index.md\npage: index.md\npage: guide/start.md\n");
 		fs.AddFile("/docs/notes.txt", new MockFileData("n"));
 		var twice = DocsetRules.All.Validate(Load(fs));
-		twice.Select(v => v.ConstraintId).Should().Contain(nameof(DocsetRules.PagesAreListedOnce));
+		twice.Select(v => v.ConstraintId).Should().Contain(ConstraintName.Of(nameof(DocsetRules.PagesAreListedOnce)));
 
 		var txt = World("title: T\npage: notes.txt\n");
 		txt.AddFile("/docs/notes.txt", new MockFileData("n"));
-		DocsetRules.All.Validate(Load(txt)).Select(v => v.ConstraintId).Should().Contain(nameof(DocsetRules.PagesAreMarkdown));
+		DocsetRules
+			.All
+			.Validate(Load(txt))
+			.Select(v => v.ConstraintId)
+			.Should()
+			.Contain(ConstraintName.Of(ConstraintName.Of(nameof(DocsetRules.PagesAreMarkdown))));
 	}
 
 	[Test]
@@ -142,9 +147,9 @@ public class DocsetTests
 					.Validate(docset)
 					.Where(
 						v =>
-							v.ConstraintId != nameof(DocsetRules.TitleIsRequired) && v.ConstraintId != nameof(
-								DocsetRules.PagesAreMarkdown
-							) && v.ConstraintId != nameof(DocsetRules.ImagesArePictures)
+							v.ConstraintId != ConstraintName.Of(nameof(DocsetRules.TitleIsRequired)) && v.ConstraintId != ConstraintName.Of(
+								nameof(DocsetRules.PagesAreMarkdown)
+							) && v.ConstraintId != ConstraintName.Of(nameof(DocsetRules.ImagesArePictures))
 					)
 					.Should()
 					.BeEmpty(),

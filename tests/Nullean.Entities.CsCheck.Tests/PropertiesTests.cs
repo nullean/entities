@@ -40,7 +40,7 @@ public class ConstraintPropertiesTests
 
 		var act = () => DoorConstraints.All.Preserves(broken, iter: 200);
 
-		act.Should().Throw<CsCheckException>().Which.Message.Should().Contain("ForceOpen").And.Contain("LegalTransitions");
+		act.Should().Throw<CsCheckException>().Which.Message.Should().Contain("ForceOpen").And.Contain("legal-transitions");
 	}
 
 	[Test]
@@ -56,7 +56,7 @@ public class ConstraintPropertiesTests
 	{
 		var report = DoorConstraints.All.Probe(samples: 200);
 
-		report.NeverViolated.Should().Contain("LockedDoorsAreNotOpen");
+		report.NeverViolated.Should().Contain("locked-doors-are-not-open");
 	}
 
 	[Test]
@@ -91,7 +91,7 @@ public class ConstraintPropertiesTests
 	{
 		var report = DoorConstraints.All.RejectsInvalid(attempts: 200);
 
-		report.Unfalsifiable.Should().Contain("LockedDoorsAreNotOpen");
+		report.Unfalsifiable.Should().Contain("locked-doors-are-not-open");
 	}
 
 	[Test]

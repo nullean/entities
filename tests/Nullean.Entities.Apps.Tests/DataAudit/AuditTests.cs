@@ -21,9 +21,9 @@ public class AuditTests
 			report.RowsWithErrors.Should().BeEquivalentTo(seeded.Errors);
 			report.RowsWithWarnings.Should().BeEquivalentTo(seeded.Warnings);
 			report.RowsWithHints.Should().BeEquivalentTo(seeded.Hints);
-			report.Count(nameof(TableRules.EmailsAreUnique)).Should().Be(seeded.DuplicateEmails);
-			report.Count(nameof(TableRules.ParentsExist)).Should().Be(seeded.OrphanedParents);
-			report.Count(nameof(TableRules.ParentsAreNotCircular)).Should().Be(seeded.Cycles);
+			report.Count(ConstraintName.Of(nameof(TableRules.EmailsAreUnique))).Should().Be(seeded.DuplicateEmails);
+			report.Count(ConstraintName.Of(nameof(TableRules.ParentsExist))).Should().Be(seeded.OrphanedParents);
+			report.Count(ConstraintName.Of(nameof(TableRules.ParentsAreNotCircular))).Should().Be(seeded.Cycles);
 		}
 	}
 

@@ -113,7 +113,7 @@ public class IntegrationTests
 	{
 		var act = () => Aggregate(InvoiceDecider.DecideWithoutOverpaymentGuard).Spec.Exhaustive();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("NotOverpaid");
+		act.Should().Throw<Exception>().Which.Message.Should().Contain("not-overpaid");
 	}
 
 	private static readonly TemporalRuleSet<object> NoPaymentAfterVoid = TemporalRuleSet<object>.From(

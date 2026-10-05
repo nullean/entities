@@ -65,7 +65,7 @@ public class EntitySpecTests
 
 		var act = () => spec.Exhaustive();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("LegalTransitions");
+		act.Should().Throw<Exception>().Which.Message.Should().Contain("legal-transitions");
 	}
 
 	[Test]
@@ -78,7 +78,7 @@ public class EntitySpecTests
 
 		var message = act.Should().Throw<VacuousPropertyException>().Which.Message;
 		message.Should().Contain("Closed->Locked");
-		message.Should().Contain("LockedDoorsAreNotOpen");
+		message.Should().Contain("locked-doors-are-not-open");
 	}
 
 	[Test]

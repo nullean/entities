@@ -32,7 +32,7 @@ public class ConstraintGeneratorShapeTests
 		source.Should().Contain("global::Nullean.Entities.IHaveConstraints<Item>");
 		source.Should().Contain("global::Nullean.Entities.ConstraintSet<global::Sample.Item>");
 		source.Should().Contain("global::Nullean.Entities.ConstraintSet.From(");
-		source.Should().Contain("(nameof(Positive), Positive)");
+		source.Should().Contain("(\"positive\", Positive)");
 	}
 
 	[Test]
@@ -124,7 +124,7 @@ public class ConstraintGeneratorShapeTests
 		source.Should().Contain("public static readonly TypeConstraints Instance = TypeConstraints.Instance;");
 		source.Should().Contain("global::Nullean.Entities.Reactive.ReactiveConstraintSet<global::Sample.Ev>");
 		source.Should().Contain("global::Nullean.Entities.Reactive.ReactiveConstraintSet.From(");
-		source.Should().Contain("(nameof(AlwaysHolds), AlwaysHolds)");
+		source.Should().Contain("(\"always-holds\", AlwaysHolds)");
 	}
 
 	[Test]
@@ -241,7 +241,7 @@ public class ConstraintGeneratorShapeTests
 
 		run.Diagnostics.Should().BeEmpty();
 		run.Generated.Should().HaveCount(2);
-		run.Generated.Should().Contain(g => g.Source.Contains("partial class EntityRules<TId>") && g.Source.Contains("\"LevelRange\""));
+		run.Generated.Should().Contain(g => g.Source.Contains("partial class EntityRules<TId>") && g.Source.Contains("\"level-range\""));
 		run.Generated.Should().Contain(g => g.Source.Contains("partial class Holder<TKey>") && g.Source.Contains("partial record Inner"));
 		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
 	}
@@ -378,8 +378,8 @@ public class ConstraintGeneratorShapeTests
 
 		run.Diagnostics.Should().BeEmpty();
 		var source = run.SingleGeneratedSource();
-		source.Should().Contain("(nameof(TotalPositive), TotalPositive)");
-		source.Should().Contain("(nameof(HasLines), HasLines)");
+		source.Should().Contain("(\"total-positive\", TotalPositive)");
+		source.Should().Contain("(\"has-lines\", HasLines)");
 	}
 
 	[Test]
@@ -408,7 +408,7 @@ public class ConstraintGeneratorShapeTests
 
 		run.Diagnostics.Should().BeEmpty();
 		var source = run.SingleGeneratedSource();
-		source.Should().Contain("(nameof(TotalPositive), TotalPositive)");
+		source.Should().Contain("(\"total-positive\", TotalPositive)");
 		source.Should().NotContain("NotARuleOfItsOwn");
 	}
 
@@ -436,7 +436,7 @@ public class ConstraintGeneratorShapeTests
 
 		run.Diagnostics.Should().BeEmpty();
 		var source = run.SingleGeneratedSource();
-		source.Split("nameof(TotalPositive)").Length.Should().Be(2, "TotalPositive must be bundled exactly once, not once per attribute that mentions it");
+		source.Split("\"total-positive\"").Length.Should().Be(2, "TotalPositive must be bundled exactly once, not once per attribute that mentions it");
 	}
 
 	[Test]
@@ -459,7 +459,7 @@ public class ConstraintGeneratorShapeTests
 		run.Diagnostics.Should().BeEmpty();
 		var source = run.SingleGeneratedSource();
 		source.Should().Contain("global::Nullean.Entities.IHaveConstraints<Item>");
-		source.Should().Contain("(nameof(Positive), Positive)");
+		source.Should().Contain("(\"positive\", Positive)");
 	}
 
 	[Test]
@@ -527,8 +527,8 @@ public class AnnotationGeneratorShapeTests
 		run.Diagnostics.Should().BeEmpty();
 		var source = run.SingleGeneratedSource();
 		source.Should().Contain("global::Nullean.Entities.IHaveConstraints<Person>");
-		source.Should().Contain("(\"NameRequired\", global::Nullean.Entities.Constraints<global::Sample.Person>.Always(x => x.Name,");
-		source.Should().Contain("(\"LevelRange\"");
+		source.Should().Contain("(\"name-required\", global::Nullean.Entities.Constraints<global::Sample.Person>.Always(x => x.Name,");
+		source.Should().Contain("(\"level-range\"");
 		source.Should().NotContain("Validator").And.NotContain("GetCustomAttribute").And.NotContain("typeof(");
 		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
 	}
@@ -551,7 +551,7 @@ public class AnnotationGeneratorShapeTests
 		var info = run.Diagnostics.Should().ContainSingle(d => d.Id == "NECG010").Which;
 		info.Severity.Should().Be(Microsoft.CodeAnalysis.DiagnosticSeverity.Info);
 		info.GetMessage().Should().Contain("Contact.Number").And.Contain("Phone");
-		run.SingleGeneratedSource().Should().Contain("NameRequired");
+		run.SingleGeneratedSource().Should().Contain("name-required");
 	}
 
 	[Test]
@@ -572,7 +572,7 @@ public class AnnotationGeneratorShapeTests
 		);
 
 		run.Diagnostics.Should().BeEmpty();
-		run.SingleGeneratedSource().Should().NotContain("Annotation").And.Contain("(nameof(Positive), Positive)");
+		run.SingleGeneratedSource().Should().NotContain("Annotation").And.Contain("(\"positive\", Positive)");
 	}
 
 	[Test]
@@ -594,7 +594,7 @@ public class AnnotationGeneratorShapeTests
 		);
 
 		var source = run.SingleGeneratedSource();
-		source.Should().Contain("(nameof(ValueRange), ValueRange)").And.Contain("\"ValueRangeAnnotation\"");
+		source.Should().Contain("(\"value-range\", ValueRange)").And.Contain("\"value-range-annotation\"");
 	}
 }
 
@@ -675,7 +675,7 @@ public class GenericConstraintsAttributeShapeTests
 
 		run.Diagnostics.Should().BeEmpty();
 		var source = run.SingleGeneratedSource();
-		source.Should().Contain("ConstraintSet<global::Sample.Order>").And.Contain("\"NumberRequired\"").And.Contain("\"QuantityRange\"");
+		source.Should().Contain("ConstraintSet<global::Sample.Order>").And.Contain("\"number-required\"").And.Contain("\"quantity-range\"");
 		source.Should().Contain("TypeConstraints : global::Nullean.Entities.IConstraintsFor<global::Sample.Order>").And.NotContain("IHaveConstraints");
 		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
 	}
@@ -720,6 +720,6 @@ public class GenericConstraintsAttributeShapeTests
 		);
 
 		run.Diagnostics.Should().BeEmpty();
-		run.SingleGeneratedSource().Should().Contain("IHaveConstraints<Order>").And.Contain("\"NumberRequired\"");
+		run.SingleGeneratedSource().Should().Contain("IHaveConstraints<Order>").And.Contain("\"number-required\"");
 	}
 }

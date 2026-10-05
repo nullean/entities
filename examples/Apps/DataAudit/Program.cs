@@ -19,9 +19,12 @@ Section("Checked against what was seeded");
 Expect(report.RowsWithErrors.SetEquals(seeded.Errors), $"every row with a wrong value was found, and no other ({seeded.Errors.Count} rows)");
 Expect(report.RowsWithWarnings.SetEquals(seeded.Warnings), $"every suspicious country was found as a warning ({seeded.Warnings.Count} rows)");
 Expect(report.RowsWithHints.SetEquals(seeded.Hints), $"every upper-case email was found as a hint ({seeded.Hints.Count} rows)");
-Expect(report.Count(nameof(TableRules.EmailsAreUnique)) == seeded.DuplicateEmails, $"{seeded.DuplicateEmails} shared emails, each reported once");
-Expect(report.Count(nameof(TableRules.ParentsExist)) == seeded.OrphanedParents, $"{seeded.OrphanedParents} dangling parents");
-Expect(report.Count(nameof(TableRules.ParentsAreNotCircular)) == seeded.Cycles, "the one parent cycle, reported once with its path");
+Expect(
+	report.Count(ConstraintName.Of(nameof(TableRules.EmailsAreUnique))) == seeded.DuplicateEmails,
+	$"{seeded.DuplicateEmails} shared emails, each reported once"
+);
+Expect(report.Count(ConstraintName.Of(nameof(TableRules.ParentsExist))) == seeded.OrphanedParents, $"{seeded.OrphanedParents} dangling parents");
+Expect(report.Count(ConstraintName.Of(nameof(TableRules.ParentsAreNotCircular))) == seeded.Cycles, "the one parent cycle, reported once with its path");
 
 Section("Severities decide what blocks a write");
 var (accepted, notices) = Auditor.TryInsert(new CustomerRow(1, "Ada@Example.com", "Germany", 100m, FakeTable.Now, null), clock);

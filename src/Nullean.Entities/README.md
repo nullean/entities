@@ -13,7 +13,7 @@ var alwaysPositive = Constraints<Item>.Always(item => item.Value > 0, "Value mus
 
 `message` is optional on every builder in this package (`Always`, `Transitions`, `Idempotent`,
 `Monotonic`, `Conserves`, `Requires`). Omitted, the violation names the constraint itself — whatever
-`.Named(...)` or `[Constraint]`'s generated `(nameof(field), field)` tuple gave it — and attaches the
+`.Named(...)` or `[Constraint]`'s generated id gave it (the kebab-case of the member name, `ConstraintName.Of(nameof(field))`) — and attaches the
 offending value(s) as `Violation.Evidence`, so a quick rule doesn't need prose until it's worth
 writing:
 
@@ -534,7 +534,7 @@ SignUp.Constraints.Validate(new SignUp("Ada", 12, "ABC-123"));   // AgeRange, Me
 A companion class picks them up too, even with no rule of its own: `[Constraints<Order>] public static partial class OrderRules;` generates `OrderRules.All` (and `OrderRules.Instance`, `OrderRules.Actions`) from the
 annotations on `Order`, plus any `Constraint<Order>` field you add. A plain `[Constraints]` companion that already declares `Constraint<Order>` fields gets them as well. A member about a different type is an error (NECG007).
 
-Names are `<Property><Attribute>` (`NameRequired`, `AgeRange`, `ReferencePattern`); if that collides with a constraint you declared, yours keeps the name and the annotation's gets an `Annotation` suffix.
+Names are the kebab-case of `<Property><Attribute>` (`name-required`, `age-range`, `reference-pattern`); if that collides with a constraint you declared, yours keeps the name and the annotation's gets an `Annotation` suffix.
 Each attribute means what DataAnnotations says it means: null passes everything except `[Required]`, an empty string passes `[RegularExpression]`, and a pattern must match the whole string.
 The generated code is plain C# with no `Validator` call and no reflection, so it is trim and AOT safe. `[ConstraintIgnore]` on a property leaves its annotations out. Any other validation
 attribute (`[Phone]`, a custom one, `IValidatableObject`) is reported as an Info diagnostic, `NECG010`, not skipped silently; write those as a `Constraint<T>`. Cross-field rules, collections and

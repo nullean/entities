@@ -353,8 +353,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			selfAttach ? "Constraints" : "All",
 			"global::Nullean.Entities.ConstraintSet.From(",
 			[
-				.. members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})"),
-				.. (annotations?.Entries ?? []).Select(e => $"({Annotations.Quote(e.Name)}, {e.Expression})"),
+				.. members.Select(m => $"({Annotations.Quote(global::Nullean.Entities.ConstraintName.Of(m.MemberName))}, {m.MemberName})"),
+				.. (annotations?.Entries ?? []).Select(e => $"({Annotations.Quote(global::Nullean.Entities.ConstraintName.Of(e.Name))}, {e.Expression})"),
 			],
 			nested,
 			ActionsMember(typeArgument, typeArgDisplay),
@@ -422,7 +422,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			propertyType,
 			"All",
 			"global::Nullean.Entities.Reactive.ReactiveConstraintSet.From(",
-			members.Select(m => $"(nameof({m.MemberName}), {m.MemberName})"),
+			members.Select(m => $"({Annotations.Quote(global::Nullean.Entities.ConstraintName.Of(m.MemberName))}, {m.MemberName})"),
 			nested
 		);
 	}

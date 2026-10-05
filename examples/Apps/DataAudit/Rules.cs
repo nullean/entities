@@ -82,14 +82,14 @@ public static class SchemaEquivalent
 {
 	public static readonly IReadOnlyDictionary<string, string> ByRule = new Dictionary<string, string>
 	{
-		[nameof(RowRules.EmailIsRequired)] = "email text NOT NULL",
-		[nameof(RowRules.EmailLooksValid)] = "CHECK (email LIKE '%_@_%._%')",
-		[nameof(RowRules.CreditLimitIsNotNegative)] = "CHECK (credit_limit >= 0)",
-		[nameof(RowRules.CreatedAtIsNotInTheFuture)] = "DEFAULT now(), and a trigger if clients may set it (a CHECK cannot read the clock)",
-		[nameof(RowRules.CountryIsAnIsoCode)] = "country char(2) REFERENCES country (code), once the cleanup is done",
-		[nameof(RowRules.EmailIsLowerCase)] = "normalise on write; UNIQUE (lower(email)) makes the casing irrelevant",
-		[nameof(TableRules.EmailsAreUnique)] = "CREATE UNIQUE INDEX ON customer (lower(email))",
-		[nameof(TableRules.ParentsExist)] = "FOREIGN KEY (parent_id) REFERENCES customer (id)",
-		[nameof(TableRules.ParentsAreNotCircular)] = "no declarative form: a trigger, or a recursive check in the write path",
+		[ConstraintName.Of(nameof(RowRules.EmailIsRequired))] = "email text NOT NULL",
+		[ConstraintName.Of(nameof(RowRules.EmailLooksValid))] = "CHECK (email LIKE '%_@_%._%')",
+		[ConstraintName.Of(nameof(RowRules.CreditLimitIsNotNegative))] = "CHECK (credit_limit >= 0)",
+		[ConstraintName.Of(nameof(RowRules.CreatedAtIsNotInTheFuture))] = "DEFAULT now(), and a trigger if clients may set it (a CHECK cannot read the clock)",
+		[ConstraintName.Of(nameof(RowRules.CountryIsAnIsoCode))] = "country char(2) REFERENCES country (code), once the cleanup is done",
+		[ConstraintName.Of(nameof(RowRules.EmailIsLowerCase))] = "normalise on write; UNIQUE (lower(email)) makes the casing irrelevant",
+		[ConstraintName.Of(nameof(TableRules.EmailsAreUnique))] = "CREATE UNIQUE INDEX ON customer (lower(email))",
+		[ConstraintName.Of(nameof(TableRules.ParentsExist))] = "FOREIGN KEY (parent_id) REFERENCES customer (id)",
+		[ConstraintName.Of(nameof(TableRules.ParentsAreNotCircular))] = "no declarative form: a trigger, or a recursive check in the write path",
 	};
 }
