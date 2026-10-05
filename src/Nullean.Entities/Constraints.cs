@@ -415,6 +415,7 @@ public static partial class Constraints<T>
 		string? message = null,
 		Func<T, SourceLocation?>? at = null,
 		string? member = null,
+		Func<TValue, string>? describe = null,
 		[CallerArgumentExpression(nameof(select))] string? selectExpression = null
 	)
 	{
@@ -425,7 +426,11 @@ public static partial class Constraints<T>
 			var value = select(next);
 			return predicate(value)
 				? []
-				: [new Violation(message ?? $"{self.Name ?? "Constraint"} was violated.") { Member = member, Evidence = value }.At(at?.Invoke(next))];
+				: [
+					new Violation(describe?.Invoke(value) ?? message ?? $"{self.Name ?? "Constraint"} was violated.") { Member = member, Evidence = value }.At(
+						at?.Invoke(next)
+					)
+				];
 		});
 		return self;
 	}

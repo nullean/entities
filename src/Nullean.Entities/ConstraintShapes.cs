@@ -285,6 +285,7 @@ public static partial class Constraints<T>
 		StringComparison comparison = StringComparison.Ordinal,
 		string? message = null,
 		Func<TItem, SourceLocation?>? at = null,
+		Func<TItem, TItem, string>? describe = null,
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	)
 	{
@@ -310,7 +311,11 @@ public static partial class Constraints<T>
 						continue;
 					}
 					found.Add(
-						new Violation(message ?? $"'{outer}' is a prefix of '{inner}'.") { Member = member, Evidence = (outer, inner) }.At(
+						new Violation(describe?.Invoke(sorted[i].Item, sorted[j].Item) ?? message ?? $"'{outer}' is a prefix of '{inner}'.")
+						{
+							Member = member,
+							Evidence = (outer, inner)
+						}.At(
 							at?.Invoke(sorted[j].Item)
 						)
 					);
@@ -419,6 +424,58 @@ public static partial class Constraints<T>
 		});
 	}
 
+	/// <summary>
+	/// Items that share a <paramref name="key"/> must agree on <paramref name="value"/>: one bundle, one product target; one label, one meaning. One violation per key
+	/// that maps to more than one distinct value, with the key as evidence. <paramref name="describe"/> receives the key and its distinct values.
+	/// </summary>
+	public static Constraint<T> Consistent<TItem, TKey, TValue>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<TItem, TKey> key,
+		Func<TItem, TValue> value,
+		IEqualityComparer<TKey>? keyComparer = null,
+		IEqualityComparer<TValue>? valueComparer = null,
+		string? message = null,
+		Func<TKey, IReadOnlyList<TValue>, string>? describe = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	) where TKey : notnull
+	{
+		var member = MemberOf(itemsExpression);
+		return new(
+			ConstraintKind.PointInTime,
+			(_, next) =>
+				[
+					.. items(next)
+						.GroupBy(key, keyComparer)
+						.Select(g => (g.Key, Values: g.Select(value).Distinct(valueComparer).ToList()))
+						.Where(g => g.Values.Count > 1)
+						.Select(
+							g =>
+								new Violation(
+									describe?.Invoke(
+										g.Key,
+										g.Values
+									) ?? message ?? $"'{g.Key}' has {g.Values.Count} different values: {string.Join(", ", g.Values)}."
+								)
+
+								{
+									Member = member,
+									Evidence = g.Key
+								}
+						),
+				]
+		);
+	}
+
+	/// <summary>
+	/// None of the named members may be set: obsolete keys that are still read from old files, fields that mean nothing in this mode. Each member that is set is one
+	/// violation, naming it and carrying its name as the member.
+	/// </summary>
+	public static Constraint<T> NoneOf(params (string Name, Func<T, bool> IsSet)[] members) =>
+		new(
+			ConstraintKind.PointInTime,
+			(_, next) => [.. members.Where(m => m.IsSet(next)).Select(m => new Violation($"'{m.Name}' must not be set.") { Member = m.Name })]
+		);
+
 	/// <summary><see cref="Monotonic{TValue}"/> for every item of a collection, matched by key across the change: each entry's timestamp or counter may only move one way. Items that are new or gone are not compared.</summary>
 	public static Constraint<T> MonotonicPerKey<TItem, TKey, TValue>(
 		Func<T, IEnumerable<TItem>> items,
@@ -426,6 +483,7 @@ public static partial class Constraints<T>
 		Func<TItem, TValue> value,
 		MonotonicDirection direction,
 		string? message = null,
+		Func<TKey, TValue, TValue, string>? describe = null,
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	) where TKey : notnull
 	{
@@ -445,7 +503,14 @@ public static partial class Constraints<T>
 					)
 					.Select(
 						r =>
-							new Violation(message ?? $"'{r.Key}' moved from {r.Before} to {r.After}, but may only be {direction}.")
+							new Violation(
+								describe?.Invoke(
+									r.Key,
+									r.Before,
+									r.After
+								) ?? message ?? $"'{r.Key}' moved from {r.Before} to {r.After}, but may only be {direction}."
+							)
+
 							{
 								Member = member,
 								Evidence = (r.Before, r.After)

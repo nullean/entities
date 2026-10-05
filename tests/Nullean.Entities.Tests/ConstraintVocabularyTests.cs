@@ -329,6 +329,48 @@ public class ConstraintVocabularyTests
 	}
 
 	[Test]
+	public void Consistent_reports_a_key_that_maps_to_several_values()
+	{
+		var rule = Constraints<IReadOnlyList<(string Bundle, string Product)>>.Consistent(e => e, e => e.Bundle, e => e.Product);
+
+		var found = ConstraintSet.From(("c", rule)).Validate([("a", "x"), ("a", "y"), ("b", "x"), ("b", "x")]);
+
+		found.Single().Evidence.Should().Be("a");
+		found.Single().Message.Should().Be("'a' has 2 different values: x, y.");
+	}
+
+	[Test]
+	public void NoneOf_names_each_member_that_is_set()
+	{
+		var set = ConstraintSet.From(("n", Constraints<Release>.NoneOf(("one", r => r.One is not null), ("other", r => r.Other is not null))));
+
+		set.Validate(Make()).Should().BeEmpty();
+		set.Validate(Make(one: "a", other: "b")).Select(v => v.Member).Should().Equal("one", "other");
+	}
+
+	[Test]
+	public void Always_describe_builds_the_message_from_the_value_and_the_other_hooks_take_their_items()
+	{
+		var always = ConstraintSet.From(("a", Constraints<Release>.Always(r => r.Env, e => e == "prod", describe: e => $"env '{e}' is not prod")));
+		var prefixes = ConstraintSet.From(
+			("p", Constraints<IReadOnlyList<Mount>>.NoPrefixes(m => m, m => m.Path, describe: (outer, inner) => $"{outer.Path} swallows {inner.Path}"))
+		);
+		var monotonic = ConstraintSet.From(
+			("m", Constraints<IReadOnlyList<(string Id, int At)>>.MonotonicPerKey(
+				e => e,
+				e => e.Id,
+				e => e.At,
+				MonotonicDirection.NonDecreasing,
+				describe: (k, b, a) => $"{k}: {b} -> {a}"
+			))
+		);
+
+		always.Validate(Make(env: "dev")).Single().Message.Should().Be("env 'dev' is not prod");
+		prefixes.Validate([new("a"), new("a/b")]).Single().Message.Should().Be("a swallows a/b");
+		monotonic.Check([("k", 3)], [("k", 1)]).Single().Message.Should().Be("k: 3 -> 1");
+	}
+
+	[Test]
 	public void A_rule_can_be_a_warning_until_a_date_and_an_error_after()
 	{
 		var rule = Constraints<Release>.Always(_ => false, "late").WithSeverityUntil(
