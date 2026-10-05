@@ -476,6 +476,13 @@ public static partial class Constraints<T>
 			(_, next) => [.. members.Where(m => m.IsSet(next)).Select(m => new Violation($"'{m.Name}' must not be set.") { Member = m.Name })]
 		);
 
+	/// <summary><c>NoneOf</c> where each member carries its own message (the advice for an obsolete key: what to use instead).</summary>
+	public static Constraint<T> NoneOf(params (string Name, Func<T, bool> IsSet, string Message)[] members) =>
+		new(
+			ConstraintKind.PointInTime,
+			(_, next) => [.. members.Where(m => m.IsSet(next)).Select(m => new Violation(m.Message) { Member = m.Name })]
+		);
+
 	/// <summary><see cref="Monotonic{TValue}"/> for every item of a collection, matched by key across the change: each entry's timestamp or counter may only move one way. Items that are new or gone are not compared.</summary>
 	public static Constraint<T> MonotonicPerKey<TItem, TKey, TValue>(
 		Func<T, IEnumerable<TItem>> items,
