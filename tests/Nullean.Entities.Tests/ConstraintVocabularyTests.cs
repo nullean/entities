@@ -392,6 +392,27 @@ public class ConstraintVocabularyTests
 		ConstraintSet.From(("env", rule)).Validate(absent).Should().BeEmpty();
 	}
 
+	internal enum Visual { None, Groups, All }
+
+	[Test]
+	public void NoUnknownKeys_ParsesAsEnum_Matches_and_RatioAtMost()
+	{
+		var unknown = ConstraintSet.From(("u", Constraints<Release>.NoUnknownKeys(r => r.Flags, "Known keys are a, b.")));
+		var visual = ConstraintSet.From(("v", Constraints<Release>.ParsesAsEnum<Visual>(r => r.One)));
+		var matches = ConstraintSet.From(("m", Constraints<Release>.Matches(r => r.One, r => r.Other, describe: (a, e) => $"wrote '{a}', expected '{e}'")));
+		var ratio = ConstraintSet.From(("r", Constraints<Release>.RatioAtMost(r => r.Versions.Count, r => r.Flags.Count, 0.5)));
+
+		unknown.Validate(Make(flags: ["typo"])).Single().Message.Should().Be("Unknown key 'typo'. Known keys are a, b.");
+		visual.Validate(Make(one: "GROUPS")).Should().BeEmpty();
+		visual.Validate(Make()).Should().BeEmpty();
+		visual.Validate(Make(one: "everything")).Single().Message.Should().Be("'everything' is not one of None, Groups, All.");
+		visual.Validate(Make(one: "7")).Should().HaveCount(1);
+		matches.Validate(Make(one: "a", other: "b")).Single().Message.Should().Be("wrote 'a', expected 'b'");
+		ratio.Validate(Make(versions: ["1", "2", "3"], flags: ["a", "b", "c", "d"])).Should().HaveCount(1);
+		ratio.Validate(Make(versions: ["1"], flags: ["a", "b", "c", "d"])).Should().BeEmpty();
+		ratio.Validate(Make(versions: ["1"])).Should().BeEmpty();
+	}
+
 	[Test]
 	public void A_rule_can_be_a_warning_until_a_date_and_an_error_after()
 	{

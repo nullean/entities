@@ -476,6 +476,90 @@ public static partial class Constraints<T>
 			(_, next) => [.. members.Where(m => m.IsSet(next)).Select(m => new Violation($"'{m.Name}' must not be set.") { Member = m.Name })]
 		);
 
+	/// <summary>
+	/// Keys the loader dropped because it did not know them (<c>UnknownKeys</c> on a model that records what it hid): each one is a violation naming it,
+	/// with <paramref name="advice"/> appended (what the known keys are, or where the setting moved). A typo in a YAML file is otherwise silent.
+	/// </summary>
+	public static Constraint<T> NoUnknownKeys(
+		Func<T, IEnumerable<string>> unknown,
+		string? advice = null,
+		[CallerArgumentExpression(nameof(unknown))] string? unknownExpression = null
+	)
+	{
+		var member = MemberOf(unknownExpression);
+		return new(
+			ConstraintKind.PointInTime,
+			(_, next) =>
+				[.. unknown(next).Select(k => new Violation($"Unknown key '{k}'.{(advice is null ? "" : " " + advice)}") { Member = member, Evidence = k })]
+		);
+	}
+
+	/// <summary>
+	/// The text a loader coerced into an enum (<c>"Visual: all"</c> to <c>ListingVisual.All</c>) must parse as <typeparamref name="TEnum"/>, which is what the loader quietly falls back
+	/// from when it does not. Null (not written) passes. The default message lists the names the enum has.
+	/// </summary>
+	public static Constraint<T> ParsesAsEnum<TEnum>(
+		Func<T, string?> raw,
+		bool ignoreCase = true,
+		string? message = null,
+		[CallerArgumentExpression(nameof(raw))] string? rawExpression = null
+	) where TEnum : struct, Enum
+	{
+		var member = MemberOf(rawExpression);
+		return new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var text = raw(next);
+			return text is null || (Enum.TryParse<TEnum>(text.Trim(), ignoreCase, out var parsed) && !int.TryParse(
+				text.Trim(),
+				out var number
+			) && Enum.IsDefined(parsed))
+				? []
+				: [new Violation(message ?? $"'{text}' is not one of {string.Join(", ", Enum.GetNames<TEnum>())}.") { Member = member, Evidence = text }];
+		});
+	}
+
+	/// <summary>The value <paramref name="actual"/> picks out must equal the one <paramref name="expected"/> derives (a file named after its docset, a key stored twice): <paramref name="describe"/> receives both.</summary>
+	public static Constraint<T> Matches<TValue>(
+		Func<T, TValue> actual,
+		Func<T, TValue> expected,
+		IEqualityComparer<TValue>? comparer = null,
+		Func<TValue, TValue, string>? describe = null,
+		string? member = null,
+		[CallerArgumentExpression(nameof(actual))] string? actualExpression = null
+	)
+	{
+		member ??= MemberOf(actualExpression);
+		var equal = comparer ?? EqualityComparer<TValue>.Default;
+		return new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var a = actual(next);
+			var e = expected(next);
+			return equal.Equals(a, e)
+				? []
+				: [new Violation(describe?.Invoke(a, e) ?? $"Expected '{e}' but found '{a}'.") { Member = member, Evidence = (a, e) }];
+		});
+	}
+
+	/// <summary>
+	/// <paramref name="part"/> may be at most <paramref name="max"/> of <paramref name="whole"/> (a delete plan that removes at most 20% of the remote files). A whole of zero passes:
+	/// there is nothing to take a share of.
+	/// </summary>
+	public static Constraint<T> RatioAtMost(
+		Func<T, double> part,
+		Func<T, double> whole,
+		double max,
+		string? message = null,
+		string? member = null
+	) =>
+		new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var w = whole(next);
+			var p = part(next);
+			return w <= 0 || p / w <= max
+				? []
+				: [new Violation(message ?? $"{p} of {w} ({p / w:P0}) is more than the allowed {max:P0}.") { Member = member, Evidence = (p, w) }];
+		});
+
 	/// <summary><c>NoneOf</c> where each member carries its own message (the advice for an obsolete key: what to use instead).</summary>
 	public static Constraint<T> NoneOf(params (string Name, Func<T, bool> IsSet, string Message)[] members) =>
 		new(
