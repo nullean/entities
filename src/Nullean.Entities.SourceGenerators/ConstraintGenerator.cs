@@ -135,7 +135,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	private static IEnumerable<MemberInfo> AutoMembers(INamedTypeSymbol type) =>
 		type
 			.GetMembers()
-			.Where(m => m is IFieldSymbol or IPropertySymbol && m.IsStatic)
+			// An auto-property's compiler-made backing field is not a member the author wrote: the property is the member.
+			.Where(m => m is IFieldSymbol { IsImplicitlyDeclared: false } or IPropertySymbol && m.IsStatic)
 			.Where(m => !m.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnoreAttributeMetadataName))
 			.Select(
 				m =>

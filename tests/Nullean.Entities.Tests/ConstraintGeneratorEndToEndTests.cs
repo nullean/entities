@@ -18,6 +18,37 @@ internal sealed partial record GeneratedItem(int Value)
 	public static readonly Constraint<GeneratedItem> Under100 = Constraints<GeneratedItem>.Check(i => i.Value <= 100 ? [] : [Violation.Warning("exceeds 100")]);
 }
 
+// ── Static properties: the property name is the id, kebab-cased ──────────────────
+
+internal sealed record Stock(int OnHand, int Reserved);
+
+[Constraints]
+internal static partial class StockRules
+{
+	public static Constraint<Stock> OnHandIsNotNegative { get; } = Constraints<Stock>.Always(s => s.OnHand >= 0, "negative stock");
+
+	public static Constraint<Stock> ReservedWithinOnHand { get; } = Constraints<Stock>.Always(s => s.Reserved <= s.OnHand, "over-reserved").Describe(
+		"Reserved stock exists."
+	);
+}
+
+public class StaticPropertyConstraintsTests
+{
+	[Test]
+	public void Auto_properties_are_the_rules_and_their_kebab_case_names_are_the_ids()
+	{
+		StockRules.All.AsConstraints().Select(c => c.Name).Should().Equal("on-hand-is-not-negative", "reserved-within-on-hand");
+		StockRules
+			.All
+			.AsConstraints()
+			.Select(c => c.Name)
+			.Should()
+			.Equal(ConstraintName.Of(nameof(StockRules.OnHandIsNotNegative)), ConstraintName.Of(nameof(StockRules.ReservedWithinOnHand)));
+		StockRules.All.Validate(new Stock(1, 5)).Single().ConstraintId.Should().Be("reserved-within-on-hand");
+		StockRules.All.AsConstraints()[1].Description.Should().Be("Reserved stock exists.");
+	}
+}
+
 public class SelfAttachedConstraintsTests
 {
 	[Test]
