@@ -231,7 +231,7 @@ public enum ConstraintKind
 /// A named, synchronous rule over <typeparamref name="T"/>. Lives anywhere — static field on a
 /// record, local variable, constructor parameter. Built only through <see cref="Constraints{T}"/>.
 /// </summary>
-public sealed class Constraint<T>
+public sealed partial class Constraint<T>
 {
 	/// <summary>
 	/// Set by <see cref="Named"/>, or by the (nameof(field), field) tuple <see cref="ConstraintSet"/>'s
@@ -385,7 +385,7 @@ public enum MonotonicDirection
 // Constraints<TEvent> so the same vocabulary reads the same way on both sides of ToReactive().
 
 #pragma warning disable CA1000
-public static class Constraints<T>
+public static partial class Constraints<T>
 {
 	/// <summary>
 	/// Violated whenever <paramref name="predicate"/> is false for the value being checked.
@@ -414,11 +414,12 @@ public static class Constraints<T>
 		Func<TValue, bool> predicate,
 		string? message = null,
 		Func<T, SourceLocation?>? at = null,
+		string? member = null,
 		[CallerArgumentExpression(nameof(select))] string? selectExpression = null
 	)
 	{
 		Constraint<T> self = null!;
-		var member = MemberOf(selectExpression);
+		member ??= MemberOf(selectExpression);
 		self = new(ConstraintKind.PointInTime, (_, next) =>
 		{
 			var value = select(next);
@@ -457,6 +458,7 @@ public static class Constraints<T>
 		IEqualityComparer<TKey>? comparer = null,
 		string? message = null,
 		Func<TItem, SourceLocation?>? at = null,
+		Func<TKey, int, string>? describe = null,
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	)
 	{
@@ -471,7 +473,10 @@ public static class Constraints<T>
 						.Where(g => g.Count() > 1)
 						.Select(
 							g =>
-								new Violation(message ?? $"{self.Name ?? "Constraint"}: '{g.Key}' appears {g.Count()} times.")
+								new Violation(
+									describe?.Invoke(g.Key, g.Count()) ?? message ?? $"{self.Name ?? "Constraint"}: '{g.Key}' appears {g.Count()} times."
+								)
+
 								{
 									Member = member,
 									Evidence = g.Key
@@ -493,6 +498,7 @@ public static class Constraints<T>
 		IEqualityComparer<TKey>? comparer = null,
 		string? message = null,
 		Func<TItem, SourceLocation?>? at = null,
+		Func<TItem, TKey, string>? describe = null,
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	)
 	{
@@ -506,7 +512,10 @@ public static class Constraints<T>
 					.SelectMany(item => references(item).Where(r => !known.Contains(r)).Select(r => (Item: item, Reference: r)))
 					.Select(
 						d =>
-							new Violation(message ?? $"{self.Name ?? "Constraint"}: '{d.Reference}' refers to nothing.")
+							new Violation(
+								describe?.Invoke(d.Item, d.Reference) ?? message ?? $"{self.Name ?? "Constraint"}: '{d.Reference}' refers to nothing."
+							)
+
 							{
 								Member = member,
 								Evidence = d.Reference
@@ -606,6 +615,7 @@ public static class Constraints<T>
 		IEqualityComparer<TKey>? comparer = null,
 		string? message = null,
 		Func<TValue, SourceLocation?>? at = null,
+		Func<TKey, TValue, string>? describe = null,
 		[CallerArgumentExpression(nameof(entries))] string? entriesExpression = null
 	)
 	{
@@ -618,7 +628,13 @@ public static class Constraints<T>
 						.Where(e => !equal.Equals(e.Key, key(e.Value)))
 						.Select(
 							e =>
-								new Violation(message ?? $"{self.Name ?? "Constraint"}: the entry '{e.Key}' holds a value whose own key is '{key(e.Value)}'.")
+								new Violation(
+									describe?.Invoke(
+										e.Key,
+										e.Value
+									) ?? message ?? $"{self.Name ?? "Constraint"}: the entry '{e.Key}' holds a value whose own key is '{key(e.Value)}'."
+								)
+
 								{
 									Member = member,
 									Evidence = (e.Key, key(e.Value))
@@ -639,6 +655,7 @@ public static class Constraints<T>
 		IEqualityComparer<TKey>? comparer = null,
 		string? message = null,
 		Func<TItem, SourceLocation?>? at = null,
+		Func<TItem, string>? describe = null,
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	)
 	{
@@ -654,7 +671,7 @@ public static class Constraints<T>
 					.Where(i => !equal.Equals(from(i), to(i)) && sources.Contains(to(i)))
 					.Select(
 						i =>
-							new Violation(message ?? $"{self.Name ?? "Constraint"}: '{from(i)}' maps to '{to(i)}', which maps onwards.")
+							new Violation(describe?.Invoke(i) ?? message ?? $"{self.Name ?? "Constraint"}: '{from(i)}' maps to '{to(i)}', which maps onwards.")
 							{
 								Member = member,
 								Evidence = (from(i), to(i))
@@ -1025,7 +1042,7 @@ public interface IConstraintsFor<T>
 // ── ConstraintSet<T> ──────────────────────────────────────────────────────────
 // A named, ordered collection of Constraint<T>s.
 
-public sealed class ConstraintSet<T>
+public sealed partial class ConstraintSet<T>
 {
 	private readonly IReadOnlyList<Constraint<T>> _constraints;
 
