@@ -371,6 +371,28 @@ public class ConstraintVocabularyTests
 	}
 
 	[Test]
+	public void Authored_keeps_what_was_written_next_to_what_the_loader_made_of_it()
+	{
+		var written = Authored.Of(" INTERNAL ", "internal");
+		var absent = Authored.Defaulted("internal");
+		string used = written;
+
+		used.Should().Be("internal");
+		written.IsWritten.Should().BeTrue();
+		written.WasChanged.Should().BeTrue();
+		absent.IsWritten.Should().BeFalse();
+		Authored.Written("prod").WasChanged.Should().BeFalse();
+
+		var rule = Constraints<Authored<string>>.Always(
+			a => a.Raw,
+			raw => raw is null || raw == raw.Trim().ToLowerInvariant(),
+			"write the environment trimmed and lower-case"
+		);
+		ConstraintSet.From(("env", rule)).Validate(written).Should().HaveCount(1);
+		ConstraintSet.From(("env", rule)).Validate(absent).Should().BeEmpty();
+	}
+
+	[Test]
 	public void A_rule_can_be_a_warning_until_a_date_and_an_error_after()
 	{
 		var rule = Constraints<Release>.Always(_ => false, "late").WithSeverityUntil(
