@@ -645,6 +645,10 @@ public sealed partial class ConstraintSet<T>
 	public ConstraintSet<T> Strict() =>
 		new([.. _constraints.Select(c => c.Copy().Escalate())]);
 
+	/// <summary>The same set without these rules, named by handle (the property a constraint class declares) rather than by string: a deliberate suppression that survives a rename. A rule that is not in the set throws.</summary>
+	public ConstraintSet<T> Without(params Constraint<T>[] rules) =>
+		Without([.. rules.Select(r => r.Name ?? throw new ArgumentException("A rule without a name cannot be removed by handle.", nameof(rules)))]);
+
 	/// <summary>The same set without the named rules: a deliberate suppression, visible where it is made. A name that is not in the set throws.</summary>
 	public ConstraintSet<T> Without(params string[] names)
 	{
