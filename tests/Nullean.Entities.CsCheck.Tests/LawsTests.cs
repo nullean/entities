@@ -154,7 +154,7 @@ public class LawsTests
 	{
 		var act = () => Good().Laws(GenAuto.Of<Stocked>(AutoMode.Adversarial), requireCounterExamples: false);
 
-		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Generated values are not valid");
+		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Generated values are not valid").And.Contain("Stocked { Sku = ");
 	}
 
 	[Test]

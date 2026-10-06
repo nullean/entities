@@ -214,7 +214,7 @@ public static class ConstraintLaws
 			}
 			if (examples.Count < 3)
 			{
-				examples.Add($"{ConstraintProperties.SafePrint(value)} breaks {string.Join("; ", broken.Select(v => $"{v.ConstraintId}: {v.Message}"))}");
+				examples.Add($"{ValuePrinter.Print(value)} breaks {string.Join("; ", broken.Select(v => $"{v.ConstraintId}: {v.Message}"))}");
 			}
 		}
 		if (brokenBy.Count > 0)
@@ -302,7 +302,7 @@ public static class ConstraintLaws
 				if (ids.Count > 1)
 				{
 					firstIssue ??=
-						$"{name}: its counter-example ({how}), derived from {ConstraintProperties.SafePrint(baseValue)}, also breaks {string.Join(", ", ids.Where(i => i != name))}, so a failure would not point at one cause.";
+						$"{name}: its counter-example ({how}), derived from {ValuePrinter.Print(baseValue)}, also breaks {string.Join(", ", ids.Where(i => i != name))}, so a failure would not point at one cause.";
 					continue;
 				}
 				reached++;
