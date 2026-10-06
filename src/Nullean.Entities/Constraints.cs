@@ -231,7 +231,7 @@ public enum ConstraintKind
 /// A named, synchronous rule over <typeparamref name="T"/>. Lives anywhere — static field on a
 /// record, local variable, constructor parameter. Built only through <see cref="Constraints{T}"/>.
 /// </summary>
-public sealed partial class Constraint<T>
+public partial class Constraint<T>
 {
 	/// <summary>
 	/// Set by <see cref="Named"/>, or by the (nameof(field), field) tuple <see cref="ConstraintSet"/>'s
@@ -457,7 +457,7 @@ public static partial class Constraints<T>
 	/// Violated by every key that more than one item has: a silent overwrite waiting to happen (two pages at one URL, two entries with one id).
 	/// Each duplicated key is one violation with the key as evidence.
 	/// </summary>
-	public static Constraint<T> Unique<TItem, TKey>(
+	public static Constraint<T, TKey> Unique<TItem, TKey>(
 		Func<T, IEnumerable<TItem>> items,
 		Func<TItem, TKey> key,
 		IEqualityComparer<TKey>? comparer = null,
@@ -468,7 +468,7 @@ public static partial class Constraints<T>
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	)
 	{
-		Constraint<T> self = null!;
+		Constraint<T, TKey> self = null!;
 		var member = MemberOf(itemsExpression);
 		self = new(
 			ConstraintKind.PointInTime,
@@ -500,7 +500,7 @@ public static partial class Constraints<T>
 	/// Referential integrity within a value: every key an item refers to (<paramref name="references"/>, none or many per item) must be one of
 	/// <paramref name="targets"/>. Each dangling reference is one violation, with the key as evidence.
 	/// </summary>
-	public static Constraint<T> References<TItem, TKey>(
+	public static Constraint<T, TKey> References<TItem, TKey>(
 		Func<T, IEnumerable<TItem>> items,
 		Func<TItem, IEnumerable<TKey>> references,
 		Func<T, IEnumerable<TKey>> targets,
@@ -511,7 +511,7 @@ public static partial class Constraints<T>
 		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
 	)
 	{
-		Constraint<T> self = null!;
+		Constraint<T, TKey> self = null!;
 		var member = MemberOf(itemsExpression);
 		self = new(ConstraintKind.PointInTime, (_, next) =>
 		{

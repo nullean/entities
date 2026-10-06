@@ -32,6 +32,81 @@ internal static partial class StockRules
 	);
 }
 
+internal sealed record Docset(IReadOnlyList<string> CrossLinks, IReadOnlyList<string> Products);
+
+internal sealed record RejectedProduct(string Name);
+
+[Constraints]
+internal static partial class DocsetRules
+{
+	// The rule's evidence is the offending text itself.
+	public static Constraint<Docset, string> CrossLinkWellFormed { get; } =
+		Constraints<Docset>.Each(d => d.CrossLinks, link => link.Contains("://") ? null : $"'{link}' has no registry").Describe("Cross links name a registry.");
+
+	// A warning never rejects anything.
+	public static Constraint<Docset, string> ProductsLowerCase { get; } =
+		Constraints<Docset>.Each(d => d.Products, p => p == p.ToLowerInvariant() ? null : $"'{p}' is not lower case").WithSeverity(Severity.Warning);
+
+	// The evidence is a record the rule builds, not the item.
+	public static Constraint<Docset, RejectedProduct> ProductKnown { get; } =
+		Constraints<Docset>.EachCheck<string, RejectedProduct>(
+			d => d.Products,
+			(_, p) => p.StartsWith('x') ? [new Violation($"unknown product {p}") { Evidence = new RejectedProduct(p) }] : []
+		);
+}
+
+public class TypedEvidenceTests
+{
+	private static readonly Docset Sample = new([" kibana://a ", "oops", "es://b"], ["kibana", "Xray", "xyz"]);
+
+	[Test]
+	public void A_generated_set_accepts_typed_rule_members_and_names_them()
+	{
+		DocsetRules.All.AsConstraints().Select(c => c.Name).Should().Equal("cross-link-well-formed", "products-lower-case", "product-known");
+		DocsetRules.CrossLinkWellFormed.Name.Should().Be("cross-link-well-formed");
+		DocsetRules.CrossLinkWellFormed.Description.Should().Be("Cross links name a registry.");
+	}
+
+	[Test]
+	public void Keep_drops_what_the_rule_rejected_and_returns_the_original_items_in_order()
+	{
+		var report = DocsetRules.All.Report(Sample);
+
+		report.Keep(Sample.CrossLinks, DocsetRules.CrossLinkWellFormed).Should().Equal(" kibana://a ", "es://b");
+		report.Rejected(DocsetRules.CrossLinkWellFormed).Should().BeEquivalentTo(["oops"]);
+	}
+
+	[Test]
+	public void Keep_can_derive_the_evidence_from_the_item()
+	{
+		var report = DocsetRules.All.Report(new Docset([], ["kibana", "xray", "xyz"]));
+
+		report.Keep(["kibana", "xray", "xyz"], DocsetRules.ProductKnown, p => new RejectedProduct(p)).Should().Equal("kibana");
+		report.Rejected(DocsetRules.ProductKnown).Should().BeEquivalentTo([new RejectedProduct("xray"), new RejectedProduct("xyz")]);
+	}
+
+	[Test]
+	public void A_warning_never_rejects_an_item_and_the_report_still_has_it()
+	{
+		var report = DocsetRules.All.Report(Sample);
+
+		report.Rejected(DocsetRules.ProductsLowerCase).Should().BeEmpty();
+		report.Keep(Sample.Products, DocsetRules.ProductsLowerCase).Should().Equal(Sample.Products);
+		report.Of(DocsetRules.ProductsLowerCase).Should().ContainSingle().Which.Severity.Should().Be(Severity.Warning);
+		report.HasErrors.Should().BeTrue("the cross-link and product rules are errors");
+		DocsetRules.All.Report(new Docset([], ["Kibana"])).HasErrors.Should().BeFalse("a warning alone does not make the value unusable");
+	}
+
+	[Test]
+	public void Of_matches_by_the_rule_not_by_an_id_string()
+	{
+		var report = DocsetRules.All.Report(Sample);
+
+		report.Of(DocsetRules.CrossLinkWellFormed).Should().ContainSingle().Which.ConstraintId.Should().Be("cross-link-well-formed");
+		report.Errors.Select(v => v.ConstraintId).Should().Contain(["cross-link-well-formed", "product-known"]);
+	}
+}
+
 public class StaticPropertyConstraintsTests
 {
 	[Test]

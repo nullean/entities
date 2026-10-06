@@ -303,14 +303,15 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	{
 		kind = default;
 		typeArgument = null!;
-		if (memberType is not INamedTypeSymbol { IsGenericType: true, TypeArguments.Length: 1 } named)
+		if (memberType is not INamedTypeSymbol { IsGenericType: true } named)
 		{
 			return false;
 		}
 
 		var original = named.OriginalDefinition;
 		var ns = original.ContainingNamespace?.ToDisplayString();
-		if (original.MetadataName == "Constraint`1" && ns == "Nullean.Entities")
+		// Constraint<T, TEvidence> is a Constraint<T> that also says what it reports as evidence, so a rule can be asked "which items did you reject".
+		if (ns == "Nullean.Entities" && (original.MetadataName == "Constraint`1" || original.MetadataName == "Constraint`2"))
 		{
 			kind = ConstraintKind.Sync;
 			typeArgument = named.TypeArguments[0];
