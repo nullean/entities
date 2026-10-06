@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using CsCheck;
 using Nullean.Entities;
 using Nullean.Entities.CsCheck;
 
@@ -120,4 +121,59 @@ public class LawsTests
 
 	[Test]
 	public void Generated_data_breaks_every_annotation_without_a_hand_made_generator() => Annotated.Constraints.Probe().NeverViolated.Should().BeEmpty();
+
+	// ── Laws over a generated valid source ──
+
+	private static Gen<Stocked> ValidStocked =>
+		GenAuto.Of<Stocked>(
+			AutoMode.Plausible,
+			o => o.Use(Gen.Select(Gen.Int[1, 50], Gen.Int[0, 20], (q, r) => new Stocked("SKU-" + q, q + r, r)))
+		);
+
+	[Test]
+	public void Generated_valid_values_pass_the_laws_with_a_counter_example_derived_from_each()
+	{
+		var examples = new Dictionary<string, Func<Stocked, Stocked>>
+		{
+			["SkuPresent"] = s => s with { Sku = "" },
+			["QuantityNotNegative"] = s => s with { Quantity = -1 },
+			["ReservedNotNegative"] = s => s with { Reserved = -1 },
+		};
+
+		var report = Good().Laws(ValidStocked, examples);
+
+		report.Results.Select(r => r.Constraint).Should().BeEquivalentTo(["SkuPresent", "QuantityNotNegative", "ReservedNotNegative"]);
+	}
+
+	[Test]
+	public void A_rule_with_no_counter_example_gets_one_from_the_edge_swaps_of_a_generated_value() =>
+		Good().Laws(ValidStocked).Results.Should().OnlyContain(r => r.CounterExample.StartsWith("generated:", StringComparison.Ordinal));
+
+	[Test]
+	public void A_generator_whose_values_break_a_rule_is_reported_with_the_rule_and_a_value()
+	{
+		var act = () => Good().Laws(GenAuto.Of<Stocked>(AutoMode.Adversarial), requireCounterExamples: false);
+
+		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Generated values are not valid");
+	}
+
+	[Test]
+	public void A_counter_example_that_never_breaks_its_rule_on_generated_values_is_reported_unreachable()
+	{
+		var examples = new Dictionary<string, Func<Stocked, Stocked>> { ["QuantityNotNegative"] = s => s };
+
+		var act = () => Good().Laws(ValidStocked, examples, requireCounterExamples: false);
+
+		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("QuantityNotNegative").And.Contain("unreachable");
+	}
+
+	[Test]
+	public void A_counter_example_that_also_breaks_another_rule_for_a_generated_value_is_reported()
+	{
+		var examples = new Dictionary<string, Func<Stocked, Stocked>> { ["QuantityNotNegative"] = s => s with { Quantity = -1 } };
+
+		var act = () => Overlapping().Laws(ValidStocked, examples, requireCounterExamples: false);
+
+		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("also breaks ReservedWithinQuantity");
+	}
 }
