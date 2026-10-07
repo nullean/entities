@@ -540,6 +540,15 @@ The generated code is plain C# with no `Validator` call and no reflection, so it
 attribute (`[Phone]`, a custom one, `IValidatableObject`) is reported as an Info diagnostic, `NECG010`, not skipped silently; write those as a `Constraint<T>`. Cross-field rules, collections and
 sequential rules still need constraints: annotations cover one property at a time.
 
+### Members that must be set are required too
+
+A non-nullable reference property that has to be set also gets a null-only rule `<Property>Required` (`title-required`), with the property as `Violation.Member`, when it is declared
+`required` or is a get-only auto property (`{ get; }` with no initializer or expression body, so only a constructor can set it). A value type, a `Nullable<T>` and a `T?` reference get none
+(`required string?` may be null). An empty string passes the implicit rule; an explicit `[Required]` keeps DataAnnotations' meaning (null or blank fails) and is the only rule emitted for that
+property. `[ConstraintIgnore]` on the property leaves it out, and `[Constraints<Order>(ImplicitRequired = false)]` (or `[Constraints(ImplicitRequired = false)]`) turns the implicit rules off for the
+set. Positional record parameters are public init properties, not get-only, so they get no implicit rule: annotate them with `[Required]`. This is a change for a type that already used
+`required` or get-only members under `[Constraints]` / `[Constraints<T>]`: its generated set now contains these extra rules.
+
 ## Rules over collections and graphs
 
 Most of the rules a real domain has are about *several* things at once: two items with one id, a reference to something that is not there, an include that loops.

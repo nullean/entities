@@ -109,11 +109,12 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		var found = ImmutableArray.CreateBuilder<MemberInfo>();
 		found.AddRange(AutoMembers(type));
 		// A [Constraints] type that declares no Constraint<T> field but carries DataAnnotations still gets a set: the annotations are the rules.
-		if (found.Count == 0 && Annotations.For(type, "T", []).Entries.Count > 0)
+		var implicitRequired = ImplicitRequiredOf(ctx);
+		if (found.Count == 0 && Annotations.For(type, "T", [], implicitRequired).Entries.Count > 0)
 		{
 			found.Add(new MemberInfo(type, type, "", true, type.Locations.FirstOrDefault() ?? Location.None, AnnotationOnly: true));
 		}
-		return found.ToImmutable();
+		return [.. found.Select(m => m with { ImplicitRequired = implicitRequired })];
 	}
 
 	/// <summary>
@@ -126,11 +127,25 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		{
 			return [];
 		}
+		var implicitRequired = ImplicitRequiredOf(ctx);
 		return [
-			.. AutoMembers(type),
-			new MemberInfo(type, about, "", true, type.Locations.FirstOrDefault() ?? Location.None, AnnotationOnly: true, AnnotationType: about)
+			.. AutoMembers(type).Select(m => m with { ImplicitRequired = implicitRequired }),
+			new MemberInfo(
+				type,
+				about,
+				"",
+				true,
+				type.Locations.FirstOrDefault() ?? Location.None,
+				AnnotationOnly: true,
+				AnnotationType: about,
+				ImplicitRequired: implicitRequired
+			)
 		];
 	}
+
+	// ImplicitRequired = false on [Constraints] / [Constraints<T>] turns off the <Property>Required rules for required and get-only members.
+	private static bool ImplicitRequiredOf(GeneratorAttributeSyntaxContext ctx) =>
+		!ctx.Attributes[0].NamedArguments.Any(n => n.Key == "ImplicitRequired" && n.Value.Value is false);
 
 	private static IEnumerable<MemberInfo> AutoMembers(INamedTypeSymbol type) =>
 		type
@@ -262,7 +277,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 				annotations = Annotations.For(
 					namedArgument,
 					namedArgument.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
-					[.. orderedMembers.Select(m => m.MemberName)]
+					[.. orderedMembers.Select(m => m.MemberName)],
+					valid.All(v => v.Member.ImplicitRequired)
 				);
 				foreach (var unsupported in annotations.Unsupported)
 				{
@@ -353,7 +369,10 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			// Self-attach is read as `Order.Constraints.Apply(...)`; a companion spec class is
 			// `OrderConstraints.All` — "OrderConstraints.Constraints" would stutter.
 			selfAttach ? "Constraints" : "All",
-			"global::Nullean.Entities.ConstraintSet.From(",
+			// With no rule at all (every one opted out) the type argument cannot be inferred.
+			members.Length == 0 && (annotations?.Entries.Count ?? 0) == 0
+				? $"global::Nullean.Entities.ConstraintSet.From<{typeArgDisplay}>("
+				: "global::Nullean.Entities.ConstraintSet.From(",
 			[
 				.. members.Select(m => $"({Annotations.Quote(global::Nullean.Entities.ConstraintName.Of(m.MemberName))}, {m.MemberName})"),
 				.. (annotations?.Entries ?? []).Select(e => $"({Annotations.Quote(global::Nullean.Entities.ConstraintName.Of(e.Name))}, {e.Expression})"),
@@ -562,6 +581,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		bool IsStatic,
 		Location Location,
 		bool AnnotationOnly = false,
-		ITypeSymbol? AnnotationType = null
+		ITypeSymbol? AnnotationType = null,
+		bool ImplicitRequired = true
 	);
 }
