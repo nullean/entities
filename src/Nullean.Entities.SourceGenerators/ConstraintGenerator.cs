@@ -189,12 +189,31 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		return [.. explicitMembers.Where(m => !autoTypes.Contains(m.ContainingType)), .. autoDiscovered.SelectMany(g => g),];
 	}
 
+	// The types this compilation already has a set for: the type argument of every constrained member, and the type of every annotation-only companion.
+	private static HashSet<ISymbol> TypesWithOwnRules(ImmutableArray<MemberInfo> members)
+	{
+		var types = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+		foreach (var member in members)
+		{
+			if (member.AnnotationOnly)
+			{
+				types.Add(member.AnnotationType ?? member.ContainingType);
+			}
+			else if (member.IsStatic && TryClassify(member.MemberType, out _, out var typeArgument))
+			{
+				types.Add(typeArgument);
+			}
+		}
+		return types;
+	}
+
 	private static void Generate(SourceProductionContext spc, ImmutableArray<MemberInfo> members)
 	{
 		// The explicit <MemberInfo, INamedTypeSymbol> is required: SymbolEqualityComparer.Default's
 		// static type only implements IEqualityComparer<ISymbol>, and contravariance lets that
 		// satisfy IEqualityComparer<TKey> for any TKey : ISymbol — so without pinning TKey here,
 		// overload resolution infers TKey as ISymbol instead of INamedTypeSymbol.
+		var ownRules = TypesWithOwnRules(members);
 		foreach (var group in members.GroupBy<MemberInfo, INamedTypeSymbol>(m => m.ContainingType, SymbolEqualityComparer.Default))
 		{
 			var containingType = group.Key;
@@ -278,7 +297,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 					namedArgument,
 					namedArgument.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
 					[.. orderedMembers.Select(m => m.MemberName)],
-					valid.All(v => v.Member.ImplicitRequired)
+					valid.All(v => v.Member.ImplicitRequired),
+					ownRules
 				);
 				foreach (var unsupported in annotations.Unsupported)
 				{

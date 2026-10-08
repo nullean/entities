@@ -83,6 +83,22 @@ public class NestedRequiredTests
 	}
 
 	[Test]
+	public void ANestedTypeWithItsOwnSet_IsLeftToThatSet_SoAHoleIsNotReportedTwice()
+	{
+		ParcelRules.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["id-required", "sender-required"]);
+		PartyRules.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["name-required"]);
+	}
+
+	[Test]
+	public void AComputedView_AndThePositionalPartsOfAPair_AreNotLookedInto()
+	{
+		// the view holds the same objects as Entries: one rule, not two
+		ShelfRules.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["entries-required", "entries-label-required"]);
+		// a pair is made of parts that have their own rules
+		PairRules.All.AsConstraints().Should().BeEmpty();
+	}
+
+	[Test]
 	public void ImplicitRequiredOff_TurnsTheNestedRulesOffToo()
 	{
 		NestedSiteRulesOff.All.AsConstraints().Should().BeEmpty();
@@ -123,3 +139,41 @@ public static partial class NestedSiteRules;
 
 [Constraints<NestedSite>(ImplicitRequired = false)]
 public static partial class NestedSiteRulesOff;
+
+public sealed class Parcel
+{
+	public required string Id { get; init; }
+	public required Party Sender { get; init; }
+}
+
+public sealed class Party
+{
+	public required string Name { get; init; }
+}
+
+[Constraints<Parcel>]
+public static partial class ParcelRules;
+
+[Constraints<Party>]
+public static partial class PartyRules;
+
+public sealed class ShelfEntry
+{
+	public required string Label { get; init; }
+}
+
+public sealed class Shelf
+{
+	public required IReadOnlyDictionary<string, ShelfEntry> Entries { get; init; }
+
+	public IReadOnlyDictionary<string, ShelfEntry> Labelled =>
+		field ??= Entries.Where(e => e.Value.Label.Length > 0).ToDictionary();
+}
+
+public sealed record Pair(Party Left, Party Right);
+
+[Constraints<Shelf>]
+public static partial class ShelfRules;
+
+[Constraints<Pair>]
+public static partial class PairRules;

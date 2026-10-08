@@ -39,7 +39,8 @@ internal static class Annotations
 		INamedTypeSymbol type,
 		string typeArgDisplay,
 		System.Collections.Generic.ICollection<string> takenNames,
-		bool implicitRequired = true
+		bool implicitRequired = true,
+		System.Collections.Generic.HashSet<ISymbol>? ownRules = null
 	)
 	{
 		var result = new AnnotationResult([], [], []);
@@ -109,13 +110,15 @@ internal static class Annotations
 		}
 		if (implicitRequired)
 		{
-			AddNestedRequired(type, typeArgDisplay, names, result);
+			AddNestedRequired(type, typeArgDisplay, names, result, ownRules);
 		}
 		return result;
 	}
 
 	// The members that must be set on the types this type holds (a nested object, the items of a list, the values of a dictionary), so a hole in a
-	// nested object is reported by the set that owns it without anyone adding an attribute to the nested type. Rules are named after the path
+	// nested object is reported by the set that owns it without anyone adding an attribute to the nested type. A nested type that has a set of its own
+	// (ownRules) is left to that set: reporting its members here too would report one hole twice, under two names. The positional members of the type
+	// (a record's primary constructor) are left alone as well: they are the parts a pair or a wrapper is made of, each with its own rules. Rules are named after the path
 	// (EnvironmentsNameRequired) and are prerequisites, like the ones for the type's own members.
 	private const int MaxNestedDepth = 3;
 
@@ -123,20 +126,22 @@ internal static class Annotations
 		INamedTypeSymbol root,
 		string typeArgDisplay,
 		System.Collections.Generic.HashSet<string> names,
-		AnnotationResult result
+		AnnotationResult result,
+		System.Collections.Generic.HashSet<ISymbol>? ownRules
 	)
 	{
+		var positional = PrimaryConstructorParameters(root);
 		foreach (var property in root.GetMembers().OfType<IPropertySymbol>())
 		{
 			if (property.IsStatic || property.IsIndexer || property.DeclaredAccessibility != Accessibility.Public || property.GetMethod is null)
 			{
 				continue;
 			}
-			if (property.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnore))
+			if (property.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnore) || positional.ContainsKey(property.Name))
 			{
 				continue;
 			}
-			if (HeldType(property.Type) is not { } held)
+			if (!IsStored(property) || HeldType(property.Type) is not { } held)
 			{
 				continue;
 			}
@@ -153,6 +158,10 @@ internal static class Annotations
 				System.Collections.Generic.HashSet<ISymbol> seen
 			)
 			{
+				if (ownRules is not null && ownRules.Contains(element))
+				{
+					return;
+				}
 				if (!seen.Add(element))
 				{
 					return;
@@ -173,17 +182,18 @@ internal static class Annotations
 						var predicate = shape switch
 						{
 							Shape.Single => $"v => v is null || v.{member.Name} is not null",
+							Shape.DictionaryValues =>
+								$"v => v is null || global::System.Linq.Enumerable.All(v.Values, i => i is null || i.{member.Name} is not null)",
 							_ => $"v => v is null || global::System.Linq.Enumerable.All(v, i => i is null || i.{member.Name} is not null)",
 						};
-						var select = shape == Shape.DictionaryValues ? $"{access}?.Values" : access;
 						result.Entries.Add(
 							new AnnotationEntry(
 								Unique(names, path + member.Name + "Required"),
-								$"global::Nullean.Entities.Constraints<{typeArgDisplay}>.Always(x => {select}, {predicate}, {Quote($"The {memberDisplay} field is required.")}).AsPrerequisite()"
+								$"global::Nullean.Entities.Constraints<{typeArgDisplay}>.Always(x => {access}, {predicate}, {Quote($"The {memberDisplay} field is required.")}).AsPrerequisite()"
 							)
 						);
 					}
-					if (depth < MaxNestedDepth && HeldType(member.Type) is { } inner && shape == Shape.Single && inner.Shape == Shape.Single)
+					if (depth < MaxNestedDepth && IsStored(member) && HeldType(member.Type) is { } inner && shape == Shape.Single && inner.Shape == Shape.Single)
 					{
 						// a nested object inside a nested object: reachable through the same null-safe path
 						Walk(
@@ -201,6 +211,22 @@ internal static class Annotations
 		}
 	}
 
+	// A member the object keeps, not a view computed from others: a view holds the same objects as the member it is computed from, so looking into it too
+	// would report one hole twice (a catalog's Products, and its PublicReferenceProducts projection).
+	private static bool IsStored(IPropertySymbol property)
+	{
+		var syntax = property.DeclaringSyntaxReferences.Select(r => r.GetSyntax()).OfType<PropertyDeclarationSyntax>().FirstOrDefault();
+		if (syntax is null)
+		{
+			// from metadata: an auto property has a backing field
+			return property.ContainingType.GetMembers().OfType<IFieldSymbol>().Any(f => SymbolEqualityComparer.Default.Equals(f.AssociatedSymbol, property));
+		}
+		// an expression body, or an accessor with a body (including one using `field`), computes the value
+		return syntax.ExpressionBody is null && syntax.AccessorList is { } accessors && accessors.Accessors.All(
+			a => a.Body is null && a.ExpressionBody is null
+		);
+	}
+
 	private enum Shape
 	{
 		Single,
@@ -214,7 +240,7 @@ internal static class Annotations
 	// list or the values of a dictionary. Strings, enums, structs and framework types hold nothing a rule of ours is about.
 	private static Held? HeldType(ITypeSymbol type)
 	{
-		if (type is not INamedTypeSymbol named)
+		if (type is not INamedTypeSymbol named || named.IsValueType)
 		{
 			return null;
 		}
