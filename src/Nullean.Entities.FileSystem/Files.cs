@@ -165,6 +165,15 @@ public static class Files<T>
 		[CallerArgumentExpression(nameof(files))] string? filesExpression = null
 	) => Each(files, f => f.Exists && f.Length == 0 ? $"'{f.FullName}' is empty." : null, message, describe, at, filesExpression);
 
+	/// <summary>Every item names a file that is not empty when it exists; see <see cref="Exist{TItem}"/>.</summary>
+	public static Constraint<T> NotEmpty<TItem>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<T, TItem, IFileInfo> file,
+		Func<TItem, string>? describe = null,
+		Func<TItem, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	) => EachItem(items, file, f => !f.Exists || f.Length > 0, f => $"'{f.FullName}' is empty.", describe, at, itemsExpression);
+
 	/// <summary>No existing file is larger than <paramref name="maxBytes"/>: a page or image that large is a mistake, or slows every build and page load.</summary>
 	public static Constraint<T> MaxSize(
 		Func<T, IEnumerable<IFileInfo>> files,

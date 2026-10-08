@@ -167,6 +167,20 @@ public class FilesTests
 		notEmpty.Validate(Make(fs, "/docs/a.md", "/docs/missing.md")).Should().BeEmpty();
 		small.Validate(Make(fs, "/docs/big.png")).Single().Message.Should().Contain("50 bytes").And.Contain("limit is 10");
 		small.Validate(Make(fs, "/docs/a.md", "/docs/missing.png")).Should().BeEmpty();
+
+		var ofItems = ConstraintSet.From(
+			("Filled", Files<Toc>.NotEmpty(
+				t => t.Entries,
+				(t, e) => t.FileSystem.FileInfo.New(t.FileSystem.Path.Join("/docs", e.Path)),
+				e => $"{e.Path} is blank"
+			))
+		);
+		ofItems
+			.Validate(new Toc(fs, [new Entry("empty.md", 1), new Entry("a.md", 2), new Entry("gone.md", 3)]))
+			.Single()
+			.Message
+			.Should()
+			.Be("empty.md is blank");
 	}
 
 	[Test]
