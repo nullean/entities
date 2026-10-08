@@ -195,6 +195,19 @@ public class FilesTests
 
 		violation.Message.Should().Contain("/docs/README.md").And.Contain("/docs/Readme.md");
 		set.Validate(Make(fs, "/docs/Readme.md", "/docs/Readme.md", "/docs/a.md")).Should().BeEmpty();
+
+		var ofItems = ConstraintSet.From(
+			("NoCaseTwins",
+			Files<Toc>.UniqueIgnoringCase(
+				t => t.Entries,
+				(t, e) => t.FileSystem.FileInfo.New(t.FileSystem.Path.Join("/docs", e.Path)),
+				(e, other) => $"{e.Path} collides with {other}",
+				e => new SourceLocation("docset.yml", e.Line, 1, e.Path.Length)
+			))
+		);
+		var twin = ofItems.Validate(new Toc(fs, [new Entry("Readme.md", 3), new Entry("a.md", 4), new Entry("README.md", 9)])).Single();
+		twin.Message.Should().Be("README.md collides with /docs/Readme.md");
+		twin.Line.Should().Be(9);
 	}
 
 	[Test]

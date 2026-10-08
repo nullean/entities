@@ -221,6 +221,44 @@ public static class Files<T>
 		});
 	}
 
+	/// <summary>
+	/// No two items name paths that differ only in case, for a model whose items are not files (see <c>Exist</c> for items).
+	/// <paramref name="describe"/> and <paramref name="at"/> speak about the later item, the one that collides, and <paramref name="describe"/> is also given the path it collides with.
+	/// </summary>
+	public static Constraint<T> UniqueIgnoringCase<TItem>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<T, TItem, IFileSystemInfo> path,
+		Func<TItem, string, string>? describe = null,
+		Func<TItem, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	)
+	{
+		var member = Constraints<T>.MemberOf(itemsExpression);
+		return Rule(value =>
+		{
+			var first = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			var found = new List<Violation>();
+			foreach (var item in items(value))
+			{
+				var info = path(value, item);
+				var full = FilePaths.Normalize(info);
+				if (first.TryAdd(full, full) || string.Equals(first[full], full, StringComparison.Ordinal))
+				{
+					continue;
+				}
+				found.Add(
+					Report(
+						describe?.Invoke(item, first[full]) ?? $"'{full}' differs only in case from '{first[full]}'.",
+						member,
+						info.FullName,
+						at?.Invoke(item)
+					)
+				);
+			}
+			return found;
+		});
+	}
+
 	// ── plumbing ──────────────────────────────────────────────────────────
 
 	private static Constraint<T> Each<TInfo>(
