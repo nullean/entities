@@ -553,6 +553,31 @@ Constraints<Site>.Acyclic(s => s.Tocs, t => t.Id, t => t.IncludedIds);          
 Constraints<Site>.NoChains(s => s.Redirects, r => r.From, r => r.To);                       // A to B while B goes to C
 ```
 
+### The rest of the vocabulary
+
+Rules that real configuration models keep needing, each reporting what is wrong in words that name the offender:
+
+```csharp
+Constraints<Docset>.Each(d => d.Pages, p => p.Title != "", p => $"page '{p.Path}' has no title");    // a message per item
+Constraints<Docset>.Each(d => d.Redirects, r => r.To is null ? null : Problem(r));                   // or return the reason, null when fine
+Constraints<Config>.OneOf(c => c.Environment, ["dev", "edge", "staging", "prod"]);                   // "'local' is not one of dev, edge, staging, prod."
+Constraints<Config>.EachOneOf(c => c.Flags, c => c.KnownFlags);                                      // every value, allowed set from the value itself
+Constraints<Docset>.CountBetween(d => d.Products, min: 1, max: 5);                                   // "Products has 0 items, expected between 1 and 5."
+Constraints<Redirect>.AtMostOne(("to", r => r.To is not null), ("many", r => r.Many is not null));   // two ways of saying one thing
+Constraints<Redirect>.ExactlyOne(...);  Constraints<Login>.AllOrNone(("user", ...), ("password", ...));
+Constraints<Range>.InOrder(r => r.From, r => r.To, comparer: versionComparer);                       // an open (null) bound is not out of order
+Constraints<Versions>.Sorted(v => v.Entries, e => e.Version, strict: true);
+Constraints<Navigation>.NoPrefixes(n => n.Mounts, m => m.Path, PrefixMatch.Text);                    // "reference/apm" is a prefix of "reference/apm-agents"
+```
+
+`Unique`, `References`, `NoChains` and `KeysMatch` take `describe:` (a function from the offending item or key to the message) when the fixed `message:` is not enough, and `Unique` takes a
+comparer (`StringComparer.OrdinalIgnoreCase`) for keys that differ only in case. `Always(select, predicate, member: "Versions")` names the member of a computed value, which the text of the selector cannot.
+`Files<T>.DirectoriesExist` (Nullean.Entities.FileSystem) is the directory counterpart of `Exist`.
+
+A rule that is a warning today and should be an error later, without editing it twice: `rule.WithSeverityUntil(Severity.Warning, until: date, after: Severity.Error)` reads the clock from the
+`TimeProvider` the set is checked with. A *profile* over a shared set never touches the shared rules: `set.WithSeverity("rule-id", Severity.Hint)`, `set.WithSeverities(...)`, `set.Strict()` (every warning an error)
+and `set.Without("rule-id")` each return a new set; a name that is not in the set throws, so a rename cannot silently turn a suppression into nothing.
+
 ## Reporting violations
 
 A violation carries the rule (`ConstraintId`), a message, the `Evidence`, and, for the selector form of `Always`, the **member** it is about:
