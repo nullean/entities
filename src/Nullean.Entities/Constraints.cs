@@ -988,6 +988,11 @@ public sealed class ConstraintAttribute : Attribute
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
 public sealed class ConstraintsAttribute : Attribute
 {
+	/// <summary>
+	/// Whether the generator also emits a null-only <c>&lt;Property&gt;Required</c> rule for a non-nullable reference member that must be set: one declared <c>required</c>, or a
+	/// get-only auto property. Default true; a member with an explicit <c>[Required]</c> gets that attribute's rule instead, and <c>[ConstraintIgnore]</c> leaves a member out.
+	/// </summary>
+	public bool ImplicitRequired { get; set; } = true;
 }
 
 /// <summary>
@@ -1001,6 +1006,11 @@ public sealed class ConstraintsAttribute : Attribute
 public class ConstraintsAttribute<T> : Attribute
 #pragma warning restore CA1813
 {
+	/// <summary>
+	/// Whether the generator also emits a null-only <c>&lt;Property&gt;Required</c> rule for a non-nullable reference member that must be set: one declared <c>required</c>, or a
+	/// get-only auto property. Default true; a member with an explicit <c>[Required]</c> gets that attribute's rule instead, and <c>[ConstraintIgnore]</c> leaves a member out.
+	/// </summary>
+	public bool ImplicitRequired { get; set; } = true;
 }
 
 /// <summary>

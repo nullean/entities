@@ -7,12 +7,16 @@
 //
 // The meaning of each attribute is the one DataAnnotations gives it, including its leniency: a null passes every attribute except [Required] (null
 // is the business of [Required] alone), an empty string passes [RegularExpression], and [RegularExpression] must match the whole string.
+// A member that must be set also gets a null-only rule <Property>Required unless it has an explicit [Required]: a non-nullable reference property declared `required`,
+// or a get-only auto property (only a constructor can set it). Value types, Nullable<T> and `T?` references get none; opt out with ImplicitRequired = false.
 // [ConstraintIgnore] on a property leaves its annotations out. Any other ValidationAttribute is reported as an Info diagnostic (NECG010) rather
 // than skipped silently; Info does not fail a build that treats warnings as errors.
 
 using System.Globalization;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Nullean.Entities.SourceGenerators;
 
@@ -31,7 +35,12 @@ internal static class Annotations
 	private const string Ns = "System.ComponentModel.DataAnnotations.";
 	private const string ConstraintIgnore = "Nullean.Entities.ConstraintIgnoreAttribute";
 
-	public static AnnotationResult For(INamedTypeSymbol type, string typeArgDisplay, System.Collections.Generic.ICollection<string> takenNames)
+	public static AnnotationResult For(
+		INamedTypeSymbol type,
+		string typeArgDisplay,
+		System.Collections.Generic.ICollection<string> takenNames,
+		bool implicitRequired = true
+	)
 	{
 		var result = new AnnotationResult([], [], []);
 		var names = new System.Collections.Generic.HashSet<string>(takenNames);
@@ -51,6 +60,16 @@ internal static class Annotations
 			if (attributes.Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnore))
 			{
 				continue;
+			}
+			var hasExplicitRequired = attributes.Any(a => a.AttributeClass?.ToDisplayString() == Ns + "RequiredAttribute");
+			if (implicitRequired && !hasExplicitRequired && MustBeSet(property))
+			{
+				result.Entries.Add(
+					new AnnotationEntry(
+						Unique(names, property.Name + "Required"),
+						$"global::Nullean.Entities.Constraints<{typeArgDisplay}>.Always(x => x.{property.Name}, v => v is not null, {Quote($"The {property.Name} field is required.")})"
+					)
+				);
 			}
 			foreach (var attribute in attributes)
 			{
@@ -87,6 +106,33 @@ internal static class Annotations
 			}
 		}
 		return result;
+	}
+
+	// A non-nullable reference member that must be set: declared `required`, or a get-only auto property (only a constructor can set it).
+	private static bool MustBeSet(IPropertySymbol property)
+	{
+		if (!property.Type.IsReferenceType || property.Type.NullableAnnotation == NullableAnnotation.Annotated)
+		{
+			return false;
+		}
+		if (property.IsRequired)
+		{
+			return true;
+		}
+		if (property.SetMethod is not null || property.IsAbstract)
+		{
+			return false;
+		}
+		var syntax = property.DeclaringSyntaxReferences.Select(r => r.GetSyntax()).OfType<PropertyDeclarationSyntax>().FirstOrDefault();
+		if (syntax is null || syntax.ExpressionBody is not null || syntax.Initializer is not null || syntax.AccessorList is null)
+		{
+			return false;
+		}
+		var accessors = syntax.AccessorList.Accessors;
+		return accessors.Count == 1
+		&& accessors[0].IsKind(SyntaxKind.GetAccessorDeclaration)
+		&& accessors[0].Body is null
+		&& accessors[0].ExpressionBody is null;
 	}
 
 	private sealed record Built(string Suffix, string Predicate, string Message);

@@ -82,6 +82,9 @@ just that the generator emits the text you'd expect.
 
 - **DataAnnotations** on the constrained type (`[Required]`, `[Range]`, `[StringLength]`, `[MaxLength]`, `[MinLength]`, `[RegularExpression]`) become generated constraints named kebab-case `<property>-<attribute>` (`name-required`, `age-range`), with no opt-in. Any other
   validation attribute gets the Info diagnostic `NECG010`; `[ConstraintIgnore]` on a property leaves its annotations out.
+- **Members that must be set** (a non-nullable reference property declared `required`, or a get-only auto property) also get a null-only `<property>-required` rule unless they carry an explicit `[Required]`
+  (then that is the one rule) or `[ConstraintIgnore]`. Value types, `Nullable<T>` and `T?` references get none; positional record parameters are init properties, so none either. Opt out with
+  `ImplicitRequired = false` on `[Constraints]` / `[Constraints<T>]`. This adds rules to the generated set of existing types that use `required` or get-only members.
 - **`[Constraints<T>]`** on a companion class names the type its rules are about, so a companion with no hand-written rule still gets `T`'s annotations (and `T`'s `Actions`). A member about another type is `NECG007`.
 - **Nested and generic types** are supported: every containing type must be `partial` (otherwise `NECG005`), and type parameters are carried into the generated declaration. C# does not allow a type parameter in an attribute's
   type argument, so a generic companion declares a `Constraint<Box<T>>` field instead of using `[Constraints<Box<T>>]`.

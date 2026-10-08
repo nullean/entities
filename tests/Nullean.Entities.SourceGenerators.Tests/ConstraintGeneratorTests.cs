@@ -533,6 +533,73 @@ public class AnnotationGeneratorShapeTests
 		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
 	}
 
+	private static string RequiredSource(string attribute, string members) =>
+		$$"""
+		#nullable enable
+		using System.ComponentModel.DataAnnotations;
+		using Nullean.Entities;
+
+		namespace Sample;
+
+		[Constraints{{attribute}}]
+		public partial class Doc
+		{
+		{{members}}
+		}
+		""";
+
+	[Test]
+	public void A_required_or_get_only_reference_member_gets_a_null_only_Required_rule()
+	{
+		var run = GeneratorTestHost.Run(
+			RequiredSource(
+				"",
+				"public required string Title { get; init; }\npublic IReadOnlyList<int> Items { get; }\npublic string Computed => \"x\";\npublic required int Count { get; init; }\npublic required string? Note { get; init; }\npublic string Plain { get; set; } = \"\";\n[ConstraintIgnore] public required string Skipped { get; init; }\npublic string Init { get; } = \"i\";"
+			).Replace("using Nullean.Entities;", "using Nullean.Entities;\nusing System.Collections.Generic;")
+		);
+
+		run.Diagnostics.Should().BeEmpty();
+		var source = run.SingleGeneratedSource();
+		source.Should().Contain("(\"title-required\"").And.Contain("v => v is not null");
+		source.Should().Contain("(\"items-required\"");
+		source.Should().NotContain("computed-required").And.NotContain("count-required").And.NotContain("note-required");
+		source.Should().NotContain("plain-required").And.NotContain("skipped-required").And.NotContain("init-required");
+		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
+	}
+
+	[Test]
+	public void An_explicit_Required_on_a_required_member_is_the_only_rule_and_ImplicitRequired_false_turns_the_rest_off()
+	{
+		var both = GeneratorTestHost.Run(RequiredSource("", "[Required] public required string Title { get; init; }")).SingleGeneratedSource();
+		both.Split("title-required").Length.Should().Be(2);
+		both.Should().Contain("IsNullOrWhiteSpace");
+
+		var off = GeneratorTestHost.Run(
+			RequiredSource("(ImplicitRequired = false)", "public required string Title { get; init; }\n[Range(1, 2)] public int N { get; set; }")
+		).SingleGeneratedSource();
+		off.Should().NotContain("title-required").And.Contain("n-range");
+
+		var companion = GeneratorTestHost.Run(
+			"""
+			#nullable enable
+			using Nullean.Entities;
+
+			namespace Sample;
+
+			public class Doc { public required string Title { get; init; } }
+
+			[Constraints<Doc>(ImplicitRequired = false)]
+			public static partial class DocOff;
+
+			[Constraints<Doc>]
+			public static partial class DocOn;
+			"""
+		);
+		var sources = companion.Generated.Select(g => g.Source).ToList();
+		sources.Single(t => t.Contains("class DocOn")).Should().Contain("title-required");
+		sources.Single(t => t.Contains("class DocOff")).Should().NotContain("title-required");
+	}
+
 	[Test]
 	public void A_validation_attribute_that_is_not_supported_is_reported_as_info_not_skipped_silently()
 	{

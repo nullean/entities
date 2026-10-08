@@ -221,3 +221,90 @@ public class AnnotationConstraintsTests
 		IntBoxRules.All.Validate(new Box<int>("", 3)).Single().ConstraintId.Should().Be("label-required");
 	}
 }
+
+// Members that must be set: `required` and get-only auto properties of a non-nullable reference type get a null-only <Property>Required rule.
+#nullable enable
+[Constraints]
+public sealed partial class MustBeSet
+{
+	public MustBeSet(IReadOnlyList<int> items) => Items = items;
+
+	public required string Title { get; init; }
+	public required int Count { get; init; }
+	public required string? Note { get; init; }
+	public IReadOnlyList<int> Items { get; }
+	public string Computed => "x";
+	public string Lazy { get; } = "x";
+	public string Settable { get; set; } = "";
+	[ConstraintIgnore]
+	public required string Skipped { get; init; }
+	[Required]
+	public required string Strict { get; init; }
+}
+
+[Constraints(ImplicitRequired = false)]
+public sealed partial class MustBeSetOptOut
+{
+	public required string Title { get; init; }
+	[Range(1, 3)]
+	public int Level { get; init; } = 1;
+}
+
+public class MustBeSetConstraintsTests
+{
+	private static MustBeSet Make(string? title = "t", string? strict = "s", IReadOnlyList<int>? items = null) =>
+		new(items!) { Title = title!, Count = 0, Note = null, Skipped = null!, Strict = strict! };
+
+	[Test]
+	public void Only_non_nullable_reference_members_that_must_be_set_get_a_rule()
+	{
+		MustBeSet.Constraints.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["title-required", "items-required", "strict-required"]);
+	}
+
+	[Test]
+	public void A_null_required_member_is_one_violation_with_the_member_name()
+	{
+		var violation = MustBeSet.Constraints.Validate(Make(title: null, items: [])).Single();
+
+		violation.ConstraintId.Should().Be("title-required");
+		violation.Member.Should().Be("Title");
+		violation.Message.Should().Be("The Title field is required.");
+	}
+
+	[Test]
+	public void The_implicit_rule_is_null_only_while_an_explicit_Required_rejects_blank_strings_with_one_rule()
+	{
+		MustBeSet.Constraints.Validate(Make(title: "", items: [])).Should().BeEmpty();
+		MustBeSet.Constraints.Validate(Make(strict: " ", items: [])).Single().ConstraintId.Should().Be("strict-required");
+	}
+
+	[Test]
+	public void A_get_only_auto_property_set_by_the_constructor_is_required()
+	{
+		MustBeSet.Constraints.Validate(Make(items: null)).Single().ConstraintId.Should().Be("items-required");
+	}
+
+	[Test]
+	public void ImplicitRequired_false_leaves_only_the_annotations()
+	{
+		MustBeSetOptOut.Constraints.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["level-range"]);
+	}
+
+	[Test]
+	public void A_generated_set_for_a_companion_follows_the_attribute_option()
+	{
+		MustBeSetCompanion.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["title-required"]);
+		MustBeSetCompanionOff.All.AsConstraints().Should().BeEmpty();
+	}
+}
+
+public sealed class RequiredHolder
+{
+	public required string Title { get; init; }
+}
+
+[Constraints<RequiredHolder>]
+public static partial class MustBeSetCompanion;
+
+[Constraints<RequiredHolder>(ImplicitRequired = false)]
+public static partial class MustBeSetCompanionOff;
