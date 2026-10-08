@@ -19,17 +19,40 @@ public static class Files<T>
 	public static Constraint<T> Exist(
 		Func<T, IEnumerable<IFileInfo>> files,
 		string? message = null,
+		Func<IFileInfo, string>? describe = null,
 		Func<IFileInfo, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(files))] string? filesExpression = null
-	) => Each(files, f => f.Exists ? null : $"'{f.FullName}' does not exist.", message, at, filesExpression);
+	) => Each(files, f => f.Exists ? null : $"'{f.FullName}' does not exist.", message, describe, at, filesExpression);
+
+	/// <summary>
+	/// Every item names a file that exists, for a model whose items are not files themselves (a table-of-contents entry, a redirect): <paramref name="file"/> resolves
+	/// the item to the file it names, and <paramref name="describe"/> and <paramref name="at"/> speak about the item, not the path.
+	/// </summary>
+	public static Constraint<T> Exist<TItem>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<T, TItem, IFileInfo> file,
+		Func<TItem, string>? describe = null,
+		Func<TItem, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	) => EachItem(items, file, f => f.Exists, f => $"'{f.FullName}' does not exist.", describe, at, itemsExpression);
 
 	/// <summary>Every directory exists.</summary>
 	public static Constraint<T> DirectoriesExist(
 		Func<T, IEnumerable<IDirectoryInfo>> directories,
 		string? message = null,
+		Func<IDirectoryInfo, string>? describe = null,
 		Func<IDirectoryInfo, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(directories))] string? directoriesExpression = null
-	) => Each(directories, d => d.Exists ? null : $"The directory '{d.FullName}' does not exist.", message, at, directoriesExpression);
+	) => Each(directories, d => d.Exists ? null : $"The directory '{d.FullName}' does not exist.", message, describe, at, directoriesExpression);
+
+	/// <summary>Every item names a directory that exists; see <see cref="Exist{TItem}"/>.</summary>
+	public static Constraint<T> DirectoriesExist<TItem>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<T, TItem, IDirectoryInfo> directory,
+		Func<TItem, string>? describe = null,
+		Func<TItem, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	) => EachItem(items, directory, d => d.Exists, d => $"The directory '{d.FullName}' does not exist.", describe, at, itemsExpression);
 
 	/// <summary>
 	/// Every path, once <c>..</c> and <c>.</c> are resolved, is inside <paramref name="root"/>: a spec, an image or an include may not reach out of the documentation
@@ -39,20 +62,19 @@ public static class Files<T>
 		Func<T, IDirectoryInfo> root,
 		Func<T, IEnumerable<IFileSystemInfo>> paths,
 		string? message = null,
+		Func<IFileSystemInfo, string>? describe = null,
 		Func<IFileSystemInfo, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(paths))] string? pathsExpression = null
 	)
 	{
-		Constraint<T> self = null!;
 		var member = Constraints<T>.MemberOf(pathsExpression);
-		self = Rule(value =>
+		return Rule(value =>
 		{
-			var rootPath = Normalize(root(value));
+			var rootPath = FilePaths.Normalize(root(value));
 			return paths(value)
-				.Where(p => !IsInside(rootPath, Normalize(p)))
-				.Select(p => Report(message ?? $"'{p.FullName}' is outside '{rootPath}'.", member, p.FullName, at?.Invoke(p)));
+				.Where(p => !FilePaths.IsInside(rootPath, FilePaths.Normalize(p)))
+				.Select(p => Report(message ?? describe?.Invoke(p) ?? $"'{p.FullName}' is outside '{rootPath}'.", member, p.FullName, at?.Invoke(p)));
 		});
-		return self;
 	}
 
 	/// <summary>
@@ -63,28 +85,27 @@ public static class Files<T>
 		Func<T, IEnumerable<IFileSystemInfo>> paths,
 		Func<T, IDirectoryInfo?>? root = null,
 		string? message = null,
+		Func<IFileSystemInfo, string>? describe = null,
 		Func<IFileSystemInfo, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(paths))] string? pathsExpression = null
 	)
 	{
-		Constraint<T> self = null!;
 		var member = Constraints<T>.MemberOf(pathsExpression);
-		self = Rule(value =>
+		return Rule(value =>
 		{
-			var rootPath = root?.Invoke(value) is { } r ? Normalize(r) : null;
+			var rootPath = root?.Invoke(value) is { } r ? FilePaths.Normalize(r) : null;
 			return paths(value)
-				.Select(p => (Path: p, Link: SymlinkAt(p, rootPath)))
+				.Select(p => (Path: p, Link: FilePaths.SymlinkAt(p, rootPath)))
 				.Where(x => x.Link is not null)
 				.Select(
 					x =>
-						Report(message ?? $"'{x.Path.FullName}' is, or is below, the symbolic link '{x.Link}'.",
+						Report(message ?? describe?.Invoke(x.Path) ?? $"'{x.Path.FullName}' is, or is below, the symbolic link '{x.Link}'.",
 							member,
 							x.Path.FullName,
 							at?.Invoke(x.Path)
 						)
 				);
 		});
-		return self;
 	}
 
 	/// <summary>No directory between <paramref name="root"/> and the path starts with a dot (<c>.git</c>, <c>.hidden</c>): hidden folders are not part of the content.</summary>
@@ -92,28 +113,27 @@ public static class Files<T>
 		Func<T, IDirectoryInfo> root,
 		Func<T, IEnumerable<IFileSystemInfo>> paths,
 		string? message = null,
+		Func<IFileSystemInfo, string>? describe = null,
 		Func<IFileSystemInfo, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(paths))] string? pathsExpression = null
 	)
 	{
-		Constraint<T> self = null!;
 		var member = Constraints<T>.MemberOf(pathsExpression);
-		self = Rule(value =>
+		return Rule(value =>
 		{
-			var rootPath = Normalize(root(value));
+			var rootPath = FilePaths.Normalize(root(value));
 			return paths(value)
-				.Select(p => (Path: p, Segment: HiddenSegment(rootPath, Normalize(p))))
+				.Select(p => (Path: p, Segment: FilePaths.HiddenSegment(rootPath, FilePaths.Normalize(p))))
 				.Where(x => x.Segment is not null)
 				.Select(
 					x =>
-						Report(message ?? $"'{x.Path.FullName}' is inside the hidden directory '{x.Segment}'.",
+						Report(message ?? describe?.Invoke(x.Path) ?? $"'{x.Path.FullName}' is inside the hidden directory '{x.Segment}'.",
 							member,
 							x.Path.FullName,
 							at?.Invoke(x.Path)
 						)
 				);
 		});
-		return self;
 	}
 
 	/// <summary>Every path has one of <paramref name="extensions"/> (with the dot, compared without regard to case).</summary>
@@ -121,6 +141,7 @@ public static class Files<T>
 		Func<T, IEnumerable<IFileSystemInfo>> paths,
 		string[] extensions,
 		string? message = null,
+		Func<IFileSystemInfo, string>? describe = null,
 		Func<IFileSystemInfo, SourceLocation?>? at = null,
 		[CallerArgumentExpression(nameof(paths))] string? pathsExpression = null
 	) =>
@@ -131,8 +152,65 @@ public static class Files<T>
 					? null
 					: $"'{p.FullName}' does not have one of the extensions {string.Join(", ", extensions)}.",
 			message,
+			describe,
 			at,
 			pathsExpression);
+
+	/// <summary>Every existing file has content: an empty page or image is a file somebody forgot to write. A missing file is not this rule's concern (see <see cref="Exist"/>).</summary>
+	public static Constraint<T> NotEmpty(
+		Func<T, IEnumerable<IFileInfo>> files,
+		string? message = null,
+		Func<IFileInfo, string>? describe = null,
+		Func<IFileInfo, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(files))] string? filesExpression = null
+	) => Each(files, f => f.Exists && f.Length == 0 ? $"'{f.FullName}' is empty." : null, message, describe, at, filesExpression);
+
+	/// <summary>No existing file is larger than <paramref name="maxBytes"/>: a page or image that large is a mistake, or slows every build and page load.</summary>
+	public static Constraint<T> MaxSize(
+		Func<T, IEnumerable<IFileInfo>> files,
+		long maxBytes,
+		string? message = null,
+		Func<IFileInfo, string>? describe = null,
+		Func<IFileInfo, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(files))] string? filesExpression = null
+	) =>
+		Each(
+			files,
+			f => f.Exists && f.Length > maxBytes ? $"'{f.FullName}' is {f.Length} bytes; the limit is {maxBytes}." : null,
+			message,
+			describe,
+			at,
+			filesExpression);
+
+	/// <summary>
+	/// No two paths differ only in case. They are two files on Linux and one on macOS or Windows, so a tree that holds both cannot be checked out on every machine.
+	/// Each spelling after the first of a group is one violation naming the one it collides with; the same path listed twice is the same file, not a collision.
+	/// </summary>
+	public static Constraint<T> UniqueIgnoringCase(
+		Func<T, IEnumerable<IFileSystemInfo>> paths,
+		string? message = null,
+		Func<IFileSystemInfo, string>? describe = null,
+		Func<IFileSystemInfo, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(paths))] string? pathsExpression = null
+	)
+	{
+		var member = Constraints<T>.MemberOf(pathsExpression);
+		return Rule(value =>
+		{
+			var first = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			var found = new List<Violation>();
+			foreach (var p in paths(value))
+			{
+				var full = FilePaths.Normalize(p);
+				if (first.TryAdd(full, full) || string.Equals(first[full], full, StringComparison.Ordinal))
+				{
+					continue;
+				}
+				found.Add(Report(message ?? describe?.Invoke(p) ?? $"'{full}' differs only in case from '{first[full]}'.", member, p.FullName, at?.Invoke(p)));
+			}
+			return found;
+		});
+	}
 
 	// ── plumbing ──────────────────────────────────────────────────────────
 
@@ -140,20 +218,39 @@ public static class Files<T>
 		Func<T, IEnumerable<TInfo>> items,
 		Func<TInfo, string?> problem,
 		string? message,
+		Func<TInfo, string>? describe,
 		Func<TInfo, SourceLocation?>? at,
 		string? expression
 	) where TInfo : IFileSystemInfo
 	{
-		Constraint<T> self = null!;
 		var member = Constraints<T>.MemberOf(expression);
-		self = Rule(
+		return Rule(
 			value =>
 				items(value)
 					.Select(i => (Item: i, Problem: problem(i)))
 					.Where(x => x.Problem is not null)
-					.Select(x => Report(message ?? x.Problem!, member, x.Item.FullName, at?.Invoke(x.Item)))
+					.Select(x => Report(message ?? describe?.Invoke(x.Item) ?? x.Problem!, member, x.Item.FullName, at?.Invoke(x.Item)))
 		);
-		return self;
+	}
+
+	private static Constraint<T> EachItem<TItem, TInfo>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<T, TItem, TInfo> resolve,
+		Func<TInfo, bool> holds,
+		Func<TInfo, string> problem,
+		Func<TItem, string>? describe,
+		Func<TItem, SourceLocation?>? at,
+		string? expression
+	) where TInfo : IFileSystemInfo
+	{
+		var member = Constraints<T>.MemberOf(expression);
+		return Rule(
+			value =>
+				items(value)
+					.Select(i => (Item: i, Info: resolve(value, i)))
+					.Where(x => !holds(x.Info))
+					.Select(x => Report(describe?.Invoke(x.Item) ?? problem(x.Info), member, x.Info.FullName, at?.Invoke(x.Item)))
+		);
 	}
 
 	// A rule that throws on a path the file system refuses (or on a null one) is one violation saying so, not an exception out of Validate.
@@ -176,47 +273,4 @@ public static class Files<T>
 
 	private static Violation Report(string message, string? member, string path, SourceLocation? location) =>
 		new Violation(message) { Member = member, Evidence = path }.At(location);
-
-	private static string Normalize(IFileSystemInfo info) => info.FileSystem.Path.GetFullPath(info.FullName).TrimEnd('/', '\\');
-
-	private static bool IsInside(string root, string path) =>
-		string.Equals(path, root, StringComparison.Ordinal) || path.StartsWith(root + "/", StringComparison.Ordinal) || path.StartsWith(
-			root + "\\",
-			StringComparison.Ordinal
-		);
-
-	// The first link at or above the path (below the root), or null.
-	private static string? SymlinkAt(IFileSystemInfo path, string? root)
-	{
-		for (var current = (IFileSystemInfo?)path; current is not null; current = Parent(current))
-		{
-			if (root is not null && !IsInside(root, Normalize(current)))
-			{
-				break;
-			}
-			if (root is not null && string.Equals(Normalize(current), root, StringComparison.Ordinal))
-			{
-				break;
-			}
-			if (current.LinkTarget is not null)
-			{
-				return current.FullName;
-			}
-		}
-		return null;
-	}
-
-	private static IFileSystemInfo? Parent(IFileSystemInfo info) => info is IFileInfo file ? file.Directory : ((IDirectoryInfo)info).Parent;
-
-	private static string? HiddenSegment(string root, string path)
-	{
-		if (!IsInside(root, path) || path.Length <= root.Length)
-		{
-			return null;
-		}
-		var relative = path[root.Length..].TrimStart('/', '\\');
-		var segments = relative.Split('/', '\\');
-		// the last segment is the file itself: a dotfile is hidden too, but the rule is about directories
-		return segments.Take(segments.Length - 1).FirstOrDefault(s => s.StartsWith('.'));
-	}
 }
