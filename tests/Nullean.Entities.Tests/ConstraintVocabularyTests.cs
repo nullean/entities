@@ -257,6 +257,20 @@ public class ConstraintVocabularyTests
 	}
 
 	[Test]
+	public void Without_by_handle_removes_the_rule_and_a_rule_from_another_set_throws()
+	{
+		var a = Constraints<Release>.Always(_ => false, "a");
+		var b = Constraints<Release>.Always(_ => false, "b");
+		var elsewhere = Constraints<Release>.Always(_ => false, "elsewhere");
+		var set = ConstraintSet.From(("a", a), ("b", b));
+
+		set.Without(a).Validate(Make()).Single().Message.Should().Be("b");
+		set.Without(a, b).Validate(Make()).Should().BeEmpty();
+		var unknown = () => set.Without(elsewhere);
+		unknown.Should().Throw<ArgumentException>();
+	}
+
+	[Test]
 	public void Each_with_the_root_can_name_what_the_item_was_checked_against()
 	{
 		var set = ConstraintSet.From(

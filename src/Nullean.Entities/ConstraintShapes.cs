@@ -27,7 +27,7 @@ public static partial class Constraints<T>
 	/// message is <paramref name="message"/> applied to the item, so it can name it (<c>item =&gt; $"page '{item.Path}' has no title"</c>).
 	/// The item is the evidence, and <paramref name="at"/> points the violation at its source line.
 	/// </summary>
-	public static Constraint<T> Each<TItem>(
+	public static Constraint<T, TItem> Each<TItem>(
 		Func<T, IEnumerable<TItem>> items,
 		Func<TItem, bool> predicate,
 		Func<TItem, string> message,
@@ -39,7 +39,7 @@ public static partial class Constraints<T>
 	/// Every item <paramref name="items"/> picks out is checked by <paramref name="problem"/>, which returns what is wrong with it or null when it is fine.
 	/// The shape for a rule that finds out <em>why</em> an item is bad while checking it (a path that does not resolve, a name with a forbidden character).
 	/// </summary>
-	public static Constraint<T> Each<TItem>(
+	public static Constraint<T, TItem> Each<TItem>(
 		Func<T, IEnumerable<TItem>> items,
 		Func<TItem, string?> problem,
 		Func<TItem, SourceLocation?>? at = null,
@@ -325,7 +325,7 @@ public static partial class Constraints<T>
 		});
 	}
 	/// <summary><see cref="Each{TItem}(Func{T, IEnumerable{TItem}}, Func{TItem, string}, Func{TItem, SourceLocation}, string)"/> where the check also needs the value that holds the items (the catalogue an item refers into, the other items).</summary>
-	public static Constraint<T> Each<TItem>(
+	public static Constraint<T, TItem> Each<TItem>(
 		Func<T, IEnumerable<TItem>> items,
 		Func<T, TItem, string?> problem,
 		Func<TItem, SourceLocation?>? at = null,
@@ -345,11 +345,19 @@ public static partial class Constraints<T>
 		);
 	}
 
+	/// <summary><see cref="EachCheck{TItem, TEvidence}"/> where a violation without evidence carries the item, so the rule's evidence is the item.</summary>
+	public static Constraint<T, TItem> EachCheck<TItem>(
+		Func<T, IEnumerable<TItem>> items,
+		Func<T, TItem, IEnumerable<Violation>> check,
+		Func<TItem, SourceLocation?>? at = null,
+		[CallerArgumentExpression(nameof(items))] string? itemsExpression = null
+	) => EachCheck<TItem, TItem>(items, check, at, itemsExpression);
+
 	/// <summary>
 	/// Every item is checked by <paramref name="check"/>, which returns any number of violations of any severity: one item that breaks several rules,
 	/// or a warning for some items and an error for others. A violation without a member gets the collection's; one without a location gets <paramref name="at"/>'s.
 	/// </summary>
-	public static Constraint<T> EachCheck<TItem>(
+	public static Constraint<T, TEvidence> EachCheck<TItem, TEvidence>(
 		Func<T, IEnumerable<TItem>> items,
 		Func<T, TItem, IEnumerable<Violation>> check,
 		Func<TItem, SourceLocation?>? at = null,
@@ -373,7 +381,7 @@ public static partial class Constraints<T>
 	}
 
 	/// <summary>Nothing may be in both <paramref name="first"/> and <paramref name="second"/>: a page both listed and excluded, a key both added and already present. One violation per shared key.</summary>
-	public static Constraint<T> Disjoint<TKey>(
+	public static Constraint<T, TKey> Disjoint<TKey>(
 		Func<T, IEnumerable<TKey>> first,
 		Func<T, IEnumerable<TKey>> second,
 		IEqualityComparer<TKey>? comparer = null,
@@ -396,7 +404,7 @@ public static partial class Constraints<T>
 	}
 
 	/// <summary>Every item must be used: <paramref name="used"/> lists the keys that are referred to, and an item whose key is not among them is an orphan (a declaration nothing uses, a mounted source nothing links to).</summary>
-	public static Constraint<T> EachUsed<TItem, TKey>(
+	public static Constraint<T, TKey> EachUsed<TItem, TKey>(
 		Func<T, IEnumerable<TItem>> items,
 		Func<TItem, TKey> key,
 		Func<T, IEnumerable<TKey>> used,
@@ -428,7 +436,7 @@ public static partial class Constraints<T>
 	/// Items that share a <paramref name="key"/> must agree on <paramref name="value"/>: one bundle, one product target; one label, one meaning. One violation per key
 	/// that maps to more than one distinct value, with the key as evidence. <paramref name="describe"/> receives the key and its distinct values.
 	/// </summary>
-	public static Constraint<T> Consistent<TItem, TKey, TValue>(
+	public static Constraint<T, TKey> Consistent<TItem, TKey, TValue>(
 		Func<T, IEnumerable<TItem>> items,
 		Func<TItem, TKey> key,
 		Func<TItem, TValue> value,
@@ -637,6 +645,10 @@ public sealed partial class ConstraintSet<T>
 	public ConstraintSet<T> Strict() =>
 		new([.. _constraints.Select(c => c.Copy().Escalate())]);
 
+	/// <summary>The same set without these rules, named by handle (the property a constraint class declares) rather than by string: a deliberate suppression that survives a rename. A rule that is not in the set throws.</summary>
+	public ConstraintSet<T> Without(params Constraint<T>[] rules) =>
+		Without([.. rules.Select(r => r.Name ?? throw new ArgumentException("A rule without a name cannot be removed by handle.", nameof(rules)))]);
+
 	/// <summary>The same set without the named rules: a deliberate suppression, visible where it is made. A name that is not in the set throws.</summary>
 	public ConstraintSet<T> Without(params string[] names)
 	{
@@ -649,7 +661,7 @@ public sealed partial class ConstraintSet<T>
 	}
 }
 
-public sealed partial class Constraint<T>
+public partial class Constraint<T>
 {
 	/// <summary>
 	/// A rule that is introduced gently: reported at <paramref name="before"/> until <paramref name="until"/>, at <paramref name="after"/> from then on, by

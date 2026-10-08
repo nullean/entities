@@ -684,6 +684,11 @@ internal sealed class AutoBuilder(AutoOptions options)
 			);
 		}
 		var constructors = type.GetConstructors(BindingFlags.Public | BindingFlags.Instance);
+		if (constructors.Length == 0 && !type.IsValueType)
+		{
+			// A record or class whose constructor is internal (its assembly lets a test assembly build it): a generator for tests may use it.
+			constructors = [.. type.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance).Where(c => c.IsAssembly || c.IsFamilyOrAssembly)];
+		}
 		// [JsonConstructor] says which constructor is the real one; otherwise the one with the most parameters (a record's primary constructor).
 		MethodBase? ctor = constructors.FirstOrDefault(c => c.GetCustomAttributes(false).Any(a => a.GetType().Name == "JsonConstructorAttribute"))
 		?? constructors.OrderByDescending(c => c.GetParameters().Length).FirstOrDefault();
@@ -716,9 +721,9 @@ internal sealed class AutoBuilder(AutoOptions options)
 		}
 
 		var setters = new List<PropertyInfo>();
-		foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+		foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
 		{
-			if (!prop.CanWrite || prop.GetSetMethod() is null || prop.GetIndexParameters().Length > 0 || names.Contains(
+			if (!prop.CanWrite || SetterOf(prop) is null || prop.GetIndexParameters().Length > 0 || names.Contains(
 					prop.Name,
 					StringComparer.OrdinalIgnoreCase
 				))
@@ -754,6 +759,12 @@ internal sealed class AutoBuilder(AutoOptions options)
 		plan.SetRelations(declared, relationKeys);
 		return plan;
 	}
+
+	// A public setter, or an internal one (`{ get; internal init; }`): reflection reaches it, and the test assembly that asks for the generator is the one the domain lets build its types.
+	internal static MethodInfo? SetterOf(PropertyInfo property) =>
+		(property.GetMethod is null || property.GetMethod.IsPublic) && property.GetSetMethod(
+			true
+		) is { } setter && (setter.IsPublic || setter.IsAssembly || setter.IsFamilyOrAssembly) ? setter : null;
 
 	private readonly Dictionary<RelationDecl, Gen<object?>> _relationKeyGens = [];
 
