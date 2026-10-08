@@ -482,7 +482,7 @@ public class OtherModelTests
 		// Locked -> Open is not an allowed transition of DoorConstraints, so the folded state shows it too
 		var act = () => Doors(buggyOpen: true).Spec.Exhaustive();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("LegalTransitions");
+		act.Should().Throw<Exception>().Which.Message.Should().Contain("legal-transitions");
 	}
 
 	// ── Mutable + replay ─────────────────────────────────────────────────────
@@ -513,7 +513,7 @@ public class OtherModelTests
 
 		var act = () => spec.Exhaustive();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("LegalTransitions");
+		act.Should().Throw<Exception>().Which.Message.Should().Contain("legal-transitions");
 	}
 
 	[Test]

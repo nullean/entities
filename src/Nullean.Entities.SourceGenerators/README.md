@@ -37,10 +37,10 @@ The merged member list groups by containing type, and emits one `All` property p
   base list, because `SpecClass.All` is `static` regardless of whether the class itself is
   — there's nothing on the class that could implement an instance interface member. A forwarding
   `SpecClass.Instance` field on the outer class itself means a caller never has to spell out
-  `TypeConstraints`. Both cases build the property from `ConstraintSet.From((nameof(field), field), ...)`.
+  `TypeConstraints`. Both cases build the property from `ConstraintSet.From((ConstraintName.Of(nameof(field)), field), ...)`; the id is the kebab-case of the member name (`PathPrefixesUnique` becomes `path-prefixes-unique`).
 - `ReactiveConstraint<T>` members get a `ReactiveConstraintSet<T> All` property with the
   same nested `TypeConstraints : IReactiveConstraintsFor<T>` treatment, built from
-  `ReactiveConstraintSet.From((nameof(field), field), ...)`. There's no reactive-native self-attach
+  `ReactiveConstraintSet.From((ConstraintName.Of(nameof(field)), field), ...)`. There's no reactive-native self-attach
   interface to choose instead — self-attach for reactive flows through the sync core's
   `IHaveConstraints<T>` + `ToReactive()` (see `AttachConstraints` in `Nullean.Entities.Reactive`) —
   so every declarer goes through this one path.
@@ -80,7 +80,7 @@ just that the generator emits the text you'd expect.
 
 ## Beyond constraint fields
 
-- **DataAnnotations** on the constrained type (`[Required]`, `[Range]`, `[StringLength]`, `[MaxLength]`, `[MinLength]`, `[RegularExpression]`) become generated constraints named `<Property><Attribute>`, with no opt-in. Any other
+- **DataAnnotations** on the constrained type (`[Required]`, `[Range]`, `[StringLength]`, `[MaxLength]`, `[MinLength]`, `[RegularExpression]`) become generated constraints named kebab-case `<property>-<attribute>` (`name-required`, `age-range`), with no opt-in. Any other
   validation attribute gets the Info diagnostic `NECG010`; `[ConstraintIgnore]` on a property leaves its annotations out.
 - **`[Constraints<T>]`** on a companion class names the type its rules are about, so a companion with no hand-written rule still gets `T`'s annotations (and `T`'s `Actions`). A member about another type is `NECG007`.
 - **Nested and generic types** are supported: every containing type must be `partial` (otherwise `NECG005`), and type parameters are carried into the generated declaration. C# does not allow a type parameter in an attribute's

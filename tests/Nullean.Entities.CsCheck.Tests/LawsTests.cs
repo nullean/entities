@@ -114,7 +114,7 @@ public class LawsTests
 	{
 		var report = Annotated.Constraints.Laws(new Annotated("Ada", "adal", 30));
 
-		report.Results.Select(r => r.Constraint).Should().BeEquivalentTo(["NameRequired", "HandleStringLength", "AgeRange"]);
+		report.Results.Select(r => r.Constraint).Should().BeEquivalentTo(["name-required", "handle-string-length", "age-range"]);
 		report.Results.Should().OnlyContain(r => r.CounterExample.StartsWith("generated:", StringComparison.Ordinal));
 	}
 

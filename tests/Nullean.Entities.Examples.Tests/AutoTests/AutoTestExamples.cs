@@ -125,7 +125,7 @@ public class AutoTestExamples
 
 		report.Gaps.Should().Contain(g => g.Property == "Iban" && g.Value == "\" \""); // a blank IBAN is accepted
 		report.Gaps.Should().Contain(g => g.Property == "Status"); // so is an undefined AccountStatus
-		report.RulesFor("Balance").Should().Contain("BalanceAboveLimit"); // while the overdraft rule does reject extremes
+		report.RulesFor("Balance").Should().Contain("balance-above-limit"); // while the overdraft rule does reject extremes
 	}
 
 	[Test]

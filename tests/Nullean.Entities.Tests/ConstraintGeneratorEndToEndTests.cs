@@ -18,6 +18,45 @@ internal sealed partial record GeneratedItem(int Value)
 	public static readonly Constraint<GeneratedItem> Under100 = Constraints<GeneratedItem>.Check(i => i.Value <= 100 ? [] : [Violation.Warning("exceeds 100")]);
 }
 
+// ── Static properties: the property name is the id, kebab-cased ──────────────────
+
+internal sealed record Stock(int OnHand, int Reserved);
+
+[Constraints]
+internal static partial class StockRules
+{
+	public static Constraint<Stock> OnHandIsNotNegative { get; } = Constraints<Stock>.Always(s => s.OnHand >= 0, "negative stock");
+
+	public static Constraint<Stock> ReservedWithinOnHand { get; } = Constraints<Stock>.Always(s => s.Reserved <= s.OnHand, "over-reserved").Describe(
+		"Reserved stock exists."
+	);
+}
+
+public class StaticPropertyConstraintsTests
+{
+	[Test]
+	[Arguments("PathPrefixesUnique", "path-prefixes-unique")]
+	[Arguments("URLPath", "url-path")]
+	[Arguments("EntryTitleMax80", "entry-title-max-80")]
+	[Arguments("Under100", "under-100")]
+	[Arguments("Rule_Two", "rule-two")]
+	public void ConstraintName_makes_kebab_case_ids(string member, string id) => ConstraintName.Of(member).Should().Be(id);
+
+	[Test]
+	public void Auto_properties_are_the_rules_and_their_kebab_case_names_are_the_ids()
+	{
+		StockRules.All.AsConstraints().Select(c => c.Name).Should().Equal("on-hand-is-not-negative", "reserved-within-on-hand");
+		StockRules
+			.All
+			.AsConstraints()
+			.Select(c => c.Name)
+			.Should()
+			.Equal(ConstraintName.Of(nameof(StockRules.OnHandIsNotNegative)), ConstraintName.Of(nameof(StockRules.ReservedWithinOnHand)));
+		StockRules.All.Validate(new Stock(1, 5)).Single().ConstraintId.Should().Be("reserved-within-on-hand");
+		StockRules.All.AsConstraints()[1].Description.Should().Be("Reserved stock exists.");
+	}
+}
+
 public class SelfAttachedConstraintsTests
 {
 	[Test]
@@ -27,14 +66,14 @@ public class SelfAttachedConstraintsTests
 	public void Generated_Constraints_bundles_every_Constraint_field()
 	{
 		var violations = GeneratedItem.Constraints.Validate(new GeneratedItem(-1));
-		violations.Should().ContainSingle(v => v.ConstraintId == "Positive");
+		violations.Should().ContainSingle(v => v.ConstraintId == "positive");
 	}
 
 	[Test]
 	public void Generated_Constraints_reflects_every_field_not_just_the_first()
 	{
 		var violations = GeneratedItem.Constraints.Validate(new GeneratedItem(200));
-		violations.Should().ContainSingle(v => v.ConstraintId == "Under100");
+		violations.Should().ContainSingle(v => v.ConstraintId == "under-100");
 	}
 
 	[Test]
@@ -79,7 +118,7 @@ public class CompanionClassConstraintsTests
 		var violations = GeneratedOrderSpec.All.Validate(order);
 
 		violations.Should().HaveCount(2);
-		violations.Select(v => v.ConstraintId).Should().Contain(["TotalNonNegative", "PaymentRefRequired"]);
+		violations.Select(v => v.ConstraintId).Should().Contain(["total-non-negative", "payment-ref-required"]);
 	}
 
 	[Test]

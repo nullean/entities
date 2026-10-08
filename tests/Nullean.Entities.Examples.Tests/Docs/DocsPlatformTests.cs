@@ -23,9 +23,9 @@ public class DocsPlatformTests
 			ValidCatalog,
 			new Dictionary<string, Func<Catalog, Catalog>>
 			{
-				["ProductIdsAreUnique"] = c => c with { Products = [.. c.Products, c.Products[0] with { Id = "ELASTICSEARCH" }] },
-				["VersioningSystemsExist"] = c => c with { Products = [c.Products[0] with { VersioningSystemId = "nothing" }] },
-				["BaseIsNotAfterCurrent"] = c => c with { VersioningSystems = [new("stack", new Version(9, 2), new Version(9, 1))] },
+				["product-ids-are-unique"] = c => c with { Products = [.. c.Products, c.Products[0] with { Id = "ELASTICSEARCH" }] },
+				["versioning-systems-exist"] = c => c with { Products = [c.Products[0] with { VersioningSystemId = "nothing" }] },
+				["base-is-not-after-current"] = c => c with { VersioningSystems = [new("stack", new Version(9, 2), new Version(9, 1))] },
 			}
 		);
 
@@ -35,10 +35,10 @@ public class DocsPlatformTests
 			ValidSet,
 			new Dictionary<string, Func<DocumentationSet, DocumentationSet>>
 			{
-				["PageUrlsAreUnique"] = d => d with { Pages = [.. d.Pages, new Page("/a")] },
-				["RedirectSourcesAreUnique"] = d => d with { Redirects = [.. d.Redirects, new Redirect("/old", "/b")] },
-				["RedirectTargetsExist"] = d => d with { Redirects = [new Redirect("/old", "/ghost")] },
-				["RedirectsDoNotShadowPages"] = d => d with { Redirects = [new Redirect("/b", "/a")] },
+				["page-urls-are-unique"] = d => d with { Pages = [.. d.Pages, new Page("/a")] },
+				["redirect-sources-are-unique"] = d => d with { Redirects = [.. d.Redirects, new Redirect("/old", "/b")] },
+				["redirect-targets-exist"] = d => d with { Redirects = [new Redirect("/old", "/ghost")] },
+				["redirects-do-not-shadow-pages"] = d => d with { Redirects = [new Redirect("/b", "/a")] },
 			},
 			// A chain A to B to C always also trips "target exists" (B is not a page) or "does not shadow a page" (B is), so no counter-example isolates it
 			requireCounterExamples: false
@@ -49,7 +49,7 @@ public class DocsPlatformTests
 	{
 		var chain = new Dictionary<string, Func<DocumentationSet, DocumentationSet>>
 		{
-			["RedirectsAreNotChained"] = d => d with { Redirects = [new Redirect("/old", "/older"), new Redirect("/older", "/a")] },
+			["redirects-are-not-chained"] = d => d with { Redirects = [new Redirect("/old", "/older"), new Redirect("/older", "/a")] },
 		};
 
 		var act = () => DocumentationSetConstraints.All.Laws(ValidSet, chain, requireCounterExamples: false);
@@ -60,9 +60,9 @@ public class DocsPlatformTests
 			.Which
 			.Message
 			.Should()
-			.Contain("RedirectsAreNotChained")
+			.Contain("redirects-are-not-chained")
 			.And
-			.Contain("also breaks RedirectTargetsExist");
+			.Contain("also breaks redirect-targets-exist");
 	}
 
 	// ── Generated data finds every rule's counter-example with no hand-made generator ────────────────────
@@ -94,21 +94,21 @@ public class DocsPlatformTests
 			ValidAssembly,
 			new Dictionary<string, Func<Assembly, Assembly>>
 			{
-				["RepositoryKeysMatchNames"] = _ => new Assembly(new Dictionary<string, Repository> { ["kibana"] = new("kibana-other") }),
+				["repository-keys-match-names"] = _ => new Assembly(new Dictionary<string, Repository> { ["kibana"] = new("kibana-other") }),
 			}
 		);
 		NavigationConstraints.All.Laws(
 			ValidNavigation,
 			new Dictionary<string, Func<Navigation, Navigation>>
 			{
-				["PathPrefixesAreUnique"] = n => new Navigation([.. n.Mounts, new Mount(MountUri.Make("apm"), "/kibana")]),
+				["path-prefixes-are-unique"] = n => new Navigation([.. n.Mounts, new Mount(MountUri.Make("apm"), "/kibana")]),
 			}
 		);
 		NavigationInAssemblyConstraints.All.Laws(
 			new NavigationInAssembly(ValidNavigation, ValidAssembly),
 			new Dictionary<string, Func<NavigationInAssembly, NavigationInAssembly>>
 			{
-				["MountIsARepository"] = p => p with { Navigation = new Navigation([new Mount(MountUri.Make("ghost"), "/x")]) },
+				["mount-is-a-repository"] = p => p with { Navigation = new Navigation([new Mount(MountUri.Make("ghost"), "/x")]) },
 			}
 		);
 	}
@@ -120,30 +120,30 @@ public class DocsPlatformTests
 			ValidDocset,
 			new Dictionary<string, Func<Docset, Docset>>
 			{
-				["NoFileIsListedTwice"] = d => d with { Toc = [new TocNode("a.md", [new TocNode("b.md", [new TocNode("a.md", [])])])] },
-				["FilesStayInTheirFolder"] = d => d with { Toc = [new TocNode("../x.md", [])] },
+				["no-file-is-listed-twice"] = d => d with { Toc = [new TocNode("a.md", [new TocNode("b.md", [new TocNode("a.md", [])])])] },
+				["files-stay-in-their-folder"] = d => d with { Toc = [new TocNode("../x.md", [])] },
 			}
 		);
 		DocsetInCatalogConstraints.All.Laws(
 			new DocsetInCatalog(ValidDocset, ValidCatalog),
 			new Dictionary<string, Func<DocsetInCatalog, DocsetInCatalog>>
 			{
-				["ProductsExist"] = p => p with { Docset = p.Docset with { Products = ["ghost"] } },
+				["products-exist"] = p => p with { Docset = p.Docset with { Products = ["ghost"] } },
 			}
 		);
 		DocsetInCodexConstraints.All.Laws(
 			new DocsetInCodex(ValidDocset, new CodexConfig([new CodexGroup("observability", "Observability")])),
 			new Dictionary<string, Func<DocsetInCodex, DocsetInCodex>>
 			{
-				["CodexGroupExists"] = p => p with { Docset = p.Docset with { CodexGroup = "ghost" } },
+				["codex-group-exists"] = p => p with { Docset = p.Docset with { CodexGroup = "ghost" } },
 			}
 		);
 		TocIncludesConstraints.All.Laws(
 			new TocIncludes([new TocFile("a.yml", ["b.yml"]), new TocFile("b.yml", [])]),
 			new Dictionary<string, Func<TocIncludes, TocIncludes>>
 			{
-				["IncludesAreAcyclic"] = _ => new TocIncludes([new TocFile("a.yml", ["b.yml"]), new TocFile("b.yml", ["a.yml"])]),
-				["IncludesExist"] = _ => new TocIncludes([new TocFile("a.yml", ["ghost.yml"])]),
+				["includes-are-acyclic"] = _ => new TocIncludes([new TocFile("a.yml", ["b.yml"]), new TocFile("b.yml", ["a.yml"])]),
+				["includes-exist"] = _ => new TocIncludes([new TocFile("a.yml", ["ghost.yml"])]),
 			}
 		);
 	}

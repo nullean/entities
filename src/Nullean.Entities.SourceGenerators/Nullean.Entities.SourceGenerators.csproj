@@ -21,5 +21,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <!-- The id a member gets is computed by one function, shared with the library so they cannot disagree. -->
+    <Compile Include="..\Nullean.Entities\ConstraintName.cs" Link="ConstraintName.cs" />
   </ItemGroup>
 </Project>

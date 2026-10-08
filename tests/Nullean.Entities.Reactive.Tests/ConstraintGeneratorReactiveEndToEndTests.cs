@@ -48,8 +48,8 @@ public class ReactiveCompanionClassConstraintsTests
 		var subject = new Subject<GeneratedOrderEvent>();
 		var monitored = GeneratedOrderEventSpec.All.Attach(subject);
 
-		monitored["NeverShippedBeforeConfirmed"].Current.IsPending.Should().BeTrue();
-		monitored["TotalAlwaysPositive"].Current.IsPending.Should().BeTrue();
+		monitored["never-shipped-before-confirmed"].Current.IsPending.Should().BeTrue();
+		monitored["total-always-positive"].Current.IsPending.Should().BeTrue();
 	}
 
 	[Test]
@@ -62,7 +62,7 @@ public class ReactiveCompanionClassConstraintsTests
 		subject.OnNext(new GeneratedOrderEvent.Placed(orderId));
 		subject.OnNext(new GeneratedOrderEvent.Shipped(orderId));
 
-		monitored["NeverShippedBeforeConfirmed"].Current.IsViolated.Should().BeTrue();
+		monitored["never-shipped-before-confirmed"].Current.IsViolated.Should().BeTrue();
 	}
 
 	[Test]

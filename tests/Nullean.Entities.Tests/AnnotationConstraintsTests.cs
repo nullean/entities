@@ -78,13 +78,13 @@ public class AnnotationConstraintsTests
 		var names = Signup.Constraints.AsConstraints().Select(c => c.Name).ToList();
 
 		names.Should().BeEquivalentTo([
-			"NameRequired",
-			"HandleStringLength",
-			"AgeRange",
-			"RatingRange",
-			"ReferencePattern",
-			"NoteMaxLength",
-			"CommentRequired"
+			"name-required",
+			"handle-string-length",
+			"age-range",
+			"rating-range",
+			"reference-pattern",
+			"note-max-length",
+			"comment-required"
 		]);
 	}
 
@@ -100,8 +100,8 @@ public class AnnotationConstraintsTests
 	}
 
 	[Test]
-	[Arguments("", "NameRequired", "Name")]
-	[Arguments("   ", "NameRequired", "Name")]
+	[Arguments("", "name-required", "Name")]
+	[Arguments("   ", "name-required", "Name")]
 	public void Required_rejects_blank_strings(string name, string constraint, string member)
 	{
 		var violation = Signup.Constraints.Validate(Good with { Name = name }).Single();
@@ -118,7 +118,7 @@ public class AnnotationConstraintsTests
 	{
 		var violation = Signup.Constraints.Validate(Good with { Age = age }).Single();
 
-		violation.ConstraintId.Should().Be("AgeRange");
+		violation.ConstraintId.Should().Be("age-range");
 		violation.Member.Should().Be("Age");
 		violation.Evidence.Should().Be(age);
 		Signup.Constraints.Validate(Good with { Age = 18 }).Should().BeEmpty();
@@ -128,30 +128,30 @@ public class AnnotationConstraintsTests
 	[Test]
 	public void Range_works_on_nullable_and_floating_point_properties()
 	{
-		Signup.Constraints.Validate(Good with { Rating = 0.4 }).Single().ConstraintId.Should().Be("RatingRange");
-		Signup.Constraints.Validate(Good with { Rating = 5.1 }).Single().ConstraintId.Should().Be("RatingRange");
+		Signup.Constraints.Validate(Good with { Rating = 0.4 }).Single().ConstraintId.Should().Be("rating-range");
+		Signup.Constraints.Validate(Good with { Rating = 5.1 }).Single().ConstraintId.Should().Be("rating-range");
 		Signup.Constraints.Validate(Good with { Rating = 0.5 }).Should().BeEmpty();
-		Signup.Constraints.Validate(Good with { Rating = double.NaN }).Single().ConstraintId.Should().Be("RatingRange");
+		Signup.Constraints.Validate(Good with { Rating = double.NaN }).Single().ConstraintId.Should().Be("rating-range");
 	}
 
 	[Test]
 	[Arguments("ab")]
 	[Arguments("abcdefghijk")]
 	public void StringLength_enforces_both_bounds(string handle) =>
-		Signup.Constraints.Validate(Good with { Handle = handle }).Single().ConstraintId.Should().Be("HandleStringLength");
+		Signup.Constraints.Validate(Good with { Handle = handle }).Single().ConstraintId.Should().Be("handle-string-length");
 
 	[Test]
 	public void RegularExpression_must_match_the_whole_string()
 	{
-		Signup.Constraints.Validate(Good with { Reference = "ABC-1234" }).Single().ConstraintId.Should().Be("ReferencePattern");
-		Signup.Constraints.Validate(Good with { Reference = "xABC-123" }).Single().ConstraintId.Should().Be("ReferencePattern");
+		Signup.Constraints.Validate(Good with { Reference = "ABC-1234" }).Single().ConstraintId.Should().Be("reference-pattern");
+		Signup.Constraints.Validate(Good with { Reference = "xABC-123" }).Single().ConstraintId.Should().Be("reference-pattern");
 		Signup.Constraints.Validate(Good with { Reference = "ABC-123" }).Should().BeEmpty();
 	}
 
 	[Test]
 	public void MaxLength_and_a_custom_error_message_with_the_member_name_filled_in()
 	{
-		Signup.Constraints.Validate(Good with { Note = "toolong" }).Single().ConstraintId.Should().Be("NoteMaxLength");
+		Signup.Constraints.Validate(Good with { Note = "toolong" }).Single().ConstraintId.Should().Be("note-max-length");
 		Signup.Constraints.Validate(Good with { Comment = null }).Single().Message.Should().Be("Comment must be present, even if empty.");
 	}
 
@@ -160,13 +160,13 @@ public class AnnotationConstraintsTests
 	{
 		var names = Booking.Constraints.AsConstraints().Select(c => c.Name).ToList();
 
-		names.Should().BeEquivalentTo(["EndsAfterItStarts", "GuestsRange"]);
+		names.Should().BeEquivalentTo(["ends-after-it-starts", "guests-range"]);
 		Booking
 			.Constraints
 			.Validate(new Booking(11, new DateOnly(2026, 1, 2), new DateOnly(2026, 1, 1)))
 			.Select(v => v.ConstraintId)
 			.Should()
-			.BeEquivalentTo(["GuestsRange", "EndsAfterItStarts"]);
+			.BeEquivalentTo(["guests-range", "ends-after-it-starts"]);
 	}
 
 	[Test]
@@ -180,14 +180,14 @@ public class AnnotationConstraintsTests
 	[Test]
 	public void A_nested_type_gets_its_constraints_too()
 	{
-		Billing.Line.Constraints.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["NotThirteen", "QuantityRange"]);
-		Billing.Line.Constraints.Validate(new Billing.Line(11)).Single().ConstraintId.Should().Be("QuantityRange");
+		Billing.Line.Constraints.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["not-thirteen", "quantity-range"]);
+		Billing.Line.Constraints.Validate(new Billing.Line(11)).Single().ConstraintId.Should().Be("quantity-range");
 	}
 
 	[Test]
 	public void A_Constraints_of_T_companion_with_no_members_gets_the_annotations_of_T()
 	{
-		OrderRules.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["NumberRequired", "QuantityRange"]);
+		OrderRules.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["number-required", "quantity-range"]);
 		OrderRules.All.Validate(new Order("A-1", 500)).Single().Member.Should().Be("Quantity");
 		OrderRules.Instance.All.Should().BeSameAs(OrderRules.All);
 		OrderRules.Instance.Actions!.Select(a => a.Name).Should().Contain("Ship");
@@ -196,28 +196,28 @@ public class AnnotationConstraintsTests
 	[Test]
 	public void A_plain_Constraints_companion_with_fields_also_picks_up_the_annotations_of_its_type()
 	{
-		OrderConstraints.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["NotThirteen", "NumberRequired", "QuantityRange"]);
-		OrderConstraints.All.Validate(new Order("", 13)).Select(v => v.ConstraintId).Should().BeEquivalentTo(["NotThirteen", "NumberRequired"]);
+		OrderConstraints.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["not-thirteen", "number-required", "quantity-range"]);
+		OrderConstraints.All.Validate(new Order("", 13)).Select(v => v.ConstraintId).Should().BeEquivalentTo(["not-thirteen", "number-required"]);
 	}
 
 	[Test]
 	public void A_generic_entity_is_closed_per_use_and_gets_its_own_set()
 	{
-		Entity<Guid>.Constraints.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["LevelNotFive", "NameRequired", "LevelRange"]);
-		Entity<int>.Constraints.Validate(new Entity<int>("", 5, 7)).Select(v => v.ConstraintId).Should().BeEquivalentTo(["LevelNotFive", "NameRequired"]);
+		Entity<Guid>.Constraints.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["level-not-five", "name-required", "level-range"]);
+		Entity<int>.Constraints.Validate(new Entity<int>("", 5, 7)).Select(v => v.ConstraintId).Should().BeEquivalentTo(["level-not-five", "name-required"]);
 	}
 
 	[Test]
 	public void A_generic_companion_with_a_field_gets_the_annotations_of_the_generic_type_too()
 	{
-		BoxRules<int>.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["HasValue", "LabelRequired"]);
+		BoxRules<int>.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["has-value", "label-required"]);
 		BoxRules<string>.All.Validate(new Box<string>(" ", "x")).Single().Member.Should().Be("Label");
 	}
 
 	[Test]
 	public void A_closed_generic_type_can_be_named_by_the_attribute()
 	{
-		IntBoxRules.All.AsConstraints().Select(c => c.Name).Should().Equal("LabelRequired");
-		IntBoxRules.All.Validate(new Box<int>("", 3)).Single().ConstraintId.Should().Be("LabelRequired");
+		IntBoxRules.All.AsConstraints().Select(c => c.Name).Should().Equal("label-required");
+		IntBoxRules.All.Validate(new Box<int>("", 3)).Single().ConstraintId.Should().Be("label-required");
 	}
 }

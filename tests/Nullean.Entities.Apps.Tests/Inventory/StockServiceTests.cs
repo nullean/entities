@@ -40,7 +40,7 @@ public class StockServiceTests
 		(await service.ReserveAsync("APL-1", 5)).IsOk.Should().BeTrue();
 		var more = await service.ReserveAsync("APL-1", 1);
 
-		more.ViolationsOrEmpty.Should().ContainSingle().Which.ConstraintId.Should().Be("Warehouse.ReservedFitsOnHand");
+		more.ViolationsOrEmpty.Should().ContainSingle().Which.ConstraintId.Should().Be("Warehouse.reserved-fits-on-hand");
 	}
 
 	[Test]
@@ -110,11 +110,11 @@ public class StockServiceTests
 				new StockState(new Catalog([new Product("A", "a", 1m)]), new Warehouse([new StockLevel("A", 5, 2)])),
 				new Dictionary<string, Func<StockState, StockState>>
 				{
-					["Catalog.SkusAreUnique"] = s => s with { Catalog = s.Catalog.Add(new Product("A", "again", 1m)) },
-					["Catalog.PricesArePositive"] = s => s with { Catalog = new Catalog([new Product("A", "a", 0m)]) },
-					["Warehouse.SkusAreUnique"] = s => s with { Warehouse = new Warehouse([new StockLevel("A", 1, 0), new StockLevel("A", 1, 0)]) },
-					["Warehouse.QuantitiesAreNotNegative"] = s => s with { Warehouse = new Warehouse([new StockLevel("A", -1, -1)]) },
-					["Warehouse.ReservedFitsOnHand"] = s => s with { Warehouse = new Warehouse([new StockLevel("A", 1, 2)]) },
+					["Catalog.skus-are-unique"] = s => s with { Catalog = s.Catalog.Add(new Product("A", "again", 1m)) },
+					["Catalog.prices-are-positive"] = s => s with { Catalog = new Catalog([new Product("A", "a", 0m)]) },
+					["Warehouse.skus-are-unique"] = s => s with { Warehouse = new Warehouse([new StockLevel("A", 1, 0), new StockLevel("A", 1, 0)]) },
+					["Warehouse.quantities-are-not-negative"] = s => s with { Warehouse = new Warehouse([new StockLevel("A", -1, -1)]) },
+					["Warehouse.reserved-fits-on-hand"] = s => s with { Warehouse = new Warehouse([new StockLevel("A", 1, 2)]) },
 					["stocked-skus-are-in-the-catalogue"] = s => s with { Warehouse = s.Warehouse.Receive("Z", 1) },
 				}
 			);
