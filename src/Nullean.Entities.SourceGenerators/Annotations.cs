@@ -62,12 +62,14 @@ internal static class Annotations
 				continue;
 			}
 			var hasExplicitRequired = attributes.Any(a => a.AttributeClass?.ToDisplayString() == Ns + "RequiredAttribute");
+			// Only this rule is a prerequisite: for a required or get-only member a null is a hole in the object, which the other rules were not written
+			// to read. An explicit [Required] also rejects an empty string, which they can read, so it does not stop them.
 			if (implicitRequired && !hasExplicitRequired && MustBeSet(property))
 			{
 				result.Entries.Add(
 					new AnnotationEntry(
 						Unique(names, property.Name + "Required"),
-						$"global::Nullean.Entities.Constraints<{typeArgDisplay}>.Always(x => x.{property.Name}, v => v is not null, {Quote($"The {property.Name} field is required.")})"
+						$"global::Nullean.Entities.Constraints<{typeArgDisplay}>.Always(x => x.{property.Name}, v => v is not null, {Quote($"The {property.Name} field is required.")}).AsPrerequisite()"
 					)
 				);
 			}
@@ -105,7 +107,155 @@ internal static class Annotations
 				}
 			}
 		}
+		if (implicitRequired)
+		{
+			AddNestedRequired(type, typeArgDisplay, names, result);
+		}
 		return result;
+	}
+
+	// The members that must be set on the types this type holds (a nested object, the items of a list, the values of a dictionary), so a hole in a
+	// nested object is reported by the set that owns it without anyone adding an attribute to the nested type. Rules are named after the path
+	// (EnvironmentsNameRequired) and are prerequisites, like the ones for the type's own members.
+	private const int MaxNestedDepth = 3;
+
+	private static void AddNestedRequired(
+		INamedTypeSymbol root,
+		string typeArgDisplay,
+		System.Collections.Generic.HashSet<string> names,
+		AnnotationResult result
+	)
+	{
+		foreach (var property in root.GetMembers().OfType<IPropertySymbol>())
+		{
+			if (property.IsStatic || property.IsIndexer || property.DeclaredAccessibility != Accessibility.Public || property.GetMethod is null)
+			{
+				continue;
+			}
+			if (property.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnore))
+			{
+				continue;
+			}
+			if (HeldType(property.Type) is not { } held)
+			{
+				continue;
+			}
+			var visited = new System.Collections.Generic.HashSet<ISymbol>(SymbolEqualityComparer.Default) { root };
+			Walk(held.Element, held.Shape, property.Name, "x." + property.Name, property.Name, 1, visited);
+
+			void Walk(
+				INamedTypeSymbol element,
+				Shape shape,
+				string path,
+				string access,
+				string displayPath,
+				int depth,
+				System.Collections.Generic.HashSet<ISymbol> seen
+			)
+			{
+				if (!seen.Add(element))
+				{
+					return;
+				}
+				foreach (var member in element.GetMembers().OfType<IPropertySymbol>())
+				{
+					if (member.IsStatic || member.IsIndexer || member.DeclaredAccessibility != Accessibility.Public || member.GetMethod is null)
+					{
+						continue;
+					}
+					if (member.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnore))
+					{
+						continue;
+					}
+					var memberDisplay = shape == Shape.Single ? $"{displayPath}.{member.Name}" : $"{displayPath}[].{member.Name}";
+					if (MustBeSet(member))
+					{
+						var predicate = shape switch
+						{
+							Shape.Single => $"v => v is null || v.{member.Name} is not null",
+							_ => $"v => v is null || global::System.Linq.Enumerable.All(v, i => i is null || i.{member.Name} is not null)",
+						};
+						var select = shape == Shape.DictionaryValues ? $"{access}?.Values" : access;
+						result.Entries.Add(
+							new AnnotationEntry(
+								Unique(names, path + member.Name + "Required"),
+								$"global::Nullean.Entities.Constraints<{typeArgDisplay}>.Always(x => {select}, {predicate}, {Quote($"The {memberDisplay} field is required.")}).AsPrerequisite()"
+							)
+						);
+					}
+					if (depth < MaxNestedDepth && HeldType(member.Type) is { } inner && shape == Shape.Single && inner.Shape == Shape.Single)
+					{
+						// a nested object inside a nested object: reachable through the same null-safe path
+						Walk(
+							inner.Element,
+							Shape.Single,
+							path + member.Name,
+							access + "?." + member.Name,
+							$"{displayPath}.{member.Name}",
+							depth + 1,
+							new System.Collections.Generic.HashSet<ISymbol>(seen, SymbolEqualityComparer.Default)
+						);
+					}
+				}
+			}
+		}
+	}
+
+	private enum Shape
+	{
+		Single,
+		Items,
+		DictionaryValues,
+	}
+
+	private sealed record Held(INamedTypeSymbol Element, Shape Shape);
+
+	// The type a member holds, when it is one of ours to look into: a class or record that is not part of the framework, directly, or as the items of a
+	// list or the values of a dictionary. Strings, enums, structs and framework types hold nothing a rule of ours is about.
+	private static Held? HeldType(ITypeSymbol type)
+	{
+		if (type is not INamedTypeSymbol named)
+		{
+			return null;
+		}
+		if (named.SpecialType == SpecialType.System_String || named.TypeKind == TypeKind.Enum || (named.TypeKind == TypeKind.Interface && !IsCollection(named)))
+		{
+			return null;
+		}
+		var dictionary = named
+			.AllInterfaces
+			.Concat([named])
+			.FirstOrDefault(
+				i =>
+					i.OriginalDefinition.ToDisplayString() is "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>" or "System.Collections.Generic.IDictionary<TKey, TValue>"
+			);
+		if (dictionary is not null)
+		{
+			return dictionary.TypeArguments[1] is INamedTypeSymbol value && IsOurs(value) ? new Held(value, Shape.DictionaryValues) : null;
+		}
+		var items = named
+			.AllInterfaces
+			.Concat([named])
+			.FirstOrDefault(i => i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>");
+		if (items is not null)
+		{
+			return items.TypeArguments[0] is INamedTypeSymbol element && IsOurs(element) ? new Held(element, Shape.Items) : null;
+		}
+		return IsOurs(named) ? new Held(named, Shape.Single) : null;
+	}
+
+	private static bool IsCollection(INamedTypeSymbol type) =>
+		type.AllInterfaces.Concat([type]).Any(i => i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>");
+
+	private static bool IsOurs(INamedTypeSymbol type)
+	{
+		if (type.TypeKind != TypeKind.Class || type.IsAbstract || type.SpecialType != SpecialType.None)
+		{
+			return false;
+		}
+		var ns = type.ContainingNamespace?.ToDisplayString() ?? "";
+		return ns != "System" && !ns.StartsWith("System.", StringComparison.Ordinal) && !ns.StartsWith("Microsoft.", StringComparison.Ordinal)
+		&& !IsCollection(type);
 	}
 
 	// A non-nullable reference member that must be set: declared `required`, or a get-only auto property (only a constructor can set it).
