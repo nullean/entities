@@ -39,6 +39,14 @@ public sealed partial class AutoOptions
 	public int MaxCollection { get; set; } = 4;
 
 	/// <summary>
+	/// A collection that plans at least this many items stops drawing them while CsCheck is shrinking, once its size can no longer beat the smallest failure found. Shrinking
+	/// generates and discards most candidates (about 70% in a measured tree), and for a value with hundreds of items that is nearly all of the time: a shrink of a 400-item value
+	/// takes about 24 ms without this and under 1 ms with it, and finds the same minimal value. A collection that plans fewer items is generated exactly as without it, so this
+	/// only ever applies to big values, and automatically. <c>0</c> applies it to every collection, <see cref="int.MaxValue"/> never. See AGENTS.md, spike question 2.
+	/// </summary>
+	public int EarlyExitFrom { get; set; } = 32;
+
+	/// <summary>
 	/// Generate relations between fields: equal, inverted and adjacent values for pairs such as <c>Start/End</c> and
 	/// <c>Min/Max</c>, and duplicate identities across the items of a collection. Default on (a no-op in
 	/// <see cref="AutoMode.Plausible"/>).

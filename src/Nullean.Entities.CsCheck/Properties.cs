@@ -106,8 +106,14 @@ public static class ConstraintProperties
 	{
 		var names = PointInTimeNames(constraints);
 		var violated = names.ToDictionary(n => n, _ => 0);
+		var reach = new ReachMeter();
 		Sample(gen, samples, value =>
 		{
+			// The first few values are measured (a reflection walk of every one would cost more than the probe), enough to say how big the generator goes.
+			if (reach.Measured < 300)
+			{
+				reach.Add(value);
+			}
 			// Once per value: a Check constraint can report several violations for one bad value.
 			foreach (var id in SafeValidate(constraints, value, time).Select(v => v.ConstraintId).Where(id => id is not null).Distinct())
 			{
@@ -117,7 +123,7 @@ public static class ConstraintProperties
 				}
 			}
 		});
-		var report = new ProbeReport(samples, [.. names.Select(n => new ProbeEntry(n, samples - violated[n], violated[n]))]);
+		var report = new ProbeReport(samples, [.. names.Select(n => new ProbeEntry(n, samples - violated[n], violated[n]))], reach.Result);
 		writeLine?.Invoke(report.ToString());
 		if (throwOnContradiction && report.NeverHeld.Count > 0)
 		{
@@ -288,9 +294,15 @@ public static class ConstraintProperties
 
 public sealed record ProbeEntry(string Constraint, int Held, int Violated);
 
-public sealed class ProbeReport(int samples, IReadOnlyList<ProbeEntry> entries)
+public sealed class ProbeReport(int samples, IReadOnlyList<ProbeEntry> entries, GeneratedReach? reach = null)
 {
 	public int Samples { get; } = samples;
+
+	/// <summary>
+	/// How large and how deep the generated values were. A rule about more items, or more levels, than this cannot have been violated: it is not a tautology, the generator never got there
+	/// (<c>AutoOptions.MaxCollection</c> and <c>MaxDepth</c>; a collection and its element count as two levels). Null when the report was built without measuring.
+	/// </summary>
+	public GeneratedReach? Reach { get; } = reach;
 
 	public IReadOnlyList<ProbeEntry> Entries { get; } = entries;
 
@@ -307,6 +319,19 @@ public sealed class ProbeReport(int samples, IReadOnlyList<ProbeEntry> entries)
 		{
 			var note = e.Violated == 0 ? "  <- never violated" : e.Held == 0 ? "  <- never held" : "";
 			sb.AppendLine(CultureInfo.InvariantCulture, $"  {e.Constraint,-40} held {e.Held,6}  violated {e.Violated,6}{note}");
+		}
+		if (Reach is { } measured)
+		{
+			sb.AppendLine(
+				CultureInfo.InvariantCulture,
+				$"  The generated values went up to {measured.LargestCollection} items in a collection and {measured.Depth} levels deep."
+			);
+			if (NeverViolated.Count > 0)
+			{
+				sb.AppendLine(
+					"  A rule that never fails may be about more than that: raise AutoOptions.MaxCollection or MaxDepth (a collection and its element count as two levels) before calling it a tautology."
+				);
+			}
 		}
 		return sb.ToString();
 	}

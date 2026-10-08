@@ -1086,13 +1086,13 @@ internal sealed class ObjectPlan
 	private static bool IsComparable(Type t) =>
 		(t.IsPrimitive && t != typeof(bool) && t != typeof(char)) || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(DateTimeOffset) || t == typeof(DateOnly) || t == typeof(TimeOnly) || t == typeof(TimeSpan);
 
-	public object?[] DrawArgs(PCG pcg, AutoOptions options, out Size size)
+	public object?[] DrawArgs(PCG pcg, AutoOptions options, out Size size, Size? min = null)
 	{
 		var args = new object?[_gens.Length];
 		size = new Size(0);
 		for (var i = 0; i < _gens.Length; i++)
 		{
-			args[i] = _gens[i].Generate(pcg, null, out var s);
+			args[i] = _gens[i].Generate(pcg, min, out var s);
 			size.Add(s);
 		}
 		var percent = options.Mode switch
@@ -1190,7 +1190,7 @@ internal sealed class ObjectGen(ObjectPlan plan, AutoOptions options) : Gen<obje
 		Exception? last = null;
 		for (var attempt = 0; attempt < 20; attempt++)
 		{
-			var args = plan.DrawArgs(pcg, options, out size);
+			var args = plan.DrawArgs(pcg, options, out size, min);
 			plan.ApplyCrossReferences(args, options, pcg);
 			try
 			{
@@ -1234,7 +1234,7 @@ internal sealed class CollectionGen(
 		{
 			count = 1;
 		}
-		size = new Size((ulong)count << 24);
+		size = new Size((ulong)count << AutoSizes.StructureShift);
 		var items = new List<object?>(count);
 
 		if (element.Plan is { } plan)
@@ -1242,8 +1242,12 @@ internal sealed class CollectionGen(
 			var argSets = new List<object?[]>(count);
 			for (var i = 0; i < count; i++)
 			{
-				argSets.Add(plan.DrawArgs(pcg, options, out var s));
+				argSets.Add(plan.DrawArgs(pcg, options, out var s, min));
 				size.Add(s);
+				if (AutoSizes.CannotBeSmaller(options, min, count, size))
+				{
+					break;
+				}
 			}
 			for (var extra = 0; extra < 50 && plan.RelationKeys.Count > 0 && RelationScope.Current is { } scope && scope.HasPending(plan.RelationKeys); extra++)
 			{
@@ -1268,8 +1272,12 @@ internal sealed class CollectionGen(
 		{
 			for (var i = 0; i < count; i++)
 			{
-				items.Add(element.Value.Generate(pcg, null, out var s));
+				items.Add(element.Value.Generate(pcg, min, out var s));
 				size.Add(s);
+				if (AutoSizes.CannotBeSmaller(options, min, count, size))
+				{
+					break;
+				}
 			}
 			if (count >= 2 && options.Relational && options.Mode != AutoMode.Plausible && pcg.Next(100) < (options.Mode == AutoMode.Adversarial ? 40u : 12u))
 			{
@@ -1480,21 +1488,33 @@ internal sealed class CollectionGen(
 	/// </summary>
 	internal static uint Count(PCG pcg, AutoOptions options, int depth = 1)
 	{
+		var widest = Math.Max(1, options.MaxCollection - Math.Max(0, depth - 1));
 		if (options.Mode == AutoMode.Adversarial)
 		{
-			return pcg.Next(8) switch
+			// Often none, one or two, and every count from three to five and the widest too, so a rule about "more than three" has something to find.
+			return pcg.Next(16) switch
 			{
-				0 or 1 or 2 => 0u,
-				3 or 4 => 1u,
-				5 => 2u,
-				6 => 5u,
-				_ => 10u
+				< 6 => 0u,
+				< 10 => 1u,
+				< 12 => 2u,
+				12 => 3u,
+				13 => 4u,
+				14 => 5u,
+				_ => (uint)Math.Max(10, widest)
 			};
 		}
 		var weights = new[] { 0u, 0u, 1u, 1u, 2u, 2u, 3u, 4u };
-		var picked = weights[pcg.Next((uint)weights.Length)];
-		var widest = Math.Max(1, options.MaxCollection - Math.Max(0, depth - 1));
-		return (uint)Math.Round(picked * widest / 4.0, MidpointRounding.AwayFromZero);
+		var picked = (int)weights[pcg.Next((uint)weights.Length)];
+		if (picked == 0)
+		{
+			return 0u;
+		}
+
+		// The shape of the distribution (often none, usually a few) is the weights above, picked as a quarter of the widest. Each quarter is a range of counts, not a single one,
+		// so with a wide collection every count from 0 to the widest can occur: a failure at exactly 4 items has to be reachable at MaxCollection 12 as well as at 4.
+		var high = (int)Math.Round(picked * widest / 4.0, MidpointRounding.AwayFromZero);
+		var low = (int)Math.Round((picked - 1) * widest / 4.0, MidpointRounding.AwayFromZero);
+		return high - low <= 1 ? (uint)high : (uint)(low + 1 + (int)pcg.Next((uint)(high - low)));
 	}
 }
 
@@ -1515,7 +1535,7 @@ internal sealed class DictionaryGen(
 		{
 			count = 1;
 		}
-		size = new Size((ulong)count << 24);
+		size = new Size((ulong)count << AutoSizes.StructureShift);
 		var pairs = new List<(object?, object?)>(count);
 		var args = target.GetGenericArguments();
 		var used = new HashSet<object?>();
@@ -1533,10 +1553,14 @@ internal sealed class DictionaryGen(
 		for (var i = 0; i < count; i++)
 		{
 			var k = NewKey(pcg, out var ks);
-			var v = value.Generate(pcg, null, out var vs);
+			var v = value.Generate(pcg, min, out var vs);
 			size.Add(ks);
 			size.Add(vs);
 			pairs.Add((k, v));
+			if (AutoSizes.CannotBeSmaller(options, min, count, size))
+			{
+				break;
+			}
 		}
 		// Targets that references promised, and no entry has taken yet, are drawn until they exist.
 		for (var extra = 0; extra < 50 && hasPending?.Invoke() == true; extra++)

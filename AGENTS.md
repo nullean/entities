@@ -164,20 +164,38 @@ here if that changes.
 
 ## Spike questions (answer before 1.0; answers go here)
 
-1. **Shrinking quality.** A property failing only when Lines > 3 and a SKU contains `7` should
-   shrink to ~4 lines. Compare single-node `Size` vs chained-per-RuleFor `Size`. Record the winner
-   and why. — Open.
-2. **Early exit cost.** Once running size passes `min`, abort generation. Benchmark vs always
-   generating and reporting size. Record the result. — Open.
+1. **Shrinking quality.** Measured with `docs/spikes/shrinking` (200 runs per variant; the failing property is "more than 3 lines and a quantity over 50", so the minimum is
+   4 lines). How sizes combine decides what "simpler" means, and the same random draws give different results:
+
+   | Size combined as | Shrunk to exactly 4 lines | Shrunk max quantity (median; best 51) | Property calls |
+   |---|---|---|---|
+   | Chained, `Append` per part (a hand-chained CsCheck generator behaves the same: 200/200, quantity 85) | 200/200 | 84 | 932 |
+   | Packed: draw count in the high bits, magnitude below (the Bogus path, `PcgRandom.Size`) | 200/200 | 86 | 696 |
+   | Single node, `Add` of every part (what `GenAuto` does per constructor argument and per item) | 181/200, worst 5 lines | 60 | 644 |
+
+   Answer: **chained wins for structure.** A sum lets a bigger structure with small values beat the minimal structure with large values, so it sometimes stops at 5 or 6 lines but gets
+   closer on the numbers; ordering the structure first (chained or packed) reaches the minimal structure essentially every time and leaves the values coarse. Fewer items is usually the
+   more useful minimal case. **Fixed in `GenAuto`:** sizes are now packed (`AutoSizes`: every collection item counts one in the high bits, leaf magnitudes are added below, clamped to 32 bits
+   so a few large numbers cannot spill into the structure). The spike also found that collection counts were `picked * MaxCollection / 4`, so with `MaxCollection = 12` the only counts were
+   0, 3, 6, 9 and 12: a failure at 4 or 5 items was unreachable and always shrank to 6 (0/200 reached 4). Each quarter of the distribution is now a range of counts, so every count from 0 to
+   `MaxCollection` can occur in Plausible and Mixed data (identical to before at the default 4), and hostile data has every count from 0 to 5 and a wide one. With both changes the same
+   generator reaches 4 lines in 100/100 runs of the spike (about 99% over 400; the rest stop one item short). `AutoCountsTests` keeps both true, and `Probe` now reports how large and deep the generated values were (`ProbeReport.Reach`), so a rule that
+   is "never violated" because the generator never got that big can be told from a tautology. — Answered and fixed.
+2. **Early exit cost.** Measured in the same spike. A candidate that cannot be smaller than the best failure so far is generated in full and then skipped (about 70% of all candidates in a real
+   `GenAuto` tree shrink). Stopping as soon as the running size is no longer below `min`: on a value of up to 400 lines, median shrink time 12.6 ms to 0.22 ms (single-node sum) and
+   89 ms to 0.15 ms (chained), with the same number of property calls; on a realistic `GenAuto` tree (`Large()`) the whole shrink is about 1.5 ms, so there is nothing to save there.
+   Caveat: a skipped candidate that stops early consumes fewer draws, so the search follows a different path afterwards; on the single-node sum it reached the 4-line minimum a little less
+   often (144/200 against 159/200), on the chained size the same. **Done, automatically for big values:** a collection that plans at least `AutoOptions.EarlyExitFrom` (default 32) items stops
+   drawing them while shrinking once its size cannot beat the bound; a smaller collection is generated exactly as before (tested). On `GenAuto` with `MaxCollection = 400`, a shrink takes
+   about 26 ms without it and 1 ms with it, and finds the same minimum as often (396 of 400 runs without it, 398 of 400 with it; the rest stop one item short, which CsCheck's bounded search does anyway). An earlier threshold of "after 64 items drawn" saved only 2.6x, because every skipped
+   candidate still drew 64 items first; the planned count is known before anything is drawn. — Answered and done.
 3. **Global lock throughput.** Measured (Release, draws/second): AutoBogus-backed `Order` 71k on 1 thread, 120k on 4, 97k on 8;
    the CsCheck-native `GenAuto.Of<Order>()` 617k, 1.84M, 1.61M. Bogus's `Randomizer.Locker` is an `internal static` taken inside every
    draw and cannot be disabled, so a Bogus-backed generator stops scaling at about 2 threads. Answer: `GenAuto.Of<T>` no longer draws
    from Bogus at all (a one-time corpus, picked by index); only user `Faker<T>` rules still take the lock. Details and the case for dropping
    the AutoBogus dependency: `docs/autobogus-decision.md`. — Answered.
-4. **Existing fakers.** `faker.ToGen()` on an existing `Faker<T>` needs `FakerHub`, which is
-   `protected internal`. Decision: support it via reflection, or support only `Gen.Faker<T>(configure)`?
-   — Open; `Gen.Faker<T>(configure)` (fresh `Faker<T>` per call, not adapting an existing instance)
-   is what shipped.
+4. **Existing fakers.** `faker.ToGen()` on an existing `Faker<T>` needs `FakerHub`, which is `protected internal`. Decision: support only `Gen.Faker<T>(configure)` (a fresh `Faker<T>`
+   per call, not adapting an existing instance), which is what shipped. Not supporting `ToGen()` through reflection is settled. — Answered.
 5. **Reproducibility.** A test asserts that `CsCheck_Seed` replays to the identical object. Do
    not ship without this. — Done: `tests/Nullean.Entities.CsCheck.Tests/DeterminismTests.cs`.
 6. **`Script<TSut>` implementation.** Driving a SUT from a generated action sequence, replaying a
