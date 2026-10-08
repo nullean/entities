@@ -85,6 +85,12 @@ just that the generator emits the text you'd expect.
 - **Members that must be set** (a non-nullable reference property declared `required`, or a get-only auto property) also get a null-only `<property>-required` rule unless they carry an explicit `[Required]`
   (then that is the one rule) or `[ConstraintIgnore]`. Value types, `Nullable<T>` and `T?` references get none; positional record parameters are init properties, so none either. Opt out with
   `ImplicitRequired = false` on `[Constraints]` / `[Constraints<T>]`. This adds rules to the generated set of existing types that use `required` or get-only members.
+  - **They are prerequisites.** When a `<property>-required` rule is violated, `Validate`, `Report` and the checks on a change report only those rules and skip the rest: the other rules were written for a value that has the
+    member, so a rule that reads it (`Name.Contains('/')`) would throw a `NullReferenceException` and hide every other finding. Mark a rule of your own with `.AsPrerequisite()` for the same effect
+    (`Constraint<T>.IsPrerequisite`). An explicit `[Required]` is not one: it also rejects an empty string, which the other rules can read.
+  - **They reach into what the type holds.** The members that must be set on a nested object, on the items of a list or on the values of a dictionary get a rule too, named after the path
+    (`environments-uri-required`, `owner-address-city-required`), reached null-safely (an absent holder says nothing about its members) up to three levels deep. The nested type needs no attribute.
+    `ImplicitRequired = false` turns these off with the others.
 - **`[Constraints<T>]`** on a companion class names the type its rules are about, so a companion with no hand-written rule still gets `T`'s annotations (and `T`'s `Actions`). A member about another type is `NECG007`.
 - **Nested and generic types** are supported: every containing type must be `partial` (otherwise `NECG005`), and type parameters are carried into the generated declaration. C# does not allow a type parameter in an attribute's
   type argument, so a generic companion declares a `Constraint<Box<T>>` field instead of using `[Constraints<Box<T>>]`.

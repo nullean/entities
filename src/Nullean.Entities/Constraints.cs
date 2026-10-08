@@ -303,6 +303,20 @@ public partial class Constraint<T>
 	/// <summary>Prose for people and tooling: what the rule says, beyond its name. Optional.</summary>
 	public string? Description { get; private set; }
 
+	/// <summary>
+	/// True for a rule the other rules rely on: "this member is there". When one is violated, the set reports only the violated prerequisites and skips the
+	/// rest, because those were written for a value that holds them (they read the member without checking it). Set with <see cref="AsPrerequisite"/>;
+	/// the generated <c>*-required</c> rules are prerequisites.
+	/// </summary>
+	public bool IsPrerequisite { get; private set; }
+
+	/// <summary>Marks this rule as one the others rely on (see <see cref="IsPrerequisite"/>).</summary>
+	public Constraint<T> AsPrerequisite()
+	{
+		IsPrerequisite = true;
+		return this;
+	}
+
 	/// <summary>Names the rule in place. Do this where the rule is declared; <see cref="ConstraintSet.From"/> copies a rule that is named differently elsewhere.</summary>
 	public Constraint<T> Named(string name)
 	{
@@ -334,7 +348,13 @@ public partial class Constraint<T>
 	// The same rule as an independent object, so two sets can name one rule differently without sharing the name.
 	internal Constraint<T> Copy()
 	{
-		var copy = new Constraint<T>(Kind, _checkAt) { Name = Name, Description = Description, SeverityOverride = SeverityOverride };
+		var copy = new Constraint<T>(Kind, _checkAt)
+		{
+			Name = Name,
+			Description = Description,
+			SeverityOverride = SeverityOverride,
+			IsPrerequisite = IsPrerequisite
+		};
 		if (Guard is { } guard)
 		{
 			copy.WithGuard(guard);
@@ -357,7 +377,8 @@ public partial class Constraint<T>
 		{
 			Name = Name,
 			Description = Description,
-			SeverityOverride = SeverityOverride
+			SeverityOverride = SeverityOverride,
+			IsPrerequisite = IsPrerequisite
 		};
 		if (Guard is { } guard)
 		{
@@ -1090,12 +1111,18 @@ public sealed partial class ConstraintSet<T>
 	public IReadOnlyList<Violation> Validate(T instance, TimeProvider? time = null)
 	{
 		time ??= TimeProvider.System;
-		return [
-			.. _constraints.Where(c => c.Kind == ConstraintKind.PointInTime).SelectMany(
-				c => c.CheckAt(instance, instance, time).Select(v => v with { ConstraintId = c.Name })
-			),
-		];
+		var rules = _constraints.Where(c => c.Kind == ConstraintKind.PointInTime).ToList();
+		var missing = Violated(rules.Where(c => c.IsPrerequisite), instance, instance, time);
+		if (missing.Count > 0)
+		{
+			return missing;
+		}
+		return [.. rules.SelectMany(c => c.CheckAt(instance, instance, time).Select(v => v with { ConstraintId = c.Name }))];
 	}
+
+	// The violations of the prerequisite rules. When there are any, nothing else is asked: the other rules were written for a value that holds them.
+	private static IReadOnlyList<Violation> Violated(IEnumerable<Constraint<T>> prerequisites, T previous, T next, TimeProvider time) =>
+		[.. prerequisites.SelectMany(c => c.CheckAt(previous, next, time).Select(v => v with { ConstraintId = c.Name }))];
 
 	/// <summary>
 	/// Runs a <paramref name="mutation"/> and checks every constraint over the result —
@@ -1224,6 +1251,19 @@ public sealed partial class ConstraintSet<T>
 	internal IReadOnlyList<Violation> RunAll(T current, T next, TimeProvider? time)
 	{
 		time ??= TimeProvider.System;
+		var prerequisites = _constraints.Where(c => c.IsPrerequisite).ToList();
+		if (prerequisites.Count > 0)
+		{
+			var missing = Violated(prerequisites, current, next, time);
+			if (missing.Count == 0 && !ReferenceEquals(current, next))
+			{
+				missing = Violated(prerequisites, current, current, time);
+			}
+			if (missing.Count > 0)
+			{
+				return missing;
+			}
+		}
 		return [.. _constraints.SelectMany(c => c.CheckAt(current, next, time).Select(v => v with { ConstraintId = c.Name })),];
 	}
 }
