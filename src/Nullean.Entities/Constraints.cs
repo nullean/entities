@@ -1068,6 +1068,18 @@ public sealed class ConstraintIgnoreAttribute : Attribute
 {
 }
 
+/// <summary>
+/// On a method of an entity that returns a wrapper of the entity (a <c>Result&lt;T&gt;</c>, a tuple): names the member to read the new value from, for when the generator's
+/// inference would choose the wrong one or decline (several members of the entity's type, none named like a result). Without it the generator reads the one member
+/// of the entity's type, or the one named <c>Value</c>, <c>Result</c>, <c>Next</c>, <c>Current</c>, <c>Entity</c> or <c>Attempted</c>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method)]
+public sealed class ConstraintActionAttribute(string member) : Attribute
+{
+	/// <summary>The name of the member that holds the entity the method produced.</summary>
+	public string Member { get; } = member;
+}
+
 // ── IHaveConstraints<TSelf> ───────────────────────────────────────────────────
 // C# 11 static abstract interface member. Enables generic validation/attachment:
 // where T : IHaveConstraints<T>

@@ -46,6 +46,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	private const string ConstraintsAttributeMetadataName = "Nullean.Entities.ConstraintsAttribute";
 	private const string GenericConstraintsAttributeMetadataName = "Nullean.Entities.ConstraintsAttribute`1";
 	private const string ConstraintIgnoreAttributeMetadataName = "Nullean.Entities.ConstraintIgnoreAttribute";
+	private const string ConstraintActionAttributeMetadataName = "Nullean.Entities.ConstraintActionAttribute";
 
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
@@ -314,7 +315,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 				}
 			}
 			var source = kind == ConstraintKind.Sync
-				? GenerateSync(containingType, typeArgument, orderedMembers, annotations)
+				? GenerateSync(containingType, typeArgument, orderedMembers, annotations, spc.ReportDiagnostic)
 				: GenerateReactive(containingType, typeArgument, orderedMembers);
 
 			spc.AddSource(HintName(containingType), SourceText.From(source, Encoding.UTF8));
@@ -362,10 +363,21 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		return false;
 	}
 
-	private static string GenerateSync(INamedTypeSymbol type, ITypeSymbol typeArgument, ImmutableArray<MemberInfo> members, AnnotationResult? annotations)
+	private static string GenerateSync(
+		INamedTypeSymbol type,
+		ITypeSymbol typeArgument,
+		ImmutableArray<MemberInfo> members,
+		AnnotationResult? annotations,
+		Action<Diagnostic> report
+	)
 	{
 		var selfAttach = SymbolEqualityComparer.Default.Equals(type, typeArgument);
 		var typeArgDisplay = typeArgument.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+		var actions = ActionsMember(typeArgument, typeArgDisplay);
+		foreach (var declined in actions.Declined)
+		{
+			report(declined);
+		}
 		var propertyType = $"global::Nullean.Entities.ConstraintSet<{typeArgDisplay}>";
 		// Self-attach (the type IS T) gets the F-bounded, static-abstract IHaveConstraints<T>
 		// directly on its own base list — a domain record is never static, so this is always a
@@ -379,7 +391,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 				"global::Nullean.Entities.IConstraintsFor",
 				typeArgDisplay,
 				propertyType,
-				ActionsMember(typeArgument, typeArgDisplay) is not null
+				actions.Source is not null
 			));
 
 		return Emit(
@@ -398,21 +410,41 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 				.. (annotations?.Entries ?? []).Select(e => $"({Annotations.Quote(global::Nullean.Entities.ConstraintName.Of(e.Name))}, {e.Expression})"),
 			],
 			nested,
-			ActionsMember(typeArgument, typeArgDisplay),
+			actions.Source,
 			annotations?.Fields
 		);
 	}
 
+	// What the generator found when it looked at T's methods for actions: the source of the Actions property (null when there are none), and the info
+	// diagnostics for methods that look like operations but cannot be used as one, so an author sees what was passed over and why.
+	private readonly record struct ActionsResult(string? Source, ImmutableArray<Diagnostic> Declined);
+
+	// How an action reads the next T out of what a method returned: the value itself, or a member of the return type.
+	private readonly record struct ActionRead(bool IsAction, string Accessor, string? DeclinedBecause)
+	{
+		public static ActionRead Direct { get; } = new(true, string.Empty, null);
+
+		public static ActionRead NotAnAction { get; } = new(false, string.Empty, null);
+
+		public static ActionRead Member(string accessor) => new(true, accessor, null);
+
+		public static ActionRead Declined(string because) => new(false, string.Empty, because);
+	}
+
+	private static readonly string[] PreferredResultMembers = ["Value", "Result", "Next", "Current", "Entity", "Attempted"];
+
 	/// <summary>
-	/// An `Actions` property listing every public instance method on T that returns T and takes zero
-	/// or one by-value argument — the entity's mutations as plain data (EntityActions&lt;T&gt;), so a
-	/// test driver can walk its reachable states without reflection. Null when there are none.
-	/// [ConstraintIgnore] on a method excludes it; methods with two or more parameters are not
-	/// representable as a single-argument action and are skipped.
+	/// An `Actions` property listing every public instance method on T that yields the next T and takes zero or one by-value argument: the entity's
+	/// mutations as plain data (EntityActions&lt;T&gt;), so a test driver can walk its reachable states without reflection. Null when there are none.
+	/// A method yields the next T when it returns T, or a generic wrapper of T (a Result&lt;T&gt;, a tuple) that has exactly one member of type T to read
+	/// (or one named Value, Result, Next, Current, Entity or Attempted when it has several). [ConstraintIgnore] on a method excludes it;
+	/// [ConstraintAction(nameof(Member))] names the member to read when inference would choose wrongly or decline. A method that looks like an
+	/// operation but cannot be used (asynchronous, a Try-pattern, an ambiguous wrapper) is skipped with an info diagnostic naming why.
 	/// </summary>
-	private static string? ActionsMember(ITypeSymbol typeArgument, string typeArgDisplay)
+	private static ActionsResult ActionsMember(ITypeSymbol typeArgument, string typeArgDisplay)
 	{
 		var entries = new List<string>();
+		var declined = ImmutableArray.CreateBuilder<Diagnostic>();
 		foreach (var method in typeArgument.GetMembers().OfType<IMethodSymbol>())
 		{
 			if (method.MethodKind != MethodKind.Ordinary
@@ -421,8 +453,20 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 				|| method.IsGenericMethod
 				|| method.DeclaredAccessibility != Accessibility.Public
 				|| method.Parameters.Length > 1
-				|| !SymbolEqualityComparer.Default.Equals(method.ReturnType, typeArgument)
 				|| method.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnoreAttributeMetadataName))
+			{
+				continue;
+			}
+
+			var read = ReadNext(typeArgument, method);
+			if (read.DeclinedBecause is { } because)
+			{
+				declined.Add(
+					Diagnostic.Create(Diagnostics.ActionDeclined, method.Locations.FirstOrDefault() ?? Location.None, typeArgument.Name, method.Name, because)
+				);
+				continue;
+			}
+			if (!read.IsAction)
 			{
 				continue;
 			}
@@ -434,19 +478,127 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			var name = method.Name;
 			if (method.Parameters.Length == 0)
 			{
-				entries.Add($"new global::Nullean.Entities.EntityAction<{typeArgDisplay}>(\"{name}\", null, (x, _) => x.{name}())");
+				entries.Add($"new global::Nullean.Entities.EntityAction<{typeArgDisplay}>(\"{name}\", null, (x, _) => x.{name}(){read.Accessor})");
 			}
 			else
 			{
 				var argDisplay = method.Parameters[0].Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 				entries.Add(
-					$"new global::Nullean.Entities.EntityAction<{typeArgDisplay}>(\"{name}\", typeof({argDisplay}), (x, a) => x.{name}(({argDisplay})a!))"
+					$"new global::Nullean.Entities.EntityAction<{typeArgDisplay}>(\"{name}\", typeof({argDisplay}), (x, a) => x.{name}(({argDisplay})a!){read.Accessor})"
 				);
 			}
 		}
-		return entries.Count == 0
-			? null
-			: $"public static global::Nullean.Entities.EntityActions<{typeArgDisplay}> Actions {{ get; }} = new(\n            {string.Join(",\n            ", entries)}\n        );";
+		return new ActionsResult(
+			entries.Count == 0
+				? null
+				: $"public static global::Nullean.Entities.EntityActions<{typeArgDisplay}> Actions {{ get; }} = new(\n            {string.Join(",\n            ", entries)}\n        );",
+			declined.ToImmutable()
+		);
+	}
+
+	// How (and whether) the method's result becomes the next T. First match wins: T itself; a member named by [ConstraintAction]; a tuple with one T;
+	// a generic wrapper of T with one readable member of type T. Anything that mentions T and still cannot be used is declined with the reason.
+	private static ActionRead ReadNext(ITypeSymbol entity, IMethodSymbol method)
+	{
+		var returned = method.ReturnType;
+		if (SymbolEqualityComparer.Default.Equals(returned, entity))
+		{
+			return ActionRead.Direct;
+		}
+		if (method.ReturnType.SpecialType == SpecialType.System_Boolean && method.Parameters.Any(
+				p => p.RefKind == RefKind.Out && SymbolEqualityComparer.Default.Equals(p.Type, entity)
+			))
+		{
+			return ActionRead.Declined("it is a Try-method that hands the value back through an out parameter, so it has no value to return");
+		}
+		if (returned is not INamedTypeSymbol named || !MentionsAsTypeArgument(named, entity))
+		{
+			return ActionRead.NotAnAction;
+		}
+		if (named.Name is "Task" or "ValueTask")
+		{
+			return ActionRead.Declined("it is asynchronous, and an action is a synchronous function");
+		}
+		if (method.GetAttributes().FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == ConstraintActionAttributeMetadataName) is { } forced)
+		{
+			var wanted = forced.ConstructorArguments.FirstOrDefault().Value as string ?? string.Empty;
+			var typed = TypedMembers(named, entity);
+			var index = typed.FindIndex(m => m.Name == wanted);
+			return index >= 0
+				? ActionRead.Member(typed[index].Accessor)
+				: ActionRead.Declined($"[ConstraintAction] names '{wanted}', which is not a readable member of type {entity.Name} on {named.Name}");
+		}
+		var candidates = named.IsTupleType ? TupleElementsOf(named, entity) : TypedMembers(named, entity);
+		if (candidates.Count == 1)
+		{
+			return ActionRead.Member(candidates[0].Accessor);
+		}
+		if (candidates.Count == 0)
+		{
+			return ActionRead.Declined(
+				$"it returns {named.Name}<{entity.Name}> but that has no readable member of type {entity.Name}; name one with [ConstraintAction(nameof(...))]"
+			);
+		}
+		var (preferredName, preferredAccessor) = PreferredResultMembers.Select(p => candidates.FirstOrDefault(c => c.Name == p)).FirstOrDefault(
+			c => c.Name is not null
+		);
+		return preferredName is not null
+			? ActionRead.Member(preferredAccessor)
+			: ActionRead.Declined(
+				$"it returns {named.Name}<{entity.Name}> with several members of type {entity.Name} ({string.Join(", ", candidates.Select(c => c.Name))}); name one with [ConstraintAction(nameof(...))]"
+			);
+	}
+
+	private static List<(string Name, string Accessor)> TupleElementsOf(INamedTypeSymbol tuple, ITypeSymbol entity)
+	{
+		var found = new List<(string Name, string Accessor)>();
+		for (var i = 0; i < tuple.TupleElements.Length; i++)
+		{
+			if (SymbolEqualityComparer.Default.Equals(tuple.TupleElements[i].Type, entity))
+			{
+				found.Add((tuple.TupleElements[i].Name, $".Item{i + 1}"));
+			}
+		}
+		return found;
+	}
+
+	private static bool MentionsAsTypeArgument(INamedTypeSymbol type, ITypeSymbol entity) =>
+		type.IsGenericType && type.TypeArguments.Any(
+			a => SymbolEqualityComparer.Default.Equals(a, entity) || (a is INamedTypeSymbol n && MentionsAsTypeArgument(n, entity))
+		);
+
+	// The public instance properties and fields of the type (and its bases) that hold a T, with the text that reads one.
+	private static List<(string Name, string Accessor)> TypedMembers(INamedTypeSymbol type, ITypeSymbol entity)
+	{
+		var found = new List<(string Name, string Accessor)>();
+		for (var t = (INamedTypeSymbol?)type; t is not null && t.SpecialType != SpecialType.System_Object; t = t.BaseType)
+		{
+			foreach (var member in t.GetMembers())
+			{
+				var (memberType, readable) = member switch
+				{
+					IPropertySymbol { IsStatic: false, IsIndexer: false, GetMethod.DeclaredAccessibility: Accessibility.Public } property =>
+						(property.Type, true),
+					IFieldSymbol { IsStatic: false, DeclaredAccessibility: Accessibility.Public } field => (field.Type, true),
+					_ => (null, false)
+				};
+				if (!readable || memberType is null || found.Any(f => f.Name == member.Name))
+				{
+					continue;
+				}
+				var isNullableValue = memberType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+				&& SymbolEqualityComparer.Default.Equals(nullable.TypeArguments[0], entity);
+				if (isNullableValue)
+				{
+					found.Add((member.Name, $".{member.Name}.Value"));
+				}
+				else if (SymbolEqualityComparer.Default.Equals(memberType, entity))
+				{
+					found.Add((member.Name, memberType.IsReferenceType ? $".{member.Name}!" : $".{member.Name}"));
+				}
+			}
+		}
+		return found;
 	}
 
 	private static string GenerateReactive(INamedTypeSymbol type, ITypeSymbol typeArgument, ImmutableArray<MemberInfo> members)

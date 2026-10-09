@@ -77,4 +77,15 @@ internal static class Diagnostics
 		DiagnosticSeverity.Info,
 		isEnabledByDefault: true
 	);
+
+	// Information, not an error: a method that looks like an operation but cannot be used as an action is a method the author wrote on purpose,
+	// so it never stops the set from being generated. The point is only that nothing is passed over in silence.
+	public static readonly DiagnosticDescriptor ActionDeclined = new(
+		"NECG020",
+		"Method is not used as an action",
+		"'{0}.{1}' is not used as an action: {2}",
+		Category,
+		DiagnosticSeverity.Info,
+		isEnabledByDefault: true
+	);
 }

@@ -20,6 +20,22 @@ internal static partial class MeterConstraints
 	public static readonly Constraint<AutoMeter> ReadingNeverDrops = Constraints<AutoMeter>.Monotonic(m => m.Reading, MonotonicDirection.NonDecreasing);
 }
 
+internal sealed record AutoOutcome<T>(T? Value, IReadOnlyList<string> Notes);
+
+// The operation returns a wrapper (like a domain Result<T> that carries its diagnostics), so the generator has to read the new value out of it.
+internal sealed record AutoCounter(int Count, string Name)
+{
+	public AutoOutcome<AutoCounter> Add(int amount) => new(this with { Count = Count + amount }, []);
+}
+
+[Constraints]
+internal static partial class AutoCounterConstraints
+{
+	public static readonly Constraint<AutoCounter> NameRequired = Constraints<AutoCounter>.Always(c => !string.IsNullOrEmpty(c.Name), "A counter has a name.");
+
+	public static readonly Constraint<AutoCounter> CountNeverDrops = Constraints<AutoCounter>.Monotonic(c => c.Count, MonotonicDirection.NonDecreasing);
+}
+
 public class AutoTestTests
 {
 	private static readonly Gen<AutoAccount> Accounts = Gen.Select(
@@ -159,6 +175,23 @@ public class AutoTestTests
 			.Run();
 
 		report.Results.Single(r => r.Axis == Axis.Monotonicity).Should().BeOfType<AxisResult.Passed>().Which.Rules.Should().Equal("reading-never-drops");
+	}
+
+	[Test]
+	public void An_operation_the_generator_read_out_of_a_wrapper_is_run_by_the_monotonicity_axis()
+	{
+		AutoCounterConstraints.Actions.Select(a => a.Name).Should().Equal("Add");
+
+		var report = AutoTest
+			.For(AutoCounterConstraints.Instance, Gen.Select(Gen.Int[0, 10], Gen.Const("counter"), (count, name) => new AutoCounter(count, name)))
+			.CounterExamples(new Dictionary<string, Func<AutoCounter, AutoCounter>>
+			{
+				["name-required"] = c => c with { Name = "" },
+				["count-never-drops"] = c => c with { Count = c.Count - 1 }
+			})
+			.Run();
+
+		report.Results.Single(r => r.Axis == Axis.Monotonicity).Should().BeOfType<AxisResult.Passed>();
 	}
 
 	[Test]

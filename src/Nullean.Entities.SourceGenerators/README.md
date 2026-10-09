@@ -92,6 +92,12 @@ just that the generator emits the text you'd expect.
     (`environments-uri-required`, `owner-address-city-required`), reached null-safely (an absent holder says nothing about its members) up to three levels deep. The nested type needs no attribute.
     `ImplicitRequired = false` turns these off with the others.
 - **`[Constraints<T>]`** on a companion class names the type its rules are about, so a companion with no hand-written rule still gets `T`'s annotations (and `T`'s `Actions`). A member about another type is `NECG007`.
+- **`Actions`** lists the entity's operations as data (`EntityActions<T>`), for test drivers that walk its states or run its operations. A public instance method with zero or one by-value argument is an action when it yields the next `T`:
+  it returns `T`, or a **generic wrapper of `T`** (a `Result<T>` that carries diagnostics, a tuple) that has exactly one readable member of type `T`, which the action reads (`x.Close().Value`). With several members of type `T`
+  the one named `Value`, `Result`, `Next`, `Current`, `Entity` or `Attempted` is read; `[ConstraintAction(nameof(Member))]` on the method names the member when that is not what you want. A wrapper that is not generic over `T` needs
+  the attribute (reading "any member of type `T` on any return type" would mistake a `Person` with a `Ticket` property for an operation on the ticket). `[ConstraintIgnore]` excludes a method.
+  A method that looks like an operation but cannot be used is skipped with an **info** diagnostic (`NECG020`) saying why, so nothing is passed over in silence: it is asynchronous (`Task<T>`, an action is a synchronous function),
+  it is a Try-method with an `out T`, or its wrapper has no readable `T` or several with no conventional name. A method that has nothing to do with `T` (returns `bool`, a `string`) is not reported.
 - **Nested and generic types** are supported: every containing type must be `partial` (otherwise `NECG005`), and type parameters are carried into the generated declaration. C# does not allow a type parameter in an attribute's
   type argument, so a generic companion declares a `Constraint<Box<T>>` field instead of using `[Constraints<Box<T>>]`.
 
