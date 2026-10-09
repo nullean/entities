@@ -1,0 +1,183 @@
+using AwesomeAssertions;
+using CsCheck;
+using Nullean.Entities;
+using Nullean.Entities.CsCheck;
+
+namespace Nullean.Entities.CsCheck.Tests;
+
+internal sealed record AutoAccount(int Value, int Version, int Credits, int Debits);
+
+internal sealed record AutoMeter(int Reading, string Name)
+{
+	public AutoMeter Tick() => this with { Reading = Reading + 1 };
+}
+
+[Constraints]
+internal static partial class MeterConstraints
+{
+	public static readonly Constraint<AutoMeter> NameRequired = Constraints<AutoMeter>.Always(m => !string.IsNullOrEmpty(m.Name), "A meter has a name.");
+
+	public static readonly Constraint<AutoMeter> ReadingNeverDrops = Constraints<AutoMeter>.Monotonic(m => m.Reading, MonotonicDirection.NonDecreasing);
+}
+
+public class AutoTestTests
+{
+	private static readonly Gen<AutoAccount> Accounts = Gen.Select(
+		Gen.Int[0, 10],
+		Gen.Int[1, 10],
+		Gen.Int[0, 20],
+		Gen.Int[0, 20],
+		(v, ver, c, d) => new AutoAccount(v, ver, c, d)
+	);
+	private static readonly Gen<AutoMeter> Meters = Gen.Select(Gen.Int[5, 10], Gen.Const("meter"), (reading, name) => new AutoMeter(reading, name));
+
+	// One rule for each state axis except confluence, which this type does not declare.
+	private static ConstraintSet<AutoAccount> Rules() =>
+		ConstraintSet.From(
+			("value-not-negative", Constraints<AutoAccount>.Always(a => a.Value >= 0, "A value is never negative.")),
+			("value-settles", Constraints<AutoAccount>.Idempotent(a => a with { Value = Math.Min(a.Value, 8) })),
+			("version-grows", Constraints<AutoAccount>.Monotonic(a => a.Version, MonotonicDirection.NonDecreasing)),
+			("total-kept", Constraints<AutoAccount>.Conserves(a => a.Credits + a.Debits))
+		);
+
+	private static IReadOnlyDictionary<string, Func<AutoAccount, AutoAccount>> CounterExamples { get; } = new Dictionary<string, Func<AutoAccount, AutoAccount>>
+	{
+		["value-not-negative"] = a => a with { Value = -1 },
+		["version-grows"] = a => a with { Version = a.Version - 1 },
+		["total-kept"] = a => a with { Credits = a.Credits + 1 }
+	};
+
+	private static AutoTest<AutoAccount> Sound() =>
+		AutoTest
+			.For(Rules(), Accounts)
+			.CounterExamples(CounterExamples)
+			.Action("Bump", a => a with { Version = a.Version + 1 })
+			.Action<int>("Transfer", (a, n) => a with { Credits = a.Credits - n, Debits = a.Debits + n });
+
+	[Test]
+	public void A_sound_type_passes_every_axis_it_declares_and_reports_the_one_it_does_not()
+	{
+		var report = Sound().Run();
+
+		report.Results.Select(r => (r.Axis, r.GetType().Name)).Should().Equal(
+			(Axis.Invariant, nameof(AxisResult.Passed)),
+			(Axis.Idempotency, nameof(AxisResult.Passed)),
+			(Axis.Monotonicity, nameof(AxisResult.Passed)),
+			(Axis.Conservation, nameof(AxisResult.Passed)),
+			(Axis.Confluence, nameof(AxisResult.NotApplicable)),
+			(Axis.Vacancy, nameof(AxisResult.Passed))
+		);
+		report.ToString().Should().Contain("Confluence: not applicable");
+	}
+
+	[Test]
+	public void An_operation_that_breaks_a_rule_fails_only_the_axis_it_breaks_and_run_names_it()
+	{
+		var broken = Sound().Action("Rewind", a => a with { Version = a.Version - 1 });
+
+		var report = broken.Report();
+
+		report.Failures.Select(f => f.Axis).Should().Equal(Axis.Monotonicity);
+		report.Results.Single(r => r.Axis == Axis.Conservation).Should().BeOfType<AxisResult.Passed>();
+		var act = () => broken.Run();
+		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("1 of 6 axes failed").And.Contain("Rewind").And.Contain("version-grows");
+	}
+
+	[Test]
+	public void A_failure_carries_the_seed_that_replays_it()
+	{
+		var report = Sound().Action("Rewind", a => a with { Version = a.Version - 1 }).Report();
+
+		report.Failures.Single().Seed.Should().NotBeNullOrEmpty();
+	}
+
+	[Test]
+	public void A_required_axis_the_type_does_not_declare_fails_instead_of_being_not_applicable()
+	{
+		var report = Sound().RequireAxes(Axis.Confluence).Report();
+
+		var failure = report.Failures.Should().ContainSingle().Subject;
+		failure.Axis.Should().Be(Axis.Confluence);
+		failure.Report.Should().Contain("RequireAxes");
+	}
+
+	[Test]
+	public void Cases_list_the_declared_axes_and_a_failing_one_says_its_law_and_consequence()
+	{
+		var cases = Sound().Action("Rewind", a => a with { Version = a.Version - 1 }).Cases;
+
+		cases.Select(c => c.Axis).Should().Equal(Axis.Invariant, Axis.Idempotency, Axis.Monotonicity, Axis.Conservation, Axis.Vacancy);
+		cases.Single(c => c.Axis == Axis.Invariant).Run().Should().BeOfType<AxisResult.Passed>();
+		var act = () => cases.Single(c => c.Axis == Axis.Monotonicity).Run();
+		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Law: ").And.Contain("Consequence: ").And.Contain("Rewind");
+	}
+
+	[Test]
+	public void An_axis_the_type_requires_is_a_case_even_when_nothing_is_declared_for_it()
+	{
+		Sound().RequireAxes(Axis.Confluence).Cases.Select(c => c.Axis).Should().Contain(Axis.Confluence);
+	}
+
+	[Test]
+	public void Configuring_returns_a_copy_and_leaves_the_original_alone()
+	{
+		var original = AutoTest.For(Rules(), Accounts).CounterExamples(CounterExamples);
+
+		var withAction = original.Action("Bump", a => a with { Version = a.Version + 1 });
+
+		original.Monotonicity().Should().BeOfType<AxisResult.Skipped>("the original has no operations");
+		withAction.Monotonicity().Should().BeOfType<AxisResult.Passed>();
+	}
+
+	[Test]
+	public void A_sequential_rule_written_by_hand_is_listed_as_unclassified()
+	{
+		var set = ConstraintSet.From(
+			("value-not-negative", Constraints<AutoAccount>.Always(a => a.Value >= 0, "A value is never negative.")),
+			("hand-written", Constraints<AutoAccount>.CheckTransition((_, _) => []))
+		);
+
+		var report = AutoTest
+			.For(set, Accounts)
+			.CounterExamples(new Dictionary<string, Func<AutoAccount, AutoAccount>> { ["value-not-negative"] = a => a with { Value = -1 } })
+			.Report();
+
+		report.Unclassified.Should().Equal("hand-written");
+		report.ToString().Should().Contain("Unclassified: hand-written");
+	}
+
+	[Test]
+	public void A_generated_companion_supplies_its_rules_and_the_operations_it_found()
+	{
+		var report = AutoTest
+			.For(MeterConstraints.Instance, Meters)
+			.CounterExamples(new Dictionary<string, Func<AutoMeter, AutoMeter>>
+			{
+				["name-required"] = m => m with { Name = "" },
+				["reading-never-drops"] = m => m with { Reading = m.Reading - 1 }
+			})
+			.Run();
+
+		report.Results.Single(r => r.Axis == Axis.Monotonicity).Should().BeOfType<AxisResult.Passed>().Which.Rules.Should().Equal("reading-never-drops");
+	}
+
+	[Test]
+	public void The_idempotent_rule_needs_no_counter_example_because_its_own_axis_proves_it_was_exercised()
+	{
+		var set = ConstraintSet.From(("value-settles", Constraints<AutoAccount>.Idempotent(a => a with { Value = Math.Min(a.Value, 8) })));
+
+		var result = set.Vacancy(Accounts);
+
+		result.Should().BeOfType<AxisResult.Passed>().Which.Rules.Should().Equal("value-settles");
+	}
+
+	[Test]
+	public void An_axis_that_fails_in_a_run_does_not_hide_the_others()
+	{
+		var report = AutoTest.For(Rules(), Accounts).CounterExamples(CounterExamples).Report();
+
+		// no operations were given: monotonicity and conservation are skipped, the rest still ran
+		report.Results.Where(r => r is AxisResult.Skipped).Select(r => r.Axis).Should().Equal(Axis.Monotonicity, Axis.Conservation);
+		report.Passed.Should().BeTrue();
+	}
+}

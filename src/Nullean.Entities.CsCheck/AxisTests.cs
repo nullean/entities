@@ -116,12 +116,30 @@ public static class AxisTests
 	/// ever moved the value (or, per key, when no key was present both before and after): a monotonic rule over a value nothing changes checks nothing.
 	/// </summary>
 	public static AxisResult Monotonicity<T>(this ConstraintSet<T> constraints, EntityActions<T> actions, Gen<T>? start = null, AxisRun? run = null) =>
+		Monotonicity(constraints, ToAutoActions(actions, run), start, run);
+
+	/// <inheritdoc cref="Monotonicity{T}(ConstraintSet{T}, EntityActions{T}, Gen{T}, AxisRun)"/>
+	public static AxisResult Monotonicity<T>(
+		this ConstraintSet<T> constraints,
+		IReadOnlyList<AutoAction<T>> actions,
+		Gen<T>? start = null,
+		AxisRun? run = null
+	) =>
 		Sequential(constraints, Axis.Monotonicity, actions, start, run ?? new AxisRun());
 
 	/// <summary>
 	/// Axis 04. From a valid start, every action leaves each <c>Conserves</c> rule holding. Vacuous when no action ever changed the value at all.
 	/// </summary>
 	public static AxisResult Conservation<T>(this ConstraintSet<T> constraints, EntityActions<T> actions, Gen<T>? start = null, AxisRun? run = null) =>
+		Conservation(constraints, ToAutoActions(actions, run), start, run);
+
+	/// <inheritdoc cref="Conservation{T}(ConstraintSet{T}, EntityActions{T}, Gen{T}, AxisRun)"/>
+	public static AxisResult Conservation<T>(
+		this ConstraintSet<T> constraints,
+		IReadOnlyList<AutoAction<T>> actions,
+		Gen<T>? start = null,
+		AxisRun? run = null
+	) =>
 		Sequential(constraints, Axis.Conservation, actions, start, run ?? new AxisRun());
 
 	/// <summary>
@@ -182,7 +200,7 @@ public static class AxisTests
 	}
 
 	/// <summary>
-	/// Axis 09. The tests reached the rules: every rule can fire (it has a counter-example that breaks it and only it, given or derived from an edge value) and every
+	/// Axis 09. The tests reached the rules: every rule can fire (it has a counter-example that breaks it and only it, given or derived from an edge value; an idempotent or order-independent rule is exempt, its own axis proves it was exercised) and every
 	/// <c>When(...).Requires(...)</c> guard is true for at least one generated value. A rule with no counter-example fails here, which is the point: nothing shows it can fire.
 	/// </summary>
 	public static AxisResult Vacancy<T>(
@@ -198,16 +216,23 @@ public static class AxisTests
 		{
 			return new AxisResult.NotApplicable(Axis.Vacancy);
 		}
-		_ = constraints.Laws(
-			valid,
-			counterExamples,
-			settings.Samples,
-			derivedFrom: Math.Min(25, settings.Samples),
-			settings.GeneratorSeed,
-			requireCounterExamples: true,
-			time: settings.Time,
-			writeLine: settings.WriteLine
-		);
+		// A correct Idempotent or OrderIndependent rule cannot be broken by any value (that is what it says), so no counter-example can exist for it.
+		// Its own axis shows it was exercised instead: the action changed values, items were reordered.
+		var provenElsewhere = all.Where(c => c.Axis is Axis.Idempotency or Axis.Confluence).Select(c => c.Name).OfType<string>().ToArray();
+		var attackable = provenElsewhere.Length == 0 ? constraints : constraints.Without(provenElsewhere);
+		if (attackable.AsConstraints().Count > 0)
+		{
+			_ = attackable.Laws(
+				valid,
+				Only(counterExamples, attackable),
+				settings.Samples,
+				derivedFrom: Math.Min(25, settings.Samples),
+				settings.GeneratorSeed,
+				requireCounterExamples: true,
+				time: settings.Time,
+				writeLine: settings.WriteLine
+			);
+		}
 
 		var guarded = all.Where(c => c.Guard is not null).ToList();
 		var reached = new long[guarded.Count];
@@ -244,7 +269,7 @@ public static class AxisTests
 
 	// ── 03 and 04: a sequential rule is attacked by running actions ──────────────
 
-	private static AxisResult Sequential<T>(ConstraintSet<T> constraints, Axis axis, EntityActions<T> actions, Gen<T>? start, AxisRun settings)
+	private static AxisResult Sequential<T>(ConstraintSet<T> constraints, Axis axis, IReadOnlyList<AutoAction<T>> actions, Gen<T>? start, AxisRun settings)
 	{
 		var rules = Rules(constraints, axis);
 		if (rules.Count == 0)
@@ -264,9 +289,7 @@ public static class AxisTests
 		var compared = new long[rules.Count];
 		var moved = new long[rules.Count];
 		var starts = start ?? GenAuto.Of<T>(settings.Data).Valid(constraints, settings.Time);
-		var runs = Gen.OneOf([
-			.. actions.Select(a => Gen.Select(starts, AutoDefaults.ArgumentGen(a.ArgumentType, settings.Data), (s, x) => (Start: s, Action: a, Argument: x)))
-		]);
+		var runs = Gen.OneOf([.. actions.Select(a => a.Draw(starts).Select(drawn => (drawn.Start, Action: a, drawn.Argument)))]);
 		runs.Sample(
 			step =>
 			{
@@ -310,6 +333,9 @@ public static class AxisTests
 			$"(moved a value in {string.Join(", ", moved.Select(m => $"{m}"))} of {settings.Samples} runs)"
 		);
 	}
+
+	private static IReadOnlyList<AutoAction<T>> ToAutoActions<T>(EntityActions<T> actions, AxisRun? run) =>
+		[.. actions.Select(a => AutoAction.From(a, run?.Data ?? AutoMode.Mixed))];
 
 	private static Func<T, T, ShapeProbe> ProbeOf<T>(ConstraintShape<T> shape) => shape switch
 	{
