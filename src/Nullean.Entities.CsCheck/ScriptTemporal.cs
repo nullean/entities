@@ -35,14 +35,14 @@ internal sealed class TimedRun<TSut>(TSut sut, ManualTimeProvider time, (TimeSpa
 
 public static partial class ScriptExtensions
 {
-	private static Gen<TimedRun<TSut>> BuildTimedGen<TSut>(Script<TSut> script, Func<TimeProvider, TSut> factory)
+	internal static Gen<TimedRun<TSut>> BuildTimedGen<TSut>(Script<TSut> script, Func<TimeProvider, TSut> factory, Gen<TimeSpan>? delays = null)
 	{
 		if (script.Steps.Count == 0)
 		{
 			throw new InvalidOperationException("Script<TSut> has no steps — call Step(...) at least once before SampleWith.");
 		}
 		var stepGen = Gen.OneOf(script.Steps.ToArray());
-		var opGen = Gen.Select(script.Delay, stepGen, (delay, step) => (delay, step));
+		var opGen = Gen.Select(delays ?? script.Delay, stepGen, (delay, step) => (delay, step));
 		return opGen
 			.Array[script.MinLength, script.MaxLength]
 			.Select(ops =>

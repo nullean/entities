@@ -29,6 +29,7 @@ public sealed class Script<TSut>
 	// Read by ScriptExtensions to build the actual Gen<T> — never by anything outside this
 	// project, so plain `internal` rather than exposing builder state as public API.
 	internal IReadOnlyList<Gen<ScriptStep<TSut>>> Steps => _steps;
+	internal bool HasDelays => _delays is not null;
 	internal Gen<TimeSpan> Delay => _delays ?? Gen.Const(TimeSpan.Zero);
 	internal int MinLength => _minLength;
 	internal int MaxLength => _maxLength;

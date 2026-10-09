@@ -132,7 +132,17 @@ public sealed class TemporalRule<TEvent>
 {
 	private readonly Func<IMonitor<TEvent>> _create;
 
-	internal TemporalRule(Func<IMonitor<TEvent>> create) => _create = create;
+	internal TemporalRule(Func<IMonitor<TEvent>> create, EventShape<TEvent>? shape = null)
+	{
+		_create = create;
+		Shape = shape ?? EventShape<TEvent>.Opaque;
+	}
+
+	/// <summary>What the rule watches: the events that open it, answer it, and the window between them.</summary>
+	public EventShape<TEvent> Shape { get; }
+
+	/// <summary>The axis the rule belongs to: Absence, Temporal or Liveness.</summary>
+	public Axis Axis => Shape.Axis;
 
 	public string? Name { get; private set; }
 
@@ -175,21 +185,23 @@ public static class Temporal<TEvent>
 
 	/// <summary>Predicate-based counterpart to <see cref="Never{T1, T2}"/>, for event shapes that cannot satisfy <c>where T : TEvent</c> (C# unions).</summary>
 	public static TemporalRule<TEvent> Never(Func<TEvent, bool> isT1, Func<TEvent, bool> isT2, Func<TEvent, TEvent, bool> pair) =>
-		new(() => new NeverMonitor(isT1, isT2, pair));
+		new(() => new NeverMonitor(isT1, isT2, pair), new(Axis.Absence, nameof(Never), isT1, isT2));
 
 	/// <summary>Violated when a second event of type T carries the same <paramref name="key"/> as an earlier one, adjacent or not.</summary>
 	public static TemporalRule<TEvent> NeverTwice<T>(Func<T, object> key) where T : TEvent => NeverTwice(e => e is T, e => key((T)(object)e!));
 
-	public static TemporalRule<TEvent> NeverTwice(Func<TEvent, bool> isRelevant, Func<TEvent, object> key) => new(() => new NeverTwiceMonitor(isRelevant, key));
+	public static TemporalRule<TEvent> NeverTwice(Func<TEvent, bool> isRelevant, Func<TEvent, object> key) =>
+		new(() => new NeverTwiceMonitor(isRelevant, key), new(Axis.Absence, nameof(NeverTwice), isRelevant));
 
 	/// <summary>Violated if <paramref name="predicate"/> is false for any event of type T.</summary>
 	public static TemporalRule<TEvent> Always<T>(Func<T, bool> predicate) where T : TEvent => Always(e => e is T, e => predicate((T)(object)e!));
 
 	public static TemporalRule<TEvent> Always(Func<TEvent, bool> isRelevant, Func<TEvent, bool> predicate) =>
-		new(() => new AlwaysMonitor(isRelevant, predicate));
+		new(() => new AlwaysMonitor(isRelevant, predicate), new(Axis.Absence, nameof(Always), isRelevant));
 
 	/// <summary>Violated by the first pair of consecutive events (in the raw stream) for which <paramref name="isValid"/> is false.</summary>
-	public static TemporalRule<TEvent> Transitions(Func<TEvent, TEvent, bool> isValid) => new(() => new TransitionsMonitor(isValid));
+	public static TemporalRule<TEvent> Transitions(Func<TEvent, TEvent, bool> isValid) =>
+		new(() => new TransitionsMonitor(isValid), new(Axis.Absence, nameof(Transitions)));
 
 	/// <summary>An allow-list of consecutive event types; any other adjacent pair is a violation.</summary>
 	public static TemporalRule<TEvent> Transitions(params (Type From, Type To)[] allowed) =>
@@ -203,10 +215,16 @@ public static class Temporal<TEvent>
 	/// <paramref name="scope"/> key. Only resolvable at <see cref="IMonitor{TEvent}.Finish"/>, so for a bounded run.
 	/// </summary>
 	public static TemporalRule<TEvent> Eventually<T>(Func<TEvent, object> scope, Func<TEvent, bool> from, string? message = null) where T : TEvent =>
-		new(() => new EventuallyMonitor(scope, from, e => e is T, message ?? $"instance(s) never reached {typeof(T).Name}"));
+		new(
+			() => new EventuallyMonitor(scope, from, e => e is T, message ?? $"instance(s) never reached {typeof(T).Name}"),
+			new(Axis.Liveness, nameof(Eventually), from, e => e is T)
+		);
 
 	public static TemporalRule<TEvent> Eventually(Func<TEvent, object> scope, Func<TEvent, bool> from, Func<TEvent, bool> isTarget, string? message = null) =>
-		new(() => new EventuallyMonitor(scope, from, isTarget, message ?? "instance(s) never reached the target event"));
+		new(
+			() => new EventuallyMonitor(scope, from, isTarget, message ?? "instance(s) never reached the target event"),
+			new(Axis.Liveness, nameof(Eventually), from, isTarget)
+		);
 
 	/// <summary>
 	/// Bounded response: after a trigger, <paramref name="isNext"/> must be satisfied within <paramref name="window"/>, unless
@@ -218,7 +236,10 @@ public static class Temporal<TEvent>
 		TimeSpan window,
 		Func<TEvent, bool>? isInterrupt = null
 	) =>
-		new(() => new AfterMonitor(isTrigger, isNext, window, isInterrupt, required: false, "trigger"));
+		new(
+			() => new AfterMonitor(isTrigger, isNext, window, isInterrupt, required: false, "trigger"),
+			new(Axis.Temporal, nameof(AfterUntil), isTrigger, Window: window)
+		);
 
 	/// <summary>Starts a bounded-response rule: <c>After&lt;Confirmed&gt;().Then&lt;Shipped&gt;(match).Within(60s)</c>.</summary>
 	public static AfterTrigger<TEvent, TTrigger> After<TTrigger>() where TTrigger : TEvent => new();
@@ -432,7 +453,8 @@ public sealed class WhenRule<TEvent>
 
 	internal WhenRule(Func<TEvent, bool> guard) => _guard = guard;
 
-	public TemporalRule<TEvent> Requires(Func<TEvent, bool> requirement) => new(() => new Temporal<TEvent>.WhenMonitor(_guard, requirement));
+	public TemporalRule<TEvent> Requires(Func<TEvent, bool> requirement) =>
+		new(() => new Temporal<TEvent>.WhenMonitor(_guard, requirement), new(Axis.Absence, "When", _guard));
 }
 
 public sealed class AfterTrigger<TEvent, TTrigger> where TTrigger : TEvent
@@ -489,7 +511,8 @@ public sealed class WithinWindow<TEvent, TTrigger> where TTrigger : TEvent
 					isInterrupt,
 					required,
 					typeof(TTrigger).Name
-				)
+				),
+			new(Axis.Temporal, "After", e => e is TTrigger, Window: _window)
 		);
 }
 
