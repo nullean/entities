@@ -250,19 +250,21 @@ public partial class Constraint<T>
 
 	private Func<T, T, TimeProvider, IEnumerable<Violation>> _checkAt;
 
-	internal Constraint(ConstraintKind kind, Func<T, T, IEnumerable<Violation>> check)
+	internal Constraint(ConstraintKind kind, Func<T, T, IEnumerable<Violation>> check, [CallerMemberName] string? factory = null)
 	{
 		Kind = kind;
 		_checkAt = (prev, next, _) => check(prev, next);
+		Shape = new OpaqueShape<T>(kind) { Factory = factory };
 	}
 
 	// A time-aware constraint reads "now" from whatever TimeProvider the caller checks it with —
 	// never from a captured one, since constraints are static fields shared by every caller (and by
 	// tests that need to control the clock). Check, which has no provider to offer, uses TimeProvider.System.
-	internal Constraint(ConstraintKind kind, Func<T, T, TimeProvider, IEnumerable<Violation>> checkAt)
+	internal Constraint(ConstraintKind kind, Func<T, T, TimeProvider, IEnumerable<Violation>> checkAt, [CallerMemberName] string? factory = null)
 	{
 		Kind = kind;
 		_checkAt = checkAt;
+		Shape = new OpaqueShape<T>(kind) { Factory = factory };
 	}
 
 	/// <summary>
@@ -280,12 +282,22 @@ public partial class Constraint<T>
 	public Func<T, bool>? Guard { get; private set; }
 
 	/// <summary>
-	/// Set by <c>Transitions(selector).Allow(...)</c>: names the state a value is in (<see cref="StateOf"/>)
-	/// and every legal edge (<see cref="Edges"/>), so a test driver can check each edge is reachable.
+	/// What the rule declares about itself, readable without running it: its <see cref="Axis"/> and the typed payload a test needs to attack it
+	/// (an <see cref="IdempotentShape{T}"/>'s action, a <see cref="MonotonicShape{T}"/>'s direction). Never null: a rule built from a closure
+	/// with nothing declared is an <see cref="OpaqueShape{T}"/>, an invariant when it is point-in-time and unclassified when it is sequential.
 	/// </summary>
-	public Func<T, string>? StateOf { get; private set; }
+	public ConstraintShape<T> Shape { get; private set; }
 
-	public IReadOnlyList<(string From, string To)>? Edges { get; private set; }
+	/// <summary>The axis a test attacks this rule on: shorthand for <c>Shape.Axis</c>.</summary>
+	public Axis Axis => Shape.Axis;
+
+	/// <summary>
+	/// Set by <c>Transitions(selector).Allow(...)</c>: names the state a value is in (<see cref="StateOf"/>)
+	/// and every legal edge (<see cref="Edges"/>), so a test driver can check each edge is reachable. Read from <see cref="Shape"/>.
+	/// </summary>
+	public Func<T, string>? StateOf => (Shape as TransitionsShape<T>)?.StateOf;
+
+	public IReadOnlyList<(string From, string To)>? Edges => (Shape as TransitionsShape<T>)?.Edges;
 
 	internal Constraint<T> WithGuard(Func<T, bool> guard)
 	{
@@ -293,12 +305,14 @@ public partial class Constraint<T>
 		return this;
 	}
 
-	internal Constraint<T> WithEdges(Func<T, string> stateOf, IReadOnlyList<(string From, string To)> edges)
+	internal Constraint<T> WithShape(ConstraintShape<T> shape)
 	{
-		StateOf = stateOf;
-		Edges = edges;
+		Shape = shape;
 		return this;
 	}
+
+	internal Constraint<T> WithEdges(Func<T, string> stateOf, IReadOnlyList<(string From, string To)> edges) =>
+		WithShape(new TransitionsShape<T>(stateOf, edges) { Factory = nameof(Constraints<>.Transitions) });
 
 	/// <summary>Prose for people and tooling: what the rule says, beyond its name. Optional.</summary>
 	public string? Description { get; private set; }
@@ -353,40 +367,42 @@ public partial class Constraint<T>
 			Name = Name,
 			Description = Description,
 			SeverityOverride = SeverityOverride,
-			IsPrerequisite = IsPrerequisite
+			IsPrerequisite = IsPrerequisite,
+			Shape = Shape
 		};
 		if (Guard is { } guard)
 		{
 			copy.WithGuard(guard);
-		}
-		if (StateOf is { } stateOf && Edges is { } edges)
-		{
-			copy.WithEdges(stateOf, edges);
 		}
 		return copy;
 	}
 
 	/// <summary>
 	/// The same rule over a different type, reached through <paramref name="project"/>: a constraint on an <c>Order</c> becomes a constraint on
-	/// an <c>(Order, Audit)</c> pair, a wrapper, or an aggregate that holds one. Kind, name, <see cref="Guard"/> and transition edges carry over,
-	/// so tooling that reads them (coverage, diagrams) sees through the projection.
+	/// an <c>(Order, Audit)</c> pair, a wrapper, or an aggregate that holds one. Kind, name, <see cref="Guard"/> and the <see cref="Shape"/>'s readable parts
+	/// (transition edges, a monotonic probe, a conserved selector) carry over, so tooling that reads them (coverage, diagrams, axis tests) sees through the
+	/// projection. A shape that has to <i>build</i> a value (an idempotent action, a permutation) cannot be carried by a read-only projection: use the
+	/// overload with a <c>set</c> to keep it.
 	/// </summary>
-	public Constraint<TOther> Map<TOther>(Func<TOther, T> project)
+	public Constraint<TOther> Map<TOther>(Func<TOther, T> project) => Map(project, set: null);
+
+	/// <summary>
+	/// <see cref="Map{TOther}(Func{TOther, T})"/> with a way to put a changed <typeparamref name="T"/> back into the <typeparamref name="TOther"/>, so
+	/// a shape that builds values (<see cref="IdempotentShape{T}.Action"/>, <see cref="OrderIndependentShape{T}.Permute"/>) survives the projection.
+	/// </summary>
+	public Constraint<TOther> Map<TOther>(Func<TOther, T> project, Func<TOther, T, TOther>? set)
 	{
 		var mapped = new Constraint<TOther>(Kind, (previous, next, time) => CheckAt(project(previous), project(next), time))
 		{
 			Name = Name,
 			Description = Description,
 			SeverityOverride = SeverityOverride,
-			IsPrerequisite = IsPrerequisite
+			IsPrerequisite = IsPrerequisite,
+			Shape = Shape.Map(project, set)
 		};
 		if (Guard is { } guard)
 		{
 			mapped.WithGuard(other => guard(project(other)));
-		}
-		if (StateOf is { } stateOf && Edges is { } edges)
-		{
-			mapped.WithEdges(other => stateOf(project(other)), edges);
 		}
 		return mapped;
 	}
@@ -846,7 +862,7 @@ public static partial class Constraints<T>
 				? []
 				: [Violation.Error(message ?? $"{self.Name ?? "Constraint"} is not idempotent.") with { Evidence = (once, twice) }];
 		});
-		return self;
+		return self.WithShape(new IdempotentShape<T>(action) { Factory = nameof(Idempotent) });
 	}
 
 	/// <summary>
@@ -860,13 +876,20 @@ public static partial class Constraints<T>
 	/// shrink the value (<c>RemoveLine</c>) would otherwise wrongly fail it.
 	/// </summary>
 	public static Constraint<T> Monotonic<TValue>(Func<T, TValue> selector, MonotonicDirection direction, string? message = null) =>
-		new(ConstraintKind.Sequential, (prev, next) =>
+		new Constraint<T>(ConstraintKind.Sequential, (prev, next) =>
 		{
 			var before = selector(prev);
 			var after = selector(next);
 			var comparison = Comparer<TValue>.Default.Compare(after, before);
 			var holds = direction == MonotonicDirection.NonDecreasing ? comparison >= 0 : comparison <= 0;
 			return holds ? [] : [Violation.Error(message ?? $"Expected {direction} but moved from {before} to {after}.") with { Evidence = (before, after) }];
+		}).WithShape(new MonotonicShape<T>(
+			direction,
+			(prev, next) => new ShapeProbe(1, Comparer<TValue>.Default.Compare(selector(next), selector(prev)) == 0 ? 0 : 1)
+		)
+
+		{
+			Factory = nameof(Monotonic)
 		});
 
 	/// <summary>
@@ -896,7 +919,7 @@ public static partial class Constraints<T>
 					}
 				];
 		});
-		return self;
+		return self.WithShape(new ConservesShape<T>(value => selector(value)) { Factory = nameof(Conserves) });
 	}
 }
 #pragma warning restore CA1000
@@ -1096,7 +1119,7 @@ public sealed partial class ConstraintSet<T>
 	public IReadOnlyList<Constraint<T>> AsConstraints() => _constraints;
 
 	/// <summary>
-	/// Every constraint in the set lifted through <paramref name="project"/> (see <see cref="Constraint{T}.Map{TOther}"/>), names preserved, or prefixed with
+	/// Every constraint in the set lifted through <paramref name="project"/> (see <see cref="Constraint{T}.Map{TOther}(Func{TOther, T})"/>), names preserved, or prefixed with
 	/// <paramref name="prefix"/>. Prefix when two sets are lifted into one that both have a rule of the same name (two aggregates that each have <c>SkusAreUnique</c>):
 	/// names are how a violation, <c>Probe</c> and <c>Laws</c> tell rules apart, and the prefix also says which part a violation is about.
 	/// </summary>

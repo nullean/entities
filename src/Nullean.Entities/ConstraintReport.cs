@@ -1,5 +1,7 @@
 // A rule that says what it reports as evidence, and the report a set produces over one value: every violation plus typed access to the evidence of a given rule.
 
+using System.Runtime.CompilerServices;
+
 namespace Nullean.Entities;
 
 /// <summary>
@@ -11,11 +13,15 @@ namespace Nullean.Entities;
 /// <typeparam name="TEvidence">What the rule's violations carry as evidence.</typeparam>
 public sealed class Constraint<T, TEvidence> : Constraint<T>
 {
-	internal Constraint(ConstraintKind kind, Func<T, T, IEnumerable<Violation>> check) : base(kind, check)
+	internal Constraint(ConstraintKind kind, Func<T, T, IEnumerable<Violation>> check, [CallerMemberName] string? factory = null) : base(kind, check, factory)
 	{
 	}
 
-	internal Constraint(ConstraintKind kind, Func<T, T, TimeProvider, IEnumerable<Violation>> checkAt) : base(kind, checkAt)
+	internal Constraint(ConstraintKind kind, Func<T, T, TimeProvider, IEnumerable<Violation>> checkAt, [CallerMemberName] string? factory = null) : base(
+			kind,
+			checkAt,
+			factory
+		)
 	{
 	}
 

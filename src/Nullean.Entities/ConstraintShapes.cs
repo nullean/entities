@@ -587,7 +587,7 @@ public static partial class Constraints<T>
 	) where TKey : notnull
 	{
 		var member = MemberOf(itemsExpression);
-		return new(ConstraintKind.Sequential, (prev, next) =>
+		return new Constraint<T>(ConstraintKind.Sequential, (prev, next) =>
 		{
 			var before = items(prev).GroupBy(key).ToDictionary(g => g.Key, g => value(g.First()));
 			return [
@@ -616,6 +616,72 @@ public static partial class Constraints<T>
 							}
 					),
 			];
+		}).WithShape(new MonotonicShape<T>(
+			direction,
+			(prev, next) =>
+			{
+				var before = items(prev).GroupBy(key).ToDictionary(g => g.Key, g => value(g.First()));
+				var shared = items(next).Where(i => before.ContainsKey(key(i))).ToList();
+				return new ShapeProbe(shared.Count, shared.Count(i => Comparer<TValue>.Default.Compare(value(i), before[key(i)]) != 0));
+			},
+			PerKey: true
+		)
+
+		{
+			Factory = nameof(MonotonicPerKey)
+		});
+	}
+
+	/// <summary>
+	/// The result does not depend on the order the value lists its items in: <paramref name="items"/> reads the items, <paramref name="withItems"/> rebuilds the value with them in another
+	/// order, and <paramref name="result"/> is what must not change (a built index, a merged document, a plan). Point-in-time, so <c>Validate</c> checks it on the
+	/// order given against the reverse and a rotation; a test that knows the shape (<see cref="OrderIndependentShape{T}"/>) tries random permutations of any size
+	/// and shrinks a failure to the smallest one. Declaring it replaces a hand-built "the same keys in two orders" record.
+	/// </summary>
+	public static Constraint<T> OrderIndependent<TItem, TResult>(
+		Func<T, IReadOnlyList<TItem>> items,
+		Func<T, IReadOnlyList<TItem>, T> withItems,
+		Func<T, TResult> result,
+		IEqualityComparer<TResult>? comparer = null,
+		string? message = null
+	)
+	{
+		var equal = comparer ?? EqualityComparer<TResult>.Default;
+		Constraint<T> self = null!;
+		self = new(ConstraintKind.PointInTime, (_, next) =>
+		{
+			var listed = items(next);
+			if (listed.Count < 2)
+			{
+				return [];
+			}
+			var expected = result(next);
+			var reversed = Enumerable.Range(0, listed.Count).Reverse().ToArray();
+			var rotated = Enumerable.Range(1, listed.Count - 1).Append(0).ToArray();
+			foreach (var order in new[] { reversed, rotated })
+			{
+				var actual = result(withItems(next, [.. order.Select(i => listed[i])]));
+				if (!equal.Equals(expected, actual))
+				{
+					return [
+						Violation.Error(message ?? $"{self.Name ?? "Constraint"} depends on the order of its items.") with { Evidence = (expected, actual) }
+					];
+				}
+			}
+			return [];
+		});
+		return self.WithShape(new OrderIndependentShape<T>(
+			value => items(value).Count,
+			(value, order) =>
+			{
+				var listed = items(value);
+				return withItems(value, [.. order.Select(i => listed[i])]);
+			},
+			(a, b) => equal.Equals(result(a), result(b))
+		)
+
+		{
+			Factory = nameof(OrderIndependent)
 		});
 	}
 }
@@ -659,6 +725,14 @@ public sealed partial class ConstraintSet<T>
 		}
 		return new([.. _constraints.Where(c => c.Name is null || !names.Contains(c.Name))]);
 	}
+
+	/// <summary>
+	/// The rules whose <see cref="Constraint{T}.Shape"/> puts them on <paramref name="axis"/>: the same rule objects, so a name or a severity set on one is seen in both.
+	/// A rule the others rely on (<see cref="Constraint{T}.IsPrerequisite"/>) stays in by default, because the rules of the axis were written for a value that holds it;
+	/// pass <c>includePrerequisites: false</c> to see the axis alone.
+	/// </summary>
+	public ConstraintSet<T> OfAxis(Axis axis, bool includePrerequisites = true) =>
+		new([.. _constraints.Where(c => c.Axis == axis || (includePrerequisites && c.IsPrerequisite))]);
 }
 
 public partial class Constraint<T>
