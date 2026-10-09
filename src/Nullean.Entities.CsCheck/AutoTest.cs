@@ -119,7 +119,7 @@ public sealed partial class AutoTest<T>
 		_settings = new AxisRun(Data: AutoMode.Plausible);
 		_valid = valid ?? GenAuto.Of<T>(_settings.Data).Valid(constraints);
 		_counterExamples = new Dictionary<string, Func<T, T>>();
-		_actions = [.. (actions ?? []).Select(a => AutoAction.From(a, _settings.Data))];
+		_actions = actions is null ? [] : [.. actions.Select(a => AutoAction.From(a, _settings.Data))];
 		_required = [];
 	}
 
