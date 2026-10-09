@@ -1,7 +1,7 @@
 // Nullean.Entities.CsCheck — Script<TSut> on a TimeProvider, checked with the core temporal rules (no Rx).
 //
-// SampleWith(IScheduler ...) drives an Rx scheduler and checks Nullean.Entities.Reactive constraints. This overload drives a
-// ManualTimeProvider instead: the SUT takes a TimeProvider, records timestamped events (an in-memory log), and the generated
+// This is the default way to run a script: it drives a ManualTimeProvider (the Rx scheduler variant lives in the opt-in
+// Nullean.Entities.CsCheck.Reactive package): the SUT takes a TimeProvider, records timestamped events (an in-memory log), and the generated
 // delays advance that clock. The run is then checked with Trace.Check, so a service with no Rx dependency gets the same
 // generated delays, shrinking and vacuity checks.
 

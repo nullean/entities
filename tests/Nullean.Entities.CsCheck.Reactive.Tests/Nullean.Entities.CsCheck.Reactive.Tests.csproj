@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="AwesomeAssertions" />
+    <ProjectReference Include="../../src/Nullean.Entities.CsCheck.Reactive/Nullean.Entities.CsCheck.Reactive.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

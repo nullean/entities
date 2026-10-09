@@ -31,6 +31,7 @@ let mapProjectToNuget =
         .Add("Nullean.Entities", "Nullean.Entities")
         .Add("Nullean.Entities.Reactive", "Nullean.Entities.Reactive")
         .Add("Nullean.Entities.CsCheck", "Nullean.Entities.CsCheck")
+        .Add("Nullean.Entities.CsCheck.Reactive", "Nullean.Entities.CsCheck.Reactive")
 
 let buildOnlyPackages = Set.empty<string>
 
@@ -39,7 +40,7 @@ let mapNugetToProject =
     |> Map.fold (fun (m: Map<string, string>) key value -> m.Add(value, key)) Map.empty<string, string>
 
 // Test projects discovered under tests/, run in dependency order (Entities has no deps,
-// Reactive depends on Entities, CsCheck depends on Reactive).
+// Reactive depends on Entities, CsCheck depends on Entities only, CsCheck.Reactive on both).
 /// The console apps under examples/Apps. `apps` runs each; one that exits non-zero (a scenario stopped behaving as narrated) fails the build.
 let Apps =
     [ "examples/Apps/OrderFulfilment"
@@ -56,6 +57,7 @@ let TestProjects =
       "tests/Nullean.Entities.SourceGenerators.Tests"
       "tests/Nullean.Entities.Reactive.Tests"
       "tests/Nullean.Entities.CsCheck.Tests"
+      "tests/Nullean.Entities.CsCheck.Reactive.Tests"
       "tests/Nullean.Entities.CsCheck.AutoBogus.Tests"
       "tests/Nullean.Entities.FileSystem.Tests"
       "tests/Nullean.Entities.CsCheck.FileSystem.Tests"

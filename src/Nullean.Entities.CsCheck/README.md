@@ -9,11 +9,12 @@ When something breaks, CsCheck shrinks it to the smallest failing case and print
 
 - [The idea in one minute](#the-idea-in-one-minute)
 - [Two primers](#two-primers): entities and constraints, and property-based testing with CsCheck
+- [Every axis, named: `AutoTest` and `EventAutoTest`](#every-axis-named-autotest-and-eventautotest)
 - [Choosing a test: the CsCheck methodologies](#choosing-a-test-the-cscheck-methodologies)
 - [Testing qualities](#testing-qualities-what-kind-of-bug-is-this-test-for): absent, temporal, vacuity, liveness, idempotency, monotonicity, conservation, confluence
 - [Entities as state machines](#entities-as-state-machines-entityspec)
 - [Simple property tests](#simple-property-tests)
-- [Event streams and time](#event-streams-and-time-scripttsut)
+- [Event streams and time](#event-streams-and-time-scripttsut) (`TimeProvider` and `IAsyncEnumerable`; Rx is a [separate, opt-in package](#rx-opt-in-nullean-entities-cscheck-reactive))
 - [Generated data and AutoBogus](#generated-data-and-autobogus)
 - [When a test fails, or won't run](#when-a-test-fails-or-wont-run)
 
@@ -283,16 +284,16 @@ var script = Script.For<OrderService>()
     .Length(1, 20);
 ```
 
-`SampleWith` runs the script against a fresh SUT per iteration and checks a
-`ReactiveConstraintSet<TEvent>` against the resulting event stream. A specification, regression,
+`SampleWith` runs the script against a fresh SUT per iteration. The SUT takes a `TimeProvider` (a `ManualTimeProvider` that the script's delays advance),
+records timestamped events, and a `TemporalRuleSet<TEvent>` is checked against them. A specification, regression,
 parallel, and equality test all share the same script:
 
 ```csharp
 // Specification — named rules are the assertion
 script.SampleWith(
-    scheduler => new OrderService(scheduler),
-    svc => svc.Events,
-    OrderEventSpec.All  // ReactiveConstraintSet<OrderEvent> — temporal + structural
+    time => new OrderService(time),
+    svc => svc.Log,         // IEnumerable<Timestamped<OrderEvent>>
+    OrderEventRules         // TemporalRuleSet<OrderEvent> — temporal + structural
 );
 
 // Parallel — the SUT handles concurrent steps; violations surface as CsCheck failures
@@ -310,9 +311,9 @@ case:
 
 ```csharp
 script.SampleWith(
-    _ => new OrderService(),
-    svc => svc.Events,
-    OrderEventSpec.All,
+    time => new OrderService(time),
+    svc => svc.Log,
+    OrderEventRules,
     seed: "0000000000000001ZZZZZZZZZZZZZZZZ"
 );
 ```
@@ -392,6 +393,36 @@ OrderLifecycle.ConformsTo(clock => new OrderService(clock), s => s.State, (s, tr
 - Operations are awaited in place, so use a service whose awaits complete by themselves (an in-memory repository, a `ManualTimeProvider`). The clock passed to the factory is advanced by `Delays(...)`.
 - For a value machine (`StateMachine<TState, TTrigger>`), `ConformToService(create, stateOf, bindings: [("Open", d => d.OpenAsync()), ...])` is `ConformToMutable` with async bindings.
 
+## Every axis, named: `AutoTest` and `EventAutoTest`
+
+Each rule declares its shape (`Idempotent`, `Monotonic`, `Conserves`, `OrderIndependent`, `Temporal<TEvent>.After()...`), so the test library reads the shape and picks the technique and the inputs. Each axis is a named method; `AutoTest` composes them.
+
+```csharp
+// state axes: from the Constraint<T> shapes of the type
+var report = AutoTest.For(OrderConstraints.Instance, genOrder)   // rules + the operations the generator found
+    .CounterExamples(counterExamples)
+    .RequireAxes(Axis.Monotonicity)                              // an axis with no rule is reported "not applicable"; this makes it a failure
+    .Run();                                                      // Invariant, Idempotency, Monotonicity, Conservation, Confluence, Vacancy
+
+// one axis on its own
+OrderConstraints.All.Idempotency(genOrder);
+
+// event axes: from the TemporalRule<TEvent> shapes, on a ManualTimeProvider
+EventAutoTest.For(rules, script, time => new OrderDesk(time), desk => desk.Log).Run();                 // Absence, Temporal, Liveness, Vacancy
+EventAutoTest.ForAsync(rules, script, time => new OrderDesk(time), desk => desk.Stream()).Run();      // the service exposes an IAsyncEnumerable<Timestamped<TEvent>>
+```
+
+| Axis | Reads | Fails as vacuous when |
+|---|---|---|
+| Invariant | every rule that must hold in every state | a rule has no counter-example |
+| Idempotency | `Idempotent(action)` | the action never changed a value |
+| Monotonicity, Conservation | `Monotonic`, `Conserves`, over the declared actions | no action ever moved the value |
+| Confluence | `OrderIndependent(items, withItems, result)` | no value had two or more items |
+| Absence, Temporal, Liveness | `Temporal<TEvent>` rules and their trigger, target and window | no run opened the rule, or none went past its deadline |
+| Vacancy | everything above | a rule can never fire |
+
+`Cases` returns one `AxisCase` per declared axis, with its law and consequence in the failure message, for a test framework's data source. Delays for the event axes default to 0 and just either side of every rule's window.
+
 ## Choosing a test: the CsCheck methodologies
 
 | You want to know | CsCheck methodology | The call here | Finds |
@@ -423,10 +454,10 @@ right technique test it, and makes the failure read "not idempotent" instead of 
 
 | Quality | Declare it with | Tested by |
 |---|---|---|
-| Absent: this must never follow that | `Never<T1,T2>` (`Nullean.Entities.Reactive`) | `script.SampleWith` |
-| Temporal: this must follow that, in time | `After().Then().Within()` (`Reactive`) | `script.SampleWith` + `.Delays(...)` |
+| Absent: this must never follow that | `Temporal<TEvent>.Never(...)` | `EventAutoTest.Absence()`, `script.SampleWith` |
+| Temporal: this must follow that, in time | `Temporal<TEvent>.After().Then().Within()` | `EventAutoTest.Temporal()`, `script.SampleWith` + `.Delays(...)` |
 | Vacuity: the rules were actually exercised | `Coverage<TEvent>` here; automatic in `Exhaustive` | `SampleWith(..., coverage)`, `spec.Exhaustive()` |
-| Liveness: it eventually happens | `Eventually<T>` (`Reactive`) | `script.SampleWith` |
+| Liveness: it eventually happens | `Temporal<TEvent>.Eventually<T>` | `EventAutoTest.Liveness()`, `script.SampleWith` |
 | Idempotency: twice is once | `Idempotent(action)` (`Nullean.Entities`) | `Validate`, `spec.Exhaustive()`, `spec.Idempotent()` |
 | Monotonicity: it only moves one way | `Monotonic(selector, direction)` | `spec.Exhaustive()` (step-scoped) |
 | Conservation: nothing created or destroyed | `Conserves(selector)` | `spec.Exhaustive()` on a pair-valued entity |
@@ -446,10 +477,10 @@ var script = Script.For<OrderService>()
     .Step("Confirm", OrderIds, (svc, id) => svc.Confirm(id))
     .Step("Ship",    OrderIds, (svc, id) => svc.Ship(id));
 
-script.SampleWith(_ => new OrderService(), svc => svc.Events, OrderStateSpec.All);
+script.SampleWith(time => new OrderService(time), svc => svc.Log, OrderStateRules);
 ```
 
-`OrderStateSpec.All` contains `NeverShippedWithoutConfirmation`. The script produces random walks of
+`OrderStateRules` (a `TemporalRuleSet<OrderStateEvent>`) contains `NeverShippedWithoutConfirmation`. The script produces random walks of
 Place/Confirm/Ship over three ids; every event the service raises is checked against the constraint; the first
 violation fails the test with the shrunk walk and a seed. Nothing CsCheck-specific beyond the script's steps.
 
@@ -465,9 +496,9 @@ where hand-written tests are weakest: you pick one delay and hope. Add `.Delays(
 including ones you would not have thought to try.
 
 ```csharp
-// The rule, declared once on the domain (Nullean.Entities.Reactive):
-public static readonly ReactiveConstraint<OrderStateEvent> ConfirmedEventuallyTerminates =
-    After<OrderStateEvent.Confirmed>()
+// The rule, declared once on the domain (core Nullean.Entities):
+public static readonly TemporalRule<OrderStateEvent> ConfirmedEventuallyTerminates =
+    Temporal<OrderStateEvent>.After<OrderStateEvent.Confirmed>()
         .Then<OrderStateEvent.Shipped, OrderStateEvent.Cancelled>(
             m1: (confirmed, shipped)   => shipped.OrderId   == confirmed.OrderId,
             m2: (confirmed, cancelled) => cancelled.OrderId == confirmed.OrderId)
@@ -481,18 +512,17 @@ var script = Script.For<OrderService>()
     .Delays(Gen.Int[0, 72 * 3600].Select(s => TimeSpan.FromSeconds(s)))
     .Length(2, 12);
 
-script.SampleWith(scheduler => new OrderService(scheduler), svc => svc.Events, OrderStateSpec.All);
+script.SampleWith(time => new OrderService(time), svc => svc.Log, OrderStateRules);
 ```
 
 What happens under the hood, and how to get it right:
 
-- **The clock is virtual.** `SampleWith` hands your factory an Rx `HistoricalScheduler`. Before each step it advances
-  that scheduler by the step's generated delay, so a 72-hour gap costs nothing and the test is fast and deterministic.
-- **Your SUT must use that scheduler for time.** Pass it to anything that waits or timestamps
-  (`Observable.Timer(..., scheduler)`, `scheduler.Now`). A service that calls `DateTime.UtcNow` or `Task.Delay` is
+- **The clock is virtual.** `SampleWith` hands your factory a `ManualTimeProvider`. Before each step it advances
+  that clock by the step's generated delay, so a 72-hour gap costs nothing and the test is fast and deterministic.
+- **Your SUT must use that provider for time.** Pass it to anything that waits or timestamps
+  (`time.GetUtcNow()`, `time.CreateTimer(...)`). A service that calls `DateTime.UtcNow` or `Task.Delay` is
   invisible to virtual time, and a missed deadline can never happen. Time-aware constraints in the core package
-  (`NotInFuture`, `NotOlderThan`, `Always((x, now) => ...)`) read the same virtual clock when attached with
-  `ToReactive()`; give them a `TimeProvider` directly in `Validate`/`Apply`.
+  (`NotInFuture`, `NotOlderThan`, `Always((x, now) => ...)`) take the same `TimeProvider` in `Validate`/`Apply`.
 - **Delays shrink.** A failure reports the smallest gap that still breaks the deadline: 61 seconds, not 41 hours.
 - **Pick a range that straddles the deadline.** `Gen.Int[0, 5]` against a 60-second deadline can never fail, which is
   a vacuous test again. Use a range that produces gaps well under and well over the limit, and add `Coverage`.
@@ -500,19 +530,9 @@ What happens under the hood, and how to get it right:
   so an obligation still open when the walk ends stays `Pending`. To check the final deadline, end the script with a
   step whose pre-delay can cross it (a no-op `Step("Wait", _ => { })` works), or use `Eventually<T>`.
 
-**Without Rx.** If the service takes a `TimeProvider` and records timestamped events, the same script drives a `ManualTimeProvider` and
-checks core temporal rules (`Temporal<TEvent>`, from `Nullean.Entities`) instead:
-
-```csharp
-script.SampleWith(
-    time => new OrderDesk(time),              // the SUT reads time from the provider it is given
-    desk => desk.Log,                         // IEnumerable<Timestamped<DeskEvent>> it recorded
-    rules,                                    // a TemporalRuleSet<DeskEvent>
-    coverage);                                // optional: the same vacuity check
-```
-
-The generated delays advance the `ManualTimeProvider`, a violation fails with the rule, its time and evidence, a shrunk walk and a seed, and
-nothing depends on Rx. The Rx-based `SampleWith(IScheduler ...)` above and this one check the same operators, and a differential test keeps them in agreement.
+A violation fails with the rule, its time and evidence, a shrunk walk and a seed. For a service that exposes its events as an `IAsyncEnumerable<Timestamped<TEvent>>`,
+use `EventAutoTest.ForAsync(...)`, which also derives the delays from the rules' windows. Nothing here depends on Rx: if your service is built on `IObservable<T>` and an Rx scheduler,
+see [the opt-in Rx package](#rx-opt-in-nullean-entities-cscheck-reactive).
 
 For entities rather than event streams, time enters as a `TimeProvider`: `NotOlderThan(selector, maxAge)` and
 friends take the clock from the call, and `EntitySpec` fixes it (`.Clock(...)`) so exploration is deterministic.
@@ -531,7 +551,7 @@ var coverage = new Coverage<OrderStateEvent>()
     .Expect("Shipped",   e => e is OrderStateEvent.Shipped, minPercentOfRuns: 5) // ...and in 5%+ of runs
     .Expect("Cancelled", e => e is OrderStateEvent.Cancelled);
 
-script.SampleWith(scheduler => new OrderService(scheduler), svc => svc.Events, OrderStateSpec.All, coverage, writeLine: Console.WriteLine);
+script.SampleWith(time => new OrderService(time), svc => svc.Log, OrderStateRules, coverage, writeLine: Console.WriteLine);
 ```
 
 `writeLine` prints how often each event occurred, and an unmet expectation throws `VacuousPropertyException` even
@@ -834,7 +854,7 @@ Gen.Int[1, 10].Select(n => Build(n)).ShouldSatisfy(OrderConstraints.All);    // 
 ## Event streams and time: `Script<TSut>`
 
 When the thing under test is a service that raises events (not a pure entity), describe the sequences it can be
-driven through and check a *reactive* constraint set against what it emits:
+driven through and check a temporal rule set against the timestamped events it records:
 
 ```csharp
 var script = Script.For<OrderService>()
@@ -844,7 +864,7 @@ var script = Script.For<OrderService>()
     .Delays(Gen.Int[0, 500].Select(ms => TimeSpan.FromMilliseconds(ms)))
     .Length(1, 20);                                   // default 0-10 if omitted
 
-script.SampleWith(scheduler => new OrderService(scheduler), svc => svc.Events, OrderStateSpec.All);
+script.SampleWith(time => new OrderService(time), svc => svc.Log, OrderStateRules);
 ```
 
 `Step(name, action)` is a fixed step; `Step(name, gen, action)` generates a fresh, independently shrinkable argument
@@ -853,14 +873,12 @@ Each generated run is a fresh SUT and a shrinkable array of `(delay, step)` pair
 
 | Call | Does |
 |---|---|
-| `script.SampleWith(factory, events, constraints)` | Random runs; fails on any violation, with a shrunk walk and seed. |
+| `script.SampleWith(factory, log, rules)` | Random runs on a `ManualTimeProvider`; fails on any violation, with a shrunk walk and seed. |
 | `script.SampleWith(..., coverage)` | The same, plus [vacuity](#vacuity-a-green-test-that-proved-nothing) checks. |
-| `script.SampleParallelWith(...)` | Runs steps concurrently and fails if an interleaving breaks a constraint that no sequential order does. Your SUT must tolerate concurrent calls; that is what is tested. Delays are not used (virtual time is single-threaded). Use alongside `SampleWith`. |
-| `script.RunWith(...)` | The whole run as an `IObservable<EntityEvent>` (`IterationStarted`, `ConstraintResolved`, `SmallerFailure`, `Completed`), for a caller who wants the play-by-play instead of an exception. |
+| `EventAutoTest.For(...)` / `.ForAsync(...)` | The event axes as named tests, with delays and coverage derived from the rules; `ForAsync` reads an `IAsyncEnumerable` stream. |
 | `script.Metamorphic(...)` | Two paths, compared; see [confluence](#confluence-two-paths-compared-on-fresh-instances). |
 
-If the event type implements `IHaveConstraints<TEvent>`, the constraint argument can be dropped. There is no
-hand-rolled shrinking anywhere: `SampleWith`, `RunWith` and `Metamorphic` build a real `Gen<T>` and hand it to
+There is no hand-rolled shrinking anywhere: `SampleWith` and `Metamorphic` build a real `Gen<T>` and hand it to
 CsCheck's `Sample`, so generation, shrinking, multithreading and seed replay are CsCheck's own.
 
 ## Generated data: plausible and hostile by default
@@ -1021,6 +1039,24 @@ Gen<OrderLine> lines = GenFakerExtensions.Faker<OrderLine>(faker => faker
 | `The state space did not close` | Too many states, or states that never compare equal | Add `.Key(...)`, `.Boundary(...)`, lower `.Limit(...)`, or use `.Sample()`. |
 | `AutoBogus produced no valid X ... Most rejecting constraints: A, B` | The generator cannot satisfy those constraints | Give a start (`Spec(start)`), a `gen:`, or a Bogus rule. |
 | `AutoBogus could not generate a Y` / `No values to try for Y` | An action argument type AutoBogus cannot build | Declare `.Domain<Y>(...)`. |
+
+## Rx (opt-in): `Nullean.Entities.CsCheck.Reactive`
+
+Nothing above needs System.Reactive, and this package does not reference it. If your service is built on `IObservable<T>` and an Rx scheduler, add the separate package
+`Nullean.Entities.CsCheck.Reactive` (it brings `Nullean.Entities.Reactive` and `System.Reactive`); the same `Script<TSut>` then has Rx terminals, with the same shrinking and seeds:
+
+```csharp
+script.SampleWith(scheduler => new OrderService(scheduler), svc => svc.Events, OrderEventSpec.All);   // ReactiveConstraintSet<OrderEvent>
+```
+
+| Call | Does |
+|---|---|
+| `script.SampleWith(factory, events, constraints)` | Runs on an Rx `HistoricalScheduler` that the generated delays advance; fails on any violation, with a shrunk walk and seed. Your SUT must take that scheduler for time (`Observable.Timer(..., scheduler)`, `scheduler.Now`). |
+| `script.SampleWith(..., coverage)` | The same, plus vacuity checks. |
+| `script.SampleParallelWith(...)` | Runs steps concurrently and fails if an interleaving breaks a constraint that no sequential order does. Delays are not used. |
+| `script.RunWith(...)` | The whole run as an `IObservable<EntityEvent>`, for a caller who wants the play-by-play instead of an exception. |
+
+If the event type implements `IHaveConstraints<TEvent>`, the constraint argument can be dropped. The Rx rules and the core `Temporal<TEvent>` rules check the same operators, and a differential test keeps them in agreement.
 
 ## Links
 

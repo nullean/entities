@@ -17,7 +17,7 @@ internal sealed class ParallelRun<TSut, TEvent>(TSut sut, MonitoredConstraintSet
 	public bool Violated => monitored.AnyViolated;
 }
 
-public static partial class ScriptExtensions
+public static partial class ReactiveScriptExtensions
 {
 	/// <summary>
 	/// Runs the script's steps concurrently and fails if the constraints are violated by an

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Rx scheduler scripts for Nullean.Entities.CsCheck: SampleWith, RunWith and SampleParallelWith drive a Script on a HistoricalScheduler and check Nullean.Entities.Reactive constraints. Opt-in; the default CsCheck package has no System.Reactive dependency.</Description>
+    <PackageTags>cscheck property-testing reactive specification</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+    <ProjectReference Include="../Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
+  </ItemGroup>
+</Project>

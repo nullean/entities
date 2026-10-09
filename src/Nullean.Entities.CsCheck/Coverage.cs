@@ -41,7 +41,8 @@ public sealed class Coverage<TEvent>
 /// </summary>
 public sealed class VacuousPropertyException(string message) : Exception(message);
 
-internal sealed class CoverageTally<TEvent>(Coverage<TEvent> coverage)
+/// <summary>Counts, over a sample, in how many runs each expected event was seen. A terminal calls <see cref="NewRun"/>, <see cref="Observe"/> per event, <see cref="Complete"/> per run, then <see cref="Verify"/>.</summary>
+public sealed class CoverageTally<TEvent>(Coverage<TEvent> coverage)
 {
 	private readonly long[] _runsSeen = new long[coverage.Expectations.Count];
 	private long _runs;

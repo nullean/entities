@@ -199,8 +199,9 @@ The testing axes map to how you think about correctness, not to any specific fra
 
 `Nullean.Entities.CsCheck` maps each axis to a test entry point. `Script` builds a sequence of
 named steps with generated arguments and optional virtual-time delays, then drives a real SUT with
-random orderings. The same `OrderEventSpec.All` declared above runs unchanged — no
-re-declaration for tests:
+random orderings. The same rules declared above run unchanged — no
+re-declaration for tests (this example uses the Rx package, `Nullean.Entities.CsCheck.Reactive`; the default
+package runs the same script on a `TimeProvider`, see its README):
 
 ```csharp
 var script = Script.For<OrderService>()
@@ -250,8 +251,8 @@ The supported axes today and what's coming:
 | Axis | Status |
 |---|---|
 | Invariant, Idempotency, Monotonicity, Conservation | ✅ `ConstraintSet<T>.Validate`, `Idempotent`, `Monotonic`, `Conserves` |
-| Absence, Temporal, Liveness | ✅ `Script.SampleWith` + `ReactiveConstraintSet` |
-| Confluence | ✅ `Script.Metamorphic` |
+| Absence, Temporal, Liveness | ✅ `EventAutoTest` / `Script.SampleWith` + core `Temporal<TEvent>` rules on a `TimeProvider` or `IAsyncEnumerable` (Rx: opt-in `Nullean.Entities.CsCheck.Reactive`) |
+| Confluence | ✅ `OrderIndependent` + `AutoTest.Confluence()`, `Script.Metamorphic` |
 | Model-based (SUT state vs machine prediction) | 🟡 `StateMachine<TState>.AsConstraint`/`AsReactive` check legality; wiring a prediction into `Script` itself is still open |
 | Parallel / linearizability | ⏳ |
 | Vacancy (every transition exercised) | 🟡 `StateMachine<TState>.NewCoverageTracker()` is manual; a `coverage:` parameter on `SampleWith` is still open |
@@ -415,7 +416,8 @@ Eight console apps in [`examples/Apps`](examples/Apps), each a `Program.cs` that
 |---|---|---|
 | `Nullean.Entities` | `Constraint<T>`, `ConstrainedValue`, `[Constraint]`/`[Constraints]` source generator | nothing |
 | `Nullean.Entities.Reactive` | `ReactiveConstraint<T>`, temporal operators, live monitoring | `System.Reactive` |
-| `Nullean.Entities.CsCheck` | One-line tests from constraints (`Exhaustive`, `ForAll`, `Preserves`, `Probe`, `ConformTo`), `Script` runs, hostile-by-default generated data (`GenAuto.Of<T>`), Bogus rules | `Nullean.Entities.Reactive`, `CsCheck`, `Bogus` |
+| `Nullean.Entities.CsCheck` | One-line tests from constraints (`Exhaustive`, `ForAll`, `Preserves`, `Probe`, `ConformTo`), the nine axis tests (`AutoTest`, `EventAutoTest`), `Script` runs on a `TimeProvider`, hostile-by-default generated data (`GenAuto.Of<T>`), Bogus rules | `Nullean.Entities`, `CsCheck`, `Bogus` |
+| `Nullean.Entities.CsCheck.Reactive` | *Optional.* `Script` runs on an Rx scheduler: `SampleWith`, `SampleParallelWith`, `RunWith` over `ReactiveConstraintSet<T>` | `Nullean.Entities.CsCheck`, `Nullean.Entities.Reactive` |
 | `Nullean.Entities.FileSystem` | *Optional.* Rules for `IFileInfo`/`IDirectoryInfo` (`Exist`, `StayInside`, `NotSymlink`, `NoHiddenSegments`, `HaveExtension`); trim and AOT clean | `Nullean.Entities`, `System.IO.Abstractions` |
 | `Nullean.Entities.CsCheck.FileSystem` | *Optional.* `UseFileSystem()`: generated `MockFileSystem` worlds for models that hold the file system | `Nullean.Entities.CsCheck`, `Nullean.Entities.FileSystem`, `System.IO.Abstractions.TestingHelpers` |
 | `Nullean.Entities.Extensions.DependencyInjection` | *Optional.* `AddConstraints<T>()`, `IOptions` validation with `ValidateConstraints()` | `Nullean.Entities`, `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Options` |
@@ -425,8 +427,9 @@ Eight console apps in [`examples/Apps`](examples/Apps), each a `Program.cs` that
 
 ```sh
 dotnet add package Nullean.Entities
-dotnet add package Nullean.Entities.Reactive
 dotnet add package Nullean.Entities.CsCheck
+# only if your service is built on IObservable<T> and an Rx scheduler:
+dotnet add package Nullean.Entities.CsCheck.Reactive
 ```
 
 ## Building from source

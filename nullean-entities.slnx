@@ -4,6 +4,7 @@
   <Project Path="src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" />
   <Project Path="src/Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
   <Project Path="src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+  <Project Path="src/Nullean.Entities.CsCheck.Reactive/Nullean.Entities.CsCheck.Reactive.csproj" />
   <Project Path="src/Nullean.Entities.CsCheck.AutoBogus/Nullean.Entities.CsCheck.AutoBogus.csproj" />
   <Project Path="src/Nullean.Entities.FileSystem/Nullean.Entities.FileSystem.csproj" />
   <Project Path="src/Nullean.Entities.CsCheck.FileSystem/Nullean.Entities.CsCheck.FileSystem.csproj" />
@@ -14,6 +15,7 @@
   <Project Path="tests/Nullean.Entities.SourceGenerators.Tests/Nullean.Entities.SourceGenerators.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Reactive.Tests/Nullean.Entities.Reactive.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.CsCheck.Tests/Nullean.Entities.CsCheck.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.CsCheck.Reactive.Tests/Nullean.Entities.CsCheck.Reactive.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.CsCheck.AutoBogus.Tests/Nullean.Entities.CsCheck.AutoBogus.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.FileSystem.Tests/Nullean.Entities.FileSystem.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.CsCheck.FileSystem.Tests/Nullean.Entities.CsCheck.FileSystem.Tests.csproj" />

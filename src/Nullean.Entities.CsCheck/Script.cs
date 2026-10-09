@@ -26,13 +26,20 @@ public sealed class Script<TSut>
 
 	internal Script() { }
 
-	// Read by ScriptExtensions to build the actual Gen<T> — never by anything outside this
-	// project, so plain `internal` rather than exposing builder state as public API.
-	internal IReadOnlyList<Gen<ScriptStep<TSut>>> Steps => _steps;
+	// What a terminal reads to build the actual Gen<T>: public so a terminal in another package (Nullean.Entities.CsCheck.Reactive, or your own) can be written.
+	/// <summary>The steps declared so far, as generators of a named action.</summary>
+	public IReadOnlyList<Gen<ScriptStep<TSut>>> Steps => _steps;
+
 	internal bool HasDelays => _delays is not null;
-	internal Gen<TimeSpan> Delay => _delays ?? Gen.Const(TimeSpan.Zero);
-	internal int MinLength => _minLength;
-	internal int MaxLength => _maxLength;
+
+	/// <summary>The delay generator, or a constant zero when none was set.</summary>
+	public Gen<TimeSpan> Delay => _delays ?? Gen.Const(TimeSpan.Zero);
+
+	/// <summary>The fewest steps a generated run may contain.</summary>
+	public int MinLength => _minLength;
+
+	/// <summary>The most steps a generated run may contain.</summary>
+	public int MaxLength => _maxLength;
 
 	/// <summary>A step with no generated argument — the same action every time it's picked.</summary>
 	public Script<TSut> Step(string name, Action<TSut> action)
