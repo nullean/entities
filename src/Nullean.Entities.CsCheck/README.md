@@ -414,9 +414,9 @@ EventAutoTest.ForAsync(rules, script, time => new OrderDesk(time), desk => desk.
 
 | Axis | Reads | Fails as vacuous when |
 |---|---|---|
-| Invariant | every rule that must hold in every state | a rule has no counter-example |
+| Invariant | every rule that must hold in every state | (none: a missing counter-example is reported by Vacancy) |
 | Idempotency | `Idempotent(action)` | the action never changed a value |
-| Monotonicity, Conservation | `Monotonic`, `Conserves`, over the declared actions | no action ever moved the value |
+| Monotonicity, Conservation | `Monotonic`, `Conserves`, over the declared actions | no action ever changed the value (for `Conserves`, a changed value is the best signal available that the quantity was in play) |
 | Confluence | `OrderIndependent(items, withItems, result)` | no value had two or more items |
 | Absence, Temporal, Liveness | `Temporal<TEvent>` rules and their trigger, target and window | no run opened the rule, or none went past its deadline |
 | Vacancy | everything above | a rule can never fire |

@@ -64,8 +64,8 @@ public class ActionInferenceTests
 
 		var source = run.SingleGeneratedSource();
 		source.Should().Contain("\"Touch\", null, (x, _) => x.Touch())");
-		source.Should().Contain("\"Close\", null, (x, _) => x.Close().Value!)");
-		source.Should().Contain("\"Reopen\", typeof(string), (x, a) => x.Reopen((string)a!).Value!)");
+		source.Should().Contain("\"Close\", null, (x, _) => x.Close().Value ?? x)");
+		source.Should().Contain("\"Reopen\", typeof(string), (x, a) => x.Reopen((string)a!).Value ?? x)");
 		source.Should().Contain("\"Archive\", null, (x, _) => x.Archive().Item1)");
 	}
 
@@ -74,8 +74,8 @@ public class ActionInferenceTests
 	{
 		var source = GeneratorTestHost.Run(Entity).SingleGeneratedSource();
 
-		source.Should().Contain("\"Hold\", null, (x, _) => x.Hold().Entity!)");
-		source.Should().Contain("\"Fork\", null, (x, _) => x.Fork().After!)");
+		source.Should().Contain("\"Hold\", null, (x, _) => x.Hold().Entity ?? x)");
+		source.Should().Contain("\"Fork\", null, (x, _) => x.Fork().After ?? x)");
 	}
 
 	[Test]

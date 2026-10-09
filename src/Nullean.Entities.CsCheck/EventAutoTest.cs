@@ -105,7 +105,7 @@ public sealed class EventAutoTest<TSut, TEvent>
 	/// <summary>Every event rule fired in the sample: its trigger was seen, and a deadline was crossed. A rule that never fires reports green while checking nothing.</summary>
 	public AxisResult Vacancy() => Attack(null);
 
-	public AutoTestReport Report() => new([.. Axes.Select(Attempt), Attempt(Axis.Vacancy)], []);
+	public AutoTestReport Report() => new([.. Axes.Select(Attempt), Attempt(Axis.Vacancy)], [.. Unclassified.Select(r => r.Name)]);
 
 	/// <summary>Runs every event axis and throws one exception listing the ones that failed.</summary>
 	public AutoTestReport Run()
@@ -122,6 +122,8 @@ public sealed class EventAutoTest<TSut, TEvent>
 				.Where(a => a == Axis.Vacancy || _rules.Rules.Any(r => r.Rule.Axis == a))
 				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => Case(a)))
 		];
+
+	private IEnumerable<(string Name, TemporalRule<TEvent> Rule)> Unclassified => _rules.Rules.Where(r => r.Rule.Axis == Axis.Unclassified);
 
 	private static Axis[] Axes { get; } = [Axis.Absence, Axis.Temporal, Axis.Liveness];
 
@@ -161,7 +163,8 @@ public sealed class EventAutoTest<TSut, TEvent>
 			return axis is { } a ? new AxisResult.NotApplicable(a) : new AxisResult.NotApplicable(Axis.Vacancy);
 		}
 		var tally = new RuleTally(picked.Count);
-		var set = TemporalRuleSet<TEvent>.From([.. picked]);
+		// rules no axis can aim at are still checked for violations by the all-rules run, they just have no trigger to judge vacuity by
+		var set = TemporalRuleSet<TEvent>.From([.. picked, .. axis is null ? Unclassified : []]);
 		var seed = _seed ?? AxisRun.DefaultSeed;
 		BuildTimedGen(picked).Sample(run => Check(run, set, picked, tally), seed: seed, iter: _samples, print: run => run.Print());
 		var vacuous = Vacuous(picked, tally);
@@ -204,9 +207,9 @@ public sealed class EventAutoTest<TSut, TEvent>
 		for (var i = 0; i < picked.Count; i++)
 		{
 			var (name, rule) = picked[i];
-			if (rule.Shape.Trigger is not null && tally.Triggered[i] == 0)
+			if (tally.Triggered[i] == 0)
 			{
-				found.Add($"  {name}: no run contained an event that opens it");
+				found.Add($"  {name}: {(rule.Shape.Trigger is null ? "no run recorded any event" : "no run contained an event that opens it")}");
 			}
 			else if (rule.Shape.Window is not null && tally.Crossed[i] == 0)
 			{
@@ -232,7 +235,7 @@ public sealed class EventAutoTest<TSut, TEvent>
 				{
 					var shape = picked[i].Rule.Shape;
 					var opening = shape.Trigger is null ? events : [.. events.Where(e => shape.Trigger(e.Event))];
-					if (shape.Trigger is not null && opening.Count > 0)
+					if (opening.Count > 0)
 					{
 						Triggered[i]++;
 					}

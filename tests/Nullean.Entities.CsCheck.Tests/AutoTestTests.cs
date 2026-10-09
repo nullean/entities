@@ -213,4 +213,22 @@ public class AutoTestTests
 		report.Results.Where(r => r is AxisResult.Skipped).Select(r => r.Axis).Should().Equal(Axis.Monotonicity, Axis.Conservation);
 		report.Passed.Should().BeTrue();
 	}
+
+	[Test]
+	public void Data_set_after_an_action_still_decides_the_data_that_action_is_run_with()
+	{
+		var longest = 0;
+		var auto = AutoTest
+			.For(Rules(), Accounts)
+			.Action<string>("Label", (a, text) =>
+			{
+				longest = Math.Max(longest, text?.Length ?? 0);
+				return a with { Version = a.Version + 1 };
+			})
+			.Data(AutoMode.Adversarial);
+
+		auto.Monotonicity();
+
+		longest.Should().BeGreaterThan(40, "adversarial strings include very long ones, wherever Data(...) was called");
+	}
 }

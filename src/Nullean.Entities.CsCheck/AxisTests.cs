@@ -320,7 +320,7 @@ public static class AxisTests
 			{
 				var why = rules[i].Shape is MonotonicShape<T> { PerKey: true } && compared[i] == 0
 					? "no key was present both before and after an action, so there was nothing to compare"
-					: "no action changed the value";
+					: axis == Axis.Conservation ? "no action changed the value, so nothing was available to be conserved" : "no action changed the value";
 				throw new VacuousPropertyException(
 					$"{axis} - {Name(rules[i])}: {why} in {settings.Samples} runs, so the rule held without being exercised. Supply arguments or starts that reach it."
 				);
@@ -330,7 +330,9 @@ public static class AxisTests
 			axis,
 			[.. rules.Select(Name)],
 			settings.Samples,
-			$"(moved a value in {string.Join(", ", moved.Select(m => $"{m}"))} of {settings.Samples} runs)"
+			axis == Axis.Conservation
+				? $"(an action changed the value in {string.Join(", ", moved.Select(m => $"{m}"))} of {settings.Samples} runs; whether it touched what the rule sums cannot be told)"
+				: $"(moved a value in {string.Join(", ", moved.Select(m => $"{m}"))} of {settings.Samples} runs)"
 		);
 	}
 

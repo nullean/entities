@@ -107,9 +107,10 @@ public sealed partial class AutoTest<T>
 	private static readonly Axis[] Axes = [Axis.Invariant, Axis.Idempotency, Axis.Monotonicity, Axis.Conservation, Axis.Confluence, Axis.Vacancy];
 
 	private readonly ConstraintSet<T> _constraints;
-	private readonly Gen<T> _valid;
+	// null: each axis draws plausible-or-hostile values for the Data and Time settings in force when it runs, so Data(...) and Time(...) apply wherever they are called.
+	private readonly Gen<T>? _valid;
 	private readonly IReadOnlyDictionary<string, Func<T, T>> _counterExamples;
-	private readonly IReadOnlyList<AutoAction<T>> _actions;
+	private readonly IReadOnlyList<Func<AutoMode, AutoAction<T>>> _makers;
 	private readonly AxisRun _settings;
 	private readonly IReadOnlyList<Axis> _required;
 
@@ -117,16 +118,16 @@ public sealed partial class AutoTest<T>
 	{
 		_constraints = constraints;
 		_settings = new AxisRun(Data: AutoMode.Plausible);
-		_valid = valid ?? GenAuto.Of<T>(_settings.Data).Valid(constraints);
+		_valid = valid;
 		_counterExamples = new Dictionary<string, Func<T, T>>();
-		_actions = actions is null ? [] : [.. actions.Select(a => AutoAction.From(a, _settings.Data))];
+		_makers = actions is null ? [] : [.. actions.Select(a => (Func<AutoMode, AutoAction<T>>)(data => AutoAction.From(a, data)))];
 		_required = [];
 	}
 
 	private AutoTest(
 		AutoTest<T> from,
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
-		IReadOnlyList<AutoAction<T>>? actions = null,
+		IReadOnlyList<Func<AutoMode, AutoAction<T>>>? makers = null,
 		AxisRun? settings = null,
 		IReadOnlyList<Axis>? required = null
 	)
@@ -134,10 +135,14 @@ public sealed partial class AutoTest<T>
 		_constraints = from._constraints;
 		_valid = from._valid;
 		_counterExamples = counterExamples ?? from._counterExamples;
-		_actions = actions ?? from._actions;
+		_makers = makers ?? from._makers;
 		_settings = settings ?? from._settings;
 		_required = required ?? from._required;
 	}
+
+	private Gen<T> CurrentValid => _valid ?? GenAuto.Of<T>(_settings.Data).Valid(_constraints, _settings.Time);
+
+	private IReadOnlyList<AutoAction<T>> CurrentActions => [.. _makers.Select(make => make(_settings.Data))];
 
 	// ── what the axes share ──────────────────────────────────────────────────────
 
@@ -149,20 +154,21 @@ public sealed partial class AutoTest<T>
 		new(this, counterExamples: _counterExamples.Concat(counterExamples).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Last().Value));
 
 	/// <summary>Operations the sequential axes (monotonicity, conservation) run. The generated actions of a <c>[Constraints]</c> companion are already there.</summary>
-	public AutoTest<T> Actions(EntityActions<T> actions) => new(this, actions: [.. _actions, .. actions.Select(a => AutoAction.From(a, _settings.Data))]);
+	public AutoTest<T> Actions(EntityActions<T> actions) =>
+		new(this, makers: [.. _makers, .. actions.Select(a => (Func<AutoMode, AutoAction<T>>)(data => AutoAction.From(a, data)))]);
 
 	/// <summary>An operation with no argument, for one that is not a method returning <typeparamref name="T"/>. An operation that returns a wrapper is adapted here: <c>r =&gt; r.Op().Value</c>.</summary>
-	public AutoTest<T> Action(string name, Func<T, T> apply) => new(this, actions: [.. _actions, AutoAction.Of(name, apply)]);
+	public AutoTest<T> Action(string name, Func<T, T> apply) => new(this, makers: [.. _makers, _ => AutoAction.Of(name, apply)]);
 
 	/// <summary>
 	/// An operation with one argument. <paramref name="arguments"/> draws the argument from the start value, so it can name something that is really there; without it
 	/// the argument is drawn from its type alone, which for a key or an id rarely collides with anything.
 	/// </summary>
 	public AutoTest<T> Action<TArg>(string name, Func<T, TArg, T> apply, Func<T, Gen<TArg>>? arguments = null) =>
-		new(this, actions: [.. _actions, AutoAction.Of(name, apply, arguments, _settings.Data)]);
+		new(this, makers: [.. _makers, data => AutoAction.Of(name, apply, arguments, data)]);
 
 	/// <summary>An operation built with <see cref="AutoAction"/>.</summary>
-	public AutoTest<T> Action(AutoAction<T> action) => new(this, actions: [.. _actions, action]);
+	public AutoTest<T> Action(AutoAction<T> action) => new(this, makers: [.. _makers, _ => action]);
 
 	/// <summary>How many values each axis draws. The default is 200.</summary>
 	public AutoTest<T> Samples(int samples) => new(this, settings: _settings with { Samples = samples });
@@ -185,22 +191,22 @@ public sealed partial class AutoTest<T>
 	// ── the axes ─────────────────────────────────────────────────────────────────
 
 	/// <inheritdoc cref="AxisTests.Invariant{T}"/>
-	public AxisResult Invariant() => _constraints.Invariant(_valid, _counterExamples, _settings);
+	public AxisResult Invariant() => _constraints.Invariant(CurrentValid, _counterExamples, _settings);
 
 	/// <inheritdoc cref="AxisTests.Idempotency{T}"/>
 	public AxisResult Idempotency() => _constraints.Idempotency(_valid, _settings);
 
 	/// <inheritdoc cref="AxisTests.Monotonicity{T}(ConstraintSet{T}, IReadOnlyList{AutoAction{T}}, Gen{T}, AxisRun)"/>
-	public AxisResult Monotonicity() => _constraints.Monotonicity(_actions, _valid, _settings);
+	public AxisResult Monotonicity() => _constraints.Monotonicity(CurrentActions, _valid, _settings);
 
 	/// <inheritdoc cref="AxisTests.Conservation{T}(ConstraintSet{T}, IReadOnlyList{AutoAction{T}}, Gen{T}, AxisRun)"/>
-	public AxisResult Conservation() => _constraints.Conservation(_actions, _valid, _settings);
+	public AxisResult Conservation() => _constraints.Conservation(CurrentActions, _valid, _settings);
 
 	/// <inheritdoc cref="AxisTests.Confluence{T}"/>
 	public AxisResult Confluence() => _constraints.Confluence(_valid, _settings);
 
 	/// <inheritdoc cref="AxisTests.Vacancy{T}"/>
-	public AxisResult Vacancy() => _constraints.Vacancy(_valid, _counterExamples, _settings);
+	public AxisResult Vacancy() => _constraints.Vacancy(CurrentValid, _counterExamples, _settings);
 
 	// ── composing them ───────────────────────────────────────────────────────────
 

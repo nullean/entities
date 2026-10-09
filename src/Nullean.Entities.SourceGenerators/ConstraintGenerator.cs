@@ -496,14 +496,15 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		);
 	}
 
-	// How (and whether) the method's result becomes the next T. First match wins: T itself; a member named by [ConstraintAction]; a tuple with one T;
+	// How (and whether) the method's result becomes the next T. An empty result (a wrapper's null member, a T? that is null) reads as the value the
+	// operation started from: a rejected operation leaves the state as it was. First match wins: T itself; a member named by [ConstraintAction]; a tuple with one T;
 	// a generic wrapper of T with one readable member of type T. Anything that mentions T and still cannot be used is declined with the reason.
 	private static ActionRead ReadNext(ITypeSymbol entity, IMethodSymbol method)
 	{
 		var returned = method.ReturnType;
 		if (SymbolEqualityComparer.Default.Equals(returned, entity))
 		{
-			return ActionRead.Direct;
+			return returned is { IsReferenceType: true, NullableAnnotation: NullableAnnotation.Annotated } ? ActionRead.Member(" ?? x") : ActionRead.Direct;
 		}
 		if (method.ReturnType.SpecialType == SpecialType.System_Boolean && method.Parameters.Any(
 				p => p.RefKind == RefKind.Out && SymbolEqualityComparer.Default.Equals(p.Type, entity)
@@ -590,11 +591,11 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 				&& SymbolEqualityComparer.Default.Equals(nullable.TypeArguments[0], entity);
 				if (isNullableValue)
 				{
-					found.Add((member.Name, $".{member.Name}.Value"));
+					found.Add((member.Name, $".{member.Name} ?? x"));
 				}
 				else if (SymbolEqualityComparer.Default.Equals(memberType, entity))
 				{
-					found.Add((member.Name, memberType.IsReferenceType ? $".{member.Name}!" : $".{member.Name}"));
+					found.Add((member.Name, memberType.IsReferenceType ? $".{member.Name} ?? x" : $".{member.Name}"));
 				}
 			}
 		}
