@@ -245,15 +245,16 @@ public static class ConstraintLaws
 		// 3 and 4. every rule reachable from a counter-example; the counter-example breaks only its own rule
 		var bases = values.Take(derivedFrom).ToList();
 		List<ConstraintBoundaries.Swap<T>>? swaps = null;
+		IReadOnlyDictionary<string, Mutant<T>>? found = null;
 		foreach (var constraint in all.Where(c => c.Name is not null))
 		{
 			var name = constraint.Name!;
-			var attempts = new List<(T Base, T Broken, string How)>();
+			var attempts = new List<(T Base, T Broken, string How, bool OverlapAllowed)>();
 			if (counterExamples is not null && counterExamples.TryGetValue(name, out var make))
 			{
 				try
 				{
-					attempts.AddRange(bases.Select(b => (b, make(b), "given")));
+					attempts.AddRange(bases.Select(b => (b, make(b), "given", false)));
 				}
 				catch (Exception e) when (e is not OutOfMemoryException)
 				{
@@ -261,13 +262,37 @@ public static class ConstraintLaws
 					continue;
 				}
 			}
-			else if (constraint.Kind == ConstraintKind.PointInTime && bases.Count > 0)
+			else
 			{
-				swaps ??= Swaps(constraints, bases[0], time, options);
-				var swap = swaps.FirstOrDefault(s => s.Instance is not null && s.RejectedBy.Count == 1 && s.RejectedBy[0] == name);
-				if (swap is not null)
+				if (bases.Count > 0)
 				{
-					attempts.Add((bases[0], swap.Instance!, $"generated: {swap.Property} = {swap.Value}"));
+					found ??= CounterExampleSearch.Find(
+						constraints,
+						bases,
+						[.. all.Where(c => c.Name is not null && counterExamples?.ContainsKey(c.Name) != true).Select(c => c.Name!)],
+						time,
+						options
+					);
+					if (found.TryGetValue(name, out var mutant))
+					{
+						attempts.AddRange(
+							bases.Select(
+								b =>
+									(b, mutant.Apply(
+										b
+									), $"found: {mutant.Source}{(mutant.Overlaps.Count > 0 ? $" (also breaks {string.Join(", ", mutant.Overlaps)})" : "")}", mutant.Overlaps.Count > 0)
+							)
+						);
+					}
+				}
+				if (attempts.Count == 0 && constraint.Kind == ConstraintKind.PointInTime && bases.Count > 0)
+				{
+					swaps ??= Swaps(constraints, bases[0], time, options);
+					var swap = swaps.FirstOrDefault(s => s.Instance is not null && s.RejectedBy.Count == 1 && s.RejectedBy[0] == name);
+					if (swap is not null && CanBeChecked(constraints, bases[0], swap.Instance!, time))
+					{
+						attempts.Add((bases[0], swap.Instance!, $"generated: {swap.Property} = {swap.Value}", false));
+					}
 				}
 			}
 			if (attempts.Count == 0)
@@ -283,7 +308,7 @@ public static class ConstraintLaws
 
 			var reached = 0;
 			string? firstIssue = null;
-			foreach (var (baseValue, broken, how) in attempts)
+			foreach (var (baseValue, broken, how, overlapAllowed) in attempts)
 			{
 				List<string> ids;
 				try
@@ -299,7 +324,7 @@ public static class ConstraintLaws
 				{
 					continue;
 				}
-				if (ids.Count > 1)
+				if (ids.Count > 1 && !overlapAllowed)
 				{
 					firstIssue ??=
 						$"{name}: its counter-example ({how}), derived from {ValuePrinter.Print(baseValue)}, also breaks {string.Join(", ", ids.Where(i => i != name))}, so a failure would not point at one cause.";
@@ -332,6 +357,20 @@ public static class ConstraintLaws
 			);
 		}
 		return report;
+	}
+
+	// A rule that throws on a value (a null collection it never expected) counts as rejecting it when validated, but its counter-example cannot be checked: look for another.
+	private static bool CanBeChecked<T>(ConstraintSet<T> constraints, T before, T after, TimeProvider? time)
+	{
+		try
+		{
+			_ = constraints.Check(before, after, time).ToList();
+			return true;
+		}
+		catch (Exception e) when (e is not OutOfMemoryException)
+		{
+			return false;
+		}
 	}
 
 	private static List<ConstraintBoundaries.Swap<T>> Swaps<T>(ConstraintSet<T> constraints, T valid, TimeProvider? time, Action<AutoOptions>? options)

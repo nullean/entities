@@ -115,7 +115,7 @@ public static class ConstraintBoundaries
 		}
 	}
 
-	private static IEnumerable<object?> Edges(AutoBuilder builder, AutoOptions options, Type type, object baseline)
+	internal static IEnumerable<object?> Edges(AutoBuilder builder, AutoOptions options, Type type, object baseline)
 	{
 		var underlying = Nullable.GetUnderlyingType(type);
 		if (underlying is not null || (!type.IsValueType && type != typeof(string)))

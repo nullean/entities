@@ -208,6 +208,29 @@ public sealed partial class AutoTest<T>
 	/// <inheritdoc cref="AxisTests.Vacancy{T}"/>
 	public AxisResult Vacancy() => _constraints.Vacancy(CurrentValid, _counterExamples, _settings);
 
+	/// <summary>
+	/// For each rule: the counter-example you gave, one the search found (with the C# that says it, to paste into <see cref="CounterExamples(IReadOnlyDictionary{string, Func{T, T}})"/>), or none.
+	/// Run it once on a new type to see what you still have to write.
+	/// </summary>
+	public CounterExampleReport CounterExampleReport()
+	{
+		var rules = _constraints.AsConstraints().Where(c => c.Name is not null).ToList();
+		var given = rules.Where(c => _counterExamples.ContainsKey(c.Name!)).Select(c => c.Name!).ToList();
+		var wanted = rules.Where(c => !_counterExamples.ContainsKey(c.Name!)).Select(c => c.Name!).ToList();
+		var bases = new List<T>();
+		var valid = CurrentValid;
+		for (var i = 0; i < 25; i++)
+		{
+			bases.Add(valid.Generate(new PCG(_settings.GeneratorSeed, (ulong)i + 1), null, out _));
+		}
+		var found = CounterExampleSearch.Find(_constraints, bases, wanted, _settings.Time, null);
+		return new CounterExampleReport([
+			.. given.Select(n => new CounterExampleLine(n, CounterExampleKind.Given, null, [])),
+			.. wanted.Where(found.ContainsKey).Select(n => new CounterExampleLine(n, CounterExampleKind.Found, found[n].Source, found[n].Overlaps)),
+			.. wanted.Where(n => !found.ContainsKey(n)).Select(n => new CounterExampleLine(n, CounterExampleKind.None, null, []))
+		]);
+	}
+
 	// ── composing them ───────────────────────────────────────────────────────────
 
 	/// <summary>Runs every axis and records what each did. Never throws for an axis that fails: that is a <see cref="AxisResult.Failed"/> in the report.</summary>
@@ -286,4 +309,40 @@ public sealed partial class AutoTest<T>
 	// CsCheck's own "Set seed: "..." or -e CsCheck_Seed=... to reproduce" message: the documented, user-facing reproduction string. Source-generated so it stays AOT-friendly.
 	[GeneratedRegex("Set seed: \"([^\"]+)\"")]
 	private static partial Regex SeedPattern();
+}
+
+/// <summary>Where a rule's counter-example comes from.</summary>
+public enum CounterExampleKind
+{
+	/// <summary>You gave it.</summary>
+	Given,
+
+	/// <summary>The search found a single-step change that breaks this rule and only it.</summary>
+	Found,
+
+	/// <summary>Nothing the search tried breaks this rule alone: only you know how to.</summary>
+	None
+}
+
+/// <summary>One rule, and where its counter-example comes from. <paramref name="Source"/> is C# a reviewer can read and paste, when the search found one; <paramref name="Overlaps"/> are the other rules it breaks too.</summary>
+public sealed record CounterExampleLine(string Rule, CounterExampleKind Kind, string? Source, IReadOnlyList<string> Overlaps);
+
+/// <summary>What <c>AutoTest.CounterExampleReport()</c> found: how many rules still need a counter-example, and the ones the search wrote for you.</summary>
+public sealed record CounterExampleReport(IReadOnlyList<CounterExampleLine> Lines)
+{
+	private static string OverlapNote(CounterExampleLine line) => line.Overlaps.Count == 0 ? "" : " // also breaks " + string.Join(", ", line.Overlaps);
+
+	public IReadOnlyList<string> Missing => [.. Lines.Where(l => l.Kind == CounterExampleKind.None).Select(l => l.Rule)];
+
+	public override string ToString() =>
+		string.Join(
+			"\n",
+			Lines.Select(l =>
+					l.Kind switch
+					{
+						CounterExampleKind.Given => $"{l.Rule}: given",
+						CounterExampleKind.Found => $"[\"{l.Rule}\"] = {l.Source},{OverlapNote(l)}",
+						_ => $"{l.Rule}: NONE FOUND, write one"
+					})
+		);
 }

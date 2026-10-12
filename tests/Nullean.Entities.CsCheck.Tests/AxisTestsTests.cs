@@ -226,11 +226,12 @@ public class AxisTestsTests
 	[Test]
 	public void Vacancy_fails_for_a_rule_nothing_shows_can_fire()
 	{
-		var set = Set(("value-grows", Constraints<AxisTally>.Monotonic(t => t.Value, MonotonicDirection.NonDecreasing)));
+		// only the author knows 12345 is the forbidden value: no single step from a valid value reaches it
+		var set = Set(("not-twelve-thousand", Constraints<AxisTally>.Always(t => t.Value != 12_345, "A value is not 12345.")));
 
 		var act = () => set.Vacancy(NonNegative, run: Plausible);
 
-		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("value-grows: no counter-example");
+		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("not-twelve-thousand: no counter-example");
 	}
 
 	[Test]

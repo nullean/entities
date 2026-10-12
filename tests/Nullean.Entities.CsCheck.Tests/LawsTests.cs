@@ -146,8 +146,14 @@ public class LawsTests
 	}
 
 	[Test]
-	public void A_rule_with_no_counter_example_gets_one_from_the_edge_swaps_of_a_generated_value() =>
-		Good().Laws(ValidStocked).Results.Should().OnlyContain(r => r.CounterExample.StartsWith("generated:", StringComparison.Ordinal));
+	public void A_rule_with_no_counter_example_gets_one_found_by_search_from_a_generated_value() =>
+		Good()
+			.Laws(ValidStocked)
+			.Results
+			.Should()
+			.OnlyContain(
+				r => r.CounterExample.StartsWith("found:", StringComparison.Ordinal) || r.CounterExample.StartsWith("generated:", StringComparison.Ordinal)
+			);
 
 	[Test]
 	public void A_generator_whose_values_break_a_rule_is_reported_with_the_rule_and_a_value()
