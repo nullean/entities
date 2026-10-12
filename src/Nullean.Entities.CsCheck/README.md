@@ -1,6 +1,6 @@
 # Nullean.Entities.CsCheck
 
-Test your domain from the rules you declare on it. Built on [CsCheck](https://github.com/AnthonyLloyd/CsCheck).
+Test your domain from the rules you declare on it, on nine axes you have probably never considered. Built on [CsCheck](https://github.com/AnthonyLloyd/CsCheck).
 
 [CsCheck](https://github.com/AnthonyLloyd/CsCheck) is a very good property-testing library, and this package does not replace it. Every generator here is a CsCheck `Gen<T>`, every failure is a CsCheck failure (a shrunk case and a seed that replays it), and you can mix the two in one test class. If you are testing an algorithm or a pure function, use CsCheck on its own.
 
@@ -48,7 +48,8 @@ The package does not depend on System.Reactive. If your service is built on `IOb
 ## Where to go next
 
 - [Getting started](../../docs/getting-started/index.md): five minutes, one order, one red test.
-- [The nine axes](../../docs/design-principles/axes.md) and [the vocabulary](../../docs/design-principles/vocabulary.md).
+- [Why](../../docs/why.md) and [concepts in plain words](../../docs/concepts.md).
+- [The nine axes](../../docs/axes/index.md) and [the vocabulary](../../docs/design-principles/vocabulary.md).
 - [Reference](../../docs/reference/testing-api.md): the generators, `Script`, model-based and metamorphic testing, state machines, generated data.
 - [Source](https://github.com/nullean/entities) and [AGENTS.md](../../AGENTS.md).
 

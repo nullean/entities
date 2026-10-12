@@ -4,11 +4,11 @@ Rule broken      cancelled-orders-are-never-shipped
 Noticed at       +30s
 What happened    Cancelled, then Shipped
 Events recorded  +0s  Confirmed
-                 +0s  Cancelled
+                 +7s  Cancelled
                  +30s  Shipped
-Calls made       wait 20s, Confirm -> Cancel
+Calls made       wait 42s, Confirm -> wait 7s, Cancel
 
 Law              A sequence the domain forbids never happens, whatever the calls and their timing.
 Consequence      A forbidden state is reachable in production by a sequence nobody wrote a test for.
 
-Smallest case found, after 1 shrink. To run this case again: .Seed("bCbFlPWDuf44")
+Smallest case found, after 3 shrinks. To run this case again: .Seed("0T_6x59Yh5E4")

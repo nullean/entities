@@ -1,11 +1,11 @@
 Conservation failed.
 
-Rule broken   money-is-conserved did not conserve its value (was 25, became 24).
-Operation     MoveWithFee(5)
-Started from  Ledger { Checking = 20, Savings = 5, Total = 25 }
-Produced      Ledger { Checking = 14, Savings = 10, Total = 24 }
+Rule broken   money-is-conserved did not conserve its value (was 17, became 16).
+Operation     MoveWithFee(4)
+Started from  Ledger { Checking = 13, Savings = 4, Total = 17 }
+Produced      Ledger { Checking = 8, Savings = 8, Total = 16 }
 
 Law           No operation creates or destroys a quantity that must be conserved.
 Consequence   Totals drift: something appears or vanishes between the two halves of a change.
 
-Smallest case found, after 2 shrinks. To run this case again: .Seed("0qLvEZhE3Ei7")
+Smallest case found, after 5 shrinks. To run this case again: .Seed("9nlodZOx3_v7")

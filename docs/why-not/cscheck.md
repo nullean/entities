@@ -7,7 +7,7 @@ description: CsCheck is excellent on its own and {{product}} is built on it. Her
 
 [CsCheck](https://github.com/AnthonyLloyd/CsCheck) is a very good property-testing library: fast generators, shrinking that works, seeds that replay a failure exactly, model-based and parallel testing. {{product}} does not replace it. Every generator here is a CsCheck `Gen<T>`, every failure is a CsCheck failure with its shrunk case and seed, and you can mix the two in one test class.
 
-If you are testing an algorithm or a pure function, use CsCheck on its own.
+If you are testing an algorithm or a pure function, use CsCheck on its own. New to property testing? Read [concepts](../concepts.md) first.
 
 ## What you write with plain CsCheck
 

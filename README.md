@@ -1,10 +1,12 @@
 # Nullean.Entities
 
-Declare each rule of your domain once. The library picks the test, runs it on generated data, and fails if the test never reached the rule.
+**Types say what a thing is. Nothing says what it must do.**
 
-C# records and unions say what shape your domain has. They cannot say that a total is never negative, that cancelling twice is cancelling once, that a version never goes back, or that a confirmed order ships within a minute. Those rules end up scattered across services, validators and tests, written again for each use, and they drift apart.
+C# records and unions say what an order holds and which cases exist. They cannot say that a total is never negative, that cancelling twice is cancelling once, that a version never goes back, or that a confirmed order ships within a minute. Those rules end up in `if` statements, validators and people's heads, written again for each use, and they drift apart.
 
-📖 **[Documentation](docs/index.md)**: [getting started](docs/getting-started/index.md), [the bugs you did not write a test for](docs/bugs/index.md), [design principles](docs/design-principles/index.md).
+Nullean.Entities makes them **first-class**: a rule is a named value, declared once next to the type. The same declaration validates a value, is tested automatically on generated data, and watches live events. And the tests it writes ask nine questions most test suites never ask.
+
+📖 **[Documentation](docs/index.md)**: [why](docs/why.md), [getting started](docs/getting-started/index.md), [the nine axes](docs/axes/index.md), [concepts in plain words](docs/concepts.md).
 
 ## Why
 
@@ -38,30 +40,35 @@ When a method of `Order` resets the version, you read:
 
 ```text
 Monotonicity failed.
-Law: No operation moves a value that may only go one way in the other direction.
-Consequence: An older result overwrites a newer one, a counter goes back or a timestamp regresses, without anything saying so.
-Set seed: "cghvRTcP33n7" or -e CsCheck_Seed=cghvRTcP33n7 to reproduce (3 shrinks, 28 skipped, 200 total).
-Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" } | Reset()
-Reset() from Order { ... Version = 1 ... } gave Order { ... Version = 0 ... }, which violates: version-never-goes-back: Expected NonDecreasing but moved from 1 to 0.
+
+Rule broken   version-never-goes-back: Expected NonDecreasing but moved from 1 to 0.
+Operation     Reset()
+Started from  Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" }
+Produced      Order { Lines = [], Status = Cancelled, Version = 0, Total = 0, Label = "" }
+
+Law           No operation moves a value that may only go one way in the other direction.
+Consequence   An older result overwrites a newer one, a counter goes back or a timestamp regresses, without anything saying so.
+
+Smallest case found, after 3 shrinks. To run this case again: .Seed("2pERrTiV-JM9")
 ```
 
 The example is [`examples/Nullean.Entities.Quickstart`](examples/Nullean.Entities.Quickstart), and its tests plant this bug and five more.
 
-## The nine axes
+## The nine questions
 
-Every rule is about one state, two states, or a sequence of events. These are the nine tests that follow.
+The shape of each rule tells the library what to test. These are questions a scenario test almost never covers:
 
-| Rule is about | Axis | The question | You declare |
-|---|---|---|---|
-| One state | 01 Invariant | Is it true in every state? | `Always`, `When…Requires`, `Each`, `Unique`, … |
-| Two states | 02 Idempotency | Twice = once? | `Idempotent(f)` |
-| | 03 Monotonicity | Does it go backwards? | `Monotonic`, `MonotonicPerKey` |
-| | 04 Conservation | Did anything appear or vanish? | `Conserves(select)` |
-| Events over time | 05 Absence | Can this sequence happen? | `Temporal<T>.Never`, `Always`, `Transitions` |
-| | 06 Temporal | Does B follow A within a deadline? | `After().Then().Within()` |
-| | 07 Liveness | Does it eventually finish? | `Temporal<T>.Eventually` |
-| Arrival order | 08 Confluence | Does the order inputs arrive in matter? | `OrderIndependent` |
-| The test itself | 09 Vacancy | Did the test reach the rule? | nothing: automatic |
+| | The question | The bug it catches |
+|---|---|---|
+| [01](docs/axes/01-invariant.md) | Is it true in every state? | an operation that lets a bad value in |
+| [02](docs/axes/02-idempotency.md) | Does doing it twice change anything? | a retry that changes state twice |
+| [03](docs/axes/03-monotonicity.md) | Does it ever go backwards? | an older result overwriting a newer one |
+| [04](docs/axes/04-conservation.md) | Did anything appear or vanish? | totals that drift |
+| [05](docs/axes/05-absence.md) | Can this bad sequence ever happen? | a cancelled order that still ships |
+| [06](docs/axes/06-temporal.md) | Does B follow A within a deadline? | a promise missed by one unlucky gap |
+| [07](docs/axes/07-liveness.md) | Does it eventually finish? | the endless spinner |
+| [08](docs/axes/08-confluence.md) | Does the order inputs arrive in matter? | two rebuilds publishing different output |
+| [09](docs/axes/09-vacancy.md) | Did the test even reach the rule? | a green test that checked nothing |
 
 ## Install
 

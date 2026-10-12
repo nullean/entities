@@ -1,15 +1,15 @@
 ---
 navigation_title: Home
-description: Declare each rule of your domain once. The library picks the test, runs it on generated data, and fails if the test never reached the rule.
+description: Types say what a thing is. Nothing says what it must do. Nullean.Entities makes those rules first-class, and tests them on nine axes you have probably never considered.
 ---
 
 # Nullean.Entities
 
-Declare each rule of your domain once. {{product}} picks the test, runs it on generated data, and fails if the test never reached the rule.
+**Types say what a thing is. Nothing says what it must do.**
 
-C# records and unions say what shape your domain has. They cannot say that a total is never negative, that cancelling twice is cancelling once, that a version never goes back, or that a confirmed order ships within a minute. Those rules end up in service methods, validators and scenario tests, written again for each use, and they drift apart.
+C# records and unions say what an order holds and which cases exist. They cannot say that a total is never negative, that cancelling twice is cancelling once, that a version never goes back, or that a confirmed order ships within a minute. Those rules end up in `if` statements, validators and people's heads, written again for each use, and they drift apart.
 
-Here is an order with a few of those rules, written once, next to the type:
+{{product}} makes them **first-class**: a rule is a named value, declared once, next to the type.
 
 ```csharp
 [Constraints]
@@ -23,30 +23,47 @@ public static partial class OrderConstraints
 }
 ```
 
-One line runs every test those rules imply:
+## One declaration, three jobs
+
+1. **It validates.** `OrderConstraints.All.Validate(order)` checks a value where it is built, and a finding names the rule.
+2. **It is tested, automatically.** One line runs every test those rules imply. You write none of them.
+3. **It watches events.** The same vocabulary describes rules about order and time in a live stream.
 
 ```csharp
 AutoTest.For(OrderConstraints.Instance, orders).Run();
 ```
 
-You wrote no test. The shape of each rule chose the technique: `Idempotent` runs the action twice, `Monotonic` runs the operations and compares before and after. And when a method of `Order` breaks a rule, this is what you read:
+## Nine questions you have probably never asked
+
+The shape of each rule tells the library what to test. It tests things a scenario test almost never covers:
+
+| | The question | The bug it catches |
+|---|---|---|
+| [01](axes/01-invariant.md) | Is it true in every state? | an operation that lets a bad value in |
+| [02](axes/02-idempotency.md) | Does doing it twice change anything? | a retry that changes state twice |
+| [03](axes/03-monotonicity.md) | Does it ever go backwards? | an older result overwriting a newer one |
+| [04](axes/04-conservation.md) | Did anything appear or vanish? | totals that drift |
+| [05](axes/05-absence.md) | Can this bad sequence ever happen? | a cancelled order that still ships |
+| [06](axes/06-temporal.md) | Does B follow A within a deadline? | a promise missed by one unlucky gap |
+| [07](axes/07-liveness.md) | Does it eventually finish? | the endless spinner |
+| [08](axes/08-confluence.md) | Does the order inputs arrive in matter? | two rebuilds publishing different output |
+| [09](axes/09-vacancy.md) | Did the test even reach the rule? | a green test that checked nothing |
+
+The ninth is what keeps the others honest. A test that passes because the data never reached the rule is worse than no test, so {{product}} fails it.
+
+## What a failure looks like
+
+Here a method of `Order` resets the version. You wrote no test for it. You read:
 
 :::{include} _snippets/monotonicity.txt
 :language: text
 :::
 
-It names the axis, the rule, the smallest case that breaks it, and a seed that replays it.
-
-## What you get
-
-- **Rules in one place.** A rule is a named value. The generator gathers them into `All`, so a rule you add cannot be forgotten.
-- **Tests you do not write.** Nine kinds of test, chosen from the shape of the rule. See [the nine axes](design-principles/axes.md).
-- **A test that proves it ran.** A rule the generated data never reached fails as vacuous, instead of passing quietly.
-- **Failures you can act on.** The smallest failing case, the rule that broke, and a seed.
-- **A way in for existing code.** Rules start as warnings and become errors on a date. See [adopting in an existing codebase](guides/adopting.md).
+Which rule broke, what was done, what it started from and produced, the question it asks and what it costs, and how to run exactly this case again. [How to read it](axes/index.md).
 
 ## Where next
 
-- [Getting started](getting-started/index.md): five minutes, one order, one red test.
-- [The bugs you did not write a test for](bugs/index.md): six bugs, the rule that catches each, the real output.
-- [Design principles](design-principles/index.md): the five ideas everything else follows from.
+- [Why](why.md): the argument, in a page.
+- [Concepts](concepts.md): the few words used throughout, in plain words.
+- [Getting started](getting-started/index.md): one order, one red test, five minutes.
+- [The nine axes](axes/index.md): one page each, with the real output of each.

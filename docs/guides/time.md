@@ -39,7 +39,7 @@ EventAutoTest.For(rules, script, time => new Fulfilment(time, shipsAfter), f => 
 `script` lists the operations (`Script.For<Fulfilment>().Step("Confirm", f => f.Confirm())`). The test builds a fresh service per run on a manual clock, advances it by generated delays, and checks the rules against the log.
 
 - You write no delays. The test tries 0 and just either side of every rule's deadline, so a deadline is both met and missed within a few draws. A script that sets its own delays keeps them.
-- A rule fails as vacuous if no run contained its trigger, or none went past its deadline.
+- A rule fails as *vacuous* (see [concepts](../concepts.md)) if no run contained its trigger, or none went past its deadline.
 - If the service exposes its events as an `IAsyncEnumerable<Timestamped<T>>`, use `EventAutoTest.ForAsync(...)`.
 
 Nothing here depends on Reactive Extensions. If your service is built on `IObservable<T>` and an Rx scheduler, the opt-in package `Nullean.Entities.CsCheck.Reactive` has the same script on a scheduler.

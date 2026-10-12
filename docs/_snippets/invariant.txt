@@ -8,4 +8,4 @@ Produced      Order { Lines = [OrderLine { Sku = "fig", Quantity = 1, Price = -5
 Law           Every generated value satisfies every rule that must hold in every state, and each of those rules can fire.
 Consequence   A value that breaks a stated rule is accepted into the domain, and nothing shows the rule can even be broken.
 
-Smallest case found, after 1 shrink. To run this case again: .Seed("e9UPBu2HDNyc")
+This is the smallest case: nothing smaller failed. To run this case again: .Seed("83C4ELd9kipa")

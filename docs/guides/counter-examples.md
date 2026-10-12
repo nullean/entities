@@ -5,7 +5,7 @@ description: Why every rule needs a counter-example, how the library finds most 
 
 # Counter-examples
 
-A counter-example is a valid value changed so that exactly one rule breaks. It answers one question: can this rule ever fire? Without one, a test that passes shows nothing, because the rule might be unreachable. That is the [fourth principle](../design-principles/index.md).
+A *counter-example* (see [concepts](../concepts.md)) is a valid value changed so that exactly one rule breaks. It answers one question: can this rule ever fire? Without one, a test that passes shows nothing, because the rule might be unreachable. That is the [fourth principle](../design-principles/index.md).
 
 ## You write only what a machine cannot find
 

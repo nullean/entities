@@ -5,9 +5,9 @@ Noticed at       +60s
 What happened    No matching event within 00:01:00 after Confirmed
 Events recorded  +0s  Confirmed
                  +90s  Shipped
-Calls made       wait 4s, Confirm
+Calls made       Confirm
 
 Law              What must follow something within a deadline does, however the time between calls is spent.
 Consequence      A deadline is missed under timing the tests never tried, so a stuck state is reported as in progress for good.
 
-Smallest case found, after 3 shrinks. To run this case again: .Seed("4VcQuKtco-q5")
+Smallest case found, after 5 shrinks. To run this case again: .Seed("bHdS6-42Zq65")

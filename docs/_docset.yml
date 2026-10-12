@@ -13,16 +13,25 @@ subs:
 toc:
   - file: index.md
   - file: why.md
+  - file: concepts.md
   - folder: getting-started
     children:
       - file: index.md
-  - folder: bugs
+  - folder: axes
     children:
       - file: index.md
+      - file: 01-invariant.md
+      - file: 02-idempotency.md
+      - file: 03-monotonicity.md
+      - file: 04-conservation.md
+      - file: 05-absence.md
+      - file: 06-temporal.md
+      - file: 07-liveness.md
+      - file: 08-confluence.md
+      - file: 09-vacancy.md
   - folder: design-principles
     children:
       - file: index.md
-      - file: axes.md
       - file: vocabulary.md
   - folder: guides
     children:

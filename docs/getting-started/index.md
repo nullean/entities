@@ -1,11 +1,11 @@
 ---
 navigation_title: Getting started
-description: Declare the rules of an order, run every test they imply, and read the first failure. About five minutes.
+description: Declare the rules of an order, run the tests they imply, and learn to read the first failure. About five minutes.
 ---
 
 # Getting started
 
-You will declare the rules of an order, run the tests they imply, and see what the first failure looks like. The code is the [Quickstart example](https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Quickstart) in the repository; it compiles and runs in CI, so what you read here works.
+You will declare the rules of an order, run the tests they imply, and learn to read a failure. The code is the [Quickstart example](https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Quickstart) in the repository. It compiles and runs in CI, so what you read here works. New words are explained in [concepts](../concepts.md).
 
 ## Install
 
@@ -16,7 +16,7 @@ dotnet add package Nullean.Entities.CsCheck   # tests only
 
 ## 1. The type
 
-An immutable record. Every method returns the next order. Nothing refers to the library.
+An order is an immutable record. Every method returns the next order. Nothing here refers to the library.
 
 <!-- file: examples/Nullean.Entities.Quickstart/Order.cs -->
 ```csharp
@@ -49,7 +49,7 @@ public sealed record Order(IReadOnlyList<OrderLine> Lines, OrderStatus Status, i
 
 ## 2. The rules
 
-Each rule is a named value next to the type. `[Constraints]` gathers every static field into `OrderConstraints.All`, so a rule you add and forget to register cannot happen.
+Each rule is a named value next to the type. `[Constraints]` gathers every static field into `OrderConstraints.All`, so a rule you add cannot be forgotten.
 
 <!-- file: examples/Nullean.Entities.Quickstart/OrderConstraints.cs -->
 ```csharp
@@ -89,11 +89,11 @@ public static partial class OrderConstraints
 }
 ```
 
-Read the comments. The first two rules are about one state. `LegalMoves` is about the move between two. `CancelIsRepeatable` and `VersionNeverGoesBack` are about a step. `LabelIgnoresLineOrder` is about the order things arrive in. Each of these is a different kind of test; you did not pick one. See [the nine axes](../design-principles/axes.md).
+Read the comments. Each kind of rule is a different kind of question: one state, a move between states, a step, an order. You did not choose a test for any of them. The shape of the rule does that: see [the nine axes](../axes/index.md).
 
 ## 3. The test
 
-You need two things: a generator of orders, and one test method that runs one test per axis the rules declare.
+You need two things: a generator of orders, and one test method that runs one test per axis your rules declare.
 
 <!-- file: tests/Nullean.Entities.Quickstart.Tests/QuickstartTests.cs -->
 ```csharp
@@ -136,27 +136,21 @@ public class QuickstartTests
 }
 ```
 
-`AutoTest.For(OrderConstraints.Instance, Orders)` reads the rules and the operations of `Order` (every public method that returns an `Order`). `AsDataSource()` gives your test framework one case per axis, so a failing axis fails only its own test.
+`AutoTest.For(OrderConstraints.Instance, Orders)` reads the rules and finds the operations of `Order` itself: every public method that returns an `Order`. `AsDataSource()` hands your test framework one case per axis, so a failing axis fails only its own test.
 
-Run it. It passes. Now look at what the generator does, because that is the part to get right.
+Run it. It passes. Now look at the generator, because that is the part to get right.
 
-## 4. The first red
+## 4. The first red: a test that proved nothing
 
-The generator above draws orders in every state. Suppose it drew only pending ones:
-
-```csharp
-AutoTest.For(OrderConstraints.Instance, pendingOnly)
-```
-
-Every rule would hold, and the tests would pass. They would also prove nothing about `ConfirmedOrdersHaveLines`, because no generated order was ever confirmed. {{product}} says so:
+Suppose the generator made only pending orders. Every rule holds, so every test would pass. But no generated order is ever confirmed, so nothing checked the rule about confirmed orders. {{product}} refuses to call that a pass:
 
 :::{include} ../_snippets/vacancy.txt
 :language: text
 :::
 
-That is the fourth principle: [a green test must prove it ran](../design-principles/index.md). Mix confirmed, shipped and cancelled orders into the generator, as above, and it passes for the right reason.
+Read it top to bottom. **Rule** is the rule that was never checked. **Not exercised because** says why. **Next** says what to change. This is [axis 09, Vacancy](../axes/09-vacancy.md), and it applies to every other axis too: a test must prove it ran. The fix is the generator above, which makes orders in every state.
 
-## 5. Break something
+## 5. The second red: a real bug
 
 Add an operation that forgets a check:
 
@@ -169,10 +163,21 @@ AutoTest.For(OrderConstraints.Instance, orders)
 :language: text
 :::
 
-The case is shrunk to the smallest one, and the seed replays it exactly. Paste it into the test (`.Seed("...")`) while you fix the bug.
+How to read this:
+
+| Line | What it tells you |
+|---|---|
+| **Rule broken** | The rule that did not hold, by name. Here, a total went below zero. |
+| **Operation** | What was done. `AddRawLine()` is the operation you just added. |
+| **Started from** | The order before. It was valid: empty and pending. |
+| **Produced** | The order after. A line with a price of -5 gave a total of -5. |
+| **Law** | The question this test asks, in one sentence. |
+| **Consequence** | What this kind of bug does in production. |
+| **This is the smallest case** | The library tried smaller orders and kept the smallest that still breaks the rule. A short failure is easy to read. |
+| **.Seed("…")** | The inputs are random but repeatable. Pass this back to run exactly the same case while you fix the bug. |
 
 ## Where next
 
-- [The bugs you did not write a test for](../bugs/index.md): five more, and the output each produces.
+- [The nine axes](../axes/index.md): each question, the bug it catches, and the real output.
 - [Adopting in an existing codebase](../guides/adopting.md).
 - [Counter-examples](../guides/counter-examples.md): why every rule needs one, and how the library finds most of them.
