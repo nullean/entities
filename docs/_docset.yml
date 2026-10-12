@@ -1,0 +1,37 @@
+project: 'Nullean.Entities'
+max_toc_depth: 2
+
+exclude:
+  - 'spikes/**'
+  - 'autobogus-decision.md'
+  - 'first-use-review.md'
+  - 'tour.md'
+
+subs:
+  product: "Nullean.Entities"
+
+toc:
+  - file: index.md
+  - file: why.md
+  - folder: getting-started
+    children:
+      - file: index.md
+  - folder: bugs
+    children:
+      - file: index.md
+  - folder: design-principles
+    children:
+      - file: index.md
+      - file: axes.md
+      - file: vocabulary.md
+  - folder: guides
+    children:
+      - file: adopting.md
+      - file: counter-examples.md
+      - file: time.md
+      - file: rollout.md
+  - file: integration.md
+  - folder: why-not
+    children:
+      - file: index.md
+  - file: known-limitations.md

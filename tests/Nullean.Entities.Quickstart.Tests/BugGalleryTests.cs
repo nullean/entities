@@ -27,7 +27,7 @@ internal sealed class Fulfilment(TimeProvider time, TimeSpan shipsAfter)
 	}
 }
 
-// Each test plants one bug and shows the axis that catches it. The failure text is what a reader of the docs sees: with NULLEAN_WRITE_OUTPUTS=1 it is written to docs/outputs.
+// Each test plants one bug and shows the axis that catches it. The failure text is what a reader of the docs sees: with NULLEAN_WRITE_OUTPUTS=1 it is written to docs/_snippets.
 public class BugGalleryTests
 {
 	private static readonly Gen<OrderLine> Lines = Gen.Select(
@@ -60,7 +60,7 @@ public class BugGalleryTests
 		{
 			root = root.Parent;
 		}
-		File.WriteAllText(Path.Combine(root!.FullName, "docs", "outputs", name + ".txt"), text.Trim() + "\n");
+		File.WriteAllText(Path.Combine(root!.FullName, "docs", "_snippets", name + ".txt"), text.Trim() + "\n");
 	}
 
 	private static string Fail(string name, Action run)
