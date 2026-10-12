@@ -31,7 +31,14 @@ toc:
       - file: time.md
       - file: rollout.md
   - file: integration.md
+  - folder: reference
+    children:
+      - file: testing-api.md
+      - file: state-machines.md
+      - file: generated-data.md
+      - file: rx.md
   - folder: why-not
     children:
       - file: index.md
+      - file: cscheck.md
   - file: known-limitations.md
