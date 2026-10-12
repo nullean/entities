@@ -28,6 +28,30 @@ public static class AutoAction
 			action.Apply
 		);
 
+	// Without a generator the argument is drawn from its type alone, which for a key or an entry rarely names anything the start holds. So half the draws harvest a value of that type
+	// from inside the start (an entry the registry has), and half of those are changed a little (an entry that is older, newer, or someone else's): the cases an operation decides on.
+	private static Gen<object?> Argument<T>(T start, Type argumentType, AutoMode data)
+	{
+		var generated = AutoDefaults.ArgumentGen(argumentType, data);
+		var harvested = CounterExampleSearch.Harvest(start, argumentType);
+		if (harvested.Count == 0)
+		{
+			return generated;
+		}
+		var own = Gen.OneOfConst([.. harvested.Select(h => (object?)h)]);
+		var changed = harvested
+			.Take(8)
+			.SelectMany(h => CounterExampleSearch.Perturbations(argumentType, h).Select(member => (Original: h, Changes: member)))
+			.ToArray();
+		var options = new List<(int, IGen<object?>)> { (2, generated), (3, own) };
+		if (changed.Length > 0)
+		{
+			// a member first, then a change to it: every member is as likely to be the one changed, however many edge values it has
+			options.Add((3, Gen.OneOfConst(changed).SelectMany(c => Gen.OneOfConst([.. c.Changes]).Select(change => change(c.Original)))));
+		}
+		return Gen.Frequency([.. options]);
+	}
+
 	/// <summary>An operation with no argument.</summary>
 	public static AutoAction<T> Of<T>(string name, Func<T, T> apply) =>
 		new(name, starts => starts.Select(start => (start, (object?)null)), (value, _) => apply(value));
@@ -40,7 +64,7 @@ public static class AutoAction
 	{
 		var draw = arguments is null
 			? (Func<Gen<T>, Gen<(T Start, object? Argument)>>)(starts =>
-				Gen.Select(starts, AutoDefaults.ArgumentGen(typeof(TArg), data), (start, argument) => (start, argument)))
+				starts.SelectMany(start => Argument(start, typeof(TArg), data).Select(argument => (start, argument))))
 			: starts => starts.SelectMany(start => arguments(start).Select(argument => (start, (object?)argument)));
 		return new AutoAction<T>(name, draw, (value, argument) => apply(value, (TArg)argument!));
 	}

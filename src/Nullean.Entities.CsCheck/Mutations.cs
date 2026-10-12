@@ -16,13 +16,87 @@ internal sealed record Mutant<T>(Func<T, T> Apply, string Source, bool Pasteable
 
 internal static class CounterExampleSearch
 {
+	/// <summary>Every value of <paramref name="type"/> found inside <paramref name="root"/>: members, collection items, dictionary values, a few levels down. An argument for an action is best drawn from here.</summary>
+	public static List<object> Harvest(object? root, Type type, int maxDepth = 5, int cap = 200)
+	{
+		var found = new List<object>();
+		var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
+		Walk(root, 0);
+		return found;
+
+		void Walk(object? value, int depth)
+		{
+			if (value is null || found.Count >= cap || depth > maxDepth)
+			{
+				return;
+			}
+			var valueType = value.GetType();
+			if (type.IsInstanceOfType(value) && (valueType.IsValueType || seen.Add(value)))
+			{
+				found.Add(value);
+			}
+			if (valueType.IsPrimitive || valueType.IsEnum || value is string || (!valueType.IsValueType && !seen.Add(value) && !type.IsInstanceOfType(value)))
+			{
+				return;
+			}
+			if (value is System.Collections.IEnumerable items)
+			{
+				foreach (var item in items.Cast<object?>().Take(50))
+				{
+					if (item is not null && item.GetType() is
+						{ IsGenericType: true } kv && kv.GetGenericTypeDefinition() == typeof(KeyValuePair<string, string>).GetGenericTypeDefinition())
+					{
+						Walk(kv.GetProperty("Value")!.GetValue(item), depth + 1);
+					}
+					else
+					{
+						Walk(item, depth + 1);
+					}
+				}
+				return;
+			}
+			foreach (var property in valueType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance).Where(
+				p => p.GetIndexParameters().Length == 0 && p.CanRead && p.Name != "EqualityContract"
+			))
+			{
+				try
+				{
+					Walk(property.GetValue(value), depth + 1);
+				}
+				catch (Exception e) when (e is not OutOfMemoryException)
+				{
+					// a computed member that throws is not a place to find a value
+				}
+			}
+		}
+	}
+
+	/// <summary>Small changes to a value (one member to an edge value, to another valid value, an item added): what an argument that is almost an existing one looks like.</summary>
+	public static List<List<Func<object?, object?>>> Perturbations(Type type, object value)
+	{
+		try
+		{
+			var options = new AutoOptions { Mode = AutoMode.Adversarial };
+			return [
+				.. Steps(new AutoBuilder(options), options, type, value, "e", 0, [])
+					.OrderBy(s => s.Cost)
+					.GroupBy(s => Member(s.Source))
+					.Select(g => g.Take(24).Select(s => s.Apply).ToList())
+			];
+		}
+		catch (Exception e) when (e is not OutOfMemoryException)
+		{
+			return [];
+		}
+	}
+
 	private const int MaxBases = 6;
 	private const int MaxDepth = 3;
 	private const int MaxGuardSteps = 24;
 
 	private sealed record Candidate<T>(Func<T, T> Apply, string Source, bool Pasteable);
 
-	private sealed record Step(Func<object?, object?> Apply, string Source, bool Pasteable, int Cost);
+	internal sealed record Step(Func<object?, object?> Apply, string Source, bool Pasteable, int Cost);
 
 	/// <summary>For each rule in <paramref name="wanted"/>, a mutant that breaks it: alone when one exists, else with the fewest other rules. Rules nothing found are absent.</summary>
 	public static IReadOnlyDictionary<string, Mutant<T>> Find<T>(
@@ -216,7 +290,15 @@ internal static class CounterExampleSearch
 		}
 	}
 
-	private static IEnumerable<Step> Steps(AutoBuilder builder, AutoOptions options, Type type, object sample, string expr, int depth, List<object?> donors)
+	// "e with { Name = ..." -> "Name": the member a step changes, so a perturbation can pick a member first and a change to it second
+	private static string Member(string source)
+	{
+		var open = source.IndexOf("with { ", StringComparison.Ordinal);
+		var equals = open < 0 ? -1 : source.IndexOf(" =", open, StringComparison.Ordinal);
+		return open < 0 || equals < 0 ? source : source[(open + 7)..equals];
+	}
+
+	internal static IEnumerable<Step> Steps(AutoBuilder builder, AutoOptions options, Type type, object sample, string expr, int depth, List<object?> donors)
 	{
 		ObjectPlan plan;
 		object?[]? args;
@@ -250,7 +332,7 @@ internal static class CounterExampleSearch
 			var alternatives = plan.Types[i] == typeof(bool)
 				? [!(bool)args[i]!]
 				: plan.Types[i].IsEnum ? Enum.GetValues(plan.Types[i]).Cast<object?>().Where(v => !Equals(v, args[i])) : [];
-			foreach (var edge in edges.Concat(alternatives).Distinct())
+			foreach (var edge in edges.Concat(alternatives).Concat(Nearby(args[i])).Distinct())
 			{
 				var value = edge;
 				var literal = CSharp.Literal(value);
@@ -440,6 +522,19 @@ internal static class CounterExampleSearch
 		}
 		return list;
 	}
+
+	// The values just either side of this one: what an operation that compares ("newer than", "larger than", "after") decides on, which an edge catalog of extremes never lands next to.
+	private static IEnumerable<object?> Nearby(object? value) => value switch
+	{
+		DateTime d when d.Year is > 1 and < 9999 => [d.AddDays(1), d.AddDays(-1)],
+		DateTimeOffset d when d.Year is > 1 and < 9999 => [d.AddDays(1), d.AddDays(-1)],
+		int n when n is > int.MinValue and < int.MaxValue => [n + 1, n - 1],
+		long n when n is > long.MinValue and < long.MaxValue => [n + 1, n - 1],
+		double n when double.IsFinite(n) => [n + 1, n - 1],
+		decimal n when n is > decimal.MinValue and < decimal.MaxValue => [n + 1, n - 1],
+		TimeSpan t when t > TimeSpan.Zero && t < TimeSpan.MaxValue => [t + TimeSpan.FromSeconds(1), t - TimeSpan.FromSeconds(1)],
+		_ => []
+	};
 
 	// A value to read the shape from: this base's member, or another base's when this one has none (an empty collection tells nothing about its items).
 	private static object? Exemplar(ObjectPlan plan, int index, object? own, List<object?> donors)

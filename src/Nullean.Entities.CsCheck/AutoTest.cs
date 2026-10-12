@@ -277,6 +277,12 @@ public sealed partial class AutoTest<T>
 				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => RunCase(a)))
 		];
 
+	/// <summary>
+	/// The cases as a test framework's data source: <c>[MethodDataSource(nameof(Axes))]</c> over a method that returns this, with one test that calls <c>axis.Run()</c>.
+	/// Each is a function, so the framework creates and runs one axis at a time and a failing axis fails only its own test.
+	/// </summary>
+	public IEnumerable<Func<AxisCase>> AsDataSource() => Cases.Select(c => (Func<AxisCase>)(() => c));
+
 	private bool IsDeclared(Axis axis) => axis == Axis.Vacancy ? _constraints.AsConstraints().Count > 0 : _constraints.AsConstraints().Any(c => c.Axis == axis);
 
 	private AxisResult Execute(Axis axis) => axis switch

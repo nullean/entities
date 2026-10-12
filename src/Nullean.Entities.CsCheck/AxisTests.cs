@@ -100,7 +100,7 @@ public static class AxisTests
 			if (changed[i] == 0)
 			{
 				throw new VacuousPropertyException(
-					$"Idempotency - {Name(rules[i])}: its action changed none of the {settings.Samples} generated values, so idempotency was never exercised."
+					$"Idempotency - {Name(rules[i])}: its action changed none of the {settings.Samples} generated values, so idempotency was never exercised.\nNext: give the auto-test starts the action changes (a generator of values that are not already settled), or check that the action does something for valid values."
 				);
 			}
 		}
@@ -193,7 +193,7 @@ public static class AxisTests
 			if (reordered == 0)
 			{
 				throw new VacuousPropertyException(
-					$"Confluence - {Name(rule)}: no generated value had two items to reorder in {settings.Samples} samples, so order independence was never exercised."
+					$"Confluence - {Name(rule)}: no generated value had two items to reorder in {settings.Samples} samples, so order independence was never exercised.\nNext: give the auto-test starts with two or more items (a generator that draws lists of at least two)."
 				);
 			}
 		}
@@ -263,7 +263,7 @@ public static class AxisTests
 			if (reached[i] == 0)
 			{
 				throw new VacuousPropertyException(
-					$"Vacancy - {Name(guarded[i])}: its guard was never true for the {settings.Samples} generated values, so the rule held without being exercised."
+					$"Vacancy - {Name(guarded[i])}: its guard was never true for the {settings.Samples} generated values, so the rule held without being exercised.\nNext: give the auto-test starts where the guard is true (for example a generator that sometimes draws the case the guard names), or mix such values into it."
 				);
 			}
 		}
@@ -333,7 +333,7 @@ public static class AxisTests
 					? "no key was present both before and after an action, so there was nothing to compare"
 					: axis == Axis.Conservation ? "no action changed the value, so nothing was available to be conserved" : "no action changed the value";
 				throw new VacuousPropertyException(
-					$"{axis} - {Name(rules[i])}: {why} in {settings.Samples} runs, so the rule held without being exercised. Supply arguments or starts that reach it."
+					$"{axis} - {Name(rules[i])}: {why} in {settings.Samples} runs, so the rule held without being exercised.\nNext: draw the action's argument from the start value so it names something that is really there, for example .Action(\"Name\", apply, arguments: start => Gen.OneOfConst(start.Items)), or give starts the action changes."
 				);
 			}
 		}
