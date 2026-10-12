@@ -68,7 +68,7 @@ public class StateMachineRealizedWalksTests
 				itemCounts.Add(draft.ItemCount);
 			}
 			return true;
-		});
+		}, seed: "0N0XIzNsQ0O2", threads: 1);
 
 		// AutoFaker fills ItemCount from real random data, not a type-level placeholder — across the
 		// default sample run this should produce more than one distinct value.

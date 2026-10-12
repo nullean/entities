@@ -133,7 +133,7 @@ public partial class AutoGenCatalogTests
 	[Test]
 	public void A_failing_property_shrinks_toward_a_small_value()
 	{
-		var act = () => GenAuto.Of<Item>(AutoMode.Plausible).Sample(i => i.Name.Length <= 3, iter: 2_000);
+		var act = () => GenAuto.Of<Item>(AutoMode.Plausible).Sample(i => i.Name.Length <= 3, seed: "0N0XIzNsQ0O2", iter: 2_000, threads: 1);
 
 		var message = act.Should().Throw<CsCheckException>().Which.Message;
 		var name = NameInMessage().Match(message).Groups[1].Value;

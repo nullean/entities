@@ -135,7 +135,8 @@ public class ServiceTestingTests
 	{
 		var rules = ConstraintSet.From(("lifecycle", Lifecycle.AsConstraint()));
 
-		var act = () => ScriptFor().SampleState(clock => new ServiceOrders(clock, shipsUnconfirmed: true), s => s.State, rules, iter: 500);
+		var act = () =>
+			ScriptFor().SampleState(clock => new ServiceOrders(clock, shipsUnconfirmed: true), s => s.State, rules, seed: "0N0XIzNsQ0O2", iter: 500);
 
 		act.Should().Throw<Exception>().Which.ToString().Should().Contain("lifecycle").And.Contain("Placed");
 	}
