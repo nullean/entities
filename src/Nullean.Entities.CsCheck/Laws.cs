@@ -40,7 +40,18 @@ public static class ConstraintLaws
 	/// diagnosed in one run. With <paramref name="requireCounterExamples"/> off, a constraint with no counter-example is reported in
 	/// the result instead of failing (cross-property rules often need one written by hand).
 	/// </summary>
+	[Obsolete("Use AutoTest: AutoTest.For(set, Gen.Const(valid)).CounterExamples(...).Cases runs the same checks as one test per axis, and finds counter-examples it was not given.")]
 	public static LawsReport Laws<T>(
+		this ConstraintSet<T> constraints,
+		T valid,
+		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
+		bool requireCounterExamples = true,
+		TimeProvider? time = null,
+		Action<string>? writeLine = null,
+		Action<AutoOptions>? options = null
+	) => CheckLaws(constraints, valid, counterExamples, requireCounterExamples, time, writeLine, options);
+
+	internal static LawsReport CheckLaws<T>(
 		this ConstraintSet<T> constraints,
 		T valid,
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
@@ -169,7 +180,21 @@ public static class ConstraintLaws
 	/// break its rule for at least one of the first <paramref name="derivedFrom"/> values. A rule without a counter-example gets one from the edge-value
 	/// swaps of the first generated value, where a single property edge rejected by that rule alone exists.
 	/// </summary>
+	[Obsolete("Use AutoTest: AutoTest.For(set, valid).CounterExamples(...).Cases runs the same checks as one test per axis, and finds counter-examples it was not given.")]
 	public static LawsReport Laws<T>(
+		this ConstraintSet<T> constraints,
+		Gen<T> valid,
+		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
+		int samples = 300,
+		int derivedFrom = 25,
+		uint seed = 20_260_101,
+		bool requireCounterExamples = true,
+		TimeProvider? time = null,
+		Action<string>? writeLine = null,
+		Action<AutoOptions>? options = null
+	) => CheckLaws(constraints, valid, counterExamples, samples, derivedFrom, seed, requireCounterExamples, time, writeLine, options);
+
+	internal static LawsReport CheckLaws<T>(
 		this ConstraintSet<T> constraints,
 		Gen<T> valid,
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
@@ -243,7 +268,8 @@ public static class ConstraintLaws
 		}
 
 		// 3 and 4. every rule reachable from a counter-example; the counter-example breaks only its own rule
-		var bases = values.Take(derivedFrom).ToList();
+		// the same value drawn twice (a constant generator) is one base: applying a counter-example to it again changes nothing, and may collide with the first (a file made twice)
+		var bases = values.Distinct().Take(derivedFrom).ToList();
 		List<ConstraintBoundaries.Swap<T>>? swaps = null;
 		IReadOnlyDictionary<string, Mutant<T>>? found = null;
 		foreach (var constraint in all.Where(c => c.Name is not null))

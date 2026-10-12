@@ -34,7 +34,7 @@ public static class AxisTests
 		{
 			return new AxisResult.NotApplicable(Axis.Invariant);
 		}
-		_ = rules.Laws(
+		_ = rules.CheckLaws(
 			valid,
 			Only(counterExamples, rules),
 			settings.Samples,
@@ -224,7 +224,7 @@ public static class AxisTests
 		LawsReport? lawsReport = null;
 		if (attackable.AsConstraints().Count > 0)
 		{
-			lawsReport = attackable.Laws(
+			lawsReport = attackable.CheckLaws(
 				valid,
 				Only(counterExamples, attackable),
 				settings.Samples,

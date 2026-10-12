@@ -1,3 +1,4 @@
+#pragma warning disable CS0618 // Laws is obsolete: this file tests it or demonstrates it; the examples move to AutoTest with the docs rewrite
 using System.IO.Abstractions;
 using System.IO.Abstractions.TestingHelpers;
 using AwesomeAssertions;
