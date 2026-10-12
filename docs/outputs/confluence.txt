@@ -1,0 +1,3 @@
+Set seed: "2vkjz6t_9473" or -e CsCheck_Seed=2vkjz6t_9473 to reproduce (3 shrinks, 98 skipped, 200 total).
+Order { Lines = [OrderLine { Sku = "pear", Quantity = 1, Price = 2 }, OrderLine { Sku = "apple", Quantity = 4, Price = 8 }], Status = Pending, Version = 2, Total = 34, Label = "apple,pear" } reordered as [1, 0]
+first-sku-is-the-label: listing the items of Order { Lines = [OrderLine { Sku = "pear", Quantity = 1, Price = 2 }, OrderLine { Sku = "apple", Quantity = 4, Price = 8 }], Status = Pending, Version = 2, Total = 34, Label = "apple,pear" } in the order [1, 0] changed the result.

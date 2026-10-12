@@ -25,7 +25,8 @@ public static class AxisTests
 		this ConstraintSet<T> constraints,
 		Gen<T> valid,
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
-		AxisRun? run = null
+		AxisRun? run = null,
+		IReadOnlyList<AutoAction<T>>? actions = null
 	)
 	{
 		var settings = run ?? new AxisRun();
@@ -45,7 +46,34 @@ public static class AxisTests
 			writeLine: settings.WriteLine,
 			options: settings.Options
 		);
-		return new AxisResult.Passed(Axis.Invariant, Names(constraints, Axis.Invariant), settings.Samples);
+		var kept = actions is { Count: > 0 } ? OperationsKeepInvariants(rules, actions, valid, settings) : null;
+		return new AxisResult.Passed(Axis.Invariant, Names(constraints, Axis.Invariant), settings.Samples, kept);
+	}
+
+	// A rule that holds for every generated value is only half of "holds in every state": no operation may take a valid value to an invalid one. The same actions the sequential
+	// axes run, from valid starts, with every invariant rule (and every legal-move rule) checked on what they produce.
+	private static string OperationsKeepInvariants<T>(ConstraintSet<T> rules, IReadOnlyList<AutoAction<T>> actions, Gen<T> valid, AxisRun settings)
+	{
+		var runs = Gen.OneOf([.. actions.Select(a => a.Draw(valid).Select(drawn => (drawn.Start, Action: a, drawn.Argument)))]);
+		runs.Sample(
+			step =>
+			{
+				var next = step.Action.Apply(step.Start, step.Argument);
+				// a rule declared as a warning is one the type lets through and reports: only an error is a state an operation must never produce
+				var violations = ConstraintProperties.ViolationsOf(rules, step.Start, next, settings.Time).Where(v => v.Severity == Severity.Error).ToList();
+				if (violations.Count > 0)
+				{
+					throw new InvalidOperationException(
+						$"{Call(step.Action.Name, step.Argument)} from {Print(step.Start)} gave {Print(next)}, which violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
+					);
+				}
+			},
+			settings.WriteLine,
+			settings.EffectiveSeed,
+			settings.Samples,
+			print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
+		);
+		return $"(and {string.Join(", ", actions.Select(a => a.Name))} kept them in {settings.Samples} runs)";
 	}
 
 	/// <summary>
@@ -307,7 +335,7 @@ public static class AxisTests
 				if (violations.Count > 0)
 				{
 					throw new InvalidOperationException(
-						$"{step.Action.Name}({Print(step.Argument)}) from {Print(step.Start)} gave {Print(next)}, which violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
+						$"{Call(step.Action.Name, step.Argument)} from {Print(step.Start)} gave {Print(next)}, which violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
 					);
 				}
 				for (var i = 0; i < probes.Length; i++)
@@ -320,7 +348,7 @@ public static class AxisTests
 			settings.WriteLine,
 			settings.EffectiveSeed,
 			settings.Samples,
-			print: step => $"{Print(step.Start)} | {step.Action.Name}({Print(step.Argument)})"
+			print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
 		);
 
 		for (var i = 0; i < rules.Count; i++)
@@ -362,6 +390,8 @@ public static class AxisTests
 	private static string[] Names<T>(ConstraintSet<T> constraints, Axis axis) => [.. Rules(constraints, axis).Select(Name)];
 
 	private static string Name<T>(Constraint<T> rule) => rule.Name ?? rule.Shape.Factory ?? "unnamed rule";
+
+	private static string Call(string name, object? argument) => argument is null ? $"{name}()" : $"{name}({Print(argument)})";
 
 	private static string Print<T>(T value) => ConstraintProperties.SafePrint(value);
 

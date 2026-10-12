@@ -1,0 +1,6 @@
+Monotonicity failed.
+Law: No operation moves a value that may only go one way in the other direction.
+Consequence: An older result overwrites a newer one, a counter goes back or a timestamp regresses, without anything saying so.
+Set seed: "cghvRTcP33n7" or -e CsCheck_Seed=cghvRTcP33n7 to reproduce (3 shrinks, 28 skipped, 200 total).
+Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" } | Reset()
+Reset() from Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" } gave Order { Lines = [], Status = Cancelled, Version = 0, Total = 0, Label = "" }, which violates: version-never-goes-back: Expected NonDecreasing but moved from 1 to 0.

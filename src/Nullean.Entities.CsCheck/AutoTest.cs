@@ -210,7 +210,7 @@ public sealed partial class AutoTest<T>
 	// ── the axes ─────────────────────────────────────────────────────────────────
 
 	/// <inheritdoc cref="AxisTests.Invariant{T}"/>
-	public AxisResult Invariant() => _constraints.Invariant(CurrentValid, _counterExamples, _settings);
+	public AxisResult Invariant() => _constraints.Invariant(CurrentValid, _counterExamples, _settings, CurrentActions);
 
 	/// <inheritdoc cref="AxisTests.Idempotency{T}"/>
 	public AxisResult Idempotency() => _constraints.Idempotency(_valid, _settings);

@@ -1,0 +1,3 @@
+Set seed: "0N0XIzNsQ0O2" or -e CsCheck_Seed=0N0XIzNsQ0O2 to reproduce (0 shrinks, 199 skipped, 200 total).
+Order { Lines = [], Status = Pending, Version = 0, Total = 0, Label = "" }
+cancel-is-repeatable is not idempotent: once gave Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" }, twice gave Order { Lines = [], Status = Cancelled, Version = 2, Total = 0, Label = "" }.

@@ -1,0 +1,3 @@
+Set seed: "ajrWrHp043-a" or -e CsCheck_Seed=ajrWrHp043-a to reproduce (0 shrinks, 41 skipped, 200 total).
+Order { Lines = [], Status = Pending, Version = 0, Total = 0, Label = "" } | AddRawLine()
+AddRawLine() from Order { Lines = [], Status = Pending, Version = 0, Total = 0, Label = "" } gave Order { Lines = [OrderLine { Sku = "fig", Quantity = 1, Price = -5 }], Status = Pending, Version = 0, Total = -5, Label = "fig" }, which violates: total-never-negative: An order total is never negative.

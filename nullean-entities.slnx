@@ -34,6 +34,8 @@
   <Project Path="examples/Nullean.Entities.Examples/Nullean.Entities.Examples.csproj" />
   <Project Path="examples/Nullean.Entities.Integration.Examples/Nullean.Entities.Integration.Examples.csproj" />
   <Project Path="examples/Nullean.Entities.Reactive.Examples/Nullean.Entities.Reactive.Examples.csproj" />
+  <Project Path="examples/Nullean.Entities.Quickstart/Nullean.Entities.Quickstart.csproj" />
+  <Project Path="tests/Nullean.Entities.Quickstart.Tests/Nullean.Entities.Quickstart.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Examples.Tests/Nullean.Entities.Examples.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Apps.Tests/Nullean.Entities.Apps.Tests.csproj" />
 </Solution>

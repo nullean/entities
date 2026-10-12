@@ -65,4 +65,5 @@ let TestProjects =
       "tests/Nullean.Entities.AspNetCore.Tests"
       "tests/Nullean.Entities.Argh.Tests"
       "tests/Nullean.Entities.Examples.Tests"
+      "tests/Nullean.Entities.Quickstart.Tests"
       "tests/Nullean.Entities.Apps.Tests" ]

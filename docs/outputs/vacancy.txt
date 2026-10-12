@@ -1,0 +1,5 @@
+Vacancy failed.
+Law: Every rule can fire, and every rule's guard is reached by the data the tests use.
+Consequence: A rule that can never fire, or a test that never reached it, reports green while checking nothing.
+Vacancy - confirmed-orders-have-lines: its guard was never true for the 200 generated values, so the rule held without being exercised.
+Next: give the auto-test starts where the guard is true (for example a generator that sometimes draws the case the guard names), or mix such values into it.

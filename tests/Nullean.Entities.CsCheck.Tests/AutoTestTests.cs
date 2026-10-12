@@ -231,4 +231,24 @@ public class AutoTestTests
 
 		longest.Should().BeGreaterThan(40, "adversarial strings include very long ones, wherever Data(...) was called");
 	}
+
+	/// <summary>
+	/// Law: an operation that takes a valid value to one that breaks an invariant fails the Invariant axis, naming the operation and the rule.
+	/// Consequence if broken: rules hold for every generated value while a method of the type can still produce a value that breaks them.
+	/// </summary>
+	[Test]
+	public void An_operation_that_breaks_an_invariant_fails_the_invariant_axis()
+	{
+		var broken = Sound().Action("Overdraw", a => a with { Value = -1 });
+
+		var act = () => broken.Invariant();
+
+		act.Should().Throw<Exception>().Which.Message.Should().Contain("Overdraw").And.Contain("value-not-negative");
+	}
+
+	[Test]
+	public void Operations_that_keep_the_invariants_are_named_in_the_pass()
+	{
+		Sound().Invariant().Should().BeOfType<AxisResult.Passed>().Which.Note.Should().Contain("Bump").And.Contain("Transfer");
+	}
 }
