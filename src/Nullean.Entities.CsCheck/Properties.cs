@@ -253,18 +253,8 @@ public static class ConstraintProperties
 		return violations;
 	}
 
-	/// <summary>A value rendered for a failure message, even when its <c>ToString</c> throws (a computed property that overflows).</summary>
-	internal static string SafePrint<T>(T value)
-	{
-		try
-		{
-			return Check.Print(value);
-		}
-		catch (Exception e) when (e is not OperationCanceledException)
-		{
-			return $"{typeof(T).Name} (ToString threw {e.GetType().Name}: {e.Message})";
-		}
-	}
+	/// <summary>A value rendered for a failure message: members and collection items to a fixed depth, so a record holding a dictionary shows its entries, not its type name.</summary>
+	internal static string SafePrint<T>(T value) => ValuePrinter.Print(value);
 
 	internal static IReadOnlyList<Violation> ViolationsOf<T>(ConstraintSet<T> constraints, T before, T after, TimeProvider? time)
 	{
