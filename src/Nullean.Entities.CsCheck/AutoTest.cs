@@ -140,7 +140,7 @@ public sealed partial class AutoTest<T>
 		_required = required ?? from._required;
 	}
 
-	private Gen<T> CurrentValid => _valid ?? GenAuto.Of<T>(_settings.Data).Valid(_constraints, _settings.Time);
+	private Gen<T> CurrentValid => _valid ?? GenAuto.Of<T>(_settings.Data, _settings.Options).Valid(_constraints, _settings.Time);
 
 	private IReadOnlyList<AutoAction<T>> CurrentActions => [.. _makers.Select(make => make(_settings.Data))];
 
@@ -152,6 +152,25 @@ public sealed partial class AutoTest<T>
 	/// </summary>
 	public AutoTest<T> CounterExamples(IReadOnlyDictionary<string, Func<T, T>> counterExamples) =>
 		new(this, counterExamples: _counterExamples.Concat(counterExamples).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Last().Value));
+
+	/// <summary>
+	/// The counter-example for one rule, named by the rule itself rather than by a string: a rename cannot orphan it and a typo does not compile.
+	/// The rule must be in this auto-test's set.
+	/// </summary>
+	public AutoTest<T> CounterExample(Constraint<T> rule, Func<T, T> breakIt)
+	{
+		var named = _constraints.AsConstraints().FirstOrDefault(c => ReferenceEquals(c, rule) || (rule.Name is not null && c.Name == rule.Name));
+		return named?.Name is { } name
+			? CounterExamples(new Dictionary<string, Func<T, T>> { [name] = breakIt })
+			: throw new ArgumentException(
+				$"The rule {rule.Name ?? rule.Shape.Factory ?? "(unnamed)"} is not in this set, so a counter-example for it would never run.",
+				nameof(rule)
+			);
+	}
+
+	/// <summary>Configures the generated values (<c>UseFileSystem()</c>, <c>Normalize&lt;T&gt;(...)</c>) for the starts and for the search for counter-examples.</summary>
+	public AutoTest<T> Options(Action<AutoOptions> configure) =>
+		new(this, settings: _settings with { Options = _settings.Options is { } existing ? existing + configure : configure });
 
 	/// <summary>Operations the sequential axes (monotonicity, conservation) run. The generated actions of a <c>[Constraints]</c> companion are already there.</summary>
 	public AutoTest<T> Actions(EntityActions<T> actions) =>
@@ -223,7 +242,7 @@ public sealed partial class AutoTest<T>
 		{
 			bases.Add(valid.Generate(new PCG(_settings.GeneratorSeed, (ulong)i + 1), null, out _));
 		}
-		var found = CounterExampleSearch.Find(_constraints, bases, wanted, _settings.Time, null);
+		var found = CounterExampleSearch.Find(_constraints, bases, wanted, _settings.Time, _settings.Options);
 		return new CounterExampleReport([
 			.. given.Select(n => new CounterExampleLine(n, CounterExampleKind.Given, null, [])),
 			.. wanted.Where(found.ContainsKey).Select(n => new CounterExampleLine(n, CounterExampleKind.Found, found[n].Source, found[n].Overlaps)),

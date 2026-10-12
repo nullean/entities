@@ -49,7 +49,8 @@ public sealed record AxisRun(
 	uint GeneratorSeed = 20_260_101,
 	AutoMode Data = AutoMode.Mixed,
 	TimeProvider? Time = null,
-	Action<string>? WriteLine = null
+	Action<string>? WriteLine = null,
+	Action<AutoOptions>? Options = null
 )
 {
 	/// <summary>The seed used when none is given: fixed, so a green or vacuous result does not depend on luck.</summary>

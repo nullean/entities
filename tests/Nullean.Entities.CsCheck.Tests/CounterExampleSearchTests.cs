@@ -88,4 +88,25 @@ public class CounterExampleSearchTests
 
 		report.Lines.Single(l => l.Rule == "title-required").Kind.Should().Be(CounterExampleKind.Given);
 	}
+
+	[Test]
+	public void A_counter_example_named_by_its_rule_object_is_the_one_given()
+	{
+		var rules = Rules();
+		var nameRequired = rules.AsConstraints().Single(c => c.Name == "name-required");
+
+		var report = AutoTest.For(rules, SearchShops).CounterExample(nameRequired, s => s with { Name = " " }).CounterExampleReport();
+
+		report.Lines.Single(l => l.Rule == "name-required").Kind.Should().Be(CounterExampleKind.Given);
+	}
+
+	[Test]
+	public void A_counter_example_for_a_rule_outside_the_set_is_refused_at_once()
+	{
+		var stranger = Constraints<SearchShop>.Always(s => s.Name.Length > 0, "A shop has a name.");
+
+		var act = () => AutoTest.For(Rules(), SearchShops).CounterExample(stranger, s => s);
+
+		act.Should().Throw<ArgumentException>().Which.Message.Should().Contain("not in this set");
+	}
 }

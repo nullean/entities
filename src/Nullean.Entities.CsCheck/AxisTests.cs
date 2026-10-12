@@ -42,7 +42,8 @@ public static class AxisTests
 			settings.GeneratorSeed,
 			requireCounterExamples: false,
 			time: settings.Time,
-			writeLine: settings.WriteLine
+			writeLine: settings.WriteLine,
+			options: settings.Options
 		);
 		return new AxisResult.Passed(Axis.Invariant, Names(constraints, Axis.Invariant), settings.Samples);
 	}
@@ -68,7 +69,7 @@ public static class AxisTests
 			);
 		}
 
-		var gen = valid ?? GenAuto.Of<T>(settings.Data).Valid(constraints, settings.Time);
+		var gen = valid ?? GenAuto.Of<T>(settings.Data, settings.Options).Valid(constraints, settings.Time);
 		var changed = new long[rules.Count];
 		gen.Sample(
 			value =>
@@ -163,7 +164,7 @@ public static class AxisTests
 			);
 		}
 
-		var gen = valid ?? GenAuto.Of<T>(settings.Data).Valid(constraints, settings.Time);
+		var gen = valid ?? GenAuto.Of<T>(settings.Data, settings.Options).Valid(constraints, settings.Time);
 		foreach (var rule in rules)
 		{
 			var shape = (OrderIndependentShape<T>)rule.Shape;
@@ -220,9 +221,10 @@ public static class AxisTests
 		// Its own axis shows it was exercised instead: the action changed values, items were reordered.
 		var provenElsewhere = all.Where(c => c.Axis is Axis.Idempotency or Axis.Confluence).Select(c => c.Name).OfType<string>().ToArray();
 		var attackable = provenElsewhere.Length == 0 ? constraints : constraints.Without(provenElsewhere);
+		LawsReport? lawsReport = null;
 		if (attackable.AsConstraints().Count > 0)
 		{
-			_ = attackable.Laws(
+			lawsReport = attackable.Laws(
 				valid,
 				Only(counterExamples, attackable),
 				settings.Samples,
@@ -230,7 +232,8 @@ public static class AxisTests
 				settings.GeneratorSeed,
 				requireCounterExamples: true,
 				time: settings.Time,
-				writeLine: settings.WriteLine
+				writeLine: settings.WriteLine,
+				options: settings.Options
 			);
 		}
 
@@ -264,7 +267,15 @@ public static class AxisTests
 				);
 			}
 		}
-		return new AxisResult.Passed(Axis.Vacancy, [.. all.Select(Name)], settings.Samples);
+		var searched = lawsReport?.Results.Count(r => r.CounterExample.StartsWith("found:", StringComparison.Ordinal)) ?? 0;
+		return new AxisResult.Passed(
+			Axis.Vacancy,
+			[.. all.Select(Name)],
+			settings.Samples,
+			searched == 0
+				? null
+				: $"({searched} counter-example{(searched == 1 ? "" : "s")} found by search; AutoTest.CounterExampleReport() lists them as code to paste)"
+		);
 	}
 
 	// ── 03 and 04: a sequential rule is attacked by running actions ──────────────
@@ -288,7 +299,7 @@ public static class AxisTests
 		var probes = rules.Select(r => ProbeOf(r.Shape)).ToArray();
 		var compared = new long[rules.Count];
 		var moved = new long[rules.Count];
-		var starts = start ?? GenAuto.Of<T>(settings.Data).Valid(constraints, settings.Time);
+		var starts = start ?? GenAuto.Of<T>(settings.Data, settings.Options).Valid(constraints, settings.Time);
 		var runs = Gen.OneOf([.. actions.Select(a => a.Draw(starts).Select(drawn => (drawn.Start, Action: a, drawn.Argument)))]);
 		runs.Sample(
 			step =>
