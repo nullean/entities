@@ -1,0 +1,12 @@
+Liveness failed.
+
+Rule broken      every-confirmed-order-ships
+Noticed at       +0s
+What happened    1 instance(s) never reached the target event: order
+Events recorded  +0s  Confirmed
+Calls made       Confirm
+
+Law              What must eventually happen does, once a run has settled.
+Consequence      Something that was started never finishes: an endless spinner, a build that never reports an end.
+
+Smallest case found, after 2 shrinks. To run this case again: .Seed("eQSqqvx8vbb3")

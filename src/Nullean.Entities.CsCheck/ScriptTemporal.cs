@@ -30,7 +30,9 @@ internal sealed class TimedRun<TSut>(TSut sut, ManualTimeProvider time, (TimeSpa
 	}
 
 	public string Print() =>
-		Ops.Length == 0 ? "(no steps)" : string.Join(" -> ", Ops.Select(o => o.Delay > TimeSpan.Zero ? $"[+{o.Delay}] {o.Step.Name}" : o.Step.Name));
+		Ops.Length == 0
+			? "(no steps)"
+			: string.Join(" -> ", Ops.Select(o => o.Delay > TimeSpan.Zero ? $"wait {o.Delay.TotalSeconds:0.###}s, {o.Step.Name}" : o.Step.Name));
 }
 
 public static partial class ScriptExtensions

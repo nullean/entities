@@ -31,7 +31,11 @@ public abstract record AxisResult(Axis Axis)
 	/// <summary>The axis found a bug, or proved the test vacuous. Only <c>AutoTest.Run()</c> produces this; a named axis method throws.</summary>
 	public sealed record Failed(Axis Axis, string Report, string? Seed = null) : AxisResult(Axis)
 	{
-		public override string ToString() => $"{Axis}: FAILED{(Seed is null ? "" : $" (seed {Seed})")}\n{Report}";
+		/// <summary>The report is already the labelled text an axis writes (it names the axis, the rule, the law and how to replay it).</summary>
+		public bool IsFormatted =>
+			Report.StartsWith($"{Axis} failed", StringComparison.Ordinal) || Report.StartsWith($"{Axis}: the test passed", StringComparison.Ordinal);
+
+		public override string ToString() => IsFormatted ? Report : $"{Axis}: FAILED{(Seed is null ? "" : $" (seed {Seed})")}\n{Report}";
 	}
 
 	/// <summary>Throws when this result is a failure; passes the other results through. For a test that calls <c>AutoTest.Run()</c> and wants one assertion.</summary>

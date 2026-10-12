@@ -1,3 +1,11 @@
-Set seed: "ajrWrHp043-a" or -e CsCheck_Seed=ajrWrHp043-a to reproduce (0 shrinks, 41 skipped, 200 total).
-Order { Lines = [], Status = Pending, Version = 0, Total = 0, Label = "" } | AddRawLine()
-AddRawLine() from Order { Lines = [], Status = Pending, Version = 0, Total = 0, Label = "" } gave Order { Lines = [OrderLine { Sku = "fig", Quantity = 1, Price = -5 }], Status = Pending, Version = 0, Total = -5, Label = "fig" }, which violates: total-never-negative: An order total is never negative.
+Invariant failed.
+
+Rule broken   total-never-negative: An order total is never negative.
+Operation     AddRawLine()
+Started from  Order { Lines = [], Status = Pending, Version = 0, Total = 0, Label = "" }
+Produced      Order { Lines = [OrderLine { Sku = "fig", Quantity = 1, Price = -5 }], Status = Pending, Version = 0, Total = -5, Label = "fig" }
+
+Law           Every generated value satisfies every rule that must hold in every state, and each of those rules can fire.
+Consequence   A value that breaks a stated rule is accepted into the domain, and nothing shows the rule can even be broken.
+
+Smallest case found, after 1 shrink. To run this case again: .Seed("e9UPBu2HDNyc")

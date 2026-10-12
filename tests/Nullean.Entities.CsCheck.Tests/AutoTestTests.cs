@@ -125,7 +125,19 @@ public class AutoTestTests
 		cases.Select(c => c.Axis).Should().Equal(Axis.Invariant, Axis.Idempotency, Axis.Monotonicity, Axis.Conservation, Axis.Vacancy);
 		cases.Single(c => c.Axis == Axis.Invariant).Run().Should().BeOfType<AxisResult.Passed>();
 		var act = () => cases.Single(c => c.Axis == Axis.Monotonicity).Run();
-		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Law: ").And.Contain("Consequence: ").And.Contain("Rewind");
+		act
+			.Should()
+			.Throw<InvalidOperationException>()
+			.Which
+			.Message
+			.Should()
+			.Contain("Law")
+			.And
+			.Contain("Consequence")
+			.And
+			.Contain("Rewind")
+			.And
+			.Contain("Operation");
 	}
 
 	[Test]

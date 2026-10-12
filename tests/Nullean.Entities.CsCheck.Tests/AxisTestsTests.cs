@@ -71,7 +71,7 @@ public class AxisTestsTests
 
 		var act = () => set.Idempotency(Tallies, Plausible);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("increments is not idempotent");
+		act.Should().Throw<Exception>().Which.ToString().Should().Contain("increments").And.Contain("not the same as doing it once");
 	}
 
 	[Test]
@@ -190,7 +190,7 @@ public class AxisTestsTests
 
 		var act = () => set.Confluence(Bags, Plausible);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("first").And.Contain("changed the result");
+		act.Should().Throw<Exception>().Which.ToString().Should().Contain("first").And.Contain("depends on the order");
 	}
 
 	[Test]

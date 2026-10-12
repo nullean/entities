@@ -346,7 +346,11 @@ public sealed partial class AutoTest<T>
 	{
 		var result = Attempt(axis);
 		return result is AxisResult.Failed failed
-			? throw new InvalidOperationException($"{axis} failed.\nLaw: {AxisInfo.Law(axis)}\nConsequence: {AxisInfo.Consequence(axis)}\n{failed.Report}")
+			? throw new InvalidOperationException(
+				failed.IsFormatted
+					? failed.Report
+					: $"{axis} failed.\n\nProblem      {failed.Report}\n\nLaw          {AxisInfo.Law(axis)}\nConsequence  {AxisInfo.Consequence(axis)}"
+			)
 			: result;
 	}
 
@@ -357,7 +361,7 @@ public sealed partial class AutoTest<T>
 	}
 
 	// CsCheck's own "Set seed: "..." or -e CsCheck_Seed=... to reproduce" message: the documented, user-facing reproduction string. Source-generated so it stays AOT-friendly.
-	[GeneratedRegex("Set seed: \"([^\"]+)\"")]
+	[GeneratedRegex("\\.Seed\\(\"([^\"]+)\"\\)")]
 	private static partial Regex SeedPattern();
 }
 

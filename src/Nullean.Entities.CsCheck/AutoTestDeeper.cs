@@ -105,7 +105,10 @@ public sealed partial class AutoTest<T>
 		catch (Exception e) when (e is not OutOfMemoryException)
 		{
 			var law = DeeperCases().First(c => c.ToString() == name);
-			throw new InvalidOperationException($"{axis} failed ({name}).\nLaw: {law.Law}\nConsequence: {law.Consequence}\n{e.Message}", e);
+			throw new InvalidOperationException(
+				AxisReport.Format(axis, new AxisFailure([("Details", e.Message)]), null, $"{axis} ({name})", law.Law, law.Consequence),
+				e
+			);
 		}
 	}
 

@@ -53,7 +53,7 @@ public class DeeperTests
 	{
 		var act = () => Auto().Commutes("Confirm", "Cancel").Cases.Single(c => c.ToString() == "Commutes(Confirm, Cancel)").Run();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("Confluence failed").And.Contain("Law:");
+		act.Should().Throw<Exception>().Which.Message.Should().Contain("Confluence (Commutes(Confirm, Cancel)) failed").And.Contain("Law");
 	}
 }
 ```

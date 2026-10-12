@@ -110,7 +110,7 @@ public class EventAutoTestTests
 	{
 		var act = () => Auto(ships: false).Cases.Single(c => c.Axis == Axis.Temporal).Run();
 
-		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Law: ").And.Contain("Consequence: ");
+		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Law").And.Contain("Consequence").And.Contain("Rule broken");
 	}
 
 	[Test]

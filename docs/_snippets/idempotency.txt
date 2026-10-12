@@ -1,3 +1,11 @@
-Set seed: "0N0XIzNsQ0O2" or -e CsCheck_Seed=0N0XIzNsQ0O2 to reproduce (0 shrinks, 199 skipped, 200 total).
-Order { Lines = [], Status = Pending, Version = 0, Total = 0, Label = "" }
-cancel-is-repeatable is not idempotent: once gave Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" }, twice gave Order { Lines = [], Status = Cancelled, Version = 2, Total = 0, Label = "" }.
+Idempotency failed.
+
+Rule broken   cancel-is-repeatable: doing it twice is not the same as doing it once.
+Started from  Order { Lines = [], Status = Pending, Version = 0, Total = 0, Label = "" }
+Once gave     Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" }
+Twice gave    Order { Lines = [], Status = Cancelled, Version = 2, Total = 0, Label = "" }
+
+Law           Doing an operation twice gives what doing it once gives, for every generated value.
+Consequence   A retry, a double submit or a re-run changes the state a second time, so it ends up different from a single run.
+
+This is the smallest case: nothing smaller failed. To run this case again: .Seed("0N0XIzNsQ0O2")

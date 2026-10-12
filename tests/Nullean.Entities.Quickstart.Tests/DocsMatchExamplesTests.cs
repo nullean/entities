@@ -29,10 +29,20 @@ public partial class DocsMatchExamplesTests
 		var checkedBlocks = 0;
 		foreach (var page in Directory.EnumerateFiles(Path.Combine(root.FullName, "docs"), "*.md", SearchOption.AllDirectories))
 		{
-			foreach (Match match in Fence().Matches(File.ReadAllText(page)))
+			var text = File.ReadAllText(page);
+			foreach (Match match in Fence().Matches(text))
 			{
 				var source = File.ReadAllText(Path.Combine(root.FullName, match.Groups["path"].Value)).TrimEnd();
-				match.Groups["code"].Value.TrimEnd().Should().Be(source, $"{Path.GetFileName(page)} embeds {match.Groups["path"].Value}");
+				if (Environment.GetEnvironmentVariable("NULLEAN_WRITE_OUTPUTS") == "1")
+				{
+					// the same switch that rewrites the failure snippets rewrites the embedded files
+					text = text.Replace(match.Groups["code"].Value, source, StringComparison.Ordinal);
+					File.WriteAllText(page, text);
+				}
+				else
+				{
+					match.Groups["code"].Value.TrimEnd().Should().Be(source, $"{Path.GetFileName(page)} embeds {match.Groups["path"].Value}");
+				}
 				checkedBlocks++;
 			}
 		}

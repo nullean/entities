@@ -49,7 +49,7 @@ public static class ConstraintLaws
 		TimeProvider? time = null,
 		Action<string>? writeLine = null,
 		Action<AutoOptions>? options = null
-	) => CheckLaws(constraints, valid, counterExamples, requireCounterExamples, time, writeLine, options);
+	) => OldLaws(() => CheckLaws(constraints, valid, counterExamples, requireCounterExamples, time, writeLine, options));
 
 	internal static LawsReport CheckLaws<T>(
 		this ConstraintSet<T> constraints,
@@ -161,8 +161,9 @@ public static class ConstraintLaws
 		writeLine?.Invoke(report.ToString());
 		if (failures.Count > 0)
 		{
-			throw new InvalidOperationException(
-				$"The constraint set breaks {failures.Count} law(s):{Environment.NewLine}  - {string.Join($"{Environment.NewLine}  - ", failures)}"
+			throw new AxisFailure(
+				[.. failures.Select(f => ("Problem", f))],
+				legacy: $"The constraint set breaks {failures.Count} law(s):{Environment.NewLine}  - {string.Join($"{Environment.NewLine}  - ", failures)}"
 			);
 		}
 		return report;
@@ -192,7 +193,7 @@ public static class ConstraintLaws
 		TimeProvider? time = null,
 		Action<string>? writeLine = null,
 		Action<AutoOptions>? options = null
-	) => CheckLaws(constraints, valid, counterExamples, samples, derivedFrom, seed, requireCounterExamples, time, writeLine, options);
+	) => OldLaws(() => CheckLaws(constraints, valid, counterExamples, samples, derivedFrom, seed, requireCounterExamples, time, writeLine, options));
 
 	internal static LawsReport CheckLaws<T>(
 		this ConstraintSet<T> constraints,
@@ -384,11 +385,25 @@ public static class ConstraintLaws
 		writeLine?.Invoke(report.ToString());
 		if (failures.Count > 0)
 		{
-			throw new InvalidOperationException(
-				$"The constraint set breaks {failures.Count} law(s) over {values.Count} generated value(s):{Environment.NewLine}  - {string.Join($"{Environment.NewLine}  - ", failures)}"
+			throw new AxisFailure(
+				[.. failures.Select(f => ("Problem", f)), ("Checked", $"{values.Count} generated values")],
+				legacy: $"The constraint set breaks {failures.Count} law(s) over {values.Count} generated value(s):{Environment.NewLine}  - {string.Join($"{Environment.NewLine}  - ", failures)}"
 			);
 		}
 		return report;
+	}
+
+	// the obsolete Laws keeps throwing the sentence it always did
+	private static LawsReport OldLaws(Func<LawsReport> run)
+	{
+		try
+		{
+			return run();
+		}
+		catch (AxisFailure failure)
+		{
+			throw new InvalidOperationException(failure.LegacyText);
+		}
 	}
 
 	// A rule that throws on a value (a null collection it never expected) counts as rejecting it when validated, but its counter-example cannot be checked: look for another.

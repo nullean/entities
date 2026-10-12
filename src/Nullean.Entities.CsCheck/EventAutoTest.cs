@@ -151,11 +151,17 @@ public sealed class EventAutoTest<TSut, TEvent>
 	{
 		var result = Attempt(axis);
 		return result is AxisResult.Failed failed
-			? throw new InvalidOperationException($"{axis} failed.\nLaw: {AxisInfo.Law(axis)}\nConsequence: {AxisInfo.Consequence(axis)}\n{failed.Report}")
+			? throw new InvalidOperationException(
+				failed.IsFormatted
+					? failed.Report
+					: $"{axis} failed.\n\nProblem      {failed.Report}\n\nLaw          {AxisInfo.Law(axis)}\nConsequence  {AxisInfo.Consequence(axis)}"
+			)
 			: result;
 	}
 
-	private AxisResult Attack(Axis? axis)
+	private AxisResult Attack(Axis? axis) => AxisReport.Guard(axis ?? Axis.Vacancy, () => AttackCore(axis));
+
+	private AxisResult AttackCore(Axis? axis)
 	{
 		var picked = _rules.Rules.Where(r => axis is null ? r.Rule.Axis != Axis.Unclassified : r.Rule.Axis == axis).ToList();
 		if (picked.Count == 0)
@@ -169,7 +175,13 @@ public sealed class EventAutoTest<TSut, TEvent>
 		BuildTimedGen(picked).Sample(run => Check(run, set, picked, tally), seed: seed, iter: _samples, print: run => run.Print());
 		var vacuous = Vacuous(picked, tally);
 		return vacuous.Count > 0
-			? throw new VacuousPropertyException($"{axis ?? Axis.Vacancy} passed vacuously:\n{string.Join("\n", vacuous)}")
+			? throw new AxisFailure(
+				[
+					.. vacuous.SelectMany(v => new[] { ("Rule", v.Rule), ("Not exercised because", v.Why) }),
+					("Next", "give the script a step that makes the rule's trigger happen, and (for a deadline) let delays carry a run past it.")
+				],
+				vacuous: true
+			)
 			: new AxisResult.Passed(axis ?? Axis.Vacancy, [.. picked.Select(r => r.Name)], _samples);
 	}
 
@@ -197,23 +209,54 @@ public sealed class EventAutoTest<TSut, TEvent>
 		var report = Trace.Check(events, set, end);
 		if (!report.Passed)
 		{
-			throw new InvalidOperationException(report.ToString());
+			var first = events.Count > 0 ? events[0].At : end;
+			throw new AxisFailure(
+				[
+					.. report.Violations.SelectMany(
+						v =>
+							new[]
+							{
+								("Rule broken", v.Name),
+								("Noticed at", v.Verdict.ViolationAt is { } at ? $"+{(at - first).TotalSeconds:0.###}s" : ""),
+								("What happened", Describe(v.Verdict.ViolationEvidence))
+							}
+					),
+					("Events recorded", events.Count == 0
+						? "none"
+						: string.Join(
+							"\n",
+							events.Select(
+								e => $"+{(e.At - first).TotalSeconds:0.###}s  {ValuePrinter.Print(e.Event).Replace(" {  }", "", StringComparison.Ordinal)}"
+							)
+						))
+				],
+				printedCaseLabel: "Calls made"
+			);
 		}
 	}
 
-	private static List<string> Vacuous(List<(string Name, TemporalRule<TEvent> Rule)> picked, RuleTally tally)
+	// "(Cancelled { }, Shipped { })" reads as "Cancelled, then Shipped"; an empty record prints as its name
+	private static string Describe(object? evidence) =>
+		evidence is System.Runtime.CompilerServices.ITuple pair
+			? string.Join(", then ", Enumerable.Range(0, pair.Length).Select(i => Clean(pair[i])))
+			: Clean(evidence);
+
+	private static string Clean(object? value) =>
+		(value is string text ? text : ValuePrinter.Print(value)).Replace(" {  }", "", StringComparison.Ordinal).Replace(" { }", "", StringComparison.Ordinal);
+
+	private static List<(string Rule, string Why)> Vacuous(List<(string Name, TemporalRule<TEvent> Rule)> picked, RuleTally tally)
 	{
-		var found = new List<string>();
+		var found = new List<(string Rule, string Why)>();
 		for (var i = 0; i < picked.Count; i++)
 		{
 			var (name, rule) = picked[i];
 			if (tally.Triggered[i] == 0)
 			{
-				found.Add($"  {name}: {(rule.Shape.Trigger is null ? "no run recorded any event" : "no run contained an event that opens it")}");
+				found.Add((name, rule.Shape.Trigger is null ? "no run recorded any event" : "no run contained an event that opens it"));
 			}
 			else if (rule.Shape.Window is not null && tally.Crossed[i] == 0)
 			{
-				found.Add($"  {name}: no run went past the {rule.Shape.Window} deadline after a trigger, so it was never able to fail");
+				found.Add((name, $"no run went past the {rule.Shape.Window} deadline after a trigger, so it was never able to fail"));
 			}
 		}
 		return found;

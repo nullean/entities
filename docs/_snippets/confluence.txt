@@ -1,3 +1,11 @@
-Set seed: "2vkjz6t_9473" or -e CsCheck_Seed=2vkjz6t_9473 to reproduce (3 shrinks, 98 skipped, 200 total).
-Order { Lines = [OrderLine { Sku = "pear", Quantity = 1, Price = 2 }, OrderLine { Sku = "apple", Quantity = 4, Price = 8 }], Status = Pending, Version = 2, Total = 34, Label = "apple,pear" } reordered as [1, 0]
-first-sku-is-the-label: listing the items of Order { Lines = [OrderLine { Sku = "pear", Quantity = 1, Price = 2 }, OrderLine { Sku = "apple", Quantity = 4, Price = 8 }], Status = Pending, Version = 2, Total = 34, Label = "apple,pear" } in the order [1, 0] changed the result.
+Confluence failed.
+
+Rule broken         first-sku-is-the-label: the result depends on the order the items are listed in.
+Started from        Order { Lines = [OrderLine { Sku = "apple", Quantity = 2, Price = 1 }, OrderLine { Sku = "pear", Quantity = 4, Price = 5 }], Status = Pending, Version = 2, Total = 22, Label = "apple,pear" }
+Items reordered as  [1, 0] (positions in the original list)
+Result              different from the original order's
+
+Law                 The order things arrive in does not change the result.
+Consequence         Two runs over the same inputs publish different outputs depending only on the order they were listed in.
+
+Smallest case found, after 5 shrinks. To run this case again: .Seed("d4FI-20FNGe2")
