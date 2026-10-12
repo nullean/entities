@@ -46,10 +46,10 @@ public static class AxisInfo
 }
 
 /// <summary>One axis as one test: its law and consequence for the failure message, and how to run it. <see cref="Run"/> throws when the axis fails.</summary>
-public sealed record AxisCase(Axis Axis, string Law, string Consequence, Func<AxisResult> Run)
+public sealed record AxisCase(Axis Axis, string Law, string Consequence, Func<AxisResult> Run, string? Name = null)
 {
-	/// <summary>The axis name, so a test framework displays one test per axis.</summary>
-	public override string ToString() => Axis.ToString();
+	/// <summary>The axis name (or the name of the deeper technique), so a test framework displays one test per case.</summary>
+	public override string ToString() => Name ?? Axis.ToString();
 }
 
 /// <summary>What every axis did for one type: a result per axis, and the rules no axis can attack because nothing declares their shape.</summary>
@@ -113,6 +113,9 @@ public sealed partial class AutoTest<T>
 	private readonly IReadOnlyList<Func<AutoMode, AutoAction<T>>> _makers;
 	private readonly AxisRun _settings;
 	private readonly IReadOnlyList<Axis> _required;
+	private readonly EntityActions<T>? _entityActions;
+	private readonly Func<EntitySpec<T>, EntitySpec<T>>? _deeper;
+	private readonly IReadOnlyList<(string First, string Second)> _commutes;
 
 	internal AutoTest(ConstraintSet<T> constraints, Gen<T>? valid, EntityActions<T>? actions)
 	{
@@ -122,6 +125,8 @@ public sealed partial class AutoTest<T>
 		_counterExamples = new Dictionary<string, Func<T, T>>();
 		_makers = actions is null ? [] : [.. actions.Select(a => (Func<AutoMode, AutoAction<T>>)(data => AutoAction.From(a, data)))];
 		_required = [];
+		_entityActions = actions;
+		_commutes = [];
 	}
 
 	private AutoTest(
@@ -129,7 +134,9 @@ public sealed partial class AutoTest<T>
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
 		IReadOnlyList<Func<AutoMode, AutoAction<T>>>? makers = null,
 		AxisRun? settings = null,
-		IReadOnlyList<Axis>? required = null
+		IReadOnlyList<Axis>? required = null,
+		Func<EntitySpec<T>, EntitySpec<T>>? deeper = null,
+		IReadOnlyList<(string First, string Second)>? commutes = null
 	)
 	{
 		_constraints = from._constraints;
@@ -138,6 +145,9 @@ public sealed partial class AutoTest<T>
 		_makers = makers ?? from._makers;
 		_settings = settings ?? from._settings;
 		_required = required ?? from._required;
+		_entityActions = from._entityActions;
+		_deeper = deeper ?? from._deeper;
+		_commutes = commutes ?? from._commutes;
 	}
 
 	private Gen<T> CurrentValid => _valid ?? GenAuto.Of<T>(_settings.Data, _settings.Options).Valid(_constraints, _settings.Time);
@@ -270,7 +280,7 @@ public sealed partial class AutoTest<T>
 	public AutoTestReport Report()
 	{
 		var unclassified = _constraints.AsConstraints().Where(c => c.Axis == Axis.Unclassified).Select(c => c.Name ?? c.Shape.Factory ?? "unnamed rule");
-		return new AutoTestReport([.. Axes.Select(Attempt)], [.. unclassified]);
+		return new AutoTestReport([.. Axes.Select(Attempt), .. DeeperCases().Select(AttemptDeeper)], [.. unclassified]);
 	}
 
 	/// <summary>Runs every axis, writes the report to <see cref="Output"/>, and throws one exception listing every axis that failed.</summary>
@@ -288,7 +298,8 @@ public sealed partial class AutoTest<T>
 	public IReadOnlyList<AxisCase> Cases =>
 		[
 			.. Axes.Where(a => IsDeclared(a) || _required.Contains(a))
-				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => RunCase(a)))
+				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => RunCase(a))),
+			.. DeeperCases()
 		];
 
 	/// <summary>

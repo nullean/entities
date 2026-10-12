@@ -29,6 +29,7 @@ toc:
       - file: adopting.md
       - file: counter-examples.md
       - file: time.md
+      - file: deeper.md
       - file: rollout.md
   - file: integration.md
   - folder: reference
