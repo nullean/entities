@@ -229,13 +229,16 @@ public sealed partial class AutoTest<T>
 
 	/// <summary>
 	/// For each rule: the counter-example you gave, one the search found (with a short description of the change), or none.
-	/// Run it once on a new type to see what you still have to write.
+	/// Run it once on a new type to see what you still have to write. With <paramref name="alsoSearchGiven"/>, a rule you gave one for also says what the search finds for it
+	/// (<see cref="CounterExampleLine.Description"/> is then set on a <see cref="CounterExampleKind.Given"/> line), so the ones the search would have found can be dropped.
 	/// </summary>
-	public CounterExampleReport CounterExampleReport()
+	public CounterExampleReport CounterExampleReport(bool alsoSearchGiven = false)
 	{
 		var rules = _constraints.AsConstraints().Where(c => c.Name is not null).ToList();
-		var given = rules.Where(c => _counterExamples.ContainsKey(c.Name!)).Select(c => c.Name!).ToList();
-		var wanted = rules.Where(c => !_counterExamples.ContainsKey(c.Name!)).Select(c => c.Name!).ToList();
+		List<string> given = [.. rules.Where(c => _counterExamples.ContainsKey(c.Name!)).Select(c => c.Name!)];
+		List<string> wanted = alsoSearchGiven
+			? [.. rules.Select(c => c.Name!)]
+			: [.. rules.Where(c => !_counterExamples.ContainsKey(c.Name!)).Select(c => c.Name!)];
 		var bases = new List<T>();
 		var valid = CurrentValid;
 		for (var i = 0; i < 25; i++)
@@ -244,9 +247,20 @@ public sealed partial class AutoTest<T>
 		}
 		var found = CounterExampleSearch.Find(_constraints, bases, wanted, _settings.Time, _settings.Options);
 		return new CounterExampleReport([
-			.. given.Select(n => new CounterExampleLine(n, CounterExampleKind.Given, null, [])),
-			.. wanted.Where(found.ContainsKey).Select(n => new CounterExampleLine(n, CounterExampleKind.Found, found[n].Description, found[n].Overlaps)),
-			.. wanted.Where(n => !found.ContainsKey(n)).Select(n => new CounterExampleLine(n, CounterExampleKind.None, null, []))
+			.. given.Select(
+				n =>
+					new CounterExampleLine(
+						n,
+						CounterExampleKind.Given,
+						found.TryGetValue(n, out var also) ? also.Description : null,
+						found.TryGetValue(n, out var overlap) ? overlap.Overlaps : []
+					)
+			),
+			.. wanted
+				.Except(given)
+				.Where(found.ContainsKey)
+				.Select(n => new CounterExampleLine(n, CounterExampleKind.Found, found[n].Description, found[n].Overlaps)),
+			.. wanted.Except(given).Where(n => !found.ContainsKey(n)).Select(n => new CounterExampleLine(n, CounterExampleKind.None, null, []))
 		]);
 	}
 

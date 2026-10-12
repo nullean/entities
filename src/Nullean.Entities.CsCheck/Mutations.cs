@@ -205,7 +205,7 @@ internal static class CounterExampleSearch
 	}
 
 	// The rules the change breaks. A rule that throws on a value it never expected (a null member) is left out rather than ruling the whole change out: it cannot be the one this counter-example is for.
-	private static List<string> BrokenBy<T>(ConstraintSet<T> constraints, T before, T after, TimeProvider? time)
+	internal static List<string> BrokenBy<T>(ConstraintSet<T> constraints, T before, T after, TimeProvider? time)
 	{
 		try
 		{

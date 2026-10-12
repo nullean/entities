@@ -275,7 +275,7 @@ public static class ConstraintLaws
 		foreach (var constraint in all.Where(c => c.Name is not null))
 		{
 			var name = constraint.Name!;
-			var attempts = new List<(T Base, T Broken, string How, bool OverlapAllowed)>();
+			var attempts = new List<(T Base, T Broken, string How, bool Searched)>();
 			if (counterExamples is not null && counterExamples.TryGetValue(name, out var make))
 			{
 				try
@@ -306,7 +306,7 @@ public static class ConstraintLaws
 								b =>
 									(b, mutant.Apply(
 										b
-									), $"found: {mutant.Description}{(mutant.Overlaps.Count > 0 ? $" (also breaks {string.Join(", ", mutant.Overlaps)})" : "")}", mutant.Overlaps.Count > 0)
+									), $"found: {mutant.Description}{(mutant.Overlaps.Count > 0 ? $" (also breaks {string.Join(", ", mutant.Overlaps)})" : "")}", true)
 							)
 						);
 					}
@@ -334,23 +334,29 @@ public static class ConstraintLaws
 
 			var reached = 0;
 			string? firstIssue = null;
-			foreach (var (baseValue, broken, how, overlapAllowed) in attempts)
+			foreach (var (baseValue, broken, how, searched) in attempts)
 			{
 				List<string> ids;
 				try
 				{
-					ids = [.. constraints.Check(baseValue, broken, time).Select(v => v.ConstraintId ?? "?").Distinct()];
+					ids = searched
+						? [.. CounterExampleSearch.BrokenBy(constraints, baseValue, broken, time).Distinct()]
+						: [.. constraints.Check(baseValue, broken, time).Select(v => v.ConstraintId ?? "?").Distinct()];
 				}
 				catch (Exception e) when (e is not OutOfMemoryException)
 				{
-					firstIssue ??= $"{name}: checking its counter-example threw {e.GetType().Name}: {e.Message}";
+					// a counter-example the search chose was checked on a few values; on another, some rule may throw on it (a null member it never expected): skip that value
+					if (!searched)
+					{
+						firstIssue ??= $"{name}: checking its counter-example threw {e.GetType().Name}: {e.Message}";
+					}
 					continue;
 				}
 				if (!ids.Contains(name))
 				{
 					continue;
 				}
-				if (ids.Count > 1 && !overlapAllowed)
+				if (ids.Count > 1 && !searched)
 				{
 					firstIssue ??=
 						$"{name}: its counter-example ({how}), derived from {ValuePrinter.Print(baseValue)}, also breaks {string.Join(", ", ids.Where(i => i != name))}, so a failure would not point at one cause.";
