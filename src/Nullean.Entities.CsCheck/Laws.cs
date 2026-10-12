@@ -306,7 +306,7 @@ public static class ConstraintLaws
 								b =>
 									(b, mutant.Apply(
 										b
-									), $"found: {mutant.Source}{(mutant.Overlaps.Count > 0 ? $" (also breaks {string.Join(", ", mutant.Overlaps)})" : "")}", mutant.Overlaps.Count > 0)
+									), $"found: {mutant.Description}{(mutant.Overlaps.Count > 0 ? $" (also breaks {string.Join(", ", mutant.Overlaps)})" : "")}", mutant.Overlaps.Count > 0)
 							)
 						);
 					}

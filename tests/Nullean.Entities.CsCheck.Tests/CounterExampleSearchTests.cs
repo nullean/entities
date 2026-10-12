@@ -40,13 +40,13 @@ public class CounterExampleSearchTests
 	}
 
 	[Test]
-	public void A_found_counter_example_is_said_as_pasteable_csharp()
+	public void A_found_counter_example_is_described_in_a_few_plain_words()
 	{
 		var report = Rules().Laws(SearchShops);
 
 		var text = string.Join("\n", report.Results.Select(r => r.CounterExample));
-		text.Should().Contain("e => e with { Tags = [.. e.Tags, e.Tags.First()] }");
-		text.Should().Contain("e => e with { Owner = e.Owner with { Label =");
+		text.Should().Contain("Tags: copy the first item");
+		text.Should().Contain("Owner.Label = ");
 	}
 
 	internal sealed record SearchDoc(bool IsDraft, string Slug, string Title, IReadOnlyDictionary<string, SearchOwner> Owners);
@@ -75,8 +75,8 @@ public class CounterExampleSearchTests
 
 		report.Missing.Should().BeEmpty();
 		var text = report.ToString();
-		text.Should().Contain("e => { e = e with { IsDraft = true }; return e with { Slug = \"\" }; }");
-		text.Should().Contain("Title = null!");
+		text.Should().Contain("IsDraft = True, then Slug = \"\"");
+		text.Should().Contain("Title = null");
 	}
 
 	[Test]

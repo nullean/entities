@@ -272,9 +272,7 @@ public static class AxisTests
 			Axis.Vacancy,
 			[.. all.Select(Name)],
 			settings.Samples,
-			searched == 0
-				? null
-				: $"({searched} counter-example{(searched == 1 ? "" : "s")} found by search; AutoTest.CounterExampleReport() lists them as code to paste)"
+			searched == 0 ? null : $"({searched} counter-example{(searched == 1 ? "" : "s")} found by search; AutoTest.CounterExampleReport() lists them)"
 		);
 	}
 

@@ -3,16 +3,13 @@
 // A counter-example is a valid value changed so that exactly one rule breaks. Most of them are mechanical: a member set to null or blank, a member taken from
 // another valid value, an item added, copied or removed, two members swapped, one level or three down. A rule that only applies when a guard is true gets a
 // second step: first make the guard true, then break the requirement. This tries those steps from valid values, keeps the first that breaks one rule and no
-// other on every base it is tried on (or, failing that, the one that breaks the fewest others), and says it as C# a reviewer can read and paste.
+// other on every base it is tried on (or, failing that, the one that breaks the fewest others), and says in a few words what it changed.
 // What is left is the part only the author knows.
-
-using System.Globalization;
-using System.Text;
 
 namespace Nullean.Entities.CsCheck;
 
-/// <summary>A counter-example the search found: how to apply it to any valid value, the C# that says it, and the other rules it breaks too (none when it breaks only the one asked for).</summary>
-internal sealed record Mutant<T>(Func<T, T> Apply, string Source, bool Pasteable, IReadOnlyList<string> Overlaps);
+/// <summary>A counter-example the search found: how to apply it to any valid value, a short description of the change, and the other rules it breaks too (none when it breaks only the one asked for).</summary>
+internal sealed record Mutant<T>(Func<T, T> Apply, string Description, IReadOnlyList<string> Overlaps);
 
 internal static class CounterExampleSearch
 {
@@ -78,9 +75,9 @@ internal static class CounterExampleSearch
 		{
 			var options = new AutoOptions { Mode = AutoMode.Adversarial };
 			return [
-				.. Steps(new AutoBuilder(options), options, type, value, "e", 0, [])
+				.. Steps(new AutoBuilder(options), options, type, value, "", 0, [])
 					.OrderBy(s => s.Cost)
-					.GroupBy(s => Member(s.Source))
+					.GroupBy(s => Member(s.Description))
 					.Select(g => g.Take(24).Select(s => s.Apply).ToList())
 			];
 		}
@@ -94,9 +91,9 @@ internal static class CounterExampleSearch
 	private const int MaxDepth = 3;
 	private const int MaxGuardSteps = 24;
 
-	private sealed record Candidate<T>(Func<T, T> Apply, string Source, bool Pasteable);
+	private sealed record Candidate<T>(Func<T, T> Apply, string Description);
 
-	internal sealed record Step(Func<object?, object?> Apply, string Source, bool Pasteable, int Cost);
+	internal sealed record Step(Func<object?, object?> Apply, string Description, int Cost);
 
 	/// <summary>For each rule in <paramref name="wanted"/>, a mutant that breaks it: alone when one exists, else with the fewest other rules. Rules nothing found are absent.</summary>
 	public static IReadOnlyDictionary<string, Mutant<T>> Find<T>(
@@ -120,10 +117,9 @@ internal static class CounterExampleSearch
 			return found;
 		}
 		var tried = bases.Take(MaxBases).ToList();
-		var isRecord = typeof(T).GetMethod("<Clone>$") is not null;
 		var fallback = new Dictionary<string, Mutant<T>>();
 
-		var singles = Candidates<T>(builder, options, tried[0]!, [.. tried.Skip(1).Cast<object?>()], isRecord).ToList();
+		var singles = Candidates<T>(builder, options, tried[0]!, [.. tried.Skip(1).Cast<object?>()]).ToList();
 		foreach (var candidate in singles)
 		{
 			Consider(constraints, tried, candidate, wanted, time, found, fallback);
@@ -137,7 +133,7 @@ internal static class CounterExampleSearch
 			c => c.Name is not null && c.Guard is not null && wanted.Contains(c.Name) && !found.ContainsKey(c.Name)
 		))
 		{
-			foreach (var second in GuardedCandidates(builder, options, rule.Guard!, singles, tried, isRecord))
+			foreach (var second in GuardedCandidates(builder, options, rule.Guard!, singles, tried))
 			{
 				Consider(constraints, tried, second, [rule.Name!], time, found, fallback);
 				if (found.ContainsKey(rule.Name!))
@@ -171,7 +167,7 @@ internal static class CounterExampleSearch
 		foreach (var name in broken.Where(wanted.Contains))
 		{
 			var overlaps = broken.Where(n => n != name).ToList();
-			var mutant = new Mutant<T>(candidate.Apply, candidate.Source, candidate.Pasteable, overlaps);
+			var mutant = new Mutant<T>(candidate.Apply, candidate.Description, overlaps);
 			if (overlaps.Count == 0)
 			{
 				found.TryAdd(name, mutant);
@@ -238,8 +234,7 @@ internal static class CounterExampleSearch
 		AutoOptions options,
 		Func<T, bool> guard,
 		List<Candidate<T>> singles,
-		List<T> bases,
-		bool isRecord
+		List<T> bases
 	)
 	{
 		var openers = singles.Where(s => SafeGuard(guard, s.Apply, bases[0])).Take(MaxGuardSteps).ToList();
@@ -254,19 +249,13 @@ internal static class CounterExampleSearch
 			{
 				continue;
 			}
-			foreach (var second in Candidates<T>(builder, options, opened!, [], isRecord))
+			foreach (var second in Candidates<T>(builder, options, opened!, []))
 			{
 				var (a, b) = (first.Apply, second.Apply);
-				yield return new Candidate<T>(
-					v => b(a(v)),
-					$"e => {{ e = {Body(first.Source)}; return {Body(second.Source)}; }}",
-					first.Pasteable && second.Pasteable
-				);
+				yield return new Candidate<T>(v => b(a(v)), $"{first.Description}, then {second.Description}");
 			}
 		}
 	}
-
-	private static string Body(string lambda) => lambda.StartsWith("e => ", StringComparison.Ordinal) ? lambda["e => ".Length..] : lambda;
 
 	private static bool SafeGuard<T>(Func<T, bool> guard, Func<T, T> apply, T value)
 	{
@@ -280,25 +269,30 @@ internal static class CounterExampleSearch
 		}
 	}
 
-	private static IEnumerable<Candidate<T>> Candidates<T>(AutoBuilder builder, AutoOptions options, object sample, List<object?> donors, bool isRecord)
+	private static IEnumerable<Candidate<T>> Candidates<T>(AutoBuilder builder, AutoOptions options, object sample, List<object?> donors)
 	{
 		// the cheapest first: one member to an edge value, then taken from another value, then a collection edited, then two members swapped; each also one to three levels down
-		foreach (var step in Steps(builder, options, typeof(T), sample, "e", 0, donors).OrderBy(step => step.Cost))
+		foreach (var step in Steps(builder, options, typeof(T), sample, "", 0, donors).OrderBy(step => step.Cost))
 		{
 			var apply = step.Apply;
-			yield return new Candidate<T>(v => (T)apply(v)!, $"e => {step.Source}", isRecord && step.Pasteable);
+			yield return new Candidate<T>(v => (T)apply(v)!, step.Description);
 		}
 	}
 
-	// "e with { Name = ..." -> "Name": the member a step changes, so a perturbation can pick a member first and a change to it second
-	private static string Member(string source)
+	// "Name = ..." or "Owner.Label = ..." -> "Name" / "Owner": the member a step changes, so a perturbation can pick a member first and a change to it second
+	private static string Member(string description)
 	{
-		var open = source.IndexOf("with { ", StringComparison.Ordinal);
-		var equals = open < 0 ? -1 : source.IndexOf(" =", open, StringComparison.Ordinal);
-		return open < 0 || equals < 0 ? source : source[(open + 7)..equals];
+		var end = 0;
+		while (end < description.Length && (char.IsLetterOrDigit(description[end]) || description[end] == '_'))
+		{
+			end++;
+		}
+		return description[..end];
 	}
 
-	internal static IEnumerable<Step> Steps(AutoBuilder builder, AutoOptions options, Type type, object sample, string expr, int depth, List<object?> donors)
+	private static string At(string path, string name) => path.Length == 0 ? name : $"{path}.{name}";
+
+	internal static IEnumerable<Step> Steps(AutoBuilder builder, AutoOptions options, Type type, object sample, string path, int depth, List<object?> donors)
 	{
 		ObjectPlan plan;
 		object?[]? args;
@@ -315,7 +309,6 @@ internal static class CounterExampleSearch
 		{
 			yield break;
 		}
-		var isRecord = type.GetMethod("<Clone>$") is not null;
 
 		object? Rebuild(object? value, Func<object?[], object?[]> change) => value is null ? null : plan.Construct(change(plan.ReadArgs(value)!));
 
@@ -335,13 +328,7 @@ internal static class CounterExampleSearch
 			foreach (var edge in edges.Concat(alternatives).Concat(Nearby(args[i])).Distinct())
 			{
 				var value = edge;
-				var literal = CSharp.Literal(value);
-				yield return new Step(
-					v => Rebuild(v, a => With(a, index, value)),
-					$"{expr} with {{ {name} = {literal ?? $"/* {name}: an edge value */ default!"} }}",
-					isRecord && literal is not null,
-					weight
-				);
+				yield return new Step(v => Rebuild(v, a => With(a, index, value)), $"{At(path, name)} = {ValuePrinter.Print(value)}", weight);
 			}
 			foreach (var donor in donors)
 			{
@@ -350,25 +337,14 @@ internal static class CounterExampleSearch
 				{
 					continue;
 				}
-				var literal = CSharp.Literal(donated);
-				yield return new Step(
-					v => Rebuild(v, a => With(a, index, donated)),
-					$"{expr} with {{ {name} = {literal ?? $"/* {name} taken from another valid value */ default!"} }}",
-					isRecord && literal is not null,
-					weight + 1
-				);
+				yield return new Step(v => Rebuild(v, a => With(a, index, donated)), $"{At(path, name)} taken from another valid value", weight + 1);
 			}
 			if (AutoBuilder.TryCollection(plan.Types[i], out var element))
 			{
 				var (type1, element1) = (plan.Types[i], element);
-				foreach (var (_, source, edit) in CollectionEdits($"{expr}.{name}"))
+				foreach (var (how, edit) in CollectionEdits())
 				{
-					yield return new Step(
-						v => Rebuild(v, a => With(a, index, Edit(type1, element1, a[index], edit))),
-						$"{expr} with {{ {name} = {source} }}",
-						isRecord,
-						weight + 2
-					);
+					yield return new Step(v => Rebuild(v, a => With(a, index, Edit(type1, element1, a[index], edit))), $"{At(path, name)}: {how}", weight + 2);
 				}
 			}
 			if (AutoBuilder.TryDictionary(plan.Types[i], out var keyType, out var valueType) && args[i] is not null)
@@ -380,8 +356,7 @@ internal static class CounterExampleSearch
 							v,
 							a => With(a, index, AutoBuilder.MaterializeDictionary(dictType, keyType1, valueType1, [.. DictionaryPairs(a[index]).Skip(1)]))
 						),
-					$"{expr} with {{ {name} = /* {expr}.{name} without its first entry */ default! }}",
-					false,
+					$"{At(path, name)}: without its first entry",
 					weight + 2
 				);
 			}
@@ -389,15 +364,10 @@ internal static class CounterExampleSearch
 			{
 				continue;
 			}
-			foreach (var inner in Descend(builder, options, plan.Types[i], member, $"{expr}.{name}", depth + 1))
+			foreach (var inner in Descend(builder, options, plan.Types[i], member, At(path, name), depth + 1))
 			{
 				var innerApply = inner.Apply;
-				yield return new Step(
-					v => Rebuild(v, a => With(a, index, innerApply(a[index]))),
-					$"{expr} with {{ {name} = {inner.Source} }}",
-					isRecord && inner.Pasteable,
-					inner.Cost
-				);
+				yield return new Step(v => Rebuild(v, a => With(a, index, innerApply(a[index]))), inner.Description, inner.Cost);
 			}
 		}
 		for (var i = 0; i < plan.Names.Length; i++)
@@ -411,8 +381,7 @@ internal static class CounterExampleSearch
 				var (a0, b0, na, nb) = (i, j, plan.Names[i], plan.Names[j]);
 				yield return new Step(
 					v => Rebuild(v, a => { var swapped = (object?[])a.Clone(); (swapped[a0], swapped[b0]) = (swapped[b0], swapped[a0]); return swapped; }),
-					$"{expr} with {{ {na} = {expr}.{nb}, {nb} = {expr}.{na} }}",
-					isRecord,
+					$"{At(path, na)} and {At(path, nb)} swapped",
 					weight + 3
 				);
 			}
@@ -420,7 +389,7 @@ internal static class CounterExampleSearch
 	}
 
 	// the same steps applied to a member's value: the object itself, the first item of a collection, or the first value of a dictionary
-	private static IEnumerable<Step> Descend(AutoBuilder builder, AutoOptions options, Type type, object member, string expr, int depth)
+	private static IEnumerable<Step> Descend(AutoBuilder builder, AutoOptions options, Type type, object member, string path, int depth)
 	{
 		if (type == typeof(string) || type.IsPrimitive || type.IsEnum)
 		{
@@ -433,7 +402,7 @@ internal static class CounterExampleSearch
 			{
 				yield break;
 			}
-			foreach (var inner in Descend(builder, options, element, head, $"{expr}.First()", depth))
+			foreach (var inner in Descend(builder, options, element, head, $"{path}[first]", depth))
 			{
 				var innerApply = inner.Apply;
 				yield return new Step(
@@ -446,8 +415,7 @@ internal static class CounterExampleSearch
 						}
 						return AutoBuilder.Materialize(type, element, list);
 					},
-					$"[{inner.Source}, .. {expr}.Skip(1)]",
-					inner.Pasteable,
+					inner.Description,
 					inner.Cost + 4
 				);
 				// or leave the first item alone and add a changed copy of it: a second product with another target, a second page with the same path
@@ -461,8 +429,7 @@ internal static class CounterExampleSearch
 						}
 						return AutoBuilder.Materialize(type, element, list);
 					},
-					$"[.. {expr}, {inner.Source}]",
-					inner.Pasteable,
+					$"{path}: add a copy of the first item with {inner.Description}",
 					inner.Cost + 5
 				);
 			}
@@ -475,7 +442,7 @@ internal static class CounterExampleSearch
 			{
 				yield break;
 			}
-			foreach (var inner in Descend(builder, options, valueType, first, $"{expr}.Values.First()", depth))
+			foreach (var inner in Descend(builder, options, valueType, first, $"{path}[first]", depth))
 			{
 				var innerApply = inner.Apply;
 				yield return new Step(
@@ -488,14 +455,13 @@ internal static class CounterExampleSearch
 						}
 						return AutoBuilder.MaterializeDictionary(type, keyType, valueType, list);
 					},
-					$"/* the first entry of {expr}: {inner.Source} */ {expr}",
-					false,
+					inner.Description,
 					inner.Cost + 5
 				);
 			}
 			yield break;
 		}
-		foreach (var inner in Steps(builder, options, type, member, expr, depth, []))
+		foreach (var inner in Steps(builder, options, type, member, path, depth, []))
 		{
 			yield return inner with { Cost = inner.Cost + 3 };
 		}
@@ -556,98 +522,17 @@ internal static class CounterExampleSearch
 		return copy;
 	}
 
-	private static IEnumerable<(string How, string Source, Func<List<object?>, List<object?>> Edit)> CollectionEdits(string path)
+	private static IEnumerable<(string How, Func<List<object?>, List<object?>> Edit)> CollectionEdits()
 	{
-		yield return ("copy the first item", $"[.. {path}, {path}.First()]", items => items.Count == 0 ? items : [.. items, items[0]]);
-		yield return ("remove the first item", $"[.. {path}.Skip(1)]", items => items.Count == 0 ? items : [.. items.Skip(1)]);
-		yield return ("remove the last item", $"[.. {path}.SkipLast(1)]", items => items.Count == 0 ? items : [.. items.SkipLast(1)]);
-		yield return ("reverse", $"[.. Enumerable.Reverse({path})]", items => items.Count < 2 ? items : [.. Enumerable.Reverse(items)]);
+		yield return ("copy the first item", items => items.Count == 0 ? items : [.. items, items[0]]);
+		yield return ("remove the first item", items => items.Count == 0 ? items : [.. items.Skip(1)]);
+		yield return ("remove the last item", items => items.Count == 0 ? items : [.. items.SkipLast(1)]);
+		yield return ("reverse", items => items.Count < 2 ? items : [.. Enumerable.Reverse(items)]);
 	}
 
 	private static object? Edit(Type type, Type element, object? current, Func<List<object?>, List<object?>> edit)
 	{
 		var items = current is System.Collections.IEnumerable all ? all.Cast<object?>().ToList() : [];
 		return AutoBuilder.Materialize(type, element, edit(items));
-	}
-}
-
-/// <summary>Values as C# source, for the counter-examples the search found. A value with no literal form is null, and the caller says so in a comment.</summary>
-internal static class CSharp
-{
-	public static string? Literal(object? value) => value switch
-	{
-		null => "null!",
-		string s => Quote(s),
-		bool b => b ? "true" : "false",
-		int i =>
-			i switch
-			{
-				int.MaxValue => "int.MaxValue",
-				int.MinValue => "int.MinValue",
-				_ => i.ToString(CultureInfo.InvariantCulture)
-			},
-		long l =>
-			l switch
-			{
-				long.MaxValue => "long.MaxValue",
-				long.MinValue => "long.MinValue",
-				_ => l.ToString(CultureInfo.InvariantCulture) + "L"
-			},
-		short sh => $"(short){sh.ToString(CultureInfo.InvariantCulture)}",
-		byte by => $"(byte){by.ToString(CultureInfo.InvariantCulture)}",
-		double d =>
-			double.IsNaN(d)
-				? "double.NaN"
-				: double.IsPositiveInfinity(d)
-					? "double.PositiveInfinity"
-					: double.IsNegativeInfinity(d) ? "double.NegativeInfinity" : d.ToString("R", CultureInfo.InvariantCulture) + "d",
-		float f => float.IsNaN(f) ? "float.NaN" : f.ToString("R", CultureInfo.InvariantCulture) + "f",
-		decimal m => m.ToString(CultureInfo.InvariantCulture) + "m",
-		Guid g => g == Guid.Empty ? "Guid.Empty" : $"Guid.Parse(\"{g}\")",
-		char c => $"'{(c == '\'' ? "\\'" : c.ToString())}'",
-		Enum e =>
-			Enum.IsDefined(e.GetType(), e)
-				? $"{e.GetType().Name}.{e}"
-				: $"({e.GetType().Name}){Convert.ToInt64(e, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)}",
-		DateTime dt when dt == default => "default",
-		DateTimeOffset dto when dto == default => "default",
-		System.Collections.IEnumerable items when value is not string => Collection(items),
-		_ => null
-	};
-
-	private static string? Collection(System.Collections.IEnumerable items)
-	{
-		var parts = new List<string>();
-		foreach (var item in items)
-		{
-			if (Literal(item) is not { } literal)
-			{
-				return null;
-			}
-			parts.Add(literal);
-		}
-		return parts.Count == 0 ? "[]" : $"[{string.Join(", ", parts)}]";
-	}
-
-	private static string Quote(string s)
-	{
-		var sb = new StringBuilder("\"");
-		foreach (var c in s)
-		{
-			sb.Append(c switch
-			{
-				'"' => "\\\"",
-				'\\' => "\\\\",
-				'\n' => "\\n",
-				'\r' => "\\r",
-				'\t' => "\\t",
-				'\0' => "\\0",
-				_ when char.IsControl(c) || char.IsSurrogate(c) || (c != ' ' && char.GetUnicodeCategory(
-					c
-				) is UnicodeCategory.Format or UnicodeCategory.SpaceSeparator) => string.Create(CultureInfo.InvariantCulture, $"\\u{(int)c:X4}"),
-				_ => c.ToString()
-			});
-		}
-		return sb.Append('"').ToString();
 	}
 }

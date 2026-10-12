@@ -228,7 +228,7 @@ public sealed partial class AutoTest<T>
 	public AxisResult Vacancy() => _constraints.Vacancy(CurrentValid, _counterExamples, _settings);
 
 	/// <summary>
-	/// For each rule: the counter-example you gave, one the search found (with the C# that says it, to paste into <see cref="CounterExamples(IReadOnlyDictionary{string, Func{T, T}})"/>), or none.
+	/// For each rule: the counter-example you gave, one the search found (with a short description of the change), or none.
 	/// Run it once on a new type to see what you still have to write.
 	/// </summary>
 	public CounterExampleReport CounterExampleReport()
@@ -245,7 +245,7 @@ public sealed partial class AutoTest<T>
 		var found = CounterExampleSearch.Find(_constraints, bases, wanted, _settings.Time, _settings.Options);
 		return new CounterExampleReport([
 			.. given.Select(n => new CounterExampleLine(n, CounterExampleKind.Given, null, [])),
-			.. wanted.Where(found.ContainsKey).Select(n => new CounterExampleLine(n, CounterExampleKind.Found, found[n].Source, found[n].Overlaps)),
+			.. wanted.Where(found.ContainsKey).Select(n => new CounterExampleLine(n, CounterExampleKind.Found, found[n].Description, found[n].Overlaps)),
 			.. wanted.Where(n => !found.ContainsKey(n)).Select(n => new CounterExampleLine(n, CounterExampleKind.None, null, []))
 		]);
 	}
@@ -349,13 +349,13 @@ public enum CounterExampleKind
 	None
 }
 
-/// <summary>One rule, and where its counter-example comes from. <paramref name="Source"/> is C# a reviewer can read and paste, when the search found one; <paramref name="Overlaps"/> are the other rules it breaks too.</summary>
-public sealed record CounterExampleLine(string Rule, CounterExampleKind Kind, string? Source, IReadOnlyList<string> Overlaps);
+/// <summary>One rule, and where its counter-example comes from. <paramref name="Description"/> says in a few words what the search changed, when it found one; <paramref name="Overlaps"/> are the other rules it breaks too.</summary>
+public sealed record CounterExampleLine(string Rule, CounterExampleKind Kind, string? Description, IReadOnlyList<string> Overlaps);
 
 /// <summary>What <c>AutoTest.CounterExampleReport()</c> found: how many rules still need a counter-example, and the ones the search wrote for you.</summary>
 public sealed record CounterExampleReport(IReadOnlyList<CounterExampleLine> Lines)
 {
-	private static string OverlapNote(CounterExampleLine line) => line.Overlaps.Count == 0 ? "" : " // also breaks " + string.Join(", ", line.Overlaps);
+	private static string OverlapNote(CounterExampleLine line) => line.Overlaps.Count == 0 ? "" : " (also breaks " + string.Join(", ", line.Overlaps) + ")";
 
 	public IReadOnlyList<string> Missing => [.. Lines.Where(l => l.Kind == CounterExampleKind.None).Select(l => l.Rule)];
 
@@ -366,7 +366,7 @@ public sealed record CounterExampleReport(IReadOnlyList<CounterExampleLine> Line
 					l.Kind switch
 					{
 						CounterExampleKind.Given => $"{l.Rule}: given",
-						CounterExampleKind.Found => $"[\"{l.Rule}\"] = {l.Source},{OverlapNote(l)}",
+						CounterExampleKind.Found => $"{l.Rule}: found ({l.Description}){OverlapNote(l)}",
 						_ => $"{l.Rule}: NONE FOUND, write one"
 					})
 		);
