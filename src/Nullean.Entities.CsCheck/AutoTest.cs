@@ -131,7 +131,7 @@ public sealed partial class AutoTest<T>
 		_ops = [];
 		_steps = (1, 5);
 		_constraints = constraints;
-		_settings = new AxisRun(Data: AutoMode.Plausible, CounterExamplesRequired: subject is null);
+		_settings = new AxisRun(Data: AutoMode.Plausible, Options: o => o.From(constraints), CounterExamplesRequired: subject is null);
 		_valid = valid;
 		_counterExamples = new Dictionary<string, Func<T, T>>();
 		_makers = actions is null ? [] : [.. actions.Select(a => (Func<AutoMode, AutoAction<T>>)(data => AutoAction.From(a, data)))];

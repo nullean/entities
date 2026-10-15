@@ -113,6 +113,21 @@ Know the limits:
 
     Plausible data always refers to something that exists, whichever side is generated first (a reference that comes first promises a key, and the target takes it); `Mixed` and `Adversarial`
     sometimes refer to nothing, let a dictionary key drift, or repeat a path at two levels. Types in a declared relation get four more levels before the nesting limit cuts them to a constant.
+  - **Relations declared once, as rules.** A relation can also be declared as the rule itself, so the rule and the generator cannot drift apart. `Relation.Reference`, `Relation.ReferenceList` and `Relation.Unique` build the rule, and
+    `o.From(rules)` (applied for you by `AutoTest.For(rules)`) reads what each one relates and declares it for the generator:
+
+    ```csharp
+    public static readonly Constraint<DocsetInCodex> CodexGroupKnown = Relation
+        .Reference((DocsetInCodex p) => new[] { p.Docset }, d => d.CodexGroup, p => p.Codex.Groups, g => g.Id)
+        .Rule(message: "codex.group names a group the codex site does not define.");
+
+    DomainGen.Of<DocsetInCodex>(o => o.From(CodexConstraints.All));   // no .Reference<...>() to keep in step
+    ```
+
+    The rule runs the delegates you pass; nothing is compiled, so this is safe in a native AOT build. The member names the generator needs are read once from the text of the `from` and `key` lambdas, so they must be plain member
+    accesses (`d => d.CodexGroup`). Anything else (`d => d.Name.ToLower()`, a conditional) cannot be read and `From` throws saying which, rather than quietly drawing data that ignores the relation. A rule whose projections are not
+    members (a scheme read from a URI, the keys of a dictionary) stays a `Constraints<T>.References` rule with a hand-declared relation. Where the target type also appears outside `targets`, a generated reference can point at one of those, so scope the
+    relation to a type that only appears where the rule looks.
   - **Derived invariants**: a member computed from others (`PrivateRepositories` is the private subset of `AvailableRepositories`) cannot be guessed. `o.Normalize<AssemblyConfiguration>(Derive)` applies a function
     you give it, typically the loader's own derivation: always to plausible data, to about half of mixed data, never to adversarial data, so the invariant holds where it should and is still broken where a rule needs testing.
     - **Size**: collections get `MaxCollection` scaled across the distribution (it now has an effect above 4) and narrow by one at each level of nesting, so a tree stays a few dozen nodes however deep it goes. `o.Large()` is the preset for

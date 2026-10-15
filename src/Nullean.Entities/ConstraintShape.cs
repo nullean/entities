@@ -62,6 +62,9 @@ public abstract record ConstraintShape
 	/// <summary>The <c>Constraints&lt;T&gt;</c> factory that built the rule (<c>Always</c>, <c>Idempotent</c>, ...), for a failure message that names what was declared.</summary>
 	public string? Factory { get; init; }
 
+	/// <summary>The relation between members this rule was declared from (see <see cref="Relation"/>), when it was; a generator reads it so the data it draws already holds the relation.</summary>
+	public virtual RelationInfo? Relation => null;
+
 	internal ConstraintShape()
 	{
 	}

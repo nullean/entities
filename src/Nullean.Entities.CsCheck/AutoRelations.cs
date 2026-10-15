@@ -502,6 +502,47 @@ public sealed partial class AutoOptions
 		return this;
 	}
 
+	/// <summary>
+	/// The relations the rules in <paramref name="rules"/> were declared from (<c>Relation.Reference(...).Rule()</c>, <c>Relation.Unique</c>), so the generated data already holds
+	/// them and a rule is written once. A relation whose lambda is not a plain member access cannot be read, and throws here saying which, rather than being ignored.
+	/// </summary>
+	public AutoOptions From<T>(ConstraintSet<T> rules)
+	{
+		foreach (var rule in rules.AsConstraints())
+		{
+			if (rule.Shape.Relation is not { } info)
+			{
+				continue;
+			}
+			if (info.Problem is { } problem)
+			{
+				throw new InvalidOperationException($"The rule '{rule.Name ?? info.Kind.ToString()}' declares a relation a generator cannot read: {problem}.");
+			}
+			var decl = info.Kind switch
+			{
+				Entities.RelationKind.Identity =>
+					new RelationDecl { Kind = RelationKind.Identity, From = info.FromType, FromMember = info.FromMember!, KeyType = info.KeyType },
+				_ =>
+					new RelationDecl
+					{
+						Kind = info.Kind == Entities.RelationKind.ReferenceList ? RelationKind.ReferenceList : RelationKind.Reference,
+						From = info.FromType,
+						FromMember = info.FromMember!,
+						To = info.ToType,
+						ToKeyMember = info.KeyMember,
+						KeyType = info.KeyType
+					}
+			};
+			if (!Relations.Any(
+					r => r.Kind == decl.Kind && r.From == decl.From && r.FromMember == decl.FromMember && r.To == decl.To && r.ToKeyMember == decl.ToKeyMember
+				))
+			{
+				Relations.Add(decl);
+			}
+		}
+		return this;
+	}
+
 	private static string MemberName(LambdaExpression expression)
 	{
 		var body = expression.Body;
