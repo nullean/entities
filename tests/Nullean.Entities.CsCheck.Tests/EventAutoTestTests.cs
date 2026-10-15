@@ -32,51 +32,49 @@ public class EventAutoTestTests
 	}
 
 	[Test]
-	public void A_service_that_answers_promptly_passes_every_event_axis()
+	public async Task A_service_that_answers_promptly_passes_every_event_axis()
 	{
-		var report = Auto(ships: true).Run();
+		var report = await Auto(ships: true).RunAsync();
 
 		report.Results.Select(r => r.Axis).Should().Equal(Axis.Absence, Axis.Temporal, Axis.Liveness, Axis.Vacancy);
 		report.Results.Should().AllBeOfType<AxisResult.Passed>();
 	}
 
 	[Test]
-	public void A_service_that_never_answers_fails_temporal_with_delays_derived_from_the_window()
+	public async Task A_service_that_never_answers_fails_temporal_with_delays_derived_from_the_window()
 	{
 		// the script sets no delays: the test tries 0 and just either side of 60s by itself
-		var act = () => Auto(ships: false).Temporal();
+		var act = async () => await Auto(ships: false).TemporalAsync();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("confirmed-ships-in-a-minute");
+		(await act.Should().ThrowAsync<Exception>()).Which.Message.Should().Contain("confirmed-ships-in-a-minute");
 	}
 
 	[Test]
-	public void A_service_that_never_finishes_what_it_started_fails_liveness()
+	public async Task A_service_that_never_finishes_what_it_started_fails_liveness()
 	{
-		var act = () => Auto(ships: false).Liveness();
+		var act = async () => await Auto(ships: false).LivenessAsync();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("confirmed-is-shipped");
+		(await act.Should().ThrowAsync<Exception>()).Which.Message.Should().Contain("confirmed-is-shipped");
 	}
 
 	[Test]
-	public void An_absence_rule_that_the_service_breaks_fails_absence()
+	public async Task An_absence_rule_that_the_service_breaks_fails_absence()
 	{
 		var rules = TemporalRuleSet<DeskEvent>.From(("ids-above-five", Temporal<DeskEvent>.Always<DeskEvent.Confirmed>(c => c.Id > 5)));
 
-		var act = () => EventAutoTest.For(rules, Steps(), time => new OrderDesk(time, true), desk => desk.Log).Absence();
+		var act = async () => await EventAutoTest.For(rules, Steps(), time => new OrderDesk(time, true), desk => desk.Log).AbsenceAsync();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("ids-above-five");
+		(await act.Should().ThrowAsync<Exception>()).Which.Message.Should().Contain("ids-above-five");
 	}
 
 	[Test]
-	public void A_run_that_never_opens_a_rule_is_vacuous_not_green()
+	public async Task A_run_that_never_opens_a_rule_is_vacuous_not_green()
 	{
 		var script = Script.For<OrderDesk>().Step("Confirm", Gen.Int[1, 3], (desk, id) => desk.Confirm(id)).Length(0, 0);
 
-		var act = () => Auto(ships: true, script).Absence();
+		var act = async () => await Auto(ships: true, script).AbsenceAsync();
 
-		act
-			.Should()
-			.Throw<VacuousPropertyException>()
+		(await act.Should().ThrowAsync<VacuousPropertyException>())
 			.Which
 			.Message
 			.Should()
@@ -86,41 +84,49 @@ public class EventAutoTestTests
 	}
 
 	[Test]
-	public void A_deadline_no_run_went_past_is_vacuous_even_though_nothing_failed()
+	public async Task A_deadline_no_run_went_past_is_vacuous_even_though_nothing_failed()
 	{
 		var script = Steps().Delays(Gen.Const(TimeSpan.Zero));
 
-		var act = () => Auto(ships: false, script).Temporal();
+		var act = async () => await Auto(ships: false, script).TemporalAsync();
 
-		act.Should().Throw<VacuousPropertyException>().Which.Message.Should().Contain("no run went past the 00:01:00 deadline");
+		(await act.Should().ThrowAsync<VacuousPropertyException>()).Which.Message.Should().Contain("no run went past the 00:01:00 deadline");
 	}
 
 	[Test]
-	public void An_axis_with_no_event_rule_is_not_applicable_and_not_a_case()
+	public async Task An_axis_with_no_event_rule_is_not_applicable_and_not_a_case()
 	{
 		var rules = TemporalRuleSet<DeskEvent>.From(("ids-are-positive", Temporal<DeskEvent>.Always<DeskEvent.Confirmed>(c => c.Id > 0)));
 		var auto = EventAutoTest.For(rules, Steps(), time => new OrderDesk(time, true), desk => desk.Log);
 
-		auto.Temporal().Should().BeOfType<AxisResult.NotApplicable>();
+		(await auto.TemporalAsync()).Should().BeOfType<AxisResult.NotApplicable>();
 		auto.Cases.Select(c => c.Axis).Should().Equal(Axis.Absence, Axis.Vacancy);
 	}
 
 	[Test]
-	public void A_failing_case_carries_the_axis_law_and_consequence()
+	public async Task A_failing_case_carries_the_axis_law_and_consequence()
 	{
-		var act = () => Auto(ships: false).Cases.Single(c => c.Axis == Axis.Temporal).Run();
+		var act = async () => await Auto(ships: false).Cases.Single(c => c.Axis == Axis.Temporal).RunAsync();
 
-		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Law").And.Contain("Consequence").And.Contain("Rule broken");
+		(await act.Should().ThrowAsync<InvalidOperationException>())
+			.Which
+			.Message
+			.Should()
+			.Contain("Law")
+			.And
+			.Contain("Consequence")
+			.And
+			.Contain("Rule broken");
 	}
 
 	[Test]
-	public void Events_exposed_as_an_async_stream_are_checked_the_same_way()
+	public async Task Events_exposed_as_an_async_stream_are_checked_the_same_way()
 	{
 		var auto = EventAutoTest.ForAsync(Rules, Steps(), time => new OrderDesk(time, false), desk => Stream(desk.Log));
 
-		var act = () => auto.Temporal();
+		var act = async () => await auto.TemporalAsync();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("confirmed-ships-in-a-minute");
+		(await act.Should().ThrowAsync<Exception>()).Which.Message.Should().Contain("confirmed-ships-in-a-minute");
 	}
 
 	private static async IAsyncEnumerable<Timestamped<DeskEvent>> Stream(IReadOnlyList<Timestamped<DeskEvent>> log)
@@ -133,13 +139,13 @@ public class EventAutoTestTests
 	}
 
 	[Test]
-	public void A_rule_that_watches_every_event_is_vacuous_when_the_service_records_none()
+	public async Task A_rule_that_watches_every_event_is_vacuous_when_the_service_records_none()
 	{
 		var rules = TemporalRuleSet<DeskEvent>.From(("legal-order", Temporal<DeskEvent>.Transitions((_, _) => true)));
 		var script = Script.For<OrderDesk>().Step("Nothing", _ => { }).Length(1, 2);
 
-		var act = () => EventAutoTest.For(rules, script, time => new OrderDesk(time, true), desk => desk.Log).Absence();
+		var act = async () => await EventAutoTest.For(rules, script, time => new OrderDesk(time, true), desk => desk.Log).AbsenceAsync();
 
-		act.Should().Throw<VacuousPropertyException>().Which.Message.Should().Contain("legal-order").And.Contain("no run recorded any event");
+		(await act.Should().ThrowAsync<VacuousPropertyException>()).Which.Message.Should().Contain("legal-order").And.Contain("no run recorded any event");
 	}
 }

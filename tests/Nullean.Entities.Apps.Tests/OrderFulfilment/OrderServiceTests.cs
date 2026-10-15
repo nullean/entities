@@ -138,15 +138,16 @@ public class OrderServiceTests
 	// ── against the declared machine ─────────────────────────────────────────────
 
 	[Test]
-	public void The_service_conforms_to_the_lifecycle_machine() =>
-		OrderLifecycle.Machine.ConformsTo(OrderHarness.Correct, h => h.State, (h, trigger) => h.Drive(trigger), maxLength: 15, iter: 300);
+	public Task The_service_conforms_to_the_lifecycle_machine() =>
+		OrderLifecycle.Machine.ConformsToAsync(OrderHarness.Correct, h => h.State, (h, trigger) => h.Drive(trigger), maxLength: 15, iter: 300);
 
 	[Test]
-	public void A_service_that_ships_an_unconfirmed_order_is_caught_by_the_machine()
+	public async Task A_service_that_ships_an_unconfirmed_order_is_caught_by_the_machine()
 	{
-		var act = () => OrderLifecycle.Machine.ConformsTo(OrderHarness.Sloppy, h => h.State, (h, trigger) => h.Drive(trigger), maxLength: 15, iter: 500);
+		var act = async () =>
+			await OrderLifecycle.Machine.ConformsToAsync(OrderHarness.Sloppy, h => h.State, (h, trigger) => h.Drive(trigger), maxLength: 15, iter: 500);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("Ship").And.Contain("the trigger is refused");
+		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("Ship").And.Contain("the trigger is refused");
 	}
 
 	// ── by the rules on the state it exposes ─────────────────────────────────────
@@ -162,14 +163,14 @@ public class OrderServiceTests
 			.Length(1, 15);
 
 	[Test]
-	public void Every_state_the_service_reaches_satisfies_every_order_rule() =>
-		Steps().SampleState(OrderHarness.Correct, h => h.Order, OrderConstraints.All, iter: 300);
+	public Task Every_state_the_service_reaches_satisfies_every_order_rule() =>
+		Steps().SampleStateAsync(OrderHarness.Correct, h => h.Order, OrderConstraints.All, iter: 300);
 
 	[Test]
-	public void A_service_that_ships_without_a_payment_reference_breaks_a_rule()
+	public async Task A_service_that_ships_without_a_payment_reference_breaks_a_rule()
 	{
-		var act = () => Steps().SampleState(OrderHarness.Sloppy, h => h.Order, OrderConstraints.All, iter: 500);
+		var act = async () => await Steps().SampleStateAsync(OrderHarness.Sloppy, h => h.Order, OrderConstraints.All, iter: 500);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("After step").And.Contain("Shipped");
+		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("After step").And.Contain("Shipped");
 	}
 }

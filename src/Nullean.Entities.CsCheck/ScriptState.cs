@@ -1,10 +1,10 @@
 // Nullean.Entities.CsCheck — testing a service by the state it is in, with no Rx and no event log.
 //
-//   script.SampleState(...)        run generated steps against a service; after every step read its state and check a ConstraintSet on the
+//   script.SampleStateAsync(...)    run generated steps against a service; after every step read its state and check a ConstraintSet on the
 //                                  (before, after) pair, so a sequential rule (a state machine's own transition rule) counts as well as an invariant
-//   machine.ConformsTo(...)        generate sequences of a type-state machine's triggers, run them on the service, and check that the service ends
+//   machine.ConformsToAsync(...)   generate sequences of a type-state machine's triggers, run them on the service, and check that the service ends
 //                                  up where the machine says after each one (a refused trigger must leave it where it was)
-//   machine.ConformToService(...)  ConformToMutable for a value machine, with async bindings
+//   machine.ConformToServiceAsync(...)  the same walk for a value machine, with async bindings
 //
 // Both run on CsCheck's own Sample, so a failure is shrunk to the shortest sequence and carries a seed.
 
@@ -21,16 +21,16 @@ public static partial class ScriptExtensions
 	/// <paramref name="rules"/> are checked on (previous, current), so <c>Transitions</c>, <c>Monotonic</c> and <c>Conserves</c> rules apply as well as
 	/// point-in-time ones (a step that left the state unchanged, a refused operation, is not a transition and only the point-in-time ones are asked). An <see cref="Severity.Error"/> violation fails the run with the step, both states and a shrunk sequence.
 	/// </summary>
-	public static void SampleState<TSut, TState>(
+	public static Task SampleStateAsync<TSut, TState>(
 		this Script<TSut> script,
 		Func<TimeProvider, TSut> factory,
 		Func<TSut, TState> observe,
 		ConstraintSet<TState> rules,
 		long iter = -1,
 		string? seed = null
-	) => BuildTimedGen(script, factory).Sample(run => CheckStates(run, observe, rules), seed: seed, iter: iter, print: run => run.Print());
+	) => BuildTimedGen(script, factory).SampleAsync(run => CheckStatesAsync(run, observe, rules), seed: seed, iter: iter, print: run => run.Print());
 
-	private static void CheckStates<TSut, TState>(TimedRun<TSut> run, Func<TSut, TState> observe, ConstraintSet<TState> rules)
+	private static async Task CheckStatesAsync<TSut, TState>(TimedRun<TSut> run, Func<TSut, TState> observe, ConstraintSet<TState> rules)
 	{
 		var before = observe(run.Sut);
 		var initial = Errors(rules.Validate(before, run.Time));
@@ -46,7 +46,7 @@ public static partial class ScriptExtensions
 			{
 				run.Time.Advance(delay);
 			}
-			step.Act(run.Sut);
+			await step.RunAsync(run.Sut).ConfigureAwait(false);
 			done.Add(step.Name);
 
 			var after = observe(run.Sut);
@@ -80,7 +80,7 @@ public static class StateMachineServiceExtensions
 	/// Only triggers whose edge has a factory and takes no argument are explored; the others are listed by <see cref="StateMachine{TState}.Edges"/>
 	/// but the machine cannot predict what they build.
 	/// </summary>
-	public static void ConformsTo<TSut, TState>(
+	public static async Task ConformsToAsync<TSut, TState>(
 		this StateMachine<TState> machine,
 		Func<TimeProvider, TSut> factory,
 		Func<TSut, TState> observe,
@@ -99,12 +99,18 @@ public static class StateMachineServiceExtensions
 			);
 		}
 
-		Gen.OneOfConst(triggers)
+		await Gen.OneOfConst(triggers)
 			.Array[minLength, maxLength]
-			.Sample(sequence => Conform(machine, factory, observe, drive, sequence), seed: seed, iter: iter, print: sequence => string.Join(" -> ", sequence));
+			.SampleAsync(
+				sequence => ConformAsync(machine, factory, observe, drive, sequence),
+				seed: seed,
+				iter: iter,
+				print: sequence => string.Join(" -> ", sequence)
+			)
+			.ConfigureAwait(false);
 	}
 
-	private static void Conform<TSut, TState>(
+	private static async Task ConformAsync<TSut, TState>(
 		StateMachine<TState> machine,
 		Func<TimeProvider, TSut> factory,
 		Func<TSut, TState> observe,
@@ -124,7 +130,7 @@ public static class StateMachineServiceExtensions
 			var trigger = sequence[i];
 			var expected = machine.Fire(model, trigger) is Result<TState>.Ok ok ? ok.Value : model;
 
-			drive(sut, trigger).GetAwaiter().GetResult();
+			await drive(sut, trigger).ConfigureAwait(false);
 			var actual = observe(sut);
 
 			if (!EqualityComparer<TState>.Default.Equals(actual, expected))
@@ -138,20 +144,51 @@ public static class StateMachineServiceExtensions
 		}
 	}
 
-	/// <summary><see cref="StateMachineSpecExtensions.ConformToMutable{TState, TTrigger, TEntity}"/> for a service whose operations are async: a fresh service per walk from <paramref name="create"/>.</summary>
-	public static SpecReport ConformToService<TState, TTrigger, TSut>(
+	/// <summary>
+	/// A service against a value machine: random walks of the machine's triggers (the permitted and the refused), each applied through its async binding on a fresh
+	/// service from <paramref name="create"/>. After every one the service must be where the machine says, and a refused trigger must leave it where it was.
+	/// A declared trigger with no binding fails first, naming it. A failure is shrunk to the shortest walk and carries a seed.
+	/// </summary>
+	public static async Task ConformToServiceAsync<TState, TTrigger, TSut>(
 		this StateMachine<TState, TTrigger> machine,
 		Func<TSut> create,
 		Func<TSut, TState> stateOf,
 		Action<string>? writeLine = null,
 		long iter = -1,
 		params (TTrigger Trigger, Func<TSut, Task> Apply)[] bindings
-	) where TState : notnull where TTrigger : notnull =>
-		machine.ConformToMutable(
-			create,
-			stateOf,
-			writeLine,
-			iter,
-			[.. bindings.Select(b => (b.Trigger, (Action<TSut>)(sut => b.Apply(sut).GetAwaiter().GetResult())))]
-		);
+	) where TState : notnull where TTrigger : notnull
+	{
+		StateMachineSpecExtensions.RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(create()));
+		var byTrigger = bindings.ToDictionary(b => b.Trigger, b => b.Apply);
+		await Gen.OneOfConst([.. machine.Triggers])
+			.Array[1, 15]
+			.SampleAsync(walk => WalkAsync(machine, create, stateOf, byTrigger, walk), writeLine, iter: iter, print: walk => string.Join(" -> ", walk))
+			.ConfigureAwait(false);
+	}
+
+	private static async Task WalkAsync<TState, TTrigger, TSut>(
+		StateMachine<TState, TTrigger> machine,
+		Func<TSut> create,
+		Func<TSut, TState> stateOf,
+		Dictionary<TTrigger, Func<TSut, Task>> byTrigger,
+		TTrigger[] walk
+	) where TState : notnull where TTrigger : notnull
+	{
+		var sut = create();
+		var model = machine.Initial;
+		foreach (var trigger in walk)
+		{
+			var expected = machine.TryFire(model, trigger, out var next) ? next : model;
+			await byTrigger[trigger](sut).ConfigureAwait(false);
+			var actual = stateOf(sut);
+			if (!EqualityComparer<TState>.Default.Equals(actual, expected))
+			{
+				throw new InvalidOperationException(
+					$"after {trigger} in {model} the machine says the service moves to {expected}, but it is in {actual}" +
+					(expected.Equals(model) ? " (the trigger is refused, so it stays in " + model + ")" : "")
+				);
+			}
+			model = expected;
+		}
+	}
 }

@@ -97,13 +97,13 @@ var script = Script.For<OrderService>()
     .Length(1, 20);
 ```
 
-`SampleWith` runs the script against a fresh SUT per iteration. The SUT takes a `TimeProvider` (a `ManualTimeProvider` that the script's delays advance),
+`SampleWithAsync` runs the script against a fresh SUT per iteration. The SUT takes a `TimeProvider` (a `ManualTimeProvider` that the script's delays advance),
 records timestamped events, and a `TemporalRuleSet<TEvent>` is checked against them. A specification, regression,
 parallel, and equality test all share the same script:
 
 ```csharp
 // Specification — named rules are the assertion
-script.SampleWith(
+await script.SampleWithAsync(
     time => new OrderService(time),
     svc => svc.Log,         // IEnumerable<Timestamped<OrderEvent>>
     OrderEventRules         // TemporalRuleSet<OrderEvent> — temporal + structural
@@ -119,11 +119,11 @@ script.SampleParallel(
 
 ## Regression: seed replay is free
 
-Every `Sample` / `SampleWith` failure prints a seed. Paste it into a `[Test]` to fix a specific
+Every `Sample` / `SampleWithAsync` failure prints a seed. Paste it into a `[Test]` to fix a specific
 case:
 
 ```csharp
-script.SampleWith(
+await script.SampleWithAsync(
     time => new OrderService(time),
     svc => svc.Log,
     OrderEventRules,
@@ -186,25 +186,25 @@ A service holds a repository, a clock and the entity's state, and its operations
 
 ```csharp
 // 1. By the state it exposes: after every step, check the rules on (before, after).
-Script.For<OrderService>()
+await Script.For<OrderService>()
     .StepAsync("Place",   s => s.PlaceAsync())
     .StepAsync("Confirm", s => s.ConfirmAsync())
     .StepAsync("Ship",    s => s.ShipAsync())
     .Length(1, 12)
-    .SampleState(clock => new OrderService(clock), s => s.State, ConstraintSet.From(("lifecycle", OrderLifecycle.AsConstraint())));
+    .SampleStateAsync(clock => new OrderService(clock), s => s.State, ConstraintSet.From(("lifecycle", OrderLifecycle.AsConstraint())));
 
 // 2. Against the declared machine: generate its triggers, run them on the service, and compare with what the machine predicts.
-OrderLifecycle.ConformsTo(clock => new OrderService(clock), s => s.State, (s, trigger) => trigger switch
+await OrderLifecycle.ConformsToAsync(clock => new OrderService(clock), s => s.State, (s, trigger) => trigger switch
 {
     "Place" => s.PlaceAsync(), "Confirm" => s.ConfirmAsync(), "Ship" => s.ShipAsync(), "Cancel" => s.CancelAsync(),
     _ => throw new InvalidOperationException(trigger),
 });
 ```
 
-- `SampleState` reads the state after each step and runs the `ConstraintSet` on it, so an invariant (`Always`) and a rule about changes (`Transitions`, `Monotonic`, `Conserves`) both count. A step that leaves the state unchanged, because the service refused it, is not a transition: only the invariants are asked.
-- `ConformsTo` is the stronger one. After each trigger the service must be where the machine says: the next state when `Fire` accepts it, the *same* state when it refuses (a guard, a case the trigger is not declared for). It finds a service that ships an unconfirmed order and one that refuses a transition the machine allows. Triggers that take an argument are not explored; the machine cannot predict what an argument builds.
-- Operations are awaited in place, so use a service whose awaits complete by themselves (an in-memory repository, a `ManualTimeProvider`). The clock passed to the factory is advanced by `Delays(...)`.
-- For a value machine (`StateMachine<TState, TTrigger>`), `ConformToService(create, stateOf, bindings: [("Open", d => d.OpenAsync()), ...])` is `ConformToMutable` with async bindings.
+- `SampleStateAsync` reads the state after each step and runs the `ConstraintSet` on it, so an invariant (`Always`) and a rule about changes (`Transitions`, `Monotonic`, `Conserves`) both count. A step that leaves the state unchanged, because the service refused it, is not a transition: only the invariants are asked.
+- `ConformsToAsync` is the stronger one. After each trigger the service must be where the machine says: the next state when `Fire` accepts it, the *same* state when it refuses (a guard, a case the trigger is not declared for). It finds a service that ships an unconfirmed order and one that refuses a transition the machine allows. Triggers that take an argument are not explored; the machine cannot predict what an argument builds.
+- Operations are really awaited (nothing blocks), but a run must be repeatable for a failure to replay, so use a service whose awaits complete by themselves (an in-memory repository, a `ManualTimeProvider`), not a real database or HTTP call. The clock passed to the factory is advanced by `Delays(...)`.
+- For a value machine (`StateMachine<TState, TTrigger>`), `ConformToServiceAsync(create, stateOf, bindings: [("Open", d => d.OpenAsync()), ...])` walks the machine's triggers (permitted and refused) through async bindings on a fresh service per walk.
 
 ## Simple property tests
 

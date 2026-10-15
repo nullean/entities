@@ -33,7 +33,7 @@ public static partial class OrderConstraints
 ```
 
 ```csharp
-AutoTest.For(OrderConstraints.Instance, orders).Run();   // one test per axis the rules declare
+await AutoTest.For(OrderConstraints.Instance, orders).RunAsync();   // one test per axis the rules declare
 ```
 
 When a method of `Order` resets the version, you read:

@@ -34,11 +34,11 @@ Each page is built the same way: the question in plain words, the bug you would 
 ## Running them
 
 ```csharp
-AutoTest.For(OrderConstraints.Instance, orders).Run();          // the state axes: 01 to 04, 08 and 09
-EventAutoTest.For(rules, script, time => new Service(time), s => s.Log).Run();   // the event axes: 05 to 07
+await AutoTest.For(OrderConstraints.Instance, orders).RunAsync();     // the state axes: 01 to 04, 08 and 09
+await EventAutoTest.For(rules, script, time => new Service(time), s => s.Log).RunAsync();   // the event axes: 05 to 07
 ```
 
-`Run()` throws one exception listing every axis that failed. To run one: `Invariant()`, `Idempotency()`, `Monotonicity()`, `Conservation()`, `Confluence()`, `Vacancy()`; for events `Absence()`, `Temporal()`, `Liveness()`. For your test framework, `AsDataSource()` gives one test per axis the rules declare.
+`RunAsync()` throws one exception listing every axis that failed. To run one: `InvariantAsync()`, `IdempotencyAsync()`, `MonotonicityAsync()`, `ConservationAsync()`, `ConfluenceAsync()`, `VacancyAsync()`; for events `AbsenceAsync()`, `TemporalAsync()`, `LivenessAsync()`. For your test framework, `AsDataSource()` gives one test per axis the rules declare, and every case is awaited with `RunAsync()`.
 
 An axis the type has no rule for is reported as *not applicable*; it is never a silent pass. `RequireAxes(...)` turns "not applicable" into a failure when you expect a rule there.
 

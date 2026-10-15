@@ -88,12 +88,12 @@ public class BugGalleryTests
 		File.WriteAllText(Path.Combine(root!.FullName, "docs", "_snippets", name + ".txt"), text.Trim() + "\n");
 	}
 
-	private static string Fail(string name, Action run)
+	private static async Task<string> FailAsync(string name, Func<Task> run)
 	{
 		var message = "";
 		try
 		{
-			run();
+			await run().ConfigureAwait(false);
 		}
 		catch (Exception e)
 		{
@@ -105,40 +105,40 @@ public class BugGalleryTests
 	}
 
 	[Test]
-	public void The_good_order_passes_every_axis() => AutoTest.For(OrderConstraints.Instance, Orders).Run();
+	public Task The_good_order_passes_every_axis() => AutoTest.For(OrderConstraints.Instance, Orders).RunAsync();
 
 	[Test]
-	public void A_generator_that_never_confirms_an_order_is_caught_as_vacuous() =>
-		Fail("vacancy", () => AutoTest.For(OrderConstraints.Instance, PendingOnly).Cases.Single(c => c.Axis == Axis.Vacancy).Run())
+	public async Task A_generator_that_never_confirms_an_order_is_caught_as_vacuous() =>
+		(await FailAsync("vacancy", () => AutoTest.For(OrderConstraints.Instance, PendingOnly).Cases.Single(c => c.Axis == Axis.Vacancy).RunAsync()))
 			.Should()
 			.Contain("confirmed-orders-have-lines");
 
 	[Test]
-	public void An_operation_that_lets_a_negative_price_in_is_caught_by_the_invariants() =>
-		Fail(
+	public async Task An_operation_that_lets_a_negative_price_in_is_caught_by_the_invariants() =>
+		(await FailAsync(
 			"invariant",
 			() =>
 				AutoTest
 					.For(OrderConstraints.Instance, Orders)
 					.Action("AddRawLine", o => o with { Lines = [.. o.Lines, new OrderLine("fig", 1, -5)] })
-					.Invariant()
-		)
+					.InvariantAsync()
+		))
 			.Should().Contain("AddRawLine").And.Contain("total-never-negative");
 
 	[Test]
-	public void A_cancel_that_changes_the_order_every_time_is_caught_as_not_idempotent() =>
-		Fail(
+	public async Task A_cancel_that_changes_the_order_every_time_is_caught_as_not_idempotent() =>
+		(await FailAsync(
 			"idempotency",
 			() =>
-				ConstraintSet.From(("cancel-is-repeatable", Constraints<Order>.Idempotent(o => o.Cancel() with { Version = o.Version + 1 }))).Idempotency(
+				ConstraintSet.From(("cancel-is-repeatable", Constraints<Order>.Idempotent(o => o.Cancel() with { Version = o.Version + 1 }))).IdempotencyAsync(
 					Orders
 				)
-		)
+		))
 			.Should().Contain("cancel-is-repeatable");
 
 	[Test]
-	public void An_operation_that_resets_the_version_is_caught_as_going_backwards() =>
-		Fail(
+	public async Task An_operation_that_resets_the_version_is_caught_as_going_backwards() =>
+		(await FailAsync(
 			"monotonicity",
 			() =>
 				AutoTest
@@ -146,13 +146,13 @@ public class BugGalleryTests
 					.Action("Reset", o => o with { Version = 0 })
 					.Cases
 					.Single(c => c.Axis == Axis.Monotonicity)
-					.Run()
-		)
+					.RunAsync()
+		))
 			.Should().Contain("Reset").And.Contain("version-never-goes-back");
 
 	[Test]
-	public void A_result_that_depends_on_the_order_lines_were_added_in_is_caught_as_order_dependent() =>
-		Fail(
+	public async Task A_result_that_depends_on_the_order_lines_were_added_in_is_caught_as_order_dependent() =>
+		(await FailAsync(
 			"confluence",
 			() =>
 				ConstraintSet.From(
@@ -161,8 +161,8 @@ public class BugGalleryTests
 						(o, lines) => o with { Lines = lines },
 						o => o.Lines.Count == 0 ? "" : o.Lines[0].Sku
 					))
-				).Confluence(Orders)
-		)
+				).ConfluenceAsync(Orders)
+		))
 			.Should().Contain("first-sku-is-the-label");
 
 	private static TemporalRuleSet<FulfilmentEvent> ShipsInAMinute() =>
@@ -210,40 +210,40 @@ public class BugGalleryTests
 		);
 
 	[Test]
-	public void A_service_that_ships_too_late_is_caught_by_the_deadline_rule() =>
-		Fail("temporal", () => Service(ShipsInAMinute(), TimeSpan.FromSeconds(90)).Cases.Single(c => c.Axis == Axis.Temporal).Run())
+	public async Task A_service_that_ships_too_late_is_caught_by_the_deadline_rule() =>
+		(await FailAsync("temporal", () => Service(ShipsInAMinute(), TimeSpan.FromSeconds(90)).Cases.Single(c => c.Axis == Axis.Temporal).RunAsync()))
 			.Should()
 			.Contain("confirmed-ships-within-a-minute");
 
 	[Test]
-	public void A_service_that_ships_an_order_it_cancelled_is_caught_as_a_forbidden_sequence() =>
-		Fail(
+	public async Task A_service_that_ships_an_order_it_cancelled_is_caught_as_a_forbidden_sequence() =>
+		(await FailAsync(
 			"absence",
-			() => Service(NeverShipsAfterCancel(), TimeSpan.FromSeconds(30), shipsCancelledOrders: true).Cases.Single(c => c.Axis == Axis.Absence).Run()
-		)
+			() => Service(NeverShipsAfterCancel(), TimeSpan.FromSeconds(30), shipsCancelledOrders: true).Cases.Single(c => c.Axis == Axis.Absence).RunAsync()
+		))
 			.Should().Contain("cancelled-orders-are-never-shipped");
 
 	[Test]
-	public void A_service_that_forgets_to_ship_a_confirmed_order_is_caught_as_never_finishing() =>
-		Fail(
+	public async Task A_service_that_forgets_to_ship_a_confirmed_order_is_caught_as_never_finishing() =>
+		(await FailAsync(
 			"liveness",
-			() => Service(EveryConfirmedOrderShips(), TimeSpan.FromSeconds(30), forgetsToShip: true).Cases.Single(c => c.Axis == Axis.Liveness).Run()
-		)
+			() => Service(EveryConfirmedOrderShips(), TimeSpan.FromSeconds(30), forgetsToShip: true).Cases.Single(c => c.Axis == Axis.Liveness).RunAsync()
+		))
 			.Should().Contain("every-confirmed-order-ships");
 
 	[Test]
-	public void A_service_that_does_everything_right_passes_every_event_axis()
+	public async Task A_service_that_does_everything_right_passes_every_event_axis()
 	{
-		Service(ShipsInAMinute(), TimeSpan.FromSeconds(30)).Run();
-		Service(NeverShipsAfterCancel(), TimeSpan.FromSeconds(30)).Run();
-		Service(EveryConfirmedOrderShips(), TimeSpan.FromSeconds(30)).Run();
+		await Service(ShipsInAMinute(), TimeSpan.FromSeconds(30)).RunAsync();
+		await Service(NeverShipsAfterCancel(), TimeSpan.FromSeconds(30)).RunAsync();
+		await Service(EveryConfirmedOrderShips(), TimeSpan.FromSeconds(30)).RunAsync();
 	}
 
 	private static readonly Gen<Ledger> Ledgers = Gen.Select(Gen.Int[0, 50], Gen.Int[0, 50], (checking, savings) => new Ledger(checking, savings));
 
 	[Test]
-	public void A_transfer_that_takes_a_fee_is_caught_by_the_conservation_rule() =>
-		Fail(
+	public async Task A_transfer_that_takes_a_fee_is_caught_by_the_conservation_rule() =>
+		(await FailAsync(
 			"conservation",
 			() =>
 				AutoTest
@@ -252,10 +252,10 @@ public class BugGalleryTests
 						"MoveWithFee",
 						(l, amount) => amount > 0 && amount < l.Checking ? l with { Checking = l.Checking - amount - 1, Savings = l.Savings + amount } : l
 					)
-					.Cases.Single(c => c.Axis == Axis.Conservation).Run()
-		)
+					.Cases.Single(c => c.Axis == Axis.Conservation).RunAsync()
+		))
 			.Should().Contain("money-is-conserved");
 
 	[Test]
-	public void The_good_ledger_passes_every_axis() => AutoTest.For(LedgerConstraints.Instance, Ledgers).Run();
+	public Task The_good_ledger_passes_every_axis() => AutoTest.For(LedgerConstraints.Instance, Ledgers).RunAsync();
 }

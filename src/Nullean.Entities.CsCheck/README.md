@@ -34,7 +34,7 @@ public static partial class OrderConstraints
 public static IEnumerable<Func<AxisCase>> Axes() => AutoTest.For(OrderConstraints.Instance, orders).AsDataSource();
 
 [Test, MethodDataSource(nameof(Axes))]
-public void EveryDeclaredAxisHolds(AxisCase axis) => axis.Run();
+public Task EveryDeclaredAxisHolds(AxisCase axis) => axis.RunAsync();
 ```
 
 ## Install

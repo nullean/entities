@@ -8,7 +8,7 @@ A support desk on virtual time. `dotnet run --project examples/Apps/SupportDesk`
 | `TicketService.cs` | A service on a `TimeProvider`: a transition is `machine.TryFire` plus `Apply`; `SweepAsync` applies the machine's timeouts; `RunSweeperAsync` is the loop a hosted service would run. The event log feeds a live `TemporalMonitor` and keeps the recording for an audit. |
 | `Program.cs` | The scenarios, narrated: the clock is a `ManualTimeProvider`, so "an hour later" and "three days later" are one line each. |
 
-Tests: `tests/Nullean.Entities.Apps.Tests/SupportDesk`. The service is checked against its machine with `ConformToService` (a declared trigger the service cannot perform is reported before any run), the closes-once rule is checked under generated schedules, and the SLA rule is shown *failing* under the same schedules, with the shortest way to break it.
+Tests: `tests/Nullean.Entities.Apps.Tests/SupportDesk`. The service is checked against its machine with `ConformToServiceAsync` (a declared trigger the service cannot perform is reported before any run), the closes-once rule is checked under generated schedules, and the SLA rule is shown *failing* under the same schedules, with the shortest way to break it.
 
 Things worth noticing:
 

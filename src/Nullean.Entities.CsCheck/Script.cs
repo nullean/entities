@@ -15,7 +15,25 @@ using CsCheck;
 namespace Nullean.Entities.CsCheck;
 
 /// <summary>One occurrence of a step in a generated run — a display name plus the action to apply to the SUT.</summary>
-public readonly record struct ScriptStep<TSut>(string Name, Action<TSut> Act);
+public readonly record struct ScriptStep<TSut>(string Name, Action<TSut>? Act, Func<TSut, Task>? ActAsync = null)
+{
+	/// <summary>Runs the step: a synchronous one completes at once, an asynchronous one is awaited (never blocked on).</summary>
+	public Task RunAsync(TSut sut)
+	{
+		if (Act is { } sync)
+		{
+			sync(sut);
+			return Task.CompletedTask;
+		}
+		return ActAsync!(sut);
+	}
+
+	/// <summary>The synchronous action, for a terminal that cannot await (the Rx scheduler ones). An asynchronous step is a clear error there.</summary>
+	public Action<TSut> RequireSync() =>
+		Act ?? throw new NotSupportedException(
+			$"Step '{Name}' is asynchronous. The Rx scheduler terminals run synchronous steps only: use the TimeProvider terminals (SampleWithAsync, SampleStateAsync, EventAutoTest)."
+		);
+}
 
 public sealed class Script<TSut>
 {
@@ -68,14 +86,21 @@ public sealed class Script<TSut>
 	}
 
 	/// <summary>
-	/// <see cref="Step(string, Action{TSut})"/> for a service whose operation is async. The step waits for it, so the run stays deterministic: use it
+	/// <see cref="Step(string, Action{TSut})"/> for a service whose operation is async. The step is awaited, never blocked on, so the run stays deterministic as long as the awaits complete on their own: use it
 	/// with services whose awaits complete on their own (in-memory fakes, a <see cref="ManualTimeProvider"/>), not with ones that need real I/O.
 	/// </summary>
-	public Script<TSut> StepAsync(string name, Func<TSut, Task> action) => Step(name, sut => action(sut).GetAwaiter().GetResult());
+	public Script<TSut> StepAsync(string name, Func<TSut, Task> action)
+	{
+		_steps.Add(Gen.Const(new ScriptStep<TSut>(name, null, action)));
+		return this;
+	}
 
 	/// <summary><see cref="Step{TArg}(string, Gen{TArg}, Action{TSut, TArg})"/> for an async operation.</summary>
-	public Script<TSut> StepAsync<TArg>(string name, Gen<TArg> gen, Func<TSut, TArg, Task> action) =>
-		Step(name, gen, (sut, arg) => action(sut, arg).GetAwaiter().GetResult());
+	public Script<TSut> StepAsync<TArg>(string name, Gen<TArg> gen, Func<TSut, TArg, Task> action)
+	{
+		_steps.Add(gen.Select(arg => new ScriptStep<TSut>($"{name}({arg})", null, sut => action(sut, arg))));
+		return this;
+	}
 
 	/// <summary>
 	/// A delay drawn before every step in a generated run — not a fixed pause. Generated delays

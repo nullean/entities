@@ -130,7 +130,7 @@ public static class StateMachineSpecExtensions
 			);
 	}
 
-	private static void RequireBound<TState, TTrigger>(
+	internal static void RequireBound<TState, TTrigger>(
 		StateMachine<TState, TTrigger> machine,
 		IEnumerable<TTrigger> bound,
 		TState entityStart

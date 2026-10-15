@@ -47,7 +47,7 @@ public static partial class ReactiveScriptExtensions
 			var sut = factory(scheduler);
 			return new ParallelRun<TSut, TEvent>(sut, constraints.Attach(events(sut), scheduler));
 		});
-		var operation = Gen.OneOf([.. script.Steps]).Operation<ParallelRun<TSut, TEvent>>(step => step.Name, (run, step) => step.Act(run.Sut));
+		var operation = Gen.OneOf([.. script.Steps]).Operation<ParallelRun<TSut, TEvent>>(step => step.Name, (run, step) => step.RequireSync()(run.Sut));
 
 		initial.SampleParallel(
 			[operation],

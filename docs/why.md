@@ -66,7 +66,7 @@ Declaring a rule is the easy part. The part nobody else gives you is what happen
 That is [nine questions](axes/index.md). Here is the test:
 
 ```csharp
-AutoTest.For(OrderConstraints.Instance, orders).Run();
+await AutoTest.For(OrderConstraints.Instance, orders).RunAsync();
 ```
 
 Have you ever tested whether a retry changes state, whether arrival order changes the output, or whether a version can go back? Most teams have tested two or three of the nine. The other six are where the bugs that reach production live, because nobody thought to look.

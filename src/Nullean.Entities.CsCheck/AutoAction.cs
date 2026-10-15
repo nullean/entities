@@ -10,10 +10,10 @@ namespace Nullean.Entities.CsCheck;
 
 /// <summary>
 /// One operation on <typeparamref name="T"/> as an axis test runs it: <paramref name="Draw"/> turns a generator of start values into a generator of
-/// (start, argument) pairs, and <paramref name="Apply"/> runs it. Built with <see cref="AutoAction.Of{T}"/>, <see cref="AutoAction.Of{T, TArg}"/> or
+/// (start, argument) pairs, and <paramref name="ApplyAsync"/> runs it (a synchronous operation completes at once). Built with <see cref="AutoAction.Of{T}"/>, <see cref="AutoAction.Of{T, TArg}"/> or
 /// <see cref="AutoAction.From{T}"/>; an operation that returns a wrapper (a <c>Result&lt;T&gt;</c>) is adapted by reading the new value out in <c>apply</c>.
 /// </summary>
-public sealed record AutoAction<T>(string Name, Func<Gen<T>, Gen<(T Start, object? Argument)>> Draw, Func<T, object?, T> Apply)
+public sealed record AutoAction<T>(string Name, Func<Gen<T>, Gen<(T Start, object? Argument)>> Draw, Func<T, object?, ValueTask<T>> ApplyAsync)
 {
 }
 
@@ -25,7 +25,7 @@ public static class AutoAction
 		new(
 			action.Name,
 			starts => Gen.Select(starts, AutoDefaults.ArgumentGen(action.ArgumentType, data), (start, argument) => (start, argument)),
-			action.Apply
+			(value, argument) => ValueTask.FromResult(action.Apply(value, argument))
 		);
 
 	// Without a generator the argument is drawn from its type alone, which for a key or an entry rarely names anything the start holds. So half the draws harvest a value of that type
@@ -54,7 +54,11 @@ public static class AutoAction
 
 	/// <summary>An operation with no argument.</summary>
 	public static AutoAction<T> Of<T>(string name, Func<T, T> apply) =>
-		new(name, starts => starts.Select(start => (start, (object?)null)), (value, _) => apply(value));
+		new(name, starts => starts.Select(start => (start, (object?)null)), (value, _) => ValueTask.FromResult(apply(value)));
+
+	/// <summary>An operation with no argument whose result is awaited: a service call that finishes on its own (an in-memory fake, a manual clock), not one that waits on real I/O.</summary>
+	public static AutoAction<T> OfAsync<T>(string name, Func<T, Task<T>> apply) =>
+		new(name, starts => starts.Select(start => (start, (object?)null)), async (value, _) => await apply(value).ConfigureAwait(false));
 
 	/// <summary>
 	/// An operation with one argument. Without <paramref name="arguments"/> the argument is drawn from its type; with it, from the start value
@@ -66,6 +70,21 @@ public static class AutoAction
 			? (Func<Gen<T>, Gen<(T Start, object? Argument)>>)(starts =>
 				starts.SelectMany(start => Argument(start, typeof(TArg), data).Select(argument => (start, argument))))
 			: starts => starts.SelectMany(start => arguments(start).Select(argument => (start, (object?)argument)));
-		return new AutoAction<T>(name, draw, (value, argument) => apply(value, (TArg)argument!));
+		return new AutoAction<T>(name, draw, (value, argument) => ValueTask.FromResult(apply(value, (TArg)argument!)));
+	}
+
+	/// <summary>An operation with one argument whose result is awaited. See <see cref="OfAsync{T}"/> for what it can await.</summary>
+	public static AutoAction<T> OfAsync<T, TArg>(
+		string name,
+		Func<T, TArg, Task<T>> apply,
+		Func<T, Gen<TArg>>? arguments = null,
+		AutoMode data = AutoMode.Mixed
+	)
+	{
+		var draw = arguments is null
+			? (Func<Gen<T>, Gen<(T Start, object? Argument)>>)(starts =>
+				starts.SelectMany(start => Argument(start, typeof(TArg), data).Select(argument => (start, argument))))
+			: starts => starts.SelectMany(start => arguments(start).Select(argument => (start, (object?)argument)));
+		return new AutoAction<T>(name, draw, async (value, argument) => await apply(value, (TArg)argument!).ConfigureAwait(false));
 	}
 }

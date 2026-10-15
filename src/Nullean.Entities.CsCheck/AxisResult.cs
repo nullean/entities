@@ -2,7 +2,7 @@
 //
 // An axis test either has nothing to attack (NotApplicable), cannot be attacked with what it was given (Skipped, with the reason),
 // passes (Passed, naming the rules it attacked so a pass is auditable), or fails. The named axis methods throw on a failure, the
-// way every other terminal here does; AutoTest<T>.Run() catches the throw and records it as Failed so one report can say it all.
+// way every other terminal here does; AutoTest<T>.RunAsync() catches the throw and records it as Failed so one report can say it all.
 
 namespace Nullean.Entities.CsCheck;
 
@@ -28,7 +28,7 @@ public abstract record AxisResult(Axis Axis)
 		public override string ToString() => $"{Axis}: skipped ({Reason})";
 	}
 
-	/// <summary>The axis found a bug, or proved the test vacuous. Only <c>AutoTest.Run()</c> produces this; a named axis method throws.</summary>
+	/// <summary>The axis found a bug, or proved the test vacuous. Only <c>AutoTest.RunAsync()</c> produces this; a named axis method throws.</summary>
 	public sealed record Failed(Axis Axis, string Report, string? Seed = null) : AxisResult(Axis)
 	{
 		/// <summary>The report is already the labelled text an axis writes (it names the axis, the rule, the law and how to replay it).</summary>
@@ -38,7 +38,7 @@ public abstract record AxisResult(Axis Axis)
 		public override string ToString() => IsFormatted ? Report : $"{Axis}: FAILED{(Seed is null ? "" : $" (seed {Seed})")}\n{Report}";
 	}
 
-	/// <summary>Throws when this result is a failure; passes the other results through. For a test that calls <c>AutoTest.Run()</c> and wants one assertion.</summary>
+	/// <summary>Throws when this result is a failure; passes the other results through. For a test that calls <c>AutoTest.RunAsync()</c> and wants one assertion.</summary>
 	public AxisResult ThrowIfFailed() =>
 		this is Failed failed ? throw new InvalidOperationException(failed.ToString()) : this;
 }

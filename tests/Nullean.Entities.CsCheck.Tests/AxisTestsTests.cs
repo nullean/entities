@@ -33,31 +33,34 @@ public class AxisTestsTests
 	// ── 01 Invariant ─────────────────────────────────────────────────────────────
 
 	[Test]
-	public void Invariant_passes_when_the_rules_hold_and_a_given_counter_example_breaks_only_its_rule()
+	public async Task Invariant_passes_when_the_rules_hold_and_a_given_counter_example_breaks_only_its_rule()
 	{
 		var set = Set(("non-negative", Constraints<AxisTally>.Always(t => t.Value >= 0, "A value is never negative.")));
 
-		var result = set.Invariant(NonNegative, new Dictionary<string, Func<AxisTally, AxisTally>> { ["non-negative"] = t => t with { Value = -1 } });
+		var result = await set.InvariantAsync(
+			NonNegative,
+			new Dictionary<string, Func<AxisTally, AxisTally>> { ["non-negative"] = t => t with { Value = -1 } }
+		);
 
 		result.Should().BeOfType<AxisResult.Passed>().Which.Rules.Should().Equal("non-negative");
 	}
 
 	[Test]
-	public void Invariant_is_not_applicable_when_every_rule_is_on_another_axis()
+	public async Task Invariant_is_not_applicable_when_every_rule_is_on_another_axis()
 	{
 		var set = Set(("idempotent", Constraints<AxisTally>.Idempotent(t => t)));
 
-		set.Invariant(Tallies).Should().BeOfType<AxisResult.NotApplicable>();
+		(await set.InvariantAsync(Tallies)).Should().BeOfType<AxisResult.NotApplicable>();
 	}
 
 	// ── 02 Idempotency ───────────────────────────────────────────────────────────
 
 	[Test]
-	public void Idempotency_passes_for_an_action_that_settles_and_reports_that_it_changed_values()
+	public async Task Idempotency_passes_for_an_action_that_settles_and_reports_that_it_changed_values()
 	{
 		var set = Set(("abs-is-idempotent", Constraints<AxisTally>.Idempotent(t => t with { Value = Math.Abs(t.Value) })));
 
-		var result = set.Idempotency(Tallies, Plausible);
+		var result = await set.IdempotencyAsync(Tallies, Plausible);
 
 		var passed = result.Should().BeOfType<AxisResult.Passed>().Subject;
 		passed.Rules.Should().Equal("abs-is-idempotent");
@@ -65,32 +68,32 @@ public class AxisTestsTests
 	}
 
 	[Test]
-	public void Idempotency_catches_an_action_that_keeps_changing_the_value()
+	public async Task Idempotency_catches_an_action_that_keeps_changing_the_value()
 	{
 		var set = Set(("increments", Constraints<AxisTally>.Idempotent(t => t with { Value = t.Value + 1 })));
 
-		var act = () => set.Idempotency(Tallies, Plausible);
+		var act = async () => await set.IdempotencyAsync(Tallies, Plausible);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("increments").And.Contain("not the same as doing it once");
+		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("increments").And.Contain("not the same as doing it once");
 	}
 
 	[Test]
-	public void Idempotency_is_vacuous_when_the_action_never_changes_anything()
+	public async Task Idempotency_is_vacuous_when_the_action_never_changes_anything()
 	{
 		var set = Set(("does-nothing", Constraints<AxisTally>.Idempotent(t => t)));
 
-		var act = () => set.Idempotency(Tallies, Plausible);
+		var act = async () => await set.IdempotencyAsync(Tallies, Plausible);
 
-		act.Should().Throw<VacuousPropertyException>().Which.Message.Should().Contain("never exercised");
+		(await act.Should().ThrowAsync<VacuousPropertyException>()).Which.Message.Should().Contain("never exercised");
 	}
 
 	[Test]
-	public void Idempotency_is_skipped_when_the_rule_was_mapped_without_a_way_back()
+	public async Task Idempotency_is_skipped_when_the_rule_was_mapped_without_a_way_back()
 	{
 		var rule = Constraints<AxisTally>.Idempotent(t => t with { Value = Math.Abs(t.Value) }).Map<AxisHolder>(h => h.Tally);
 		var set = ConstraintSet.From(("abs", rule));
 
-		var result = set.Idempotency(Gen.Select(Tallies, Gen.String, (t, l) => new AxisHolder(t, l)), Plausible);
+		var result = await set.IdempotencyAsync(Gen.Select(Tallies, Gen.String, (t, l) => new AxisHolder(t, l)), Plausible);
 
 		result.Should().BeOfType<AxisResult.Skipped>().Which.Reason.Should().Contain("Map(project, set)");
 	}
@@ -98,18 +101,18 @@ public class AxisTestsTests
 	// ── 03 Monotonicity ──────────────────────────────────────────────────────────
 
 	[Test]
-	public void Monotonicity_passes_when_every_action_keeps_the_value_from_going_backwards_and_one_moves_it()
+	public async Task Monotonicity_passes_when_every_action_keeps_the_value_from_going_backwards_and_one_moves_it()
 	{
 		var set = Set(("value-grows", Constraints<AxisTally>.Monotonic(t => t.Value, MonotonicDirection.NonDecreasing)));
 		var actions = new EntityActions<AxisTally>(Action("Increment", t => t with { Value = t.Value + 1 }), Action("Stay", t => t));
 
-		var result = set.Monotonicity(actions, NonNegative, Plausible);
+		var result = await set.MonotonicityAsync(actions, NonNegative, Plausible);
 
 		result.Should().BeOfType<AxisResult.Passed>().Which.Rules.Should().Equal("value-grows");
 	}
 
 	[Test]
-	public void Monotonicity_catches_an_action_that_moves_the_value_backwards()
+	public async Task Monotonicity_catches_an_action_that_moves_the_value_backwards()
 	{
 		var set = Set(("value-grows", Constraints<AxisTally>.Monotonic(t => t.Value, MonotonicDirection.NonDecreasing)));
 		var actions = new EntityActions<AxisTally>(
@@ -117,96 +120,103 @@ public class AxisTestsTests
 			Action("Decrement", t => t with { Value = t.Value - 1 })
 		);
 
-		var act = () => set.Monotonicity(actions, NonNegative, Plausible);
+		var act = async () => await set.MonotonicityAsync(actions, NonNegative, Plausible);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("Decrement").And.Contain("value-grows");
+		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("Decrement").And.Contain("value-grows");
 	}
 
 	[Test]
-	public void Monotonicity_is_vacuous_when_no_action_ever_moves_the_value()
+	public async Task Monotonicity_is_vacuous_when_no_action_ever_moves_the_value()
 	{
 		var set = Set(("value-grows", Constraints<AxisTally>.Monotonic(t => t.Value, MonotonicDirection.NonDecreasing)));
 		var actions = new EntityActions<AxisTally>(Action("Stay", t => t), Action("Touch other field", t => t with { Credits = t.Credits + 1 }));
 
-		var act = () => set.Monotonicity(actions, NonNegative, Plausible);
+		var act = async () => await set.MonotonicityAsync(actions, NonNegative, Plausible);
 
-		act.Should().Throw<VacuousPropertyException>().Which.Message.Should().Contain("no action changed the value");
+		(await act.Should().ThrowAsync<VacuousPropertyException>()).Which.Message.Should().Contain("no action changed the value");
 	}
 
 	[Test]
-	public void Monotonicity_is_skipped_without_actions_and_not_applicable_without_a_rule()
+	public async Task Monotonicity_is_skipped_without_actions_and_not_applicable_without_a_rule()
 	{
 		var monotonic = Set(("value-grows", Constraints<AxisTally>.Monotonic(t => t.Value, MonotonicDirection.NonDecreasing)));
 		var other = Set(("idempotent", Constraints<AxisTally>.Idempotent(t => t)));
 
-		monotonic.Monotonicity(new EntityActions<AxisTally>(), NonNegative).Should().BeOfType<AxisResult.Skipped>().Which.Reason.Should().Contain("no actions");
-		other.Monotonicity(new EntityActions<AxisTally>(Action("Stay", t => t)), NonNegative).Should().BeOfType<AxisResult.NotApplicable>();
+		(await monotonic
+			.MonotonicityAsync(new EntityActions<AxisTally>(), NonNegative))
+			.Should()
+			.BeOfType<AxisResult.Skipped>()
+			.Which
+			.Reason
+			.Should()
+			.Contain("no actions");
+		(await other.MonotonicityAsync(new EntityActions<AxisTally>(Action("Stay", t => t)), NonNegative)).Should().BeOfType<AxisResult.NotApplicable>();
 	}
 
 	// ── 04 Conservation ──────────────────────────────────────────────────────────
 
 	[Test]
-	public void Conservation_passes_when_actions_move_value_between_halves_without_creating_any()
+	public async Task Conservation_passes_when_actions_move_value_between_halves_without_creating_any()
 	{
 		var set = Set(("total-kept", Constraints<AxisTally>.Conserves(t => t.Credits + t.Debits)));
 		var actions = new EntityActions<AxisTally>(
 			new EntityAction<AxisTally>("Transfer", typeof(int), (t, a) => t with { Credits = t.Credits - (int)a!, Debits = t.Debits + (int)a! })
 		);
 
-		var result = set.Conservation(actions, NonNegative, Plausible);
+		var result = await set.ConservationAsync(actions, NonNegative, Plausible);
 
 		result.Should().BeOfType<AxisResult.Passed>().Which.Rules.Should().Equal("total-kept");
 	}
 
 	[Test]
-	public void Conservation_catches_an_action_that_destroys_value()
+	public async Task Conservation_catches_an_action_that_destroys_value()
 	{
 		var set = Set(("total-kept", Constraints<AxisTally>.Conserves(t => t.Credits + t.Debits)));
 		var actions = new EntityActions<AxisTally>(
 			new EntityAction<AxisTally>("Burn", typeof(int), (t, a) => t with { Credits = t.Credits - Math.Max(1, (int)a!) })
 		);
 
-		var act = () => set.Conservation(actions, NonNegative, Plausible);
+		var act = async () => await set.ConservationAsync(actions, NonNegative, Plausible);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("Burn").And.Contain("total-kept");
+		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("Burn").And.Contain("total-kept");
 	}
 
 	// ── 08 Confluence ────────────────────────────────────────────────────────────
 
 	[Test]
-	public void Confluence_passes_when_the_result_ignores_the_order_and_orderings_were_tried()
+	public async Task Confluence_passes_when_the_result_ignores_the_order_and_orderings_were_tried()
 	{
 		var set = ConstraintSet.From(("sum", Constraints<AxisBag>.OrderIndependent(b => b.Items, (_, items) => new AxisBag(items), b => b.Items.Sum())));
 
-		var result = set.Confluence(Bags, Plausible);
+		var result = await set.ConfluenceAsync(Bags, Plausible);
 
 		result.Should().BeOfType<AxisResult.Passed>().Which.Rules.Should().Equal("sum");
 	}
 
 	[Test]
-	public void Confluence_catches_a_result_that_depends_on_which_item_comes_first()
+	public async Task Confluence_catches_a_result_that_depends_on_which_item_comes_first()
 	{
 		var set = ConstraintSet.From(("first", Constraints<AxisBag>.OrderIndependent(b => b.Items, (_, items) => new AxisBag(items), b => b.Items[0])));
 
-		var act = () => set.Confluence(Bags, Plausible);
+		var act = async () => await set.ConfluenceAsync(Bags, Plausible);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("first").And.Contain("depends on the order");
+		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("first").And.Contain("depends on the order");
 	}
 
 	[Test]
-	public void Confluence_is_vacuous_when_no_value_has_two_items_to_reorder()
+	public async Task Confluence_is_vacuous_when_no_value_has_two_items_to_reorder()
 	{
 		var set = ConstraintSet.From(("sum", Constraints<AxisBag>.OrderIndependent(b => b.Items, (_, items) => new AxisBag(items), b => b.Items.Sum())));
 
-		var act = () => set.Confluence(SingleItemBags, Plausible);
+		var act = async () => await set.ConfluenceAsync(SingleItemBags, Plausible);
 
-		act.Should().Throw<VacuousPropertyException>().Which.Message.Should().Contain("two items to reorder");
+		(await act.Should().ThrowAsync<VacuousPropertyException>()).Which.Message.Should().Contain("two items to reorder");
 	}
 
 	// ── 09 Vacancy ───────────────────────────────────────────────────────────────
 
 	[Test]
-	public void Vacancy_passes_when_every_rule_has_a_counter_example_and_every_guard_is_reached()
+	public async Task Vacancy_passes_when_every_rule_has_a_counter_example_and_every_guard_is_reached()
 	{
 		var set = Set(
 			("non-negative", Constraints<AxisTally>.Always(t => t.Value >= 0, "A value is never negative.")),
@@ -218,31 +228,31 @@ public class AxisTestsTests
 			["big-needs-no-debits"] = t => t with { Value = 9, Debits = 1 }
 		};
 
-		var result = set.Vacancy(NoDebitsWhenBig, counterExamples, Plausible);
+		var result = await set.VacancyAsync(NoDebitsWhenBig, counterExamples, Plausible);
 
 		result.Should().BeOfType<AxisResult.Passed>().Which.Rules.Should().Equal("non-negative", "big-needs-no-debits");
 	}
 
 	[Test]
-	public void Vacancy_fails_for_a_rule_nothing_shows_can_fire()
+	public async Task Vacancy_fails_for_a_rule_nothing_shows_can_fire()
 	{
 		// only the author knows 12345 is the forbidden value: no single step from a valid value reaches it
 		var set = Set(("not-twelve-thousand", Constraints<AxisTally>.Always(t => t.Value != 12_345, "A value is not 12345.")));
 
-		var act = () => set.Vacancy(NonNegative, run: Plausible);
+		var act = async () => await set.VacancyAsync(NonNegative, run: Plausible);
 
-		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("not-twelve-thousand: no counter-example");
+		(await act.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Contain("not-twelve-thousand: no counter-example");
 	}
 
 	[Test]
-	public void Vacancy_fails_for_a_guard_no_generated_value_reaches()
+	public async Task Vacancy_fails_for_a_guard_no_generated_value_reaches()
 	{
 		var set = Set(("huge-needs-no-debits", Constraints<AxisTally>.When(t => t.Value > 100).Requires(t => t.Debits == 0, "A huge value has no debits.")));
 		var counterExamples = new Dictionary<string, Func<AxisTally, AxisTally>> { ["huge-needs-no-debits"] = t => t with { Value = 101, Debits = 1 } };
 
-		var act = () => set.Vacancy(NonNegative, counterExamples, Plausible);
+		var act = async () => await set.VacancyAsync(NonNegative, counterExamples, Plausible);
 
-		act.Should().Throw<VacuousPropertyException>().Which.Message.Should().Contain("guard was never true");
+		(await act.Should().ThrowAsync<VacuousPropertyException>()).Which.Message.Should().Contain("guard was never true");
 	}
 
 	// ── results ──────────────────────────────────────────────────────────────────

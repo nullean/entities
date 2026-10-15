@@ -44,7 +44,7 @@ internal sealed class ScriptRun<TSut>
 			{
 				Scheduler.AdvanceBy(delay);
 			}
-			step.Act(Sut);
+			step.RequireSync()(Sut);
 		}
 	}
 

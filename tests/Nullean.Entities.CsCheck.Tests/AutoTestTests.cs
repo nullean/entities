@@ -71,9 +71,9 @@ public class AutoTestTests
 			.Action<int>("Transfer", (a, n) => a with { Credits = a.Credits - n, Debits = a.Debits + n });
 
 	[Test]
-	public void A_sound_type_passes_every_axis_it_declares_and_reports_the_one_it_does_not()
+	public async Task A_sound_type_passes_every_axis_it_declares_and_reports_the_one_it_does_not()
 	{
-		var report = Sound().Run();
+		var report = await Sound().RunAsync();
 
 		report.Results.Select(r => (r.Axis, r.GetType().Name)).Should().Equal(
 			(Axis.Invariant, nameof(AxisResult.Passed)),
@@ -87,30 +87,38 @@ public class AutoTestTests
 	}
 
 	[Test]
-	public void An_operation_that_breaks_a_rule_fails_only_the_axis_it_breaks_and_run_names_it()
+	public async Task An_operation_that_breaks_a_rule_fails_only_the_axis_it_breaks_and_run_names_it()
 	{
 		var broken = Sound().Action("Rewind", a => a with { Version = a.Version - 1 });
 
-		var report = broken.Report();
+		var report = await broken.ReportAsync();
 
 		report.Failures.Select(f => f.Axis).Should().Equal(Axis.Monotonicity);
 		report.Results.Single(r => r.Axis == Axis.Conservation).Should().BeOfType<AxisResult.Passed>();
-		var act = () => broken.Run();
-		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("1 of 6 axes failed").And.Contain("Rewind").And.Contain("version-grows");
+		var act = async () => await broken.RunAsync();
+		(await act.Should().ThrowAsync<InvalidOperationException>())
+			.Which
+			.Message
+			.Should()
+			.Contain("1 of 6 axes failed")
+			.And
+			.Contain("Rewind")
+			.And
+			.Contain("version-grows");
 	}
 
 	[Test]
-	public void A_failure_carries_the_seed_that_replays_it()
+	public async Task A_failure_carries_the_seed_that_replays_it()
 	{
-		var report = Sound().Action("Rewind", a => a with { Version = a.Version - 1 }).Report();
+		var report = await Sound().Action("Rewind", a => a with { Version = a.Version - 1 }).ReportAsync();
 
 		report.Failures.Single().Seed.Should().NotBeNullOrEmpty();
 	}
 
 	[Test]
-	public void A_required_axis_the_type_does_not_declare_fails_instead_of_being_not_applicable()
+	public async Task A_required_axis_the_type_does_not_declare_fails_instead_of_being_not_applicable()
 	{
-		var report = Sound().RequireAxes(Axis.Confluence).Report();
+		var report = await Sound().RequireAxes(Axis.Confluence).ReportAsync();
 
 		var failure = report.Failures.Should().ContainSingle().Subject;
 		failure.Axis.Should().Be(Axis.Confluence);
@@ -118,16 +126,14 @@ public class AutoTestTests
 	}
 
 	[Test]
-	public void Cases_list_the_declared_axes_and_a_failing_one_says_its_law_and_consequence()
+	public async Task Cases_list_the_declared_axes_and_a_failing_one_says_its_law_and_consequence()
 	{
 		var cases = Sound().Action("Rewind", a => a with { Version = a.Version - 1 }).Cases;
 
 		cases.Select(c => c.Axis).Should().Equal(Axis.Invariant, Axis.Idempotency, Axis.Monotonicity, Axis.Conservation, Axis.Vacancy);
-		cases.Single(c => c.Axis == Axis.Invariant).Run().Should().BeOfType<AxisResult.Passed>();
-		var act = () => cases.Single(c => c.Axis == Axis.Monotonicity).Run();
-		act
-			.Should()
-			.Throw<InvalidOperationException>()
+		(await cases.Single(c => c.Axis == Axis.Invariant).RunAsync()).Should().BeOfType<AxisResult.Passed>();
+		var act = async () => await cases.Single(c => c.Axis == Axis.Monotonicity).RunAsync();
+		(await act.Should().ThrowAsync<InvalidOperationException>())
 			.Which
 			.Message
 			.Should()
@@ -147,79 +153,79 @@ public class AutoTestTests
 	}
 
 	[Test]
-	public void Configuring_returns_a_copy_and_leaves_the_original_alone()
+	public async Task Configuring_returns_a_copy_and_leaves_the_original_alone()
 	{
 		var original = AutoTest.For(Rules(), Accounts).CounterExamples(CounterExamples);
 
 		var withAction = original.Action("Bump", a => a with { Version = a.Version + 1 });
 
-		original.Monotonicity().Should().BeOfType<AxisResult.Skipped>("the original has no operations");
-		withAction.Monotonicity().Should().BeOfType<AxisResult.Passed>();
+		(await original.MonotonicityAsync()).Should().BeOfType<AxisResult.Skipped>("the original has no operations");
+		(await withAction.MonotonicityAsync()).Should().BeOfType<AxisResult.Passed>();
 	}
 
 	[Test]
-	public void A_sequential_rule_written_by_hand_is_listed_as_unclassified()
+	public async Task A_sequential_rule_written_by_hand_is_listed_as_unclassified()
 	{
 		var set = ConstraintSet.From(
 			("value-not-negative", Constraints<AutoAccount>.Always(a => a.Value >= 0, "A value is never negative.")),
 			("hand-written", Constraints<AutoAccount>.CheckTransition((_, _) => []))
 		);
 
-		var report = AutoTest
+		var report = await AutoTest
 			.For(set, Accounts)
 			.CounterExamples(new Dictionary<string, Func<AutoAccount, AutoAccount>> { ["value-not-negative"] = a => a with { Value = -1 } })
-			.Report();
+			.ReportAsync();
 
 		report.Unclassified.Should().Equal("hand-written");
 		report.ToString().Should().Contain("Unclassified: hand-written");
 	}
 
 	[Test]
-	public void A_generated_companion_supplies_its_rules_and_the_operations_it_found()
+	public async Task A_generated_companion_supplies_its_rules_and_the_operations_it_found()
 	{
-		var report = AutoTest
+		var report = await AutoTest
 			.For(MeterConstraints.Instance, Meters)
 			.CounterExamples(new Dictionary<string, Func<AutoMeter, AutoMeter>>
 			{
 				["name-required"] = m => m with { Name = "" },
 				["reading-never-drops"] = m => m with { Reading = m.Reading - 1 }
 			})
-			.Run();
+			.RunAsync();
 
 		report.Results.Single(r => r.Axis == Axis.Monotonicity).Should().BeOfType<AxisResult.Passed>().Which.Rules.Should().Equal("reading-never-drops");
 	}
 
 	[Test]
-	public void An_operation_the_generator_read_out_of_a_wrapper_is_run_by_the_monotonicity_axis()
+	public async Task An_operation_the_generator_read_out_of_a_wrapper_is_run_by_the_monotonicity_axis()
 	{
 		AutoCounterConstraints.Actions.Select(a => a.Name).Should().Equal("Add");
 
-		var report = AutoTest
+		var report = await AutoTest
 			.For(AutoCounterConstraints.Instance, Gen.Select(Gen.Int[0, 10], Gen.Const("counter"), (count, name) => new AutoCounter(count, name)))
 			.CounterExamples(new Dictionary<string, Func<AutoCounter, AutoCounter>>
 			{
 				["name-required"] = c => c with { Name = "" },
 				["count-never-drops"] = c => c with { Count = c.Count - 1 }
 			})
-			.Run();
+			.RunAsync();
 
 		report.Results.Single(r => r.Axis == Axis.Monotonicity).Should().BeOfType<AxisResult.Passed>();
 	}
 
 	[Test]
-	public void The_idempotent_rule_needs_no_counter_example_because_its_own_axis_proves_it_was_exercised()
+	public async Task The_idempotent_rule_needs_no_counter_example_because_its_own_axis_proves_it_was_exercised()
 	{
 		var set = ConstraintSet.From(("value-settles", Constraints<AutoAccount>.Idempotent(a => a with { Value = Math.Min(a.Value, 8) })));
 
-		var result = set.Vacancy(Accounts);
+		var result = await set.VacancyAsync(Accounts);
 
 		result.Should().BeOfType<AxisResult.Passed>().Which.Rules.Should().Equal("value-settles");
 	}
 
 	[Test]
-	public void An_axis_that_fails_in_a_run_does_not_hide_the_others()
+	public async Task An_axis_that_fails_in_a_run_does_not_hide_the_others()
 	{
-		var report = AutoTest.For(Rules(), Accounts).CounterExamples(CounterExamples).Report();
+		var report = await AutoTest.For(Rules(), Accounts).CounterExamples(CounterExamples).ReportAsync();
 
 		// no operations were given: monotonicity and conservation are skipped, the rest still ran
 		report.Results.Where(r => r is AxisResult.Skipped).Select(r => r.Axis).Should().Equal(Axis.Monotonicity, Axis.Conservation);
@@ -227,7 +233,7 @@ public class AutoTestTests
 	}
 
 	[Test]
-	public void Data_set_after_an_action_still_decides_the_data_that_action_is_run_with()
+	public async Task Data_set_after_an_action_still_decides_the_data_that_action_is_run_with()
 	{
 		var longest = 0;
 		var auto = AutoTest
@@ -239,7 +245,7 @@ public class AutoTestTests
 			})
 			.Data(AutoMode.Adversarial);
 
-		auto.Monotonicity();
+		await auto.MonotonicityAsync();
 
 		longest.Should().BeGreaterThan(40, "adversarial strings include very long ones, wherever Data(...) was called");
 	}
@@ -249,18 +255,18 @@ public class AutoTestTests
 	/// Consequence if broken: rules hold for every generated value while a method of the type can still produce a value that breaks them.
 	/// </summary>
 	[Test]
-	public void An_operation_that_breaks_an_invariant_fails_the_invariant_axis()
+	public async Task An_operation_that_breaks_an_invariant_fails_the_invariant_axis()
 	{
 		var broken = Sound().Action("Overdraw", a => a with { Value = -1 });
 
-		var act = () => broken.Invariant();
+		var act = async () => await broken.InvariantAsync();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("Overdraw").And.Contain("value-not-negative");
+		(await act.Should().ThrowAsync<Exception>()).Which.Message.Should().Contain("Overdraw").And.Contain("value-not-negative");
 	}
 
 	[Test]
-	public void Operations_that_keep_the_invariants_are_named_in_the_pass()
+	public async Task Operations_that_keep_the_invariants_are_named_in_the_pass()
 	{
-		Sound().Invariant().Should().BeOfType<AxisResult.Passed>().Which.Note.Should().Contain("Bump").And.Contain("Transfer");
+		(await Sound().InvariantAsync()).Should().BeOfType<AxisResult.Passed>().Which.Note.Should().Contain("Bump").And.Contain("Transfer");
 	}
 }

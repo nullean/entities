@@ -119,12 +119,12 @@ public class TransferServiceTests
 	}
 
 	[Test]
-	public void The_total_is_conserved_after_every_single_step()
+	public async Task The_total_is_conserved_after_every_single_step()
 	{
 		// The same property, stated as a rule on the state the service exposes and checked after each generated step.
 		var rules = ConstraintSet.From(("money-is-conserved", Constraints<decimal>.Conserves(total => total, "Money was created or destroyed")));
 
-		Script
+		await Script
 			.For<Bank>()
 			.Step(
 				"transfer",
@@ -132,6 +132,6 @@ public class TransferServiceTests
 				(bank, t) => bank.Transfer(t.Item1, t.Item2, t.Item3).GetAwaiter().GetResult()
 			)
 			.Length(1, 30)
-			.SampleState(_ => new Bank(), bank => bank.Total, rules, iter: 300);
+			.SampleStateAsync(_ => new Bank(), bank => bank.Total, rules, iter: 300);
 	}
 }

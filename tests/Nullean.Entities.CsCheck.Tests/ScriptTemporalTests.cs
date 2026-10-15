@@ -46,24 +46,24 @@ public class ScriptTemporalTests
 			.Length(2, 6);
 
 	[Test]
-	public void A_service_that_never_ships_is_caught_with_a_shrunk_walk_on_virtual_time()
+	public async Task A_service_that_never_ships_is_caught_with_a_shrunk_walk_on_virtual_time()
 	{
-		var act = () => ConfirmSteps().SampleWith(time => new OrderDesk(time, shipsPromptly: false), desk => desk.Log, Rules, iter: 200);
+		var act = async () => await ConfirmSteps().SampleWithAsync(time => new OrderDesk(time, shipsPromptly: false), desk => desk.Log, Rules, iter: 200);
 
-		var message = act.Should().Throw<CsCheckException>().Which.Message;
+		var message = (await act.Should().ThrowAsync<CsCheckException>()).Which.Message;
 		message.Should().Contain("ConfirmedShipsInAMinute").And.Contain("Set seed");
 	}
 
 	[Test]
-	public void A_service_that_ships_straight_away_passes_whatever_the_delays()
+	public async Task A_service_that_ships_straight_away_passes_whatever_the_delays()
 	{
-		var act = () => ConfirmSteps().SampleWith(time => new OrderDesk(time, shipsPromptly: true), desk => desk.Log, Rules, iter: 200);
+		var act = async () => await ConfirmSteps().SampleWithAsync(time => new OrderDesk(time, shipsPromptly: true), desk => desk.Log, Rules, iter: 200);
 
-		act.Should().NotThrow();
+		await act.Should().NotThrowAsync();
 	}
 
 	[Test]
-	public void The_generated_delays_advance_the_providers_clock_not_the_wall_clock()
+	public async Task The_generated_delays_advance_the_providers_clock_not_the_wall_clock()
 	{
 		DateTimeOffset? seenAt = null;
 		var script = Script
@@ -72,7 +72,7 @@ public class ScriptTemporalTests
 			.Delays(Gen.Const(TimeSpan.FromHours(10)))
 			.Length(1, 1);
 
-		script.SampleWith(
+		await script.SampleWithAsync(
 			time => new OrderDesk(time, shipsPromptly: true),
 			desk =>
 			{
@@ -87,23 +87,25 @@ public class ScriptTemporalTests
 	}
 
 	[Test]
-	public void Coverage_fails_a_run_that_never_recorded_the_event_the_check_is_about()
+	public async Task Coverage_fails_a_run_that_never_recorded_the_event_the_check_is_about()
 	{
 		// the rule is satisfied in every run, but nobody ever confirmed order 99, so a check about it proved nothing
 		var coverage = new Coverage<DeskEvent>().Expect("Order 99 confirmed", e => e is DeskEvent.Confirmed { Id: 99 });
 
-		var act = () => ConfirmSteps().SampleWith(time => new OrderDesk(time, shipsPromptly: true), desk => desk.Log, Rules, coverage, iter: 50);
+		var act = async () =>
+			await ConfirmSteps().SampleWithAsync(time => new OrderDesk(time, shipsPromptly: true), desk => desk.Log, Rules, coverage, iter: 50);
 
-		act.Should().Throw<VacuousPropertyException>().Which.Message.Should().Contain("\"Order 99 confirmed\" never occurred");
+		(await act.Should().ThrowAsync<VacuousPropertyException>()).Which.Message.Should().Contain("\"Order 99 confirmed\" never occurred");
 	}
 
 	[Test]
-	public void Coverage_passes_when_the_event_is_recorded_in_enough_runs()
+	public async Task Coverage_passes_when_the_event_is_recorded_in_enough_runs()
 	{
 		var coverage = new Coverage<DeskEvent>().Expect("Shipped", e => e is DeskEvent.Shipped, minPercentOfRuns: 50);
 
-		var act = () => ConfirmSteps().SampleWith(time => new OrderDesk(time, shipsPromptly: true), desk => desk.Log, Rules, coverage, iter: 100);
+		var act = async () =>
+			await ConfirmSteps().SampleWithAsync(time => new OrderDesk(time, shipsPromptly: true), desk => desk.Log, Rules, coverage, iter: 100);
 
-		act.Should().NotThrow();
+		await act.Should().NotThrowAsync();
 	}
 }

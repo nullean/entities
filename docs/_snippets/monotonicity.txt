@@ -8,4 +8,4 @@ Produced      Order { Lines = [], Status = Cancelled, Version = 0, Total = 0, La
 Law           No operation moves a value that may only go one way in the other direction.
 Consequence   An older result overwrites a newer one, a counter goes back or a timestamp regresses, without anything saying so.
 
-Smallest case found, after 3 shrinks. To run this case again: .Seed("2pERrTiV-JM9")
+Smallest case found, after 4 shrinks. To run this case again: .Seed("7ub38ErvzD2a")

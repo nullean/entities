@@ -95,28 +95,30 @@ public sealed partial class AutoTest<T>
 		return cases;
 	}
 
-	// the same failure text as an axis: what failed, the law, what it costs, then the details
-	private AxisResult WithLaw(Axis axis, string name, Func<AxisResult> run)
+	// the same failure text as an axis: what failed, the law, what it costs, then the details. These checks explore a state space in memory, so there is nothing to await.
+	private Task<AxisResult> WithLaw(Axis axis, string name, Func<AxisResult> run)
 	{
 		try
 		{
-			return run();
+			return Task.FromResult(run());
 		}
 		catch (Exception e) when (e is not OutOfMemoryException)
 		{
 			var law = DeeperCases().First(c => c.ToString() == name);
-			throw new InvalidOperationException(
-				AxisReport.Format(axis, new AxisFailure([("Details", e.Message)]), null, $"{axis} ({name})", law.Law, law.Consequence),
-				e
+			return Task.FromException<AxisResult>(
+				new InvalidOperationException(
+					AxisReport.Format(axis, new AxisFailure([("Details", e.Message)]), null, $"{axis} ({name})", law.Law, law.Consequence),
+					e
+				)
 			);
 		}
 	}
 
-	private AxisResult AttemptDeeper(AxisCase c)
+	private static async Task<AxisResult> AttemptDeeperAsync(AxisCase c)
 	{
 		try
 		{
-			return c.Run();
+			return await c.RunAsync().ConfigureAwait(false);
 		}
 		catch (Exception e) when (e is not OutOfMemoryException)
 		{

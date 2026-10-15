@@ -17,7 +17,7 @@ internal sealed class TimedRun<TSut>(TSut sut, ManualTimeProvider time, (TimeSpa
 
 	public (TimeSpan Delay, ScriptStep<TSut> Step)[] Ops { get; } = ops;
 
-	public void Execute()
+	public async Task ExecuteAsync()
 	{
 		foreach (var (delay, step) in Ops)
 		{
@@ -25,7 +25,7 @@ internal sealed class TimedRun<TSut>(TSut sut, ManualTimeProvider time, (TimeSpa
 			{
 				Time.Advance(delay);
 			}
-			step.Act(Sut);
+			await step.RunAsync(Sut).ConfigureAwait(false);
 		}
 	}
 
@@ -54,14 +54,14 @@ public static partial class ScriptExtensions
 			});
 	}
 
-	private static void CheckTimedRun<TSut, TEvent>(
+	private static async Task CheckTimedRunAsync<TSut, TEvent>(
 		TimedRun<TSut> run,
 		Func<TSut, IEnumerable<Timestamped<TEvent>>> log,
 		TemporalRuleSet<TEvent> rules,
 		CoverageTally<TEvent>? tally
 	)
 	{
-		run.Execute();
+		await run.ExecuteAsync().ConfigureAwait(false);
 		var events = log(run.Sut).ToList();
 		if (tally is not null)
 		{
@@ -86,20 +86,20 @@ public static partial class ScriptExtensions
 	/// events it recorded, and <paramref name="rules"/> (core temporal rules) are checked against them. A violation fails with the rule,
 	/// its time and evidence, a shrunk walk and a seed.
 	/// </summary>
-	public static void SampleWith<TSut, TEvent>(
+	public static Task SampleWithAsync<TSut, TEvent>(
 		this Script<TSut> script,
 		Func<TimeProvider, TSut> factory,
 		Func<TSut, IEnumerable<Timestamped<TEvent>>> log,
 		TemporalRuleSet<TEvent> rules,
 		long iter = -1,
 		string? seed = null
-	) => BuildTimedGen(script, factory).Sample(run => CheckTimedRun(run, log, rules, null), seed: seed, iter: iter, print: run => run.Print());
+	) => BuildTimedGen(script, factory).SampleAsync(run => CheckTimedRunAsync(run, log, rules, null), seed: seed, iter: iter, print: run => run.Print());
 
 	/// <summary>
 	/// The same, refusing to pass vacuously: every <see cref="Coverage{TEvent}.Expect"/>ed event must have been recorded in enough runs, otherwise
 	/// <see cref="VacuousPropertyException"/>. Skipped when <paramref name="seed"/> is given (one replayed run is too small a sample).
 	/// </summary>
-	public static void SampleWith<TSut, TEvent>(
+	public static async Task SampleWithAsync<TSut, TEvent>(
 		this Script<TSut> script,
 		Func<TimeProvider, TSut> factory,
 		Func<TSut, IEnumerable<Timestamped<TEvent>>> log,
@@ -111,7 +111,9 @@ public static partial class ScriptExtensions
 	)
 	{
 		var tally = new CoverageTally<TEvent>(coverage);
-		BuildTimedGen(script, factory).Sample(run => CheckTimedRun(run, log, rules, tally), seed: seed, iter: iter, print: run => run.Print());
+		await BuildTimedGen(script, factory)
+			.SampleAsync(run => CheckTimedRunAsync(run, log, rules, tally), seed: seed, iter: iter, print: run => run.Print())
+			.ConfigureAwait(false);
 		if (seed is null)
 		{
 			tally.Verify(writeLine);

@@ -19,18 +19,18 @@ public static class AxisTests
 {
 	/// <summary>
 	/// Axis 01. The rules that must hold in every state hold for generated values, and each can fire: <c>Laws</c> over the invariant rules. A rule with
-	/// no counter-example is not a failure here (that is axis 09, <see cref="Vacancy{T}"/>): a given counter-example is still checked to break only its rule.
+	/// no counter-example is not a failure here (that is axis 09, <see cref="VacancyAsync{T}"/>): a given counter-example is still checked to break only its rule.
 	/// </summary>
-	public static AxisResult Invariant<T>(
+	public static Task<AxisResult> InvariantAsync<T>(
 		this ConstraintSet<T> constraints,
 		Gen<T> valid,
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
 		AxisRun? run = null,
 		IReadOnlyList<AutoAction<T>>? actions = null
 	) =>
-		AxisReport.Guard(Axis.Invariant, () => InvariantCore(constraints, valid, counterExamples, run, actions));
+		AxisReport.GuardAsync(Axis.Invariant, () => InvariantCore(constraints, valid, counterExamples, run, actions));
 
-	private static AxisResult InvariantCore<T>(
+	private static async Task<AxisResult> InvariantCore<T>(
 		this ConstraintSet<T> constraints,
 		Gen<T> valid,
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
@@ -55,19 +55,19 @@ public static class AxisTests
 			writeLine: settings.WriteLine,
 			options: settings.Options
 		);
-		var kept = actions is { Count: > 0 } ? OperationsKeepInvariants(rules, actions, valid, settings) : null;
+		var kept = actions is { Count: > 0 } ? await OperationsKeepInvariants(rules, actions, valid, settings).ConfigureAwait(false) : null;
 		return new AxisResult.Passed(Axis.Invariant, Names(constraints, Axis.Invariant), settings.Samples, kept);
 	}
 
 	// A rule that holds for every generated value is only half of "holds in every state": no operation may take a valid value to an invalid one. The same actions the sequential
 	// axes run, from valid starts, with every invariant rule (and every legal-move rule) checked on what they produce.
-	private static string OperationsKeepInvariants<T>(ConstraintSet<T> rules, IReadOnlyList<AutoAction<T>> actions, Gen<T> valid, AxisRun settings)
+	private static async Task<string> OperationsKeepInvariants<T>(ConstraintSet<T> rules, IReadOnlyList<AutoAction<T>> actions, Gen<T> valid, AxisRun settings)
 	{
 		var runs = Gen.OneOf([.. actions.Select(a => a.Draw(valid).Select(drawn => (drawn.Start, Action: a, drawn.Argument)))]);
-		runs.Sample(
-			step =>
+		await runs.SampleAsync(
+			async step =>
 			{
-				var next = step.Action.Apply(step.Start, step.Argument);
+				var next = await step.Action.ApplyAsync(step.Start, step.Argument).ConfigureAwait(false);
 				// a rule declared as a warning is one the type lets through and reports: only an error is a state an operation must never produce
 				var violations = ConstraintProperties.ViolationsOf(rules, step.Start, next, settings.Time).Where(v => v.Severity == Severity.Error).ToList();
 				if (violations.Count > 0)
@@ -79,7 +79,7 @@ public static class AxisTests
 			settings.EffectiveSeed,
 			settings.Samples,
 			print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
-		);
+		).ConfigureAwait(false);
 		return $"(and {string.Join(", ", actions.Select(a => a.Name))} kept them in {settings.Samples} runs)";
 	}
 
@@ -87,10 +87,10 @@ public static class AxisTests
 	/// Axis 02. Every <c>Idempotent</c> rule's action, applied twice, gives what applying it once gives, over generated valid values. Vacuous when the action
 	/// left every generated value unchanged (it was never exercised): the report says in how many of the samples it changed anything.
 	/// </summary>
-	public static AxisResult Idempotency<T>(this ConstraintSet<T> constraints, Gen<T>? valid = null, AxisRun? run = null) =>
-		AxisReport.Guard(Axis.Idempotency, () => IdempotencyCore(constraints, valid, run));
+	public static Task<AxisResult> IdempotencyAsync<T>(this ConstraintSet<T> constraints, Gen<T>? valid = null, AxisRun? run = null) =>
+		AxisReport.GuardAsync(Axis.Idempotency, () => IdempotencyCore(constraints, valid, run));
 
-	private static AxisResult IdempotencyCore<T>(this ConstraintSet<T> constraints, Gen<T>? valid = null, AxisRun? run = null)
+	private static async Task<AxisResult> IdempotencyCore<T>(this ConstraintSet<T> constraints, Gen<T>? valid = null, AxisRun? run = null)
 	{
 		var settings = run ?? new AxisRun();
 		var declared = Rules(constraints, Axis.Idempotency);
@@ -109,7 +109,8 @@ public static class AxisTests
 
 		var gen = valid ?? GenAuto.Of<T>(settings.Data, settings.Options).Valid(constraints, settings.Time);
 		var changed = new long[rules.Count];
-		gen.Sample(
+		await SampleChecks(
+			gen,
 			value =>
 			{
 				for (var i = 0; i < rules.Count; i++)
@@ -132,11 +133,9 @@ public static class AxisTests
 					}
 				}
 			},
-			settings.WriteLine,
-			settings.EffectiveSeed,
-			settings.Samples,
-			print: Print
-		);
+			settings,
+			Print
+		).ConfigureAwait(false);
 
 		for (var i = 0; i < rules.Count; i++)
 		{
@@ -161,41 +160,51 @@ public static class AxisTests
 	/// Axis 03. From a valid start, every action (with generated arguments) leaves each <c>Monotonic</c> / <c>MonotonicPerKey</c> rule holding. Vacuous when no action
 	/// ever moved the value (or, per key, when no key was present both before and after): a monotonic rule over a value nothing changes checks nothing.
 	/// </summary>
-	public static AxisResult Monotonicity<T>(this ConstraintSet<T> constraints, EntityActions<T> actions, Gen<T>? start = null, AxisRun? run = null) =>
-		Monotonicity(constraints, ToAutoActions(actions, run), start, run);
+	public static Task<AxisResult> MonotonicityAsync<T>(
+		this ConstraintSet<T> constraints,
+		EntityActions<T> actions,
+		Gen<T>? start = null,
+		AxisRun? run = null
+	) =>
+		MonotonicityAsync(constraints, ToAutoActions(actions, run), start, run);
 
-	/// <inheritdoc cref="Monotonicity{T}(ConstraintSet{T}, EntityActions{T}, Gen{T}, AxisRun)"/>
-	public static AxisResult Monotonicity<T>(
+	/// <inheritdoc cref="MonotonicityAsync{T}(ConstraintSet{T}, EntityActions{T}, Gen{T}, AxisRun)"/>
+	public static Task<AxisResult> MonotonicityAsync<T>(
 		this ConstraintSet<T> constraints,
 		IReadOnlyList<AutoAction<T>> actions,
 		Gen<T>? start = null,
 		AxisRun? run = null
 	) =>
-		AxisReport.Guard(Axis.Monotonicity, () => Sequential(constraints, Axis.Monotonicity, actions, start, run ?? new AxisRun()));
+		AxisReport.GuardAsync(Axis.Monotonicity, () => Sequential(constraints, Axis.Monotonicity, actions, start, run ?? new AxisRun()));
 
 	/// <summary>
 	/// Axis 04. From a valid start, every action leaves each <c>Conserves</c> rule holding. Vacuous when no action ever changed the value at all.
 	/// </summary>
-	public static AxisResult Conservation<T>(this ConstraintSet<T> constraints, EntityActions<T> actions, Gen<T>? start = null, AxisRun? run = null) =>
-		Conservation(constraints, ToAutoActions(actions, run), start, run);
+	public static Task<AxisResult> ConservationAsync<T>(
+		this ConstraintSet<T> constraints,
+		EntityActions<T> actions,
+		Gen<T>? start = null,
+		AxisRun? run = null
+	) =>
+		ConservationAsync(constraints, ToAutoActions(actions, run), start, run);
 
-	/// <inheritdoc cref="Conservation{T}(ConstraintSet{T}, EntityActions{T}, Gen{T}, AxisRun)"/>
-	public static AxisResult Conservation<T>(
+	/// <inheritdoc cref="ConservationAsync{T}(ConstraintSet{T}, EntityActions{T}, Gen{T}, AxisRun)"/>
+	public static Task<AxisResult> ConservationAsync<T>(
 		this ConstraintSet<T> constraints,
 		IReadOnlyList<AutoAction<T>> actions,
 		Gen<T>? start = null,
 		AxisRun? run = null
 	) =>
-		AxisReport.Guard(Axis.Conservation, () => Sequential(constraints, Axis.Conservation, actions, start, run ?? new AxisRun()));
+		AxisReport.GuardAsync(Axis.Conservation, () => Sequential(constraints, Axis.Conservation, actions, start, run ?? new AxisRun()));
 
 	/// <summary>
 	/// Axis 08. Each <c>OrderIndependent</c> rule: listing the value's items in a random order does not change the result. Orderings shrink toward the original
 	/// order, so a failure is the smallest reordering that still differs. Vacuous when no generated value had two items to reorder.
 	/// </summary>
-	public static AxisResult Confluence<T>(this ConstraintSet<T> constraints, Gen<T>? valid = null, AxisRun? run = null) =>
-		AxisReport.Guard(Axis.Confluence, () => ConfluenceCore(constraints, valid, run));
+	public static Task<AxisResult> ConfluenceAsync<T>(this ConstraintSet<T> constraints, Gen<T>? valid = null, AxisRun? run = null) =>
+		AxisReport.GuardAsync(Axis.Confluence, () => ConfluenceCore(constraints, valid, run));
 
-	private static AxisResult ConfluenceCore<T>(this ConstraintSet<T> constraints, Gen<T>? valid = null, AxisRun? run = null)
+	private static async Task<AxisResult> ConfluenceCore<T>(this ConstraintSet<T> constraints, Gen<T>? valid = null, AxisRun? run = null)
 	{
 		var settings = run ?? new AxisRun();
 		var declared = Rules(constraints, Axis.Confluence);
@@ -217,7 +226,8 @@ public static class AxisTests
 		{
 			var shape = (OrderIndependentShape<T>)rule.Shape;
 			var reordered = 0L;
-			gen.SelectMany(value => Gen.Int.Array[shape.Count(value)].Select(keys => (Value: value, Order: Argsort(keys)))).Sample(
+			await SampleChecks(
+				gen.SelectMany(value => Gen.Int.Array[shape.Count(value)].Select(keys => (Value: value, Order: Argsort(keys)))),
 				x =>
 				{
 					var identity = x.Order.Select((o, i) => o == i).All(same => same);
@@ -236,11 +246,9 @@ public static class AxisTests
 						]);
 					}
 				},
-				settings.WriteLine,
-				settings.EffectiveSeed,
-				settings.Samples,
-				print: x => $"{Print(x.Value)} reordered as [{string.Join(", ", x.Order)}]"
-			);
+				settings,
+				x => $"{Print(x.Value)} reordered as [{string.Join(", ", x.Order)}]"
+			).ConfigureAwait(false);
 			if (reordered == 0)
 			{
 				throw NotExercised(
@@ -257,15 +265,15 @@ public static class AxisTests
 	/// Axis 09. The tests reached the rules: every rule can fire (it has a counter-example that breaks it and only it, given or derived from an edge value; an idempotent or order-independent rule is exempt, its own axis proves it was exercised) and every
 	/// <c>When(...).Requires(...)</c> guard is true for at least one generated value. A rule with no counter-example fails here, which is the point: nothing shows it can fire.
 	/// </summary>
-	public static AxisResult Vacancy<T>(
+	public static Task<AxisResult> VacancyAsync<T>(
 		this ConstraintSet<T> constraints,
 		Gen<T> valid,
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
 		AxisRun? run = null
 	) =>
-		AxisReport.Guard(Axis.Vacancy, () => VacancyCore(constraints, valid, counterExamples, run));
+		AxisReport.GuardAsync(Axis.Vacancy, () => VacancyCore(constraints, valid, counterExamples, run));
 
-	private static AxisResult VacancyCore<T>(
+	private static async Task<AxisResult> VacancyCore<T>(
 		this ConstraintSet<T> constraints,
 		Gen<T> valid,
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
@@ -302,7 +310,8 @@ public static class AxisTests
 		var reached = new long[guarded.Count];
 		if (guarded.Count > 0)
 		{
-			valid.Sample(
+			await SampleChecks(
+				valid,
 				value =>
 				{
 					for (var i = 0; i < guarded.Count; i++)
@@ -313,11 +322,9 @@ public static class AxisTests
 						}
 					}
 				},
-				settings.WriteLine,
-				settings.EffectiveSeed,
-				settings.Samples,
-				print: Print
-			);
+				settings,
+				Print
+			).ConfigureAwait(false);
 		}
 		for (var i = 0; i < guarded.Count; i++)
 		{
@@ -339,9 +346,29 @@ public static class AxisTests
 		);
 	}
 
+	// a check with nothing to await, run on CsCheck's async sampler so every axis shares one engine
+	private static Task SampleChecks<TValue>(Gen<TValue> gen, Action<TValue> check, AxisRun settings, Func<TValue, string> print) =>
+		gen.SampleAsync(
+			value =>
+			{
+				check(value);
+				return Task.CompletedTask;
+			},
+			settings.WriteLine,
+			settings.EffectiveSeed,
+			settings.Samples,
+			print: print
+		);
+
 	// ── 03 and 04: a sequential rule is attacked by running actions ──────────────
 
-	private static AxisResult Sequential<T>(ConstraintSet<T> constraints, Axis axis, IReadOnlyList<AutoAction<T>> actions, Gen<T>? start, AxisRun settings)
+	private static async Task<AxisResult> Sequential<T>(
+		ConstraintSet<T> constraints,
+		Axis axis,
+		IReadOnlyList<AutoAction<T>> actions,
+		Gen<T>? start,
+		AxisRun settings
+	)
 	{
 		var rules = Rules(constraints, axis);
 		if (rules.Count == 0)
@@ -362,10 +389,10 @@ public static class AxisTests
 		var moved = new long[rules.Count];
 		var starts = start ?? GenAuto.Of<T>(settings.Data, settings.Options).Valid(constraints, settings.Time);
 		var runs = Gen.OneOf([.. actions.Select(a => a.Draw(starts).Select(drawn => (drawn.Start, Action: a, drawn.Argument)))]);
-		runs.Sample(
-			step =>
+		await runs.SampleAsync(
+			async step =>
 			{
-				var next = step.Action.Apply(step.Start, step.Argument);
+				var next = await step.Action.ApplyAsync(step.Start, step.Argument).ConfigureAwait(false);
 				var violations = ConstraintProperties.ViolationsOf(checking, step.Start, next, settings.Time);
 				if (violations.Count > 0)
 				{
@@ -382,7 +409,7 @@ public static class AxisTests
 			settings.EffectiveSeed,
 			settings.Samples,
 			print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
-		);
+		).ConfigureAwait(false);
 
 		for (var i = 0; i < rules.Count; i++)
 		{

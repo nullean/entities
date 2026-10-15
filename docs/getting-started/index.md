@@ -132,7 +132,7 @@ public class QuickstartTests
 
 	[Test]
 	[MethodDataSource(nameof(Axes))]
-	public void EveryDeclaredAxisHolds(AxisCase axis) => axis.Run();
+	public Task EveryDeclaredAxisHolds(AxisCase axis) => axis.RunAsync();
 }
 ```
 

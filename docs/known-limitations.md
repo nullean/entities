@@ -13,6 +13,10 @@ A rule is checked when you validate a value or run a test, not when you compile.
 
 A rule cannot call a database or a service. "Is this email taken" is not a rule here; do it in the application service. This is on purpose: a rule that does I/O cannot be generated against.
 
+## Everything awaits; nothing blocks
+
+Every terminal is async (`RunAsync`, `SampleWithAsync`, `SampleStateAsync`, `ConformsToAsync`), because the operations under test may be. The library never blocks on a task. What async cannot do is make real I/O repeatable: a step that awaits a real database or HTTP call gives a different answer next time, so a failing seed cannot be replayed. Replace I/O with in-memory fakes and a `ManualTimeProvider`. The Rx terminals are scheduler-driven and take synchronous steps only; an async step there is reported with a pointer to the `TimeProvider` terminals.
+
 ## The generator is yours to get right
 
 `GenAuto` builds values from the shape of a type. It cannot guess a relation between members, a key that is its value's own id, or what makes a whole structure valid. You declare those. A generator that never reaches a rule is reported (the Vacancy axis), but you have to fix it.

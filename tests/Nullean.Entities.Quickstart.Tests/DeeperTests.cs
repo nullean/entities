@@ -31,10 +31,10 @@ public class DeeperTests
 		Auto().Exhaustive().Should().BeOfType<AxisResult.Passed>().Which.Note.Should().Contain("reachable states");
 
 	[Test]
-	public void Two_operations_that_do_not_commute_fail_with_the_law_in_the_message()
+	public async Task Two_operations_that_do_not_commute_fail_with_the_law_in_the_message()
 	{
-		var act = () => Auto().Commutes("Confirm", "Cancel").Cases.Single(c => c.ToString() == "Commutes(Confirm, Cancel)").Run();
+		var act = async () => await Auto().Commutes("Confirm", "Cancel").Cases.Single(c => c.ToString() == "Commutes(Confirm, Cancel)").RunAsync();
 
-		act.Should().Throw<Exception>().Which.Message.Should().Contain("Confluence (Commutes(Confirm, Cancel)) failed").And.Contain("Law");
+		(await act.Should().ThrowAsync<Exception>()).Which.Message.Should().Contain("Confluence (Commutes(Confirm, Cancel)) failed").And.Contain("Law");
 	}
 }

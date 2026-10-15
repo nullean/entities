@@ -20,7 +20,7 @@ public static class EventAutoTest
 		Script<TSut> script,
 		Func<TimeProvider, TSut> factory,
 		Func<TSut, IEnumerable<Timestamped<TEvent>>> log
-	) => new(rules, script, factory, log);
+	) => new(rules, script, factory, sut => ValueTask.FromResult(log(sut).ToList()));
 
 	/// <summary>The same for a service that exposes its events as an <see cref="IAsyncEnumerable{T}"/>. The stream is drained after each run, so use a service whose stream ends.</summary>
 	public static EventAutoTest<TSut, TEvent> ForAsync<TSut, TEvent>(
@@ -28,25 +28,16 @@ public static class EventAutoTest
 		Script<TSut> script,
 		Func<TimeProvider, TSut> factory,
 		Func<TSut, IAsyncEnumerable<Timestamped<TEvent>>> events
-	) => new(rules, script, factory, sut => Drain(events(sut)));
-
-	private static List<Timestamped<TEvent>> Drain<TEvent>(IAsyncEnumerable<Timestamped<TEvent>> stream)
-	{
-		var drained = new List<Timestamped<TEvent>>();
-		var enumerator = stream.GetAsyncEnumerator();
-		try
+	) =>
+		new(rules, script, factory, async sut =>
 		{
-			while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
+			var drained = new List<Timestamped<TEvent>>();
+			await foreach (var e in events(sut).ConfigureAwait(false))
 			{
-				drained.Add(enumerator.Current);
+				drained.Add(e);
 			}
-		}
-		finally
-		{
-			enumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
-		}
-		return drained;
-	}
+			return drained;
+		});
 }
 
 /// <summary>The event axes over one service. Immutable: each configuration method returns a copy.</summary>
@@ -57,7 +48,7 @@ public sealed class EventAutoTest<TSut, TEvent>
 	private readonly TemporalRuleSet<TEvent> _rules;
 	private readonly Script<TSut> _script;
 	private readonly Func<TimeProvider, TSut> _factory;
-	private readonly Func<TSut, IEnumerable<Timestamped<TEvent>>> _log;
+	private readonly Func<TSut, ValueTask<List<Timestamped<TEvent>>>> _log;
 	private readonly int _samples = 200;
 	private readonly string? _seed;
 	private readonly Action<string>? _output;
@@ -66,7 +57,7 @@ public sealed class EventAutoTest<TSut, TEvent>
 		TemporalRuleSet<TEvent> rules,
 		Script<TSut> script,
 		Func<TimeProvider, TSut> factory,
-		Func<TSut, IEnumerable<Timestamped<TEvent>>> log
+		Func<TSut, ValueTask<List<Timestamped<TEvent>>>> log
 	)
 	{
 		_rules = rules;
@@ -94,23 +85,32 @@ public sealed class EventAutoTest<TSut, TEvent>
 	public EventAutoTest<TSut, TEvent> Output(Action<string> writeLine) => new(this, _samples, _seed, writeLine);
 
 	/// <summary>Sequences the domain forbids (<c>Never</c>, <c>NeverTwice</c>, <c>Always</c>, <c>Transitions</c>, <c>When</c>) never happen, whatever the calls and delays.</summary>
-	public AxisResult Absence() => Attack(Axis.Absence);
+	public Task<AxisResult> AbsenceAsync() => AttackAsync(Axis.Absence);
 
 	/// <summary>Bounded responses (<c>After().Then().Within()</c>, <c>AfterUntil</c>) are answered in time: the delays tried straddle every window, and a rule fails as vacuous if no run ever crossed its deadline.</summary>
-	public AxisResult Temporal() => Attack(Axis.Temporal);
+	public Task<AxisResult> TemporalAsync() => AttackAsync(Axis.Temporal);
 
 	/// <summary>Everything a <c>from</c> event opens is eventually answered, once the run settles.</summary>
-	public AxisResult Liveness() => Attack(Axis.Liveness);
+	public Task<AxisResult> LivenessAsync() => AttackAsync(Axis.Liveness);
 
 	/// <summary>Every event rule fired in the sample: its trigger was seen, and a deadline was crossed. A rule that never fires reports green while checking nothing.</summary>
-	public AxisResult Vacancy() => Attack(null);
+	public Task<AxisResult> VacancyAsync() => AttackAsync(null);
 
-	public AutoTestReport Report() => new([.. Axes.Select(Attempt), Attempt(Axis.Vacancy)], [.. Unclassified.Select(r => r.Name)]);
+	public async Task<AutoTestReport> ReportAsync()
+	{
+		var results = new List<AxisResult>();
+		foreach (var axis in Axes)
+		{
+			results.Add(await AttemptAsync(axis).ConfigureAwait(false));
+		}
+		results.Add(await AttemptAsync(Axis.Vacancy).ConfigureAwait(false));
+		return new AutoTestReport(results, [.. Unclassified.Select(r => r.Name)]);
+	}
 
 	/// <summary>Runs every event axis and throws one exception listing the ones that failed.</summary>
-	public AutoTestReport Run()
+	public async Task<AutoTestReport> RunAsync()
 	{
-		var report = Report();
+		var report = await ReportAsync().ConfigureAwait(false);
 		_output?.Invoke(report.ToString());
 		return report.ThrowIfFailed();
 	}
@@ -120,26 +120,26 @@ public sealed class EventAutoTest<TSut, TEvent>
 		[
 			.. Axes.Concat([Axis.Vacancy])
 				.Where(a => a == Axis.Vacancy || _rules.Rules.Any(r => r.Rule.Axis == a))
-				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => Case(a)))
+				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => CaseAsync(a)))
 		];
 
 	private IEnumerable<(string Name, TemporalRule<TEvent> Rule)> Unclassified => _rules.Rules.Where(r => r.Rule.Axis == Axis.Unclassified);
 
 	private static Axis[] Axes { get; } = [Axis.Absence, Axis.Temporal, Axis.Liveness];
 
-	private AxisResult Execute(Axis axis) => axis switch
+	private Task<AxisResult> ExecuteAsync(Axis axis) => axis switch
 	{
-		Axis.Absence => Absence(),
-		Axis.Temporal => Temporal(),
-		Axis.Liveness => Liveness(),
-		_ => Vacancy()
+		Axis.Absence => AbsenceAsync(),
+		Axis.Temporal => TemporalAsync(),
+		Axis.Liveness => LivenessAsync(),
+		_ => VacancyAsync()
 	};
 
-	private AxisResult Attempt(Axis axis)
+	private async Task<AxisResult> AttemptAsync(Axis axis)
 	{
 		try
 		{
-			return Execute(axis);
+			return await ExecuteAsync(axis).ConfigureAwait(false);
 		}
 		catch (Exception e) when (e is not OutOfMemoryException)
 		{
@@ -147,9 +147,9 @@ public sealed class EventAutoTest<TSut, TEvent>
 		}
 	}
 
-	private AxisResult Case(Axis axis)
+	private async Task<AxisResult> CaseAsync(Axis axis)
 	{
-		var result = Attempt(axis);
+		var result = await AttemptAsync(axis).ConfigureAwait(false);
 		return result is AxisResult.Failed failed
 			? throw new InvalidOperationException(
 				failed.IsFormatted
@@ -159,9 +159,9 @@ public sealed class EventAutoTest<TSut, TEvent>
 			: result;
 	}
 
-	private AxisResult Attack(Axis? axis) => AxisReport.Guard(axis ?? Axis.Vacancy, () => AttackCore(axis));
+	private Task<AxisResult> AttackAsync(Axis? axis) => AxisReport.GuardAsync(axis ?? Axis.Vacancy, () => AttackCoreAsync(axis));
 
-	private AxisResult AttackCore(Axis? axis)
+	private async Task<AxisResult> AttackCoreAsync(Axis? axis)
 	{
 		var picked = _rules.Rules.Where(r => axis is null ? r.Rule.Axis != Axis.Unclassified : r.Rule.Axis == axis).ToList();
 		if (picked.Count == 0)
@@ -172,7 +172,9 @@ public sealed class EventAutoTest<TSut, TEvent>
 		// rules no axis can aim at are still checked for violations by the all-rules run, they just have no trigger to judge vacuity by
 		var set = TemporalRuleSet<TEvent>.From([.. picked, .. axis is null ? Unclassified : []]);
 		var seed = _seed ?? AxisRun.DefaultSeed;
-		BuildTimedGen(picked).Sample(run => Check(run, set, picked, tally), seed: seed, iter: _samples, print: run => run.Print());
+		await BuildTimedGen(picked)
+			.SampleAsync(run => CheckAsync(run, set, picked, tally), seed: seed, iter: _samples, print: run => run.Print())
+			.ConfigureAwait(false);
 		var vacuous = Vacuous(picked, tally);
 		return vacuous.Count > 0
 			? throw new AxisFailure(
@@ -200,10 +202,10 @@ public sealed class EventAutoTest<TSut, TEvent>
 		return Gen.OneOfConst([.. delays.Distinct()]);
 	}
 
-	private void Check(TimedRun<TSut> run, TemporalRuleSet<TEvent> set, List<(string Name, TemporalRule<TEvent> Rule)> picked, RuleTally tally)
+	private async Task CheckAsync(TimedRun<TSut> run, TemporalRuleSet<TEvent> set, List<(string Name, TemporalRule<TEvent> Rule)> picked, RuleTally tally)
 	{
-		run.Execute();
-		var events = _log(run.Sut).ToList();
+		await run.ExecuteAsync().ConfigureAwait(false);
+		var events = await _log(run.Sut).ConfigureAwait(false);
 		var end = run.Time.GetUtcNow();
 		tally.Add(picked, events, end);
 		var report = Trace.Check(events, set, end);

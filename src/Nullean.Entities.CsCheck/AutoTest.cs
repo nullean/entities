@@ -1,6 +1,6 @@
 // Nullean.Entities.CsCheck — every axis a type declares, attacked from one declaration.
 //
-//   AutoTest.For(Constraints.Instance).CounterExamples(...).Run();
+//   AutoTest.For(Constraints.Instance).CounterExamples(...).RunAsync();
 //
 // AutoTest<T> holds what the axes share (the constraint set, a generator of valid values, the counter-examples, the operations, how to sample) and
 // exposes each axis as a named method. Report() runs every axis and records what each did; Run() does the same and throws when any failed; Cases lists the
@@ -45,8 +45,8 @@ public static class AxisInfo
 	};
 }
 
-/// <summary>One axis as one test: its law and consequence for the failure message, and how to run it. <see cref="Run"/> throws when the axis fails.</summary>
-public sealed record AxisCase(Axis Axis, string Law, string Consequence, Func<AxisResult> Run, string? Name = null)
+/// <summary>One axis as one test: its law and consequence for the failure message, and how to run it. <see cref="RunAsync"/> throws when the axis fails.</summary>
+public sealed record AxisCase(Axis Axis, string Law, string Consequence, Func<Task<AxisResult>> RunAsync, string? Name = null)
 {
 	/// <summary>The axis name (or the name of the deeper technique), so a test framework displays one test per case.</summary>
 	public override string ToString() => Name ?? Axis.ToString();
@@ -219,23 +219,23 @@ public sealed partial class AutoTest<T>
 
 	// ── the axes ─────────────────────────────────────────────────────────────────
 
-	/// <inheritdoc cref="AxisTests.Invariant{T}"/>
-	public AxisResult Invariant() => _constraints.Invariant(CurrentValid, _counterExamples, _settings, CurrentActions);
+	/// <inheritdoc cref="AxisTests.InvariantAsync{T}"/>
+	public Task<AxisResult> InvariantAsync() => _constraints.InvariantAsync(CurrentValid, _counterExamples, _settings, CurrentActions);
 
-	/// <inheritdoc cref="AxisTests.Idempotency{T}"/>
-	public AxisResult Idempotency() => _constraints.Idempotency(_valid, _settings);
+	/// <inheritdoc cref="AxisTests.IdempotencyAsync{T}"/>
+	public Task<AxisResult> IdempotencyAsync() => _constraints.IdempotencyAsync(_valid, _settings);
 
-	/// <inheritdoc cref="AxisTests.Monotonicity{T}(ConstraintSet{T}, IReadOnlyList{AutoAction{T}}, Gen{T}, AxisRun)"/>
-	public AxisResult Monotonicity() => _constraints.Monotonicity(CurrentActions, _valid, _settings);
+	/// <inheritdoc cref="AxisTests.MonotonicityAsync{T}(ConstraintSet{T}, IReadOnlyList{AutoAction{T}}, Gen{T}, AxisRun)"/>
+	public Task<AxisResult> MonotonicityAsync() => _constraints.MonotonicityAsync(CurrentActions, _valid, _settings);
 
-	/// <inheritdoc cref="AxisTests.Conservation{T}(ConstraintSet{T}, IReadOnlyList{AutoAction{T}}, Gen{T}, AxisRun)"/>
-	public AxisResult Conservation() => _constraints.Conservation(CurrentActions, _valid, _settings);
+	/// <inheritdoc cref="AxisTests.ConservationAsync{T}(ConstraintSet{T}, IReadOnlyList{AutoAction{T}}, Gen{T}, AxisRun)"/>
+	public Task<AxisResult> ConservationAsync() => _constraints.ConservationAsync(CurrentActions, _valid, _settings);
 
-	/// <inheritdoc cref="AxisTests.Confluence{T}"/>
-	public AxisResult Confluence() => _constraints.Confluence(_valid, _settings);
+	/// <inheritdoc cref="AxisTests.ConfluenceAsync{T}"/>
+	public Task<AxisResult> ConfluenceAsync() => _constraints.ConfluenceAsync(_valid, _settings);
 
-	/// <inheritdoc cref="AxisTests.Vacancy{T}"/>
-	public AxisResult Vacancy() => _constraints.Vacancy(CurrentValid, _counterExamples, _settings);
+	/// <inheritdoc cref="AxisTests.VacancyAsync{T}"/>
+	public Task<AxisResult> VacancyAsync() => _constraints.VacancyAsync(CurrentValid, _counterExamples, _settings);
 
 	/// <summary>
 	/// For each rule: the counter-example you gave, one the search found (with a short description of the change), or none.
@@ -277,56 +277,65 @@ public sealed partial class AutoTest<T>
 	// ── composing them ───────────────────────────────────────────────────────────
 
 	/// <summary>Runs every axis and records what each did. Never throws for an axis that fails: that is a <see cref="AxisResult.Failed"/> in the report.</summary>
-	public AutoTestReport Report()
+	public async Task<AutoTestReport> ReportAsync()
 	{
 		var unclassified = _constraints.AsConstraints().Where(c => c.Axis == Axis.Unclassified).Select(c => c.Name ?? c.Shape.Factory ?? "unnamed rule");
-		return new AutoTestReport([.. Axes.Select(Attempt), .. DeeperCases().Select(AttemptDeeper)], [.. unclassified]);
+		var results = new List<AxisResult>();
+		foreach (var axis in Axes)
+		{
+			results.Add(await AttemptAsync(axis).ConfigureAwait(false));
+		}
+		foreach (var deeper in DeeperCases())
+		{
+			results.Add(await AttemptDeeperAsync(deeper).ConfigureAwait(false));
+		}
+		return new AutoTestReport(results, [.. unclassified]);
 	}
 
 	/// <summary>Runs every axis, writes the report to <see cref="Output"/>, and throws one exception listing every axis that failed.</summary>
-	public AutoTestReport Run()
+	public async Task<AutoTestReport> RunAsync()
 	{
-		var report = Report();
+		var report = await ReportAsync().ConfigureAwait(false);
 		_settings.WriteLine?.Invoke(report.ToString());
 		return report.ThrowIfFailed();
 	}
 
 	/// <summary>
 	/// One case per axis the type declares (plus any <see cref="RequireAxes"/> demands), for a test framework's data source: each test is one axis, its failure message
-	/// carries the axis's law and consequence, and an axis with no rule is simply not a test (see <see cref="Report"/> for what is not applicable).
+	/// carries the axis's law and consequence, and an axis with no rule is simply not a test (see <see cref="ReportAsync"/> for what is not applicable).
 	/// </summary>
 	public IReadOnlyList<AxisCase> Cases =>
 		[
 			.. Axes.Where(a => IsDeclared(a) || _required.Contains(a))
-				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => RunCase(a))),
+				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => RunCaseAsync(a))),
 			.. DeeperCases()
 		];
 
 	/// <summary>
-	/// The cases as a test framework's data source: <c>[MethodDataSource(nameof(Axes))]</c> over a method that returns this, with one test that calls <c>axis.Run()</c>.
+	/// The cases as a test framework's data source: <c>[MethodDataSource(nameof(Axes))]</c> over a method that returns this, with one test that awaits <c>axis.RunAsync()</c>.
 	/// Each is a function, so the framework creates and runs one axis at a time and a failing axis fails only its own test.
 	/// </summary>
 	public IEnumerable<Func<AxisCase>> AsDataSource() => Cases.Select(c => (Func<AxisCase>)(() => c));
 
 	private bool IsDeclared(Axis axis) => axis == Axis.Vacancy ? _constraints.AsConstraints().Count > 0 : _constraints.AsConstraints().Any(c => c.Axis == axis);
 
-	private AxisResult Execute(Axis axis) => axis switch
+	private Task<AxisResult> ExecuteAsync(Axis axis) => axis switch
 	{
-		Axis.Invariant => Invariant(),
-		Axis.Idempotency => Idempotency(),
-		Axis.Monotonicity => Monotonicity(),
-		Axis.Conservation => Conservation(),
-		Axis.Confluence => Confluence(),
-		_ => Vacancy()
+		Axis.Invariant => InvariantAsync(),
+		Axis.Idempotency => IdempotencyAsync(),
+		Axis.Monotonicity => MonotonicityAsync(),
+		Axis.Conservation => ConservationAsync(),
+		Axis.Confluence => ConfluenceAsync(),
+		_ => VacancyAsync()
 	};
 
 	// The axis result, with an axis that was required but could not be attacked counted as a failure.
-	private AxisResult Attempt(Axis axis)
+	private async Task<AxisResult> AttemptAsync(Axis axis)
 	{
 		AxisResult result;
 		try
 		{
-			result = Execute(axis);
+			result = await ExecuteAsync(axis).ConfigureAwait(false);
 		}
 		catch (Exception e) when (e is not OutOfMemoryException)
 		{
@@ -342,9 +351,9 @@ public sealed partial class AutoTest<T>
 			: result;
 	}
 
-	private AxisResult RunCase(Axis axis)
+	private async Task<AxisResult> RunCaseAsync(Axis axis)
 	{
-		var result = Attempt(axis);
+		var result = await AttemptAsync(axis).ConfigureAwait(false);
 		return result is AxisResult.Failed failed
 			? throw new InvalidOperationException(
 				failed.IsFormatted

@@ -1,11 +1,11 @@
 Confluence failed.
 
 Rule broken         first-sku-is-the-label: the result depends on the order the items are listed in.
-Started from        Order { Lines = [OrderLine { Sku = "fig", Quantity = 1, Price = 1 }, OrderLine { Sku = "pear", Quantity = 2, Price = 1 }], Status = Pending, Version = 2, Total = 3, Label = "fig,pear" }
+Started from        Order { Lines = [OrderLine { Sku = "pear", Quantity = 3, Price = 17 }, OrderLine { Sku = "apple", Quantity = 5, Price = 16 }], Status = Pending, Version = 2, Total = 131, Label = "apple,pear" }
 Items reordered as  [1, 0] (positions in the original list)
 Result              different from the original order's
 
 Law                 The order things arrive in does not change the result.
 Consequence         Two runs over the same inputs publish different outputs depending only on the order they were listed in.
 
-Smallest case found, after 5 shrinks. To run this case again: .Seed("b4rzm_OQDw41")
+Smallest case found, after 2 shrinks. To run this case again: .Seed("dsRrQRlF6jV2")

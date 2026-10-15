@@ -158,36 +158,6 @@ public class DeclaredMachineTests
 			.NotBeNull();
 
 	[Test]
-	public void A_service_with_async_operations_conforms_the_same_way()
-	{
-		Machine.ConformToService(
-			() => new MutableDoor(),
-			d => d.State,
-			iter: 100,
-			bindings: [
-				("Open", d => { d.Open(); return Task.CompletedTask; }),
-				("Close", d => { d.Close(); return Task.CompletedTask; }),
-				("Lock", d => { d.Lock(); return Task.CompletedTask; }),
-				("Unlock", d => { d.Unlock(); return Task.CompletedTask; }),
-			]
-		).Should().NotBeNull();
-
-		var broken = () =>
-			Machine.ConformToService(
-				() => new MutableDoor { LockIsBroken = true },
-				d => d.State,
-				iter: 200,
-				bindings: [
-					("Open", d => { d.Open(); return Task.CompletedTask; }),
-					("Close", d => { d.Close(); return Task.CompletedTask; }),
-					("Lock", d => { d.Lock(); return Task.CompletedTask; }),
-					("Unlock", d => { d.Unlock(); return Task.CompletedTask; }),
-				]
-			);
-		broken.Should().Throw<Exception>().Which.Message.Should().Contain("the machine says");
-	}
-
-	[Test]
 	public void An_entity_that_does_something_the_machine_forbids_is_caught()
 	{
 		// the lock "works" on an open door: the machine only allows locking a closed one

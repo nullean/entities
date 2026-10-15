@@ -33,7 +33,7 @@ TemporalRuleSet<FulfilmentEvent>.From(
 ## The test
 
 ```csharp
-EventAutoTest.For(rules, script, time => new Fulfilment(time, shipsAfter), f => f.Log).Run();
+await EventAutoTest.For(rules, script, time => new Fulfilment(time, shipsAfter), f => f.Log).RunAsync();
 ```
 
 `script` lists the operations (`Script.For<Fulfilment>().Step("Confirm", f => f.Confirm())`). The test builds a fresh service per run on a manual clock, advances it by generated delays, and checks the rules against the log.

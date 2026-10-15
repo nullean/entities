@@ -105,10 +105,10 @@ public class TicketServiceTests
 	}
 
 	[Test]
-	public void The_service_conforms_to_the_lifecycle_machine() =>
+	public Task The_service_conforms_to_the_lifecycle_machine() =>
 		TicketLifecycle
 			.Machine
-			.ConformToService(
+			.ConformToServiceAsync(
 				() => Desk.WithOpenTicket(new ManualTimeProvider()),
 				d => d.Status,
 				iter: 200,
@@ -119,17 +119,15 @@ public class TicketServiceTests
 					("Reopen", d => d.Do("Reopen")),
 					("Close", d => d.Do("Close")),
 				]
-			)
-			.Should()
-			.NotBeNull();
+			);
 
 	[Test]
-	public void A_declared_trigger_the_service_cannot_perform_is_found_before_any_run()
+	public async Task A_declared_trigger_the_service_cannot_perform_is_found_before_any_run()
 	{
-		var act = () =>
-			TicketLifecycle
+		var act = async () =>
+			await TicketLifecycle
 				.Machine
-				.ConformToService(
+				.ConformToServiceAsync(
 					() => Desk.WithOpenTicket(new ManualTimeProvider()),
 					d => d.Status,
 					bindings: [
@@ -140,7 +138,7 @@ public class TicketServiceTests
 					]
 				);
 
-		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("Reopen");
+		(await act.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Contain("Reopen");
 	}
 
 	// ── time: the rules about sequences ──────────────────────────────────────────
@@ -160,9 +158,9 @@ public class TicketServiceTests
 			.Length(1, 20);
 
 	[Test]
-	public void However_the_desk_is_used_no_ticket_closes_twice() =>
+	public Task However_the_desk_is_used_no_ticket_closes_twice() =>
 		DeskScript()
-			.SampleWith(
+			.SampleWithAsync(
 				clock => new Desk(clock),
 				d => d.Log.Events,
 				TemporalRuleSet<TicketEvent>.From(("a-ticket-closes-once", SlaRules.All.Rules[1].Rule)),
@@ -170,13 +168,13 @@ public class TicketServiceTests
 			);
 
 	[Test]
-	public void The_SLA_rule_is_a_wish_not_a_guarantee_and_the_search_finds_the_shortest_way_to_break_it()
+	public async Task The_SLA_rule_is_a_wish_not_a_guarantee_and_the_search_finds_the_shortest_way_to_break_it()
 	{
 		// The service cannot make a human acknowledge a P1 in time, so this rule fails under generated delays. What the run gives back is the
 		// shortest schedule that does it, with the rule and the time it was violated.
-		var act = () => DeskScript().SampleWith(clock => new Desk(clock), d => d.Log.Events, SlaRules.All, iter: 500);
+		var act = async () => await DeskScript().SampleWithAsync(clock => new Desk(clock), d => d.Log.Events, SlaRules.All, iter: 500);
 
-		var message = act.Should().Throw<Exception>().Which.ToString();
+		var message = (await act.Should().ThrowAsync<Exception>()).Which.ToString();
 		message.Should().Contain("p1-acknowledged-within-1h");
 		message.Should().Contain("Open P1");
 	}

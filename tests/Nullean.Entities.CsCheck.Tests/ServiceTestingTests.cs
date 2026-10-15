@@ -96,53 +96,53 @@ public class ServiceTestingTests
 	[Test]
 	public void A_correct_service_conforms_to_its_machine()
 	{
-		Lifecycle.ConformsTo(clock => new ServiceOrders(clock), s => s.State, Drive, iter: 300);
+		Lifecycle.ConformsToAsync(clock => new ServiceOrders(clock), s => s.State, Drive, iter: 300);
 	}
 
 	[Test]
-	public void A_service_that_ships_an_unconfirmed_order_is_caught_with_a_short_sequence()
+	public async Task A_service_that_ships_an_unconfirmed_order_is_caught_with_a_short_sequence()
 	{
-		var act = () => Lifecycle.ConformsTo(clock => new ServiceOrders(clock, shipsUnconfirmed: true), s => s.State, Drive, iter: 500);
+		var act = () => Lifecycle.ConformsToAsync(clock => new ServiceOrders(clock, shipsUnconfirmed: true), s => s.State, Drive, iter: 500);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("the trigger is refused, so it stays in").And.Contain("Ship");
+		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("the trigger is refused, so it stays in").And.Contain("Ship");
 	}
 
 	[Test]
-	public void A_service_that_does_not_follow_the_machine_in_the_other_direction_is_caught_too()
+	public async Task A_service_that_does_not_follow_the_machine_in_the_other_direction_is_caught_too()
 	{
 		// Confirm is wired to nothing: the machine allows it, the service never moves.
 		var act = () =>
-			Lifecycle.ConformsTo(
+			Lifecycle.ConformsToAsync(
 				clock => new ServiceOrders(clock),
 				s => s.State,
 				(s, trigger) => trigger == "Confirm" ? Task.CompletedTask : Drive(s, trigger),
 				iter: 500
 			);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("the machine says the service moves to");
+		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("the machine says the service moves to");
 	}
 
 	[Test]
-	public void SampleState_checks_the_machines_rule_on_every_step_of_a_correct_service()
+	public async Task SampleState_checks_the_machines_rule_on_every_step_of_a_correct_service()
 	{
 		var rules = ConstraintSet.From(("lifecycle", Lifecycle.AsConstraint()));
 
-		ScriptFor().SampleState(clock => new ServiceOrders(clock), s => s.State, rules, iter: 300);
+		await ScriptFor().SampleStateAsync(clock => new ServiceOrders(clock), s => s.State, rules, iter: 300);
 	}
 
 	[Test]
-	public void SampleState_catches_a_forbidden_transition_in_a_buggy_service()
+	public async Task SampleState_catches_a_forbidden_transition_in_a_buggy_service()
 	{
 		var rules = ConstraintSet.From(("lifecycle", Lifecycle.AsConstraint()));
 
-		var act = () =>
-			ScriptFor().SampleState(clock => new ServiceOrders(clock, shipsUnconfirmed: true), s => s.State, rules, seed: "0N0XIzNsQ0O2", iter: 500);
+		var act = async () =>
+			await ScriptFor().SampleStateAsync(clock => new ServiceOrders(clock, shipsUnconfirmed: true), s => s.State, rules, seed: "0N0XIzNsQ0O2", iter: 500);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("lifecycle").And.Contain("Placed");
+		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("lifecycle").And.Contain("Placed");
 	}
 
 	[Test]
-	public void SampleState_also_checks_an_invariant_about_the_state()
+	public async Task SampleState_also_checks_an_invariant_about_the_state()
 	{
 		var rules = ConstraintSet.From(
 			("lines-stay-small", Constraints<ServiceOrderState>.Always(
@@ -151,19 +151,19 @@ public class ServiceTestingTests
 			))
 		);
 
-		var act = () => ScriptFor().Length(8, 12).SampleState(clock => new ServiceOrders(clock), s => s.State, rules, iter: 500);
+		var act = async () => await ScriptFor().Length(8, 12).SampleStateAsync(clock => new ServiceOrders(clock), s => s.State, rules, iter: 500);
 
-		act.Should().Throw<Exception>().Which.ToString().Should().Contain("at most three lines");
+		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("at most three lines");
 	}
 
 	[Test]
-	public void SampleState_advances_the_clock_the_service_reads()
+	public async Task SampleState_advances_the_clock_the_service_reads()
 	{
 		var script = ScriptFor().Delays(Gen.Int[1, 60].Select(s => TimeSpan.FromSeconds(s)));
 		var rules = ConstraintSet.From(
 			("clock-never-goes-back", Constraints<(DateTimeOffset At, ServiceOrderState State)>.Transitions((a, b) => b.At >= a.At, "Time went backwards"))
 		);
 
-		script.SampleState(clock => new ServiceOrders(clock), s => (s.LastChange, s.State), rules, iter: 100);
+		await script.SampleStateAsync(clock => new ServiceOrders(clock), s => (s.LastChange, s.State), rules, iter: 100);
 	}
 }

@@ -30,7 +30,7 @@ public static partial class OrderConstraints
 3. **It watches events.** The same vocabulary describes rules about order and time in a live stream.
 
 ```csharp
-AutoTest.For(OrderConstraints.Instance, orders).Run();
+await AutoTest.For(OrderConstraints.Instance, orders).RunAsync();
 ```
 
 ## Nine questions you have probably never asked

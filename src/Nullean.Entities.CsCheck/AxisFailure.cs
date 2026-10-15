@@ -78,11 +78,11 @@ internal static partial class AxisReport
 	private static partial Regex ShrinkPattern();
 
 	/// <summary>Runs an axis; a failure inside it comes out as labelled lines instead of CsCheck's flattened text.</summary>
-	public static AxisResult Guard(Axis axis, Func<AxisResult> body)
+	public static async Task<AxisResult> GuardAsync(Axis axis, Func<Task<AxisResult>> body)
 	{
 		try
 		{
-			return body();
+			return await body().ConfigureAwait(false);
 		}
 		catch (AxisFailure failure)
 		{
