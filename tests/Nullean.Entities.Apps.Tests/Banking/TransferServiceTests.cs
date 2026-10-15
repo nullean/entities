@@ -13,20 +13,17 @@ internal sealed class Bank
 {
 	public static readonly string[] Ibans = ["DE89370400440532013000", "GB82WEST12345698765432", "FR1420041010050500013M02606"];
 
-	public InMemoryAccountRepository Accounts { get; } = new();
+	public InMemoryAccountRepository Accounts { get; }
 
 	public TransferService Service { get; }
 
 	public Bank(decimal opening = 1_000m, decimal overdraft = 100m)
 	{
+		Accounts = new InMemoryAccountRepository(Ibans.Select(iban => new Account(Iban.Create(iban).Unwrap(), "EUR", opening, overdraft)));
 		Service = new TransferService(Accounts);
-		foreach (var iban in Ibans)
-		{
-			Accounts.SaveAsync(new Account(Iban.Create(iban).Unwrap(), "EUR", opening, overdraft)).GetAwaiter().GetResult();
-		}
 	}
 
-	public decimal Total => Accounts.AllAsync().GetAwaiter().GetResult().Sum(a => a.Balance);
+	public decimal Total => Accounts.Snapshot.Sum(a => a.Balance);
 
 	public Task<Result<Transfer>> Transfer(int from, int to, decimal amount) => Service.TransferAsync(Ibans[from], Ibans[to], amount, "EUR");
 }
@@ -96,23 +93,23 @@ public class TransferServiceTests
 	}
 
 	[Test]
-	public void Any_sequence_of_transfers_keeps_the_total_and_every_account_within_its_overdraft()
+	public async Task Any_sequence_of_transfers_keeps_the_total_and_every_account_within_its_overdraft()
 	{
 		var transfer = Gen.Select(Gen.Int[0, 2], Gen.Int[0, 2], Gen.Int[1, 150_000].Select(cents => cents / 100m));
 
-		transfer
+		await transfer
 			.List[0, 40]
-			.Sample(
-				transfers =>
+			.SampleAsync(
+				async transfers =>
 				{
 					var bank = new Bank();
 					foreach (var (from, to, amount) in transfers)
 					{
-						bank.Transfer(from, to, amount).GetAwaiter().GetResult();
+						await bank.Transfer(from, to, amount);
 					}
 
 					bank.Total.Should().Be(3_000m);
-					bank.Accounts.AllAsync().GetAwaiter().GetResult().Should().OnlyContain(a => a.Balance >= -a.OverdraftLimit);
+					bank.Accounts.Snapshot.Should().OnlyContain(a => a.Balance >= -a.OverdraftLimit);
 				},
 				iter: 300
 			);
@@ -121,17 +118,18 @@ public class TransferServiceTests
 	[Test]
 	public async Task The_total_is_conserved_after_every_single_step()
 	{
-		// The same property, stated as a rule on the state the service exposes and checked after each generated step.
-		var rules = ConstraintSet.From(("money-is-conserved", Constraints<decimal>.Conserves(total => total, "Money was created or destroyed")));
+		// The same property, stated as a rule on the state the service exposes, lifted onto the service, and checked after each of up to 6 generated transfers.
+		var rules = ConstraintSet
+			.From(("money-is-conserved", Constraints<decimal>.Conserves(total => total, "Money was created or destroyed")))
+			.Map<Bank>(bank => bank.Total);
+		var transfer = Gen.Select(Gen.Int[0, 2], Gen.Int[0, 2], Gen.Int[1, 150_000].Select(cents => cents / 100m));
 
-		await Script
-			.For<Bank>()
-			.Step(
-				"transfer",
-				Gen.Select(Gen.Int[0, 2], Gen.Int[0, 2], Gen.Int[1, 150_000].Select(cents => cents / 100m)),
-				(bank, t) => bank.Transfer(t.Item1, t.Item2, t.Item3).GetAwaiter().GetResult()
-			)
-			.Length(1, 30)
-			.SampleStateAsync(_ => new Bank(), bank => bank.Total, rules, iter: 300);
+		var result = await AutoTest
+			.For(rules, () => new Bank())
+			.MutateAsync<(int From, int To, decimal Amount)>("Transfer", (bank, t) => bank.Transfer(t.From, t.To, t.Amount), _ => transfer)
+			.Steps(1, 6)
+			.ConservationAsync();
+
+		result.Should().BeOfType<AxisResult.Passed>();
 	}
 }

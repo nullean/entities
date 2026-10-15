@@ -54,7 +54,8 @@ public sealed record AxisRun(
 	AutoMode Data = AutoMode.Mixed,
 	TimeProvider? Time = null,
 	Action<string>? WriteLine = null,
-	Action<AutoOptions>? Options = null
+	Action<AutoOptions>? Options = null,
+	bool CounterExamplesRequired = true
 )
 {
 	/// <summary>The seed used when none is given: fixed, so a green or vacuous result does not depend on luck.</summary>

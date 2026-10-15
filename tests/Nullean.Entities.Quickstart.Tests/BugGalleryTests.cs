@@ -74,7 +74,7 @@ public class BugGalleryTests
 				_ => order
 			});
 
-	private static void Record(string name, string text)
+	internal static void Record(string name, string text)
 	{
 		if (Environment.GetEnvironmentVariable("NULLEAN_WRITE_OUTPUTS") != "1")
 		{
@@ -88,7 +88,7 @@ public class BugGalleryTests
 		File.WriteAllText(Path.Combine(root!.FullName, "docs", "_snippets", name + ".txt"), text.Trim() + "\n");
 	}
 
-	private static async Task<string> FailAsync(string name, Func<Task> run)
+	internal static async Task<string> FailAsync(string name, Func<Task> run)
 	{
 		var message = "";
 		try

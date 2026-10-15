@@ -85,30 +85,30 @@ public class OrgServiceTests
 	}
 
 	[Test]
-	public void Whatever_edits_arrive_the_hierarchy_stays_valid_and_each_edit_changes_the_headcount_as_its_rule_says()
+	public async Task Whatever_edits_arrive_the_hierarchy_stays_valid_and_each_edit_changes_the_headcount_as_its_rule_says()
 	{
 		var edit = Gen.Select(Gen.Int[0, 2], Gen.Int[0, 14], Gen.Int[0, 14]);
 
-		edit
+		await edit
 			.List[0, 40]
-			.Sample(
-				edits =>
+			.SampleAsync(
+				async edits =>
 				{
 					var repository = new InMemoryOrgRepository();
 					var service = new OrgService(repository);
-					service.FoundAsync("Head").GetAwaiter().GetResult();
+					await service.FoundAsync("Head");
 
 					foreach (var (kind, a, b) in edits)
 					{
-						var before = repository.LoadAsync().GetAwaiter().GetResult().Count;
+						var before = (await repository.LoadAsync()).Count;
 						var result = kind switch
 						{
 							0 => service.HireAsync($"P{a}", a),
 							1 => service.MoveAsync(a, b),
 							_ => service.TerminateAsync(a),
 						};
-						var after = repository.LoadAsync().GetAwaiter().GetResult().Count;
-						if (result.GetAwaiter().GetResult().IsOk)
+						var after = (await repository.LoadAsync()).Count;
+						if ((await result).IsOk)
 						{
 							after.Should().Be(kind switch
 							{
@@ -123,7 +123,7 @@ public class OrgServiceTests
 						}
 					}
 
-					OrgRules.All.Validate(repository.LoadAsync().GetAwaiter().GetResult()).Where(v => v.Severity == Severity.Error).Should().BeEmpty();
+					OrgRules.All.Validate(await repository.LoadAsync()).Where(v => v.Severity == Severity.Error).Should().BeEmpty();
 				},
 				iter: 300,
 				print: edits => string.Join(", ", edits)

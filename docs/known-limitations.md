@@ -27,7 +27,7 @@ The search finds a counter-example for most rules, not all. A rule about a speci
 
 ## Immutable types fit best
 
-A record whose methods return the next value is what the step axes run on. A class that other code mutates in place can be tested with a replay (copy it, run the operation, compare), but it is a second-class path. Entities mapped by an ORM are the same: declare the rules on the domain record and map to it.
+A record whose methods return the next value is what the step axes run on. A service or a class that is changed in place is tested through the same `AutoTest` (see [services and mutable classes](guides/services.md)): the "after" is built on a fresh instance, which needs the factory and the operations to be deterministic. Idempotency of an in-place operation and custom before-and-after rules are not checked on it. Entities mapped by an ORM: declare the rules on the domain record and map to it.
 
 ## The test is only as good as the operations you give it
 

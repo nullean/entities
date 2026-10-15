@@ -1,6 +1,7 @@
 // Nullean.Entities.CsCheck — every axis a type declares, attacked from one declaration.
 //
 //   AutoTest.For(Constraints.Instance).CounterExamples(...).RunAsync();
+//   AutoTest.For(rules, () => new Service()).MutateAsync("Op", s => s.OpAsync()).RunAsync();   // a service or a class changed in place: see AutoTestSubject.cs
 //
 // AutoTest<T> holds what the axes share (the constraint set, a generator of valid values, the counter-examples, the operations, how to sample) and
 // exposes each axis as a named method. Report() runs every axis and records what each did; Run() does the same and throws when any failed; Cases lists the
@@ -53,7 +54,7 @@ public sealed record AxisCase(Axis Axis, string Law, string Consequence, Func<Ta
 }
 
 /// <summary>What every axis did for one type: a result per axis, and the rules no axis can attack because nothing declares their shape.</summary>
-public sealed record AutoTestReport(IReadOnlyList<AxisResult> Results, IReadOnlyList<string> Unclassified)
+public sealed record AutoTestReport(IReadOnlyList<AxisResult> Results, IReadOnlyList<string> Unclassified, IReadOnlyList<string>? NotOperations = null)
 {
 	/// <summary>The axes that found a bug or proved a test vacuous.</summary>
 	public IReadOnlyList<AxisResult.Failed> Failures => [.. Results.OfType<AxisResult.Failed>()];
@@ -70,6 +71,10 @@ public sealed record AutoTestReport(IReadOnlyList<AxisResult> Results, IReadOnly
 				$"Unclassified: {string.Join(", ", Unclassified)} (sequential rules written by hand: checked, but no axis can choose a technique from their shape)"
 			);
 		}
+		if (NotOperations is { Count: > 0 })
+		{
+			lines.Add($"Not run as operations: {string.Join(", ", NotOperations)} (public methods no Mutate or Action names: they are never attacked)");
+		}
 		return string.Join("\n", lines);
 	}
 
@@ -83,7 +88,7 @@ public sealed record AutoTestReport(IReadOnlyList<AxisResult> Results, IReadOnly
 }
 
 /// <summary>Starts an <see cref="AutoTest{T}"/>.</summary>
-public static class AutoTest
+public static partial class AutoTest
 {
 	/// <summary>
 	/// An auto-test over <paramref name="constraints"/>. Without <paramref name="valid"/> the values are <c>GenAuto</c> plausible values kept only if they satisfy the set;
@@ -116,11 +121,17 @@ public sealed partial class AutoTest<T>
 	private readonly EntityActions<T>? _entityActions;
 	private readonly Func<EntitySpec<T>, EntitySpec<T>>? _deeper;
 	private readonly IReadOnlyList<(string First, string Second)> _commutes;
+	private readonly Subject<T>? _subject;
+	private readonly IReadOnlyList<SubjectOp<T>> _ops;
+	private readonly (int Min, int Max) _steps;
 
-	internal AutoTest(ConstraintSet<T> constraints, Gen<T>? valid, EntityActions<T>? actions)
+	internal AutoTest(ConstraintSet<T> constraints, Gen<T>? valid, EntityActions<T>? actions, object? subject = null)
 	{
+		_subject = (Subject<T>?)subject;
+		_ops = [];
+		_steps = (1, 5);
 		_constraints = constraints;
-		_settings = new AxisRun(Data: AutoMode.Plausible);
+		_settings = new AxisRun(Data: AutoMode.Plausible, CounterExamplesRequired: subject is null);
 		_valid = valid;
 		_counterExamples = new Dictionary<string, Func<T, T>>();
 		_makers = actions is null ? [] : [.. actions.Select(a => (Func<AutoMode, AutoAction<T>>)(data => AutoAction.From(a, data)))];
@@ -136,9 +147,14 @@ public sealed partial class AutoTest<T>
 		AxisRun? settings = null,
 		IReadOnlyList<Axis>? required = null,
 		Func<EntitySpec<T>, EntitySpec<T>>? deeper = null,
-		IReadOnlyList<(string First, string Second)>? commutes = null
+		IReadOnlyList<(string First, string Second)>? commutes = null,
+		IReadOnlyList<SubjectOp<T>>? ops = null,
+		(int Min, int Max)? steps = null
 	)
 	{
+		_subject = from._subject;
+		_ops = ops ?? from._ops;
+		_steps = steps ?? from._steps;
 		_constraints = from._constraints;
 		_valid = from._valid;
 		_counterExamples = counterExamples ?? from._counterExamples;
@@ -152,7 +168,8 @@ public sealed partial class AutoTest<T>
 
 	private Gen<T> CurrentValid => _valid ?? GenAuto.Of<T>(_settings.Data, _settings.Options).Valid(_constraints, _settings.Time);
 
-	private IReadOnlyList<AutoAction<T>> CurrentActions => [.. _makers.Select(make => make(_settings.Data))];
+	private IReadOnlyList<AutoAction<T>> CurrentActions =>
+		[.. _makers.Select(make => make(_settings.Data)), .. _subject?.Actions(_ops, _settings.Data, _steps) ?? []];
 
 	// ── what the axes share ──────────────────────────────────────────────────────
 
@@ -289,7 +306,7 @@ public sealed partial class AutoTest<T>
 		{
 			results.Add(await AttemptDeeperAsync(deeper).ConfigureAwait(false));
 		}
-		return new AutoTestReport(results, [.. unclassified]);
+		return new AutoTestReport(results, [.. unclassified], _subject is null ? null : [.. UnusedMethods()]);
 	}
 
 	/// <summary>Runs every axis, writes the report to <see cref="Output"/>, and throws one exception listing every axis that failed.</summary>

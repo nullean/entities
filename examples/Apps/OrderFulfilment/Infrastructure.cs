@@ -23,8 +23,13 @@ public sealed class InMemoryOrderRepository : IOrderRepository
 {
 	private readonly ConcurrentDictionary<Guid, Order> _orders = new();
 
-	public Task<Order?> FindAsync(Guid id, CancellationToken cancellationToken = default) =>
-		Task.FromResult(_orders.TryGetValue(id, out var order) ? order : null);
+	/// <summary>The order as it is now, without awaiting: for a test that reads state between steps.</summary>
+	public Order? Get(Guid id) => _orders.TryGetValue(id, out var order) ? order : null;
+
+	/// <summary>Puts an order in without awaiting, so a test can build its world in a constructor.</summary>
+	public void Seed(Order order) => _orders[order.Id] = order;
+
+	public Task<Order?> FindAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Get(id));
 
 	public Task SaveAsync(Order order, CancellationToken cancellationToken = default)
 	{

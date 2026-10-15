@@ -17,8 +17,13 @@ public sealed class InMemoryTicketRepository : ITicketRepository
 {
 	private readonly ConcurrentDictionary<Guid, Ticket> _tickets = new();
 
-	public Task<Ticket?> FindAsync(Guid id, CancellationToken cancellationToken = default) =>
-		Task.FromResult(_tickets.TryGetValue(id, out var ticket) ? ticket : null);
+	/// <summary>The ticket as it is now, without awaiting: for a test that reads state between steps.</summary>
+	public Ticket? Get(Guid id) => _tickets.TryGetValue(id, out var ticket) ? ticket : null;
+
+	/// <summary>Puts a ticket in without awaiting, so a test can build its world in a constructor.</summary>
+	public void Seed(Ticket ticket) => _tickets[ticket.Id] = ticket;
+
+	public Task<Ticket?> FindAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Get(id));
 
 	public Task SaveAsync(Ticket ticket, CancellationToken cancellationToken = default)
 	{

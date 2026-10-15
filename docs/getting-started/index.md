@@ -181,3 +181,4 @@ How to read this:
 - [The nine axes](../axes/index.md): each question, the bug it catches, and the real output.
 - [Adopting in an existing codebase](../guides/adopting.md).
 - [Counter-examples](../guides/counter-examples.md): why every rule needs one, and how the library finds most of them.
+- [Services and mutable classes](../guides/services.md): the same `AutoTest` for a service or a class that changes in place.

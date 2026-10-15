@@ -98,23 +98,23 @@ public class CartTests
 	}
 
 	[Test]
-	public void Whatever_commands_arrive_the_cart_the_stream_adds_up_to_is_valid()
+	public async Task Whatever_commands_arrive_the_cart_the_stream_adds_up_to_is_valid()
 	{
 		var command = Gen.OneOfConst(Commands().ToArray());
 
-		command
+		await command
 			.List[0, 25]
-			.Sample(
-				commands =>
+			.SampleAsync(
+				async commands =>
 				{
 					var service = new CartService(new InMemoryEventStore());
 					var id = Guid.NewGuid();
 					foreach (var c in commands)
 					{
-						service.HandleAsync(id, c).GetAwaiter().GetResult();
+						await service.HandleAsync(id, c);
 					}
 
-					CartRules.All.Validate(service.GetAsync(id).GetAwaiter().GetResult()).Where(v => v.Severity == Severity.Error).Should().BeEmpty();
+					CartRules.All.Validate(await service.GetAsync(id)).Where(v => v.Severity == Severity.Error).Should().BeEmpty();
 				},
 				iter: 300
 			);

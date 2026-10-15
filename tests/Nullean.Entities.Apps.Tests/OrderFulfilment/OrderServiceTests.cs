@@ -47,10 +47,12 @@ internal sealed class OrderHarness
 	public OrderHarness(Func<IOrderRepository, IEventPublisher, TimeProvider, IOrderService> make, TimeProvider clock)
 	{
 		_service = make(_orders, new InMemoryEventPublisher(), clock);
-		_id = _service.CreateAsync("ada@example.com").GetAwaiter().GetResult().Unwrap().Id;
+		var order = Order.Draft(Email.Create("ada@example.com").Unwrap());
+		_orders.Seed(order);
+		_id = order.Id;
 	}
 
-	public Order Order => _orders.FindAsync(_id).GetAwaiter().GetResult()!;
+	public Order Order => _orders.Get(_id)!;
 
 	public OrderState State => Order.State;
 

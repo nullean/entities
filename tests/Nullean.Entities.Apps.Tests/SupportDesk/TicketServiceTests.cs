@@ -29,11 +29,19 @@ internal sealed class Desk
 	public static Desk WithOpenTicket(TimeProvider clock, Priority priority = Priority.P2)
 	{
 		var desk = new Desk(clock);
-		desk.Open(priority).GetAwaiter().GetResult();
+		desk.Seed(priority);
 		return desk;
 	}
 
-	public Ticket Ticket => Tickets.FindAsync(_current!.Value).GetAwaiter().GetResult()!;
+	public Ticket Ticket => Tickets.Get(_current!.Value)!;
+
+	private void Seed(Priority priority)
+	{
+		var ticket = new Ticket(Guid.NewGuid(), "Something is broken", priority, TicketStatus.New, Clock.GetUtcNow());
+		Tickets.Seed(ticket);
+		Log.Append(new TicketEvent.Opened(ticket.Id, priority));
+		_current = ticket.Id;
+	}
 
 	public TicketStatus Status => Ticket.Status;
 

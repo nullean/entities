@@ -13,9 +13,12 @@ public interface IAccountRepository
 	Task<IReadOnlyList<Account>> AllAsync(CancellationToken cancellationToken = default);
 }
 
-public sealed class InMemoryAccountRepository : IAccountRepository
+public sealed class InMemoryAccountRepository(IEnumerable<Account>? initial = null) : IAccountRepository
 {
-	private readonly ConcurrentDictionary<string, Account> _accounts = new();
+	private readonly ConcurrentDictionary<string, Account> _accounts = new((initial ?? []).Select(a => KeyValuePair.Create(a.Number.Value, a)));
+
+	/// <summary>The accounts as they are now, without awaiting: for a test that reads state between steps.</summary>
+	public IReadOnlyList<Account> Snapshot => [.. _accounts.Values];
 
 	public Task<Account?> FindAsync(Iban number, CancellationToken cancellationToken = default) =>
 		Task.FromResult(_accounts.TryGetValue(number.Value, out var account) ? account : null);
@@ -27,7 +30,7 @@ public sealed class InMemoryAccountRepository : IAccountRepository
 	}
 
 	public Task<IReadOnlyList<Account>> AllAsync(CancellationToken cancellationToken = default) =>
-		Task.FromResult<IReadOnlyList<Account>>([.. _accounts.Values]);
+		Task.FromResult(Snapshot);
 }
 
 public interface ITransferService

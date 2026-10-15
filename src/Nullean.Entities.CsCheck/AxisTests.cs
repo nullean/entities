@@ -299,7 +299,7 @@ public static class AxisTests
 				settings.Samples,
 				derivedFrom: Math.Min(25, settings.Samples),
 				settings.GeneratorSeed,
-				requireCounterExamples: true,
+				requireCounterExamples: settings.CounterExamplesRequired,
 				time: settings.Time,
 				writeLine: settings.WriteLine,
 				options: settings.Options
@@ -342,7 +342,11 @@ public static class AxisTests
 			Axis.Vacancy,
 			[.. all.Select(Name)],
 			settings.Samples,
-			searched == 0 ? null : $"({searched} counter-example{(searched == 1 ? "" : "s")} found by search; AutoTest.CounterExampleReport() lists them)"
+			searched > 0
+				? $"({searched} counter-example{(searched == 1 ? "" : "s")} found by search; AutoTest.CounterExampleReport() lists them)"
+				: settings.CounterExamplesRequired
+					? null
+					: "(a subject changed in place has no value to break, so a rule is not required to have a counter-example; CounterExample(rule, ...) shows one can fire)"
 		);
 	}
 
@@ -466,7 +470,8 @@ public static class AxisTests
 	private static AxisFailure NotExercised(string rule, string because, string next) =>
 		new([("Rule", rule), ("Not exercised because", because), ("Next", next)], vacuous: true);
 
-	private static string Call(string name, object? argument) => argument is null ? $"{name}()" : $"{name}({Print(argument)})";
+	private static string Call(string name, object? argument) =>
+		argument is IDescribeCall described ? described.Describe(name) : argument is null ? $"{name}()" : $"{name}({Print(argument)})";
 
 	private static string Print<T>(T value) => ConstraintProperties.SafePrint(value);
 

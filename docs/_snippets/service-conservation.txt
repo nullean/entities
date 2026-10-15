@@ -1,0 +1,11 @@
+Conservation failed.
+
+Rule broken   money-is-conserved: Money was created or destroyed.
+Operation     Move(6)
+Started from  Wallet { State = WalletState { Checking = 30, Savings = 10 } }
+Produced      Wallet { State = WalletState { Checking = 24, Savings = 15 } }
+
+Law           No operation creates or destroys a quantity that must be conserved.
+Consequence   Totals drift: something appears or vanishes between the two halves of a change.
+
+Smallest case found, after 3 shrinks. To run this case again: .Seed("cdCYbcxwlTP2")

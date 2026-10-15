@@ -53,19 +53,19 @@ public class StockServiceTests
 	}
 
 	[Test]
-	public void Whatever_operations_arrive_the_stock_stays_valid()
+	public async Task Whatever_operations_arrive_the_stock_stays_valid()
 	{
 		var operation = Gen.Select(Gen.Int[0, 3], Gen.OneOfConst(Skus), Gen.Int[-2, 12]);
 
-		operation
+		await operation
 			.List[0, 40]
-			.Sample(
-				operations =>
+			.SampleAsync(
+				async operations =>
 				{
 					var repository = new InMemoryStockRepository();
 					var service = new StockService(repository);
-					service.AddProductAsync(new Product("APL-1", "Apple", 0.50m)).GetAwaiter().GetResult();
-					service.AddProductAsync(new Product("PER-1", "Pear", 0.75m)).GetAwaiter().GetResult();
+					await service.AddProductAsync(new Product("APL-1", "Apple", 0.50m));
+					await service.AddProductAsync(new Product("PER-1", "Pear", 0.75m));
 
 					foreach (var (kind, sku, qty) in operations)
 					{
@@ -76,10 +76,10 @@ public class StockServiceTests
 							2 => service.ReleaseAsync(sku, qty),
 							_ => service.AddProductAsync(new Product(sku, sku, qty)),
 						};
-						task.GetAwaiter().GetResult();
+						await task;
 					}
 
-					StockRules.All.Validate(repository.LoadAsync().GetAwaiter().GetResult()).Where(v => v.Severity == Severity.Error).Should().BeEmpty();
+					StockRules.All.Validate(await repository.LoadAsync()).Where(v => v.Severity == Severity.Error).Should().BeEmpty();
 				},
 				iter: 300
 			);
