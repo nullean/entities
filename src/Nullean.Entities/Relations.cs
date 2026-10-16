@@ -101,11 +101,14 @@ public static class Relation
 		Func<TItem, TKey> key,
 		IEqualityComparer<TKey>? comparer = null,
 		string? message = null,
+		Func<TItem, SourceLocation?>? at = null,
+		Func<TKey, int, string>? describe = null,
+		Func<TKey, IReadOnlyList<TItem>, string>? describeGroup = null,
 		[CallerArgumentExpression(nameof(items))] string? itemsText = null,
 		[CallerArgumentExpression(nameof(key))] string? keyText = null
 	)
 	{
-		var rule = Constraints<TRoot>.Unique(items, key, comparer, message, itemsExpression: itemsText);
+		var rule = Constraints<TRoot>.Unique(items, key, comparer, message, at, describe, describeGroup, itemsText);
 		_ = rule.WithShape(new RelationShape<TRoot>(
 			new RelationInfo(RelationKind.Identity, typeof(TItem), MemberOf(keyText, out var problem), null, null, typeof(TKey), problem)
 		)
@@ -134,7 +137,8 @@ public static class Relation
 			return null;
 		}
 		var parameter = lambda[..arrow].Trim().Trim('(', ')').Split(' ', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
-		var body = lambda[(arrow + 2)..].Trim().TrimEnd('!', '?', ' ');
+		// a null-forgiving or null-conditional access ("f!.Name", "f?.Name", "d.CodexGroup!") is still a plain access to that member
+		var body = lambda[(arrow + 2)..].Replace("!", "", StringComparison.Ordinal).Replace("?.", ".", StringComparison.Ordinal).Trim().TrimEnd('?', ' ');
 		if (parameter is not null && body.StartsWith(parameter + ".", StringComparison.Ordinal))
 		{
 			var member = body[(parameter.Length + 1)..];

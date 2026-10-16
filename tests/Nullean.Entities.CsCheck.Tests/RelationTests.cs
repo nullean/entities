@@ -65,6 +65,8 @@ public class RelationTests
 	[Arguments("(d) => d.Products", "Products")]
 	[Arguments("(Rel.Docset d) => d.Products", "Products")]
 	[Arguments("d => d.CodexGroup!", "CodexGroup")]
+	[Arguments("f => f!.Name", "Name")]
+	[Arguments("f => f?.Name", "Name")]
 	public void Member_names_are_read_from_plain_member_access(string lambda, string member)
 	{
 		var relation = Relation.Reference((Rel.CatalogFirst pair) => new[] { pair.Docset }, d => d.Name, pair => pair.Catalog.Products, p => p.Id);
@@ -165,5 +167,32 @@ public class RelationTests
 
 		tocs.Where(t => rules.Validate(t).Any()).Should().BeEmpty();
 		tocs.Sum(t => All(t.Nodes).Count()).Should().BeGreaterThan(300, "the trees have to have something in them to be unique about");
+	}
+
+	/// <summary>
+	/// Law: declaring a relation changes how values are generated, not what the counter-example search can change about a generated value.
+	/// Consequence if broken: adding a relation to a rule set silently costs it counter-examples the search used to find, and its vacancy check starts failing.
+	/// (This guards the property; it does not reproduce the failure that found it, which docs-builder's bundle rules showed and a small tree does not.)
+	/// </summary>
+	[Test]
+	public void A_relation_does_not_cost_the_search_its_counter_examples()
+	{
+		static IEnumerable<Rel.Node> All(IEnumerable<Rel.Node> nodes) => nodes.SelectMany(n => new[] { n }.Concat(All(n.Children)));
+
+		var rules = ConstraintSet.From(
+			("paths-unique", Relation.Unique((Rel.Toc toc) => All(toc.Nodes), n => n.Path)),
+			("paths-not-blank", Constraints<Rel.Toc>.Always(t => All(t.Nodes).All(n => !string.IsNullOrWhiteSpace(n.Path)), "A node has a path.")),
+			("has-nodes", Constraints<Rel.Toc>.Always(t => t.Nodes.Count > 0, "A toc has a node."))
+		);
+
+		var report = AutoTest.For(rules).CounterExampleReport();
+
+		report
+			.Lines
+			.Select(l => (l.Rule, l.Kind))
+			.Should()
+			.Contain(("paths-not-blank", CounterExampleKind.Found))
+			.And
+			.Contain(("has-nodes", CounterExampleKind.Found));
 	}
 }

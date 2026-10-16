@@ -111,6 +111,8 @@ internal static class CounterExampleSearch
 		}
 		var options = new AutoOptions { Mode = AutoMode.Adversarial };
 		configure?.Invoke(options);
+		// relations shape how values are generated; the search changes values that were already generated, and a relation would only get in the way of rebuilding them
+		options.Relations.Clear();
 		var builder = new AutoBuilder(options);
 		if (builder.Plan(typeof(T), 0).ReadArgs(bases[0]!) is null)
 		{
