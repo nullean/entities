@@ -374,6 +374,9 @@ public sealed partial class AutoOptions
 {
 	internal List<RelationDecl> Relations { get; } = [];
 
+	/// <summary>The relations the counter-example search knows about: kept out of <see cref="Relations"/>, which shape how values are generated, not how they are changed.</summary>
+	internal List<RelationDecl> SearchRelations { get; } = [];
+
 	internal Dictionary<Type, Func<object, object>> Normalizers { get; } = [];
 
 	internal Dictionary<Type, Func<object, IEnumerable<object?>>> EdgeProviders { get; } = [];

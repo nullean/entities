@@ -93,6 +93,9 @@ internal static class CounterExampleSearch
 
 	private sealed record Candidate<T>(Func<T, T> Apply, string Description);
 
+	// below any other step at any depth (descending into a member adds a few), so naming a key nothing has comes before copying a whole sibling over it
+	private const int RelationStepCost = -100;
+
 	internal sealed record Step(Func<object?, object?> Apply, string Description, int Cost);
 
 	/// <summary>For each rule in <paramref name="wanted"/>, a mutant that breaks it: alone when one exists, else with the fewest other rules. Rules nothing found are absent.</summary>
@@ -112,6 +115,7 @@ internal static class CounterExampleSearch
 		var options = new AutoOptions { Mode = AutoMode.Adversarial };
 		configure?.Invoke(options);
 		// relations shape how values are generated; the search changes values that were already generated, and a relation would only get in the way of rebuilding them
+		options.SearchRelations.AddRange(options.Relations.Where(r => r.Kind is RelationKind.Reference or RelationKind.ReferenceList));
 		options.Relations.Clear();
 		var builder = new AutoBuilder(options);
 		if (builder.Plan(typeof(T), 0).ReadArgs(bases[0]!) is null)
@@ -327,6 +331,11 @@ internal static class CounterExampleSearch
 			var alternatives = plan.Types[i] == typeof(bool)
 				? [!(bool)args[i]!]
 				: plan.Types[i].IsEnum ? Enum.GetValues(plan.Types[i]).Cast<object?>().Where(v => !Equals(v, args[i])) : [];
+			// a member a relation says refers to something: the cheapest way to break the rule is to name something nothing has
+			foreach (var (danglingValue, how) in DanglingKeys(options, type, name, plan.Types[i], args[i]))
+			{
+				yield return new Step(v => Rebuild(v, a => With(a, index, danglingValue)), $"{At(path, name)}{how}", RelationStepCost);
+			}
 			foreach (var edge in edges.Concat(alternatives).Concat(Nearby(args[i])).Distinct())
 			{
 				var value = edge;
@@ -512,6 +521,29 @@ internal static class CounterExampleSearch
 			return own;
 		}
 		return donors.Select(d => plan.ReadArgs(d!)?[index]).FirstOrDefault(v => !IsEmpty(v));
+	}
+
+	// "refers to a key nothing has": a fresh string (or Guid) in place of the key, or added to the list of keys. Other key types are left to the edge values.
+	private static IEnumerable<(object? Value, string How)> DanglingKeys(AutoOptions options, Type owner, string member, Type memberType, object? current)
+	{
+		foreach (var relation in options.SearchRelations.Where(r => r.From == owner && r.FromMember == member))
+		{
+			var fresh = relation.KeyType == typeof(string)
+				? "no-such-key"
+				: relation.KeyType == typeof(Guid) ? (object)Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffffe") : null;
+			if (fresh is null)
+			{
+				continue;
+			}
+			if (relation.Kind == RelationKind.Reference && memberType == relation.KeyType)
+			{
+				yield return (fresh, " = a key nothing has");
+			}
+			else if (relation.Kind == RelationKind.ReferenceList && AutoBuilder.TryCollection(memberType, out var element) && element == relation.KeyType)
+			{
+				yield return (Edit(memberType, element, current, items => [.. items, fresh]), ": a key nothing has added");
+			}
+		}
 	}
 
 	private static bool IsEmpty(object? value) =>

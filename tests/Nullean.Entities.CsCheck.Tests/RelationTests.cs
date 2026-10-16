@@ -195,4 +195,23 @@ public class RelationTests
 			.And
 			.Contain(("has-nodes", CounterExampleKind.Found));
 	}
+
+	/// <summary>
+	/// Law: for a rule declared as a reference, the search's counter-example names a key nothing has, and breaks that rule alone.
+	/// Consequence if broken: the counter-example is whichever sibling value happened to be swapped in, so it also breaks other rules, or stops existing when the generator changes.
+	/// </summary>
+	[Test]
+	public void A_reference_rule_gets_a_counter_example_that_names_a_key_nothing_has()
+	{
+		var rules = ConstraintSet.From(
+			("products-exist", ProductsOfDocsets.Rule()),
+			("name-exists", Relation.Reference((Rel.CatalogFirst p) => new[] { p.Docset }, d => d.Name, p => p.Catalog.Products, x => x.Id).Rule())
+		);
+
+		var lines = AutoTest.For(rules).CounterExampleReport().Lines.ToDictionary(l => l.Rule);
+
+		lines["products-exist"].Description.Should().Be("Docset.Products: a key nothing has added");
+		lines["name-exists"].Description.Should().Be("Docset.Name = a key nothing has");
+		lines.Values.Should().OnlyContain(l => l.Overlaps.Count == 0);
+	}
 }
