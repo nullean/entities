@@ -473,7 +473,7 @@ public static partial class Constraints<T>
 		return self;
 	}
 
-	/// <summary>"o =&gt; o.Address.City" becomes "Address.City"; anything that is not a plain member path becomes null.</summary>
+	/// <summary>"o =&gt; o.Address.City" becomes "Address.City", and a trailing call keeps its collection ("s =&gt; s.Orders.SelectMany(...)" becomes "Orders"); any other shape becomes null.</summary>
 	public static string? MemberOf(string? expression)
 	{
 		if (expression is null)
@@ -488,7 +488,18 @@ public static partial class Constraints<T>
 			return null;
 		}
 		var path = body[(dot + 1)..];
-		return path.Length > 0 && path.All(c => char.IsLetterOrDigit(c) || c is '_' or '.') ? path : null;
+		var end = 0;
+		while (end < path.Length && (char.IsLetterOrDigit(path[end]) || path[end] is '_' or '.'))
+		{
+			end++;
+		}
+		if (end == path.Length)
+		{
+			return path.Length > 0 ? path : null;
+		}
+		// a trailing call (Orders.SelectMany(...)) names its collection: the path up to the method
+		var lastDot = path[end] == '(' ? path.LastIndexOf('.', end - 1, end) : -1;
+		return lastDot > 0 ? path[..lastDot] : null;
 	}
 
 	/// <summary>
