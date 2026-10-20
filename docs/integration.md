@@ -162,6 +162,8 @@ How the references are written does not matter to the rules: a list of id string
 `KeysMatch` covers a dictionary keyed by the entity's own name, and `Tree.Flatten(roots, n => n.Children)` lets `Unique`, `References` and `Acyclic` run over every level of a tree at once.
 For generated data, declare those relations to AutoGen (`o.References<Docset, Product, string>(d => d.Products, p => p.Id)`, see the CsCheck README): the names alone will not give them away.
 
+**Where a violation points.** `Unique`, `References`, `Acyclic` and `NoChains` set `Violation.Member` from the text of the collection selector, not from the key: `s => s.Orders` gives `Orders`, and `s => s.Lines` gives `Lines`. The key that broke the rule is `Violation.Evidence`, and a ProblemDetails response is keyed by the member. A selector that is not a plain property path, such as one that calls `SelectMany`, leaves `Member` empty, so expose the collection as a property (`Shop.Lines`) when a response must name it.
+
 ## Declared and resolved layers
 
 Put a rule on the layer where the thing it forbids can exist. docs-builder expands `toc.yml` includes while loading, and guards against a loop while doing it, so the resolved tree **cannot** hold a

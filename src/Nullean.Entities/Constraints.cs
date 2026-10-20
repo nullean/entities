@@ -38,7 +38,8 @@ public sealed record Violation(string Message, Severity Severity = Severity.Erro
 
 	/// <summary>
 	/// The member the violation is about (<c>"Email"</c>, <c>"Address.City"</c>), when the rule is about one: what a validation response (ProblemDetails
-	/// <c>errors</c>, ModelState) is keyed by. Filled by the selector overloads of <c>Always</c>, <c>Unique</c> and <c>References</c>.
+	/// <c>errors</c>, ModelState) is keyed by. Filled by the selector overloads of <c>Always</c>, <c>Unique</c>, <c>References</c>, <c>Acyclic</c> and <c>NoChains</c>.
+	/// For the rules over rows it is the text of the collection selector (<c>"Orders"</c>), not the key: the key that broke the rule is <see cref="Evidence"/>.
 	/// </summary>
 	public string? Member { get; init; }
 
