@@ -754,3 +754,17 @@ pre.code, pre.report, .shrink-line { font-variant-ligatures: none; }
 .closing .cta-row { justify-content: center; margin-top: var(--space-5); }
 @media (max-width: 900px) { .closing::before { display: none; } }
 footer { border-top: 1px solid var(--line-tint-soft); padding-block: var(--space-5); color: var(--muted); font-size: .75rem; }
+
+/* ---------- install commands ---------- */
+.pkg-commands { display: flex; flex-direction: column; gap: .55rem; margin: 0 0 var(--space-5); max-width: 34rem; }
+.pkg-row { display: flex; align-items: stretch; gap: .55rem; }
+.pkg-cmd { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 1rem; background: var(--bg2); border: 1px solid var(--line-tint-soft); border-radius: var(--radius-xs); padding: .55rem .55rem .55rem 1rem; min-height: 44px; font: 400 .82rem var(--font-mono); color: var(--text); }
+.pkg-cmd-text { overflow-x: auto; white-space: nowrap; user-select: all; }
+.pkg-cmd-dim { color: var(--muted); }
+.pkg-copy { flex: none; min-height: 32px; padding: 0 .8rem; background: transparent; color: var(--accent); border: 1px solid var(--line-tint-soft); border-radius: var(--radius-2xs); font: 700 .7rem var(--font-mono); cursor: pointer; transition: border-color .18s, color .18s; }
+.pkg-copy:hover { border-color: var(--accent); }
+.pkg-copy.done { color: var(--text); }
+.pkg-nuget { display: flex; align-items: center; padding: 0 .9rem; min-height: 44px; background: var(--bg2); border: 1px solid var(--line-tint-soft); border-radius: var(--radius-xs); font: 700 .75rem var(--font-mono); color: var(--accent); text-decoration: none; white-space: nowrap; transition: border-color .18s; }
+.pkg-nuget:hover { border-color: var(--accent); }
+.pkg-note { margin: .15rem 0 0; font: 400 .75rem var(--font-mono); color: var(--muted); }
+.closing .pkg-commands { margin-left: auto; margin-right: auto; text-align: left; }

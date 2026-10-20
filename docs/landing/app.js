@@ -592,4 +592,16 @@
     e.clipboardData.setData('text/plain', out);
     e.preventDefault();
   });
+  /* ================= install commands: copy to clipboard ================= */
+  $$('.pkg-copy').forEach(function (btn) {
+    var label = btn.textContent;
+    btn.addEventListener('click', function () {
+      var done = function () {
+        btn.textContent = 'copied';
+        btn.classList.add('done');
+        setTimeout(function () { btn.textContent = label; btn.classList.remove('done'); }, 1600);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(done, function () {});
+    });
+  });
 })();
