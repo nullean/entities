@@ -151,7 +151,8 @@ public class ServiceTestingTests
 			))
 		);
 
-		var act = async () => await ScriptFor().Length(8, 12).SampleStateAsync(clock => new ServiceOrders(clock), s => s.State, rules, iter: 500);
+		// Reaching more than three lines takes a Place and then several AddLines in a row, which a random run does not always draw: enough iterations that it does, every time.
+		var act = async () => await ScriptFor().Length(8, 12).SampleStateAsync(clock => new ServiceOrders(clock), s => s.State, rules, iter: 5_000);
 
 		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("at most three lines");
 	}

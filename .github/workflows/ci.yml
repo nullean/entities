@@ -39,14 +39,6 @@ jobs:
       - name: Build, test, pack
         run: ./build.sh pack
 
-      - name: Upload packages
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: packages
-          path: .artifacts/build-output/*.nupkg
-          if-no-files-found: error
-
   # The core and Reactive packages claim to be trim and AOT clean: publish the smoke app NativeAOT on each OS and run it.
   aot:
     runs-on: ${{ matrix.os }}
@@ -78,14 +70,23 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
         with:
-          name: packages
-          path: packages
+          fetch-depth: 0
+
+      - run: git fetch --prune --tags
+        shell: bash
 
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
+
+      # The same commit the build job tested, packed again here: MinVer gives the same version, and no artifact is passed between jobs (the artifact quota is an account-level limit
+      # that would otherwise fail every build on main).
+      - name: Pack and validate
+        run: |
+          ./build.sh generatepackages -s true
+          ./build.sh validatepackages -s true
 
       - name: Push canaries to GitHub Packages
         shell: bash
@@ -93,7 +94,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for attempt in 1 2 3 4 5; do
-            if dotnet nuget push 'packages/*.nupkg' -s https://nuget.pkg.github.com/nullean/index.json -k "$GITHUB_TOKEN" --skip-duplicate; then
+            if dotnet nuget push '.artifacts/build-output/*.nupkg' -s https://nuget.pkg.github.com/nullean/index.json -k "$GITHUB_TOKEN" --skip-duplicate; then
               exit 0
             fi
             echo "push failed (attempt $attempt of 5)"
@@ -123,15 +124,12 @@ jobs:
         with:
           global-json-file: global.json
 
-      # the packages the build job tested, not a rebuild of them
-      - uses: actions/download-artifact@v4
-        with:
-          name: packages
-          path: .artifacts/build-output
-
-      # the public API diff reads the build output
-      - name: Build
-        run: ./build.sh build -s true
+      # the build job tested this commit; pack it again here (MinVer gives the same version) and check the packages before anything is pushed
+      - name: Build, pack and validate
+        run: |
+          ./build.sh build -s true
+          ./build.sh generatepackages -s true
+          ./build.sh validatepackages -s true
 
       - name: Release notes
         run: ./build.sh generatereleasenotes -s true --token ${{ secrets.GITHUB_TOKEN }}
