@@ -83,3 +83,30 @@ so it is marked `[RequiresUnreferencedCode]`). `RealizedWalks(mode:, configure:)
 All the spike questions in `AGENTS.md` are answered (shrinking quality and early-exit cost with `docs/spikes/shrinking`), and what they found is fixed in `GenAuto`: collection counts can reach every
 value up to `MaxCollection`, sizes put structure first, collections that plan at least `AutoOptions.EarlyExitFrom` items stop early while shrinking, and `Probe` reports how large and deep the values it
 drew were (`ProbeReport.Reach`).
+
+## Public documentation
+
+`docs/` is a [docs-builder](https://github.com/elastic/docs-builder) site published to GitHub Pages at
+`entities.nullean.net` by `.github/workflows/docs.yml`, the same way as [curb](https://curb.nullean.net).
+
+```sh
+./build.sh docs                  # build, apply the landing page, serve, open a browser
+./build.sh docs --port 9000
+./build.sh docs --noserve        # build only
+```
+
+`build/scripts/Documentation.fs` downloads docs-builder into `.artifacts/tools` on first use, then runs the
+steps the workflow runs, in the same order. Use it rather than `docs-builder serve`, which renders pages on
+demand and never applies the landing page.
+
+- **`docs/landing/` is not generated.** It is the home page (index.html, tokens.css, styles.css, app.js,
+  assets/), copied over the generated output after the build, and excluded from the docset. It is a design
+  drop kept as delivered: to take a new one, replace the directory and redo the few edits (`<base href="/">`,
+  the docs and repo URLs, the axis names from `docs/axes`, the Open Graph tags). Links are relative and
+  resolve against `<base href="/">`; `Documentation.PathPrefix`, that tag and the workflow's `prefix:` input
+  must agree, and `./build.sh docs` fails if they drift.
+- The landing is dark only, bone `#e0d8c1` and copper `#db8553`, no framework or build step, and every
+  interaction has a no-JS and reduced-motion fallback. The mark and social card PNGs in `docs/images/png`
+  are rendered from `docs/landing/assets` SVGs with headless Chrome.
+- Prose uses `{{product}}` from `_docset.yml`. Headings use the literal name, since slugs are generated
+  before substitution.

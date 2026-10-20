@@ -11,6 +11,7 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None);SubCommand>] Apps
     | [<CliPrefix(CliPrefix.None);SubCommand>] Pack
     | [<CliPrefix(CliPrefix.None);SubCommand>] Release
+    | [<CliPrefix(CliPrefix.None);SubCommand>] Docs
 
     | [<CliPrefix(CliPrefix.None);Hidden;SubCommand>] PristineCheck
     | [<CliPrefix(CliPrefix.None);Hidden;SubCommand>] GeneratePackages
@@ -19,6 +20,8 @@ type Arguments =
 
     | [<Inherit;AltCommandLine("-s")>] SingleTarget of bool
     | [<Inherit;AltCommandLine("-c")>] CleanCheckout of bool
+    | [<Inherit>] Port of int
+    | [<Inherit>] NoServe
 with
     interface IArgParserTemplate with
         member this.Usage =
@@ -30,6 +33,9 @@ with
             | Apps -> "runs every console app under examples/Apps; one that exits non-zero fails the build"
             | Pack -> "builds and packs the NuGet packages"
             | Release -> "runs the clean checkout check, tests, packs and validates the packages, then writes the public API changes since the last release"
+            | Docs -> "builds the public docs, applies the landing page override, and serves them"
+            | Port _ -> "port to serve the documentation on (default 8080)"
+            | NoServe -> "build the documentation without serving it"
             | SingleTarget _ -> "runs the provided sub command without running its dependencies"
             | CleanCheckout _ -> "skip the clean checkout check that guards the release target"
             | PristineCheck

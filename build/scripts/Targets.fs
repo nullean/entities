@@ -67,6 +67,14 @@ let private aot (arguments:ParseResults<Arguments>) =
     // (ObjectDisposedException on a fast runner). Exec streams to the console and throws on a non-zero exit, which is the same check.
     exec binary []
 
+/// Builds docs/ the way the workflow does, including the landing page override (the reason `docs-builder serve` is not enough), and serves the result.
+let private docs (arguments:ParseResults<Arguments>) =
+    Documentation.build ()
+    if arguments.Contains NoServe then
+        printfn "built; --noserve given, not serving"
+    else
+        Documentation.serve (arguments.TryGetResult Port |> Option.defaultValue 8080)
+
 let private pristineCheck (arguments:ParseResults<Arguments>) =
     let doCheck = arguments.TryGetResult CleanCheckout |> Option.defaultValue true
     match doCheck, Information.isCleanWorkingCopy "." with
@@ -134,6 +142,7 @@ let Setup (parsed:ParseResults<Arguments>) (arguments:Arguments) =
         else Targets.Target(name, (deps :> string seq), System.Action(fun () -> action parsed))
 
     target "clean" clean
+    target "docs" docs
     target "pristinecheck" pristineCheck
     dep "build" ["clean"] build
     dep "apps" ["build"] apps

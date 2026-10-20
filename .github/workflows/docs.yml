@@ -1,0 +1,48 @@
+name: docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build documentation
+        uses: elastic/docs-builder@main
+
+      # The landing page is a standalone directory (index.html plus its css, js and assets), not generated.
+      - name: Use custom landing page
+        run: |
+          cp -R docs/landing/. .artifacts/docs/html/
+          cp docs/robots.txt .artifacts/docs/html/robots.txt
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6.0.0
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: .artifacts/docs/html
+
+      - name: Deploy artifact
+        id: deployment
+        uses: actions/deploy-pages@v4

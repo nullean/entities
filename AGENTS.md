@@ -12,6 +12,7 @@ layer over `IObservable<T>` (`Nullean.Entities.Reactive`), and a property-test d
 ./build.sh aot     # publish examples/Nullean.Entities.AotSmoke NativeAOT (trim/AOT warnings are errors) and run it
 ./build.sh apps    # run every console app under examples/Apps (`Paths.Apps`); one that exits non-zero fails the build. `test` depends on it
 ./build.sh pack    # build + test + pack NuGet packages
+./build.sh docs    # build the docs-builder site, apply the landing page, serve it (--noserve to only build, --port <n>)
 ./build.sh release # pristine checkout check + pack + public API changes (see RELEASING.md; release notes come from release-drafter)
 ```
 
