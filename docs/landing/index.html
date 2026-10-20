@@ -234,7 +234,7 @@
     <div class="sec-head">
       <p class="eyebrow">and on a record</p>
       <h2 id="rules-h">Write the rules. Run one line. Plant a bug.</h2>
-      <p>Five named rules and a single test line. Plant a bug and read what the generated test says.</p>
+      <p>Five named rules, a check where a value is built, and a single test line. Plant a bug and read what the generated test says.</p>
     </div>
 
     <div class="demo" id="demo" style="margin-top: var(--space-6)">
@@ -264,6 +264,16 @@
     <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">VersionNeverGoesBack</span> =
         <span class="t">Constraints&lt;Order&gt;</span>.Monotonic(o =&gt; o.Version, MonotonicDirection.NonDecreasing);
 }</code></pre>
+      </div>
+
+      <div class="win">
+        <div class="win-bar"><span class="file">OrderFactory.cs</span><span class="right">check a value where it is built</span></div>
+<pre class="code" tabindex="0"><code><span class="k">var</span> order = <span class="k">new</span> <span class="t">Order</span>(<span class="t">Guid</span>.NewGuid(), <span class="t">Guid</span>.NewGuid(), [],
+    <span class="t">OrderStatus</span>.Placed, 1, -5m, <span class="s">""</span>);
+
+<span class="t">Result</span>&lt;<span class="t">Order</span>&gt; result = OrderConstraints.All.Validated(order);
+<span class="c">// total-never-negative: An order total is never negative.</span>
+<span class="c">// placed-orders-have-lines: A placed order has at least one line.</span></code></pre>
       </div>
 
       <div class="win">
