@@ -1,5 +1,7 @@
 # Nullean.Entities
 
+![Nullean.Entities: rules as named values for .NET](docs/images/png/entities-social-card.png)
+
 **Types say what a thing is. Nothing says what it must do.**
 
 C# records and unions say what an order holds and which cases exist. They cannot say that a total is never negative, that cancelling twice is cancelling once, that a version never goes back, or that a confirmed order ships within a minute. Those rules end up in `if` statements, validators and people's heads, written again for each use, and they drift apart.
