@@ -1,9 +1,208 @@
 # Nullean.Entities
 
-Synchronous domain constraints for .NET: name a rule once, check it against a value or a proposed
-mutation. No `System.Reactive`, no `CsCheck` — this package has no dependency beyond the BCL.
+![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-## The idea
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.svg)](https://www.nuget.org/packages/Nullean.Entities)
+
+**Write each rule of your domain type once, and have every code path, every caller and every test hold to it.**
+
+A guard clause protects one call site. A second path into the same operation needs a second copy of the guard, and a forgotten copy fails nothing at compile time: the rule silently stops applying.
+`Nullean.Entities` makes a rule a named value (`Constraint<T>`), gathers the rules of a type into a `ConstraintSet<T>`, and checks them when you validate a value, when you apply a change, and when you build a value.
+It is the base of the family: `Nullean.Entities` has no dependency beyond the BCL (no `System.Reactive`, no `CsCheck`), is trim and AOT clean, and the other packages ([Reactive](https://www.nuget.org/packages/Nullean.Entities.Reactive) for event streams, [CsCheck](https://www.nuget.org/packages/Nullean.Entities.CsCheck) for generated tests) are optional layers on top.
+The `[Constraints]` source generator ships inside this package as an analyzer, so there is nothing else to install for it.
+
+## Install
+
+```bash
+dotnet add package Nullean.Entities
+```
+
+The package targets `net10.0` and `net11.0`. Nothing else is required: the generator that powers `[Constraints]` and `[Constraint]` is in the same package under `analyzers/dotnet/cs`, and it reaches any project that references this one.
+
+To have the rules tested for you, add the test-side package to a test project:
+
+```bash
+dotnet add package Nullean.Entities.CsCheck
+```
+
+## Get going
+
+Declare the rules of an order once, next to the type. `[Constraints]` collects every static `Constraint<Order>` field of the class into `OrderConstraints.All`, so a rule you add later cannot be forgotten.
+
+```csharp
+using Nullean.Entities;
+
+public enum OrderStatus { Pending, Confirmed, Shipped, Cancelled }
+
+public sealed record Order(Guid Id, OrderStatus Status, IReadOnlyList<string> Lines);
+
+[Constraints]
+public static partial class OrderConstraints
+{
+	public static readonly Constraint<Order> MustHaveLines =
+		Constraints<Order>.Always(o => o.Lines.Count > 0, "An order must have at least one line.");
+
+	public static readonly Constraint<Order> LegalStatusTransitions = Constraints<Order>
+		.Transitions(o => o.Status)
+		.Allow(OrderStatus.Pending, OrderStatus.Confirmed)
+		.Allow(OrderStatus.Confirmed, OrderStatus.Shipped)
+		.Allow(OrderStatus.Pending, OrderStatus.Cancelled)
+		.Allow(OrderStatus.Confirmed, OrderStatus.Cancelled);
+}
+```
+
+The class is `partial` because the generator adds the `All` property to it. A constraint is named after its field in kebab-case (`MustHaveLines` becomes `must-have-lines`), and that name is the `ConstraintId` of its violations.
+
+Check a value you already have:
+
+```csharp
+var order = new Order(Guid.NewGuid(), OrderStatus.Pending, []);
+
+foreach (var v in OrderConstraints.All.Validate(order))
+	Console.WriteLine($"{v.ConstraintId}: {v.Message}");
+```
+
+```text
+must-have-lines: An order must have at least one line.
+```
+
+Now the main use: propose a change and let the set accept or refuse it. `Apply` runs the mutation, checks every rule against the result (and the previous value, for `Transitions`), and returns the new value only if all rules pass. The original is never touched.
+
+```csharp
+Result<Order> result = OrderConstraints.All.Apply(order, o => o with { Status = OrderStatus.Shipped });
+
+Console.WriteLine(result.Match(
+	ok => "ok",
+	violations => string.Join(" | ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))));
+```
+
+```text
+must-have-lines: An order must have at least one line. | legal-status-transitions: legal-status-transitions does not allow the transition from Pending to Shipped.
+```
+
+Both rules reported, because every rule runs. Every caller that goes through `OrderConstraints.All.Apply` gets the same answer: the rule cannot drift between `Confirm`, `ConfirmAsync` and a bulk job.
+
+The same attributes you already put on a model count as rules. The generator reads `[Required]`, `[Range]`, `[StringLength]`, `[MaxLength]`, `[MinLength]` and `[RegularExpression]` with no opt-in:
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+using Nullean.Entities;
+
+[Constraints]
+public sealed partial record SignUp([Required] string Name, [Range(18, 120)] int Age, [RegularExpression("^[A-Z]{3}-[0-9]{3}$")] string Reference);
+
+foreach (var v in SignUp.Constraints.Validate(new SignUp("Ada", 12, "ABC-123")))
+	Console.WriteLine($"{v.ConstraintId} [{v.Member}]: {v.Message}");
+```
+
+```text
+age-range [Age]: The field Age must be between 18 and 120.
+```
+
+### See the rules tested for you
+
+Rules are also test oracles. With `Nullean.Entities.CsCheck`, one test method runs one generated test per kind of rule you declared, using the operations of `Order` itself (every public method that returns an `Order`) and a generator of orders you supply. This is the [Quickstart example](https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Quickstart) (the test uses TUnit):
+
+```csharp
+using CsCheck;
+using Nullean.Entities.CsCheck;
+using Nullean.Entities.Quickstart;
+
+public class QuickstartTests
+{
+	// Orders in every state, so every rule has something to attack. See the repository for the generator.
+	private static readonly Gen<Order> Orders = /* ... */;
+
+	public static AutoTest<Order> Auto() => AutoTest.For(OrderConstraints.Instance, Orders);
+
+	public static IEnumerable<Func<AxisCase>> Axes() => Auto().AsDataSource();
+
+	[Test]
+	[MethodDataSource(nameof(Axes))]
+	public Task EveryDeclaredAxisHolds(AxisCase axis) => axis.RunAsync();
+}
+```
+
+When an operation breaks a rule, the failure names the rule, the operation, the smallest input that breaks it, and a seed to replay it:
+
+```text
+Invariant failed.
+
+Rule broken   total-never-negative: An order total is never negative.
+Operation     AddRawLine()
+Started from  Order { Lines = [], Status = Pending, Version = 0, Total = 0, Label = "" }
+Produced      Order { Lines = [OrderLine { Sku = "fig", Quantity = 1, Price = -5 }], Status = Pending, Version = 0, Total = -5, Label = "fig" }
+
+Smallest case found, after 1 shrink. To run this case again: .Seed("9Rmf9J10O1j6")
+```
+
+The kind of rule decides the test: a state rule becomes an invariant test, `Idempotent` a retry test, `Monotonic` a never-goes-backwards test, and so on. See [the nine axes](https://entities.nullean.net/axes/).
+
+## What you get
+
+**Declare a rule** (all on `Constraints<T>`)
+
+| API | Use it when |
+|---|---|
+| `Always(predicate, message?)` | A condition must hold in every state. Omit the message and the violation names the rule and carries the offending value as `Violation.Evidence`. |
+| `Always(selector, predicate)` | The rule is about one member; the violation carries `Violation.Member`. |
+| `Check(check)` | The message depends on the value, or the rule is not a plain predicate. |
+| `When(guard).Requires(requirement)` | A rule applies only in some states. |
+| `Transitions(selector).Allow(from, to)` | A value (usually an enum) may only move along listed edges. |
+| `Idempotent`, `Monotonic`, `Conserves` | The rule is about doing a step twice, a value that never goes backwards, or a quantity that is preserved. |
+| `Unique`, `References`, `Acyclic`, `NoChains`, `Each`, `OneOf`, `CountBetween`, `AtMostOne`, `ExactlyOne`, `AllOrNone`, `InOrder`, `Sorted`, `NoPrefixes` | The rule is about a collection or a graph; each reports every offender. |
+| `NotOlderThan`, `NotInFuture` | The rule depends on the clock; they take a `TimeProvider`. |
+
+**Group and run rules**
+
+| API | Use it when |
+|---|---|
+| `[Constraints]`, `[Constraint]`, `[Constraints<T>]`, `[ConstraintIgnore]` | The generator builds the `ConstraintSet<T>` for you, so the list cannot drift from the fields. |
+| `ConstraintSet.From(...)`, `Merge`, `Pair`, `Map` | You build, join or lift sets by hand. |
+| `set.Validate(value)` | You check a value you have. |
+| `set.Apply(current, mutation)`, `ApplyDetailed`, `ApplyOrThrow`, `ApplyAsync` | You propose a change and commit only if every rule holds. |
+| `set.Validated(value)`, `set.Ensure(value)` | You build a value in a factory that cannot return an invalid one. |
+| `ConstrainedValue.For(x).Enforce(set)` | A single value keeps a `Current` that only changes through `Apply`. |
+| `set.WithSeverity`, `Strict()`, `Without` | A profile over a shared set, without touching the shared rules. |
+
+**Model time and lifecycles**
+
+| API | Use it when |
+|---|---|
+| `Temporal<TEvent>`, `TemporalRuleSet`, `Trace.Check`, `MonitorAsync` | A rule is about sequences and deadlines, with no Rx. |
+| `ManualTimeProvider` | A test controls the clock instead of sleeping. |
+| `StateMachine<TState, TTrigger>` | States are values moved by triggers; Mermaid in and out. |
+| `StateMachine<TState>` | Each state is its own type with data; graph checks at startup. |
+
+## Pitfalls and limits
+
+- `Transitions`, `Monotonic` and `Conserves` compare a value with its previous one, so only `Apply` (or `Check(before, after)`) runs them. `Validate` never does.
+- `Apply` treats a mutation that changes nothing as `Ok` and runs no rule. Use `ApplyDetailed` where "nothing happened" is an error.
+- `[Constraints]` and `[Constraint]` need a `partial` type (and `partial` containing types) and `static` members. A mistake is a build error (`NECG001` and its siblings) that generates nothing for that type, not a warning.
+- Check values in a factory (`Validated`), not in a constructor: `with` copies and deserialisers bypass constructors, and a constructor that reads a static rule set depends on static initialisation order.
+- Constraints are synchronous. A rule that needs a service call is a mutation that makes the call plus a constraint on its result.
+- A validation attribute the generator does not know (`[Phone]`, a custom one, `IValidatableObject`) gets the Info diagnostic `NECG010`. Write that rule as a `Constraint<T>`.
+- `StateMachine<TState>` finds union and record cases by reflection and is marked `[RequiresUnreferencedCode]`. The rest of this package, including generated constraints, is trim and AOT clean.
+- `Nullean.Entities.CsCheck` builds generated data by reflection: use it in tests, not in a published app.
+- `Eventually` and `Required()` temporal rules are decided only when the run finishes, so they are for a bounded run.
+
+## Next
+
+- [Getting started](https://entities.nullean.net/getting-started/): the Quickstart in five minutes, including how to read the first red test.
+- [The nine axes](https://entities.nullean.net/axes/): one page per kind of rule, each with the real failure it prints.
+- [Adopting it in an existing codebase](https://entities.nullean.net/guides/adopting/)
+- [Testing API reference](https://entities.nullean.net/reference/testing-api/) and [state machines](https://entities.nullean.net/reference/state-machines/)
+- [Integration with real services](https://entities.nullean.net/integration/) (ASP.NET Core, DI, options validation)
+- [Known limitations](https://entities.nullean.net/known-limitations/)
+- Source and examples: https://github.com/nullean/entities/tree/main/examples
+- Related packages: [Nullean.Entities.CsCheck](https://www.nuget.org/packages/Nullean.Entities.CsCheck), [Nullean.Entities.Reactive](https://www.nuget.org/packages/Nullean.Entities.Reactive), [Nullean.Entities.Extensions.DependencyInjection](https://www.nuget.org/packages/Nullean.Entities.Extensions.DependencyInjection), [Nullean.Entities.AspNetCore](https://www.nuget.org/packages/Nullean.Entities.AspNetCore)
+- License: MIT
+
+## Reference
+
+The sections below are the full reference for this package.
+
+## Constraints in detail
 
 A `Constraint<T>` is a named rule, built through `Constraints<T>` rather than a public constructor:
 
@@ -150,7 +349,7 @@ channel.Apply(item => item with { Value = -1 });  // rejected; Current is still 
 ## Exhaustive constraint sets: `[Constraint]`
 
 Tag every `Constraint<T>` field or property that belongs to one type with `[Constraint]`, and
-[`Nullean.Entities.SourceGenerators`](../Nullean.Entities.SourceGenerators) (bundled into this
+[`Nullean.Entities.SourceGenerators`](https://github.com/nullean/entities/tree/main/src/Nullean.Entities.SourceGenerators) (bundled into this
 package's own nupkg as an analyzer — no separate install) bundles them into a `Constraints`
 property automatically:
 
@@ -204,7 +403,7 @@ Generic types are supported (the type parameters are carried into the generated 
 not partial (or nested in something that is not), or an
 inconsistent type argument across members on the same type — refuses to generate anything for that
 type at all, rather than silently generating from the valid subset. See
-[the generator's own README](../Nullean.Entities.SourceGenerators/README.md) for the full rules.
+[the generator's own README](https://github.com/nullean/entities/blob/main/src/Nullean.Entities.SourceGenerators/README.md) for the full rules.
 
 ### Tagging the type instead of each field: `[Constraints]`
 
@@ -298,7 +497,7 @@ the thing moving through states is a single comparable value, usually an enum.
 
 ## Named qualities beyond a plain predicate
 
-> See [`Nullean.Entities.CsCheck`'s testing-qualities table](../Nullean.Entities.CsCheck#testing-qualities-not-just-assertions)
+> See [the nine axes](https://entities.nullean.net/axes/) and [`Nullean.Entities.CsCheck`](https://www.nuget.org/packages/Nullean.Entities.CsCheck)
 > for the full set, including the reactive (`Eventually`) and CsCheck-side (`Metamorphic`) ones.
 
 `Always` and `Check` can express any of these by hand, but naming the quality instead of hiding it
@@ -614,17 +813,3 @@ var violations = constraints.Check(before, order);
 `Nullean.Entities` and `Nullean.Entities.Reactive` build with the trim and AOT analyzers on (`IsAotCompatible`), and `./build.sh aot` publishes a small app that uses the generated
 constraints, `Apply`, a declared machine with its Mermaid round trip, temporal rules, `TemporalMonitor` and a Reactive constraint set as **NativeAOT**, and runs it.
 The `Nullean.Entities.CsCheck` packages are not AOT-compatible: generated data is built by reflection, which is fine in tests.
-
-## Install
-
-```sh
-dotnet add package Nullean.Entities
-```
-
-## Links
-
-- [Source & full documentation](https://github.com/nullean/entities)
-- [Nullean.Entities.Reactive](https://www.nuget.org/packages/Nullean.Entities.Reactive) — lifts a
-  `ConstraintSet<T>` onto an `IObservable<TEvent>` stream, plus temporal/structural operators that
-  only make sense against a stream.
-- License: MIT
