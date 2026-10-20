@@ -173,6 +173,52 @@ public class DeclaredMachineTests
 	}
 
 	[Test]
+	public void A_divergence_is_reported_with_the_fewest_steps_that_cause_it()
+	{
+		// locking an open door is the bug: Open then Lock is the shortest walk that shows it, whatever else the random walk did first
+		var failures = Enumerable
+			.Range(0, 12)
+			.Select(_ =>
+			{
+				var act = () =>
+					Machine.ConformTo(
+						Door.New(),
+						d => d.State,
+						bindings: [
+							("Open", d => d.Open()),
+							("Close", d => d.Close()),
+							("Lock", d => d.State is DoorState.Closed or DoorState.Open ? d with { State = DoorState.Locked } : d),
+							("Unlock", d => d.Unlock()),
+						]
+					);
+				return act.Should().Throw<Exception>().Which.Message;
+			})
+			.ToList();
+
+		failures.Should().OnlyContain(message => message.Contains("diverged from the specification at step 2", StringComparison.Ordinal));
+	}
+
+	[Test]
+	public void A_divergence_in_a_class_that_changes_in_place_is_reported_with_the_fewest_steps_too()
+	{
+		var failures = Enumerable
+			.Range(0, 12)
+			.Select(_ =>
+			{
+				var act = () =>
+					Machine.ConformToMutable(
+						() => new MutableDoor { LockIsBroken = true },
+						d => d.State,
+						bindings: [("Open", d => d.Open()), ("Close", d => d.Close()), ("Lock", d => d.Lock()), ("Unlock", d => d.Unlock())]
+					);
+				return act.Should().Throw<Exception>().Which.Message;
+			})
+			.ToList();
+
+		failures.Should().OnlyContain(message => message.Contains("diverged from the specification at step 2", StringComparison.Ordinal));
+	}
+
+	[Test]
 	public void A_trigger_the_entity_cannot_perform_is_reported_before_any_walk()
 	{
 		var withKick = StateMachine

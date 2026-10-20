@@ -20,6 +20,85 @@ internal sealed class EntityHolder<TEntity>(TEntity entity)
 	public TEntity Entity { get; set; } = entity;
 }
 
+internal sealed record ConformStep<TState>(string Action, TState Before, TState After);
+
+internal sealed record ConformFailure<TState>(IReadOnlyList<ConformStep<TState>> Steps, string Reason);
+
+/// <summary>Remembers the last walk that diverged, so a failure can be trimmed once CsCheck has stopped shrinking it.</summary>
+internal sealed class ConformRecorder<TState>
+{
+	private readonly List<ConformStep<TState>> _walk = [];
+
+	public ConformFailure<TState>? Failure { get; private set; }
+
+	public void Reset() => _walk.Clear();
+
+	public void Step(string action, TState before, TState after, string? divergence)
+	{
+		_walk.Add(new(action, before, after));
+		if (divergence is not null)
+		{
+			Failure = new([.. _walk], divergence);
+		}
+	}
+}
+
+internal static class ConformTrace
+{
+	/// <summary>
+	/// CsCheck shrinks a state-dependent walk by its choices, so it can keep a step that changes nothing (a refused trigger). This removes
+	/// steps one at a time, replaying each candidate, until none can go, and rewrites the report with the smaller trace. Null when nothing was removed.
+	/// </summary>
+	public static CsCheckException? Trimmed<TState>(
+		string message,
+		ConformFailure<TState> failure,
+		Func<IReadOnlyList<string>, ConformFailure<TState>?> replay
+	)
+	{
+		var best = failure;
+		bool removed;
+		do
+		{
+			removed = false;
+			for (var i = 0; i < best.Steps.Count; i++)
+			{
+				var candidate = replay([.. best.Steps.Where((_, index) => index != i).Select(step => step.Action)]);
+				if (candidate is not null && candidate.Steps.Count < best.Steps.Count)
+				{
+					best = candidate;
+					removed = true;
+					break;
+				}
+			}
+		}
+		while (removed);
+
+		var start = message.IndexOf("Implementation diverged", StringComparison.Ordinal);
+		if (best.Steps.Count >= failure.Steps.Count || start < 0)
+		{
+			return null;
+		}
+
+		var lineStart = message.LastIndexOf('\n', start) + 1;
+		var lines = new List<string>
+		{
+			$"  (trimmed from {failure.Steps.Count} to {best.Steps.Count} steps: CsCheck kept steps the divergence does not need)",
+			"",
+			$"  Implementation diverged from the specification at step {best.Steps.Count}",
+			$"        Reason: {best.Reason}",
+			"         Trace: ",
+			$"         {best.Steps[0].Before}",
+		};
+		for (var i = 0; i < best.Steps.Count; i++)
+		{
+			var step = best.Steps[i];
+			lines.Add($"{(i == best.Steps.Count - 1 ? " >> " : "    ")}{i + 1,2} {step.Action}");
+			lines.Add($"         {step.After}");
+		}
+		return new CsCheckException(message[..lineStart] + string.Join(Environment.NewLine, lines) + Environment.NewLine);
+	}
+}
+
 public static class StateMachineSpecExtensions
 {
 	/// <summary>
@@ -86,20 +165,85 @@ public static class StateMachineSpecExtensions
 	{
 		RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(initial));
 		var byName = bindings.ToDictionary(b => Convert.ToString(b.Trigger, System.Globalization.CultureInfo.InvariantCulture)!, b => b.Apply);
-		return BuildSpec(machine, includeTimeouts: false)
-			.Conform(
-				() => new EntityHolder<TEntity>(initial),
-				(holder, step) =>
-				{
-					holder.Entity = byName[step.Action](holder.Entity);
-					var actual = stateOf(holder.Entity);
-					return EqualityComparer<TState>.Default.Equals(actual, step.After)
-						? null
-						: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
-				},
-				writeLine,
-				iter: iter
+		var recorder = new ConformRecorder<TState>();
+		try
+		{
+			return BuildSpec(machine, includeTimeouts: false)
+				.Conform(
+					() =>
+					{
+						recorder.Reset();
+						return new EntityHolder<TEntity>(initial);
+					},
+					(holder, step) =>
+					{
+						holder.Entity = byName[step.Action](holder.Entity);
+						var actual = stateOf(holder.Entity);
+						var divergence = EqualityComparer<TState>.Default.Equals(actual, step.After)
+							? null
+							: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
+						recorder.Step(step.Action, step.Before, step.After, divergence);
+						return divergence;
+					},
+					writeLine,
+					iter: iter
+				);
+		}
+		catch (CsCheckException e) when (recorder.Failure is not null)
+		{
+			var trimmed = ConformTrace.Trimmed(
+				e.Message,
+				recorder.Failure,
+				names =>
+					Replay(
+						machine,
+						names,
+						initial,
+						stateOf,
+						(entity, name) =>
+							byName[name](entity)
+					)
 			);
+			if (trimmed is null)
+			{
+				throw;
+			}
+			throw trimmed;
+		}
+	}
+
+	private static ConformFailure<TState>? Replay<TState, TTrigger, TEntity>(
+		StateMachine<TState, TTrigger> machine,
+		IReadOnlyList<string> names,
+		TEntity initial,
+		Func<TEntity, TState> stateOf,
+		Func<TEntity, string, TEntity> apply
+	) where TState : notnull where TTrigger : notnull
+	{
+		var triggers = machine.Triggers.ToDictionary(t => Convert.ToString(t, System.Globalization.CultureInfo.InvariantCulture)!);
+		var entity = initial;
+		var model = machine.Initial;
+		var steps = new List<ConformStep<TState>>();
+		foreach (var name in names)
+		{
+			var after = machine.TryFire(model, triggers[name], out var next) ? next : model;
+			try
+			{
+				entity = apply(entity, name);
+			}
+			catch (Exception)
+			{
+				return null;
+			}
+			steps.Add(new(name, model, after));
+			var actual = stateOf(entity);
+			if (!EqualityComparer<TState>.Default.Equals(actual, after))
+			{
+				return new(steps, $"after {name} in {model} the machine says {after}, but the entity is in {actual}");
+			}
+			model = after;
+		}
+		return null;
 	}
 
 	/// <summary><see cref="ConformTo{TState, TTrigger, TEntity}"/> for a class that mutates in place: a fresh entity per walk from <paramref name="create"/>.</summary>
@@ -114,20 +258,48 @@ public static class StateMachineSpecExtensions
 	{
 		RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(create()));
 		var byName = bindings.ToDictionary(b => Convert.ToString(b.Trigger, System.Globalization.CultureInfo.InvariantCulture)!, b => b.Apply);
-		return BuildSpec(machine, includeTimeouts: false)
-			.Conform(
-				() => new EntityHolder<TEntity>(create()),
-				(holder, step) =>
+		var recorder = new ConformRecorder<TState>();
+		try
+		{
+			return BuildSpec(machine, includeTimeouts: false)
+				.Conform(
+					() =>
+					{
+						recorder.Reset();
+						return new EntityHolder<TEntity>(create());
+					},
+					(holder, step) =>
+					{
+						byName[step.Action](holder.Entity);
+						var actual = stateOf(holder.Entity);
+						var divergence = EqualityComparer<TState>.Default.Equals(actual, step.After)
+							? null
+							: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
+						recorder.Step(step.Action, step.Before, step.After, divergence);
+						return divergence;
+					},
+					writeLine,
+					iter: iter
+				);
+		}
+		catch (CsCheckException e) when (recorder.Failure is not null)
+		{
+			// a class that mutates in place: every replay starts from a fresh instance, and the instance is the state that carries on
+			var trimmed = ConformTrace.Trimmed(e.Message, recorder.Failure, names =>
+			{
+				var holder = new EntityHolder<TEntity>(create());
+				return Replay(machine, names, holder, h => stateOf(h.Entity), (h, name) =>
 				{
-					byName[step.Action](holder.Entity);
-					var actual = stateOf(holder.Entity);
-					return EqualityComparer<TState>.Default.Equals(actual, step.After)
-						? null
-						: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
-				},
-				writeLine,
-				iter: iter
-			);
+					byName[name](h.Entity);
+					return h;
+				});
+			});
+			if (trimmed is null)
+			{
+				throw;
+			}
+			throw trimmed;
+		}
 	}
 
 	internal static void RequireBound<TState, TTrigger>(
