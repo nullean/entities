@@ -17,7 +17,16 @@ let private execResult binary args =
     let result = Proc.Start(binary, List.toArray args)
     result.ExitCode
 
-let private restoreTools = lazy(exec "dotnet" ["tool"; "restore"])
+// `dotnet tool restore` restores the whole manifest, and on a cold NuGet cache it reports the husky entry as failed ("not contained in the package with Package Id husky;
+// the commands contained in the package are curb") while every other tool, including the ones the build runs, restores. husky and curb are git-hook tools the build never
+// runs, so a failed restore is reported and the build goes on: a tool that is really missing fails loudly where it is first run.
+let private restoreTools =
+    lazy(
+        try
+            exec "dotnet" ["tool"; "restore"]
+        with :? ProcExecException as e ->
+            printfn "WARNING: dotnet tool restore did not restore every tool (%s); continuing, the tools the build runs fail on their own if they are missing" e.Message
+    )
 
 let private currentVersion =
     lazy(
