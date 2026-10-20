@@ -1,7 +1,14 @@
 project: 'Nullean.Entities'
 max_toc_depth: 2
 
+branding:
+  icon: images/mark.svg
+  favicon: images/png/entities-mark-32.png
+  og-image: images/png/entities-social-card.png
+  apple-touch-icon: images/png/entities-mark-180.png
+
 exclude:
+  - 'landing/**'
   - 'spikes/**'
   - 'autobogus-decision.md'
   - 'first-use-review.md'

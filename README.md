@@ -6,7 +6,7 @@ C# records and unions say what an order holds and which cases exist. They cannot
 
 Nullean.Entities makes them **first-class**: a rule is a named value, declared once next to the type. The same declaration validates a value, is tested automatically on generated data, and watches live events. And the tests it writes ask nine questions most test suites never ask.
 
-📖 **[Documentation](docs/index.md)**: [why](docs/why.md), [getting started](docs/getting-started/index.md), [the nine axes](docs/axes/index.md), [concepts in plain words](docs/concepts.md).
+📖 **[Documentation](https://entities.nullean.net)**: [why](docs/why.md), [getting started](docs/getting-started/index.md), [the nine axes](docs/axes/index.md), [concepts in plain words](docs/concepts.md).
 
 ## Why
 

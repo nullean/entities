@@ -1,0 +1,58 @@
+/* Nullean.Entities — design tokens, on the Nullean Design System.
+   Dark only. Entities owns one pair: bone (primary) + copper (secondary). No other project may use either.
+   State: pass = code-ok (the system's success green, used for ok ticks only), fail = copper,
+   warning = copper-hi outlined. Always paired with a word. */
+@font-face { font-family: "JetBrains Mono"; src: local("JetBrains Mono"); font-weight: 100 800; }
+:root {
+  color-scheme: dark;
+
+  /* ground, shared across the family */
+  --bg: #08090b;  --bg2: #0d1013;  --bg3: #1b2126;
+  --text: #e9ecf1;  --muted: #98a1ae;  --dim: #5a6472;          /* dim: chrome only, never reading text */
+  --hairline: #e9ecf11a;  --hairline-strong: #e9ecf129;  --hairline-hover: #e9ecf16b;
+  --code-ok: #6fcf97;  --code-string: #9fd3a6;
+  --term-red: #ff5f57;  --term-yellow: #febc2e;  --term-green: #28c840;
+
+  /* entities pair: bone (primary, warm neutral) + copper (secondary). Quiet by design. */
+  --entities-bone: #e0d8c1;          /* primary: 14.0:1 on bg */
+  --entities-bone-hi: #ece7d9;
+  --entities-bone-dim: #2d2c2a;
+  --entities-bone-light: #b7a56f;   /* frame only, light-background logo */
+  --entities-copper: #db8553;        /* secondary: 7.1:1 on bg */
+  --entities-copper-hi: #e9b394;
+  --entities-copper-dim: #2c1e17;
+  --entities-copper-light: #d6733a; /* frame only */
+  --entities-line: #e0d8c11a;       /* 10% primary */
+  --entities-line-soft: #e0d8c10e;  /* 5.5% primary */
+
+  /* product mapping (what [data-product="entities"] does in bundle.css) */
+  --accent: var(--entities-bone);  --accent-hi: var(--entities-bone-hi);  --accent-dim: var(--entities-bone-dim);
+  --accent-2: var(--entities-copper);  --accent-2-hi: var(--entities-copper-hi);  --accent-2-dim: var(--entities-copper-dim);
+  --line-tint: var(--entities-line);  --line-tint-soft: var(--entities-line-soft);
+  --on-accent: var(--bg);
+
+  /* type */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+
+  /* space, radius, shadow, layout */
+  --space-1: .28rem; --space-2: .55rem; --space-3: .9rem; --space-4: 1.4rem; --space-5: 2rem;
+  --space-6: 2.5rem; --space-7: 3.5rem; --space-8: 5.5rem;
+  --radius-2xs: 2px; --radius-xs: 4px; --radius-sm: 5px; --radius-md: 6px; --radius-lg: 8px;
+  --shadow-terminal: 0 24px 60px -20px rgba(0,0,0,.7);
+  --layout-wide: 1240px;
+
+  /* aliases so page rules read by role */
+  --fg: var(--text);  --fg-2: var(--muted);  --fg-3: var(--muted);
+  --bg-raise: var(--bg2);  --bg-code: var(--bg2);
+  --line: var(--line-tint);
+  --pass: var(--code-ok);  --pass-wash: color-mix(in srgb, var(--code-ok) 12%, transparent);
+  --fail: var(--accent-2);  --fail-wash: color-mix(in srgb, var(--accent-2) 14%, transparent);
+  --warn: var(--accent-2-hi);  --warn-wash: transparent;
+  --accent-wash: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-strong: var(--accent-hi);
+  --c-kw: var(--muted);  --c-type: var(--accent-hi);  --c-str: var(--code-string);
+  --radius: var(--radius-xs);
+  --mono-size: .78rem;
+  --measure: 62ch;
+}

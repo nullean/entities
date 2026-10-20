@@ -1,6 +1,6 @@
 ---
 navigation_title: Services and mutable classes
-description: Test a service, or any class that changes in place, with the same AutoTest: the rules and the axes are the same, only the way operations are registered differs.
+description: "Test a service, or any class that changes in place, with the same AutoTest: the rules and the axes are the same, only the way operations are registered differs."
 ---
 
 # Services and mutable classes

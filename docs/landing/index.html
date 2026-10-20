@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nullean.Entities — rules as named values for .NET</title>
+<meta name="description" content="Declare a business rule once, next to the type. It validates the value, tests itself against generated data, and can watch live events.">
+<meta name="theme-color" content="#08090b">
+<base href="/">
+
+<!-- Social previews: this page is copied over the generated index.html (see CLAUDE.md), so it never goes
+     through docs-builder's own Open Graph generation and needs these by hand. -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://entities.nullean.net/">
+<meta property="og:title" content="Nullean.Entities — rules as named values for .NET">
+<meta property="og:description" content="Declare a business rule once, next to the type. It validates the value, tests itself against generated data, and can watch live events.">
+<meta property="og:image" content="https://entities.nullean.net/_static/entities-social-card.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Nullean.Entities — rules as named values for .NET">
+<meta name="twitter:description" content="Declare a business rule once, next to the type. It validates the value, tests itself against generated data, and can watch live events.">
+<meta name="twitter:image" content="https://entities.nullean.net/_static/entities-social-card.png">
+
+<link rel="icon" href="assets/mark-small.svg" type="image/svg+xml">
+<link rel="icon" type="image/png" sizes="32x32" href="images/png/entities-mark-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="images/png/entities-mark-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="images/png/entities-mark-180.png">
+<script>document.documentElement.classList.add('js')</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="lockup" href="#top" aria-label="Nullean.Entities, home">
+      <svg class="logo" viewBox="0 0 276 96" height="48" width="138.0" role="img" aria-label="entities"><defs><linearGradient id="nvf" x1="0" y1=".2" x2="1" y2=".8"><stop offset=".44" stop-color="#e0d8c1"/><stop offset=".56" stop-color="#db8553"/></linearGradient><radialGradient id="nvg" cx=".18" cy=".12" r="1.2"><stop offset="0" stop-color="#1b2126"/><stop offset=".55" stop-color="#0d1013"/><stop offset="1" stop-color="#08090b"/></radialGradient><linearGradient id="nvs" x1="0" y1="0" x2="1" y2="0"><stop offset=".35" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".8"/><stop offset=".65" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="nvm"><rect width="276" height="96" fill="#fff"/><rect x="5" y="5" width="266" height="86" fill="#000"/></mask></defs><rect width="276" height="96" rx="10" fill="url(#nvf)"/><g mask="url(#nvm)"><rect class="sheen" x="-120" y="-20" width="120" height="136" fill="url(#nvs)" transform="skewX(-18)"/></g><rect x="5" y="5" width="266" height="86" rx="5" fill="url(#nvg)"/><g transform="translate(14 16)"><circle cx="12" cy="14" r="8" fill="#e0d8c1" fill-opacity=".16" stroke="#e0d8c1" stroke-width="4"/><circle cx="52" cy="14" r="8" fill="#e0d8c1" fill-opacity=".16" stroke="#e0d8c1" stroke-width="4"/><circle cx="32" cy="52" r="9" fill="#e0d8c1" fill-opacity=".16" stroke="#e0d8c1" stroke-width="3.2"/><circle cx="32" cy="52" r="3.6" fill="#e0d8c1"/><circle cx="3.6" cy="3.2" r="2.6" fill="#e0d8c1"/><line x1="23.60" y1="14.00" x2="34.20" y2="14.00" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#e0d8c1"/><polygon points="40.40,14.00 33.40,17.60 33.40,10.40" fill="#e0d8c1"/><line x1="46.60" y1="24.27" x2="40.76" y2="35.36" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#e0d8c1"/><polygon points="37.87,40.85 37.94,32.98 44.31,36.33" fill="#e0d8c1"/><path d="M21.44 45.13Q11.4 38.6 11.59 30.99" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#db8553" stroke-dasharray="0.1 6.2"/><polygon points="11.72,25.60 14.77,31.87 8.37,31.72" fill="#db8553"/><line class="den" x1="7.72" y1="40.10" x2="20.26" y2="33.86" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#db8553"/><circle class="tk" cx="12" cy="14" r="3.2" fill="#ece7d9" opacity="0"/></g><g font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="700"><text x="90" y="59" font-size="32" letter-spacing="-1" fill="#ffffff">entities<tspan fill="#db8553">.</tspan></text></g></svg>
+    </a>
+    <nav class="nav-links" aria-label="Page">
+      <a class="hide-sm" href="#questions">nine questions</a>
+      <a class="hide-sm" href="#reports">reports</a>
+      <a class="hide-sm" href="#one-rule">one rule</a>
+      <a class="hide-sm" href="#adoption">adoption</a>
+      <a href="getting-started/">docs</a>
+    </nav>
+    <a class="btn nav-btn" href="https://github.com/nullean/entities"><img class="icon" src="assets/github.svg" alt="">github →</a>
+  </div>
+</header>
+
+<main id="main">
+<!-- ============ HERO ============ -->
+<section class="hero" id="top">
+  <div class="wrap">
+    <p class="badge"><i></i>nullean.entities · .net</p>
+    <h1><span class="a">AI writes code faster than you can review.</span><span class="b">Constrain and <em>validate</em> your domain data.</span></h1>
+    <p class="lede">Write constraints, get AutoTests: code your AI can generate and you can read. Every change, human or agent, is checked against your view of the world by tests you never wrote.</p>
+    <div class="cta-row">
+      <a class="btn primary" href="getting-started/" id="docs">read the docs →</a>
+      <a class="btn ghost" href="https://github.com/nullean/entities"><img class="icon" src="assets/github.svg" alt="">view on github ↗</a>
+    </div>
+
+    <!-- ============ STORY ============ -->
+    <div class="story" id="story" data-stage="1" aria-labelledby="story-h">
+      <h2 class="sr" id="story-h">Why a record is not enough, in five steps</h2>
+      <div class="story-nav js-only" role="group" aria-label="Story steps">
+        <button class="sbtn" type="button" data-go="0" aria-current="step"><span class="n">1</span>Record</button>
+        <button class="sbtn" type="button" data-go="1"><span class="n">2</span>Table</button>
+        <button class="sbtn" type="button" data-go="2"><span class="n">3</span>Time</button>
+        <button class="sbtn" type="button" data-go="3"><span class="n">4</span>Rules</button>
+        <button class="sbtn" type="button" data-go="4"><span class="n">5</span>Guardrails</button>
+        <span class="story-ctl">
+          <button class="mini" type="button" id="s-prev" aria-label="Previous step">←</button>
+          <button class="mini" type="button" id="s-play">Pause</button>
+          <button class="mini" type="button" id="s-next" aria-label="Next step">→</button>
+        </span>
+      </div>
+      <div class="story-bar js-only" aria-hidden="true"><i id="s-bar"></i></div>
+      <p class="sr" id="s-live" role="status" aria-live="polite"></p>
+
+      <article class="step is-active" data-i="0" aria-labelledby="st1">
+        <div class="step-copy">
+          <p class="step-k">01 · a record</p>
+          <h3 id="st1">Types say what a thing is.</h3>
+          <p>Fields and cases. A record describes shape and stops there.</p>
+          <p class="verdict">Not enough.</p>
+        </div>
+        <figure class="fig f1">
+          <div class="win"><div class="win-bar"><span class="file">Order</span><span class="right">shape only</span></div>
+<pre class="code" tabindex="0"><code><span class="c">// fields and cases</span>
+<span class="k">record</span> <span class="t">Order</span>(
+    <span class="fld" style="--d:.15s">Lines</span>,
+    <span class="fld" style="--d:.3s">Status</span>,
+    <span class="fld" style="--d:.45s">Version</span>,
+    <span class="fld" style="--d:.6s">Total</span>,
+    <span class="fld" style="--d:.75s">Label</span>);</code></pre>
+          </div>
+          <div class="win"><div class="win-bar"><span class="file">a value</span></div>
+<pre class="code" tabindex="0"><code>Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" }</code></pre>
+          </div>
+          <ul class="asks" aria-label="What the record cannot say">
+            <li style="--d:1.1s">Total never negative?</li>
+            <li style="--d:1.3s">Cancelled, then Shipped?</li>
+            <li style="--d:1.5s">The same call twice?</li>
+          </ul>
+        </figure>
+      </article>
+
+      <article class="step" data-i="1" aria-labelledby="st2">
+        <div class="step-copy">
+          <p class="step-k">02 · a table</p>
+          <h3 id="st2">Project it to a schema.</h3>
+          <p>Columns, keys, relations. The database now knows the shape too.</p>
+          <p class="verdict">Still not enough.</p>
+        </div>
+        <figure class="fig f2">
+          <svg viewBox="0 0 520 300" role="img" aria-label="An entity relationship sketch: an Order table with columns Lines, Status, Version, Total and Label, related one to many with a Line table. Projected from the record.">
+            <g class="tbl">
+              <rect class="frame" x="24" y="24" width="220" height="214" rx="8"/>
+              <path class="hdr" d="M24 32 a8 8 0 0 1 8 -8 h204 a8 8 0 0 1 8 8 v26 h-220 z"/>
+              <text class="th" x="42" y="46">Order</text>
+              <g class="row" style="--d:.2s"><text x="42" y="84">Lines</text><path d="M24 96 h220"/></g>
+              <g class="row" style="--d:.4s"><text x="42" y="120">Status</text><path d="M24 132 h220"/></g>
+              <g class="row" style="--d:.6s"><text x="42" y="156">Version</text><path d="M24 168 h220"/></g>
+              <g class="row" style="--d:.8s"><text x="42" y="192">Total</text><path d="M24 204 h220"/></g>
+              <g class="row" style="--d:1s"><text x="42" y="228">Label</text></g>
+            </g>
+            <g class="tbl small">
+              <rect class="frame" x="352" y="52" width="140" height="80" rx="8"/>
+              <path class="hdr" d="M352 60 a8 8 0 0 1 8 -8 h124 a8 8 0 0 1 8 8 v26 h-140 z"/>
+              <text class="th" x="368" y="74">Line</text>
+              <text class="dim" x="368" y="114">…</text>
+            </g>
+            <path class="rel" d="M244 84 H338 M338 84 L352 72 M338 84 L352 84 M338 84 L352 96" />
+            <text class="dim" x="262" y="76">1</text><text class="dim" x="318" y="76">n</text>
+            <text class="note" x="24" y="272">projected from the record · sketch</text>
+          </svg>
+        </figure>
+      </article>
+
+      <article class="step" data-i="2" aria-labelledby="st3">
+        <div class="step-copy">
+          <p class="step-k">03 · time</p>
+          <h3 id="st3">Then time walks in.</h3>
+          <p>Ordering, repetition, drift, deadlines. Those rules live in people's heads and get rewritten a little differently each time.</p>
+          <p class="verdict">Nothing says what it must do.</p>
+        </div>
+        <figure class="fig f3">
+          <svg viewBox="0 0 520 300" role="img" aria-label="Order states Pending, Confirmed, Shipped and Cancelled with legal moves between them. Below, a timeline: Confirmed at plus 0 seconds, a deadline at plus 60 seconds, and Shipped at plus 90 seconds, which is late.">
+            <g class="chips">
+              <g class="chip" style="--d:.1s"><rect x="20" y="30" width="96" height="30" rx="6"/><text x="68" y="50" text-anchor="middle">Pending</text></g>
+              <g class="chip" style="--d:.3s"><rect x="164" y="30" width="104" height="30" rx="6"/><text x="216" y="50" text-anchor="middle">Confirmed</text></g>
+              <g class="chip" style="--d:.5s"><rect x="316" y="30" width="96" height="30" rx="6"/><text x="364" y="50" text-anchor="middle">Shipped</text></g>
+              <g class="chip" style="--d:.7s"><rect x="164" y="96" width="104" height="30" rx="6"/><text x="216" y="116" text-anchor="middle">Cancelled</text></g>
+            </g>
+            <path class="mv" d="M116 45 H164 M156 40 L164 45 L156 50"/>
+            <path class="mv" d="M268 45 H316 M308 40 L316 45 L308 50"/>
+            <path class="mv" d="M92 60 V111 H164 M156 106 L164 111 L156 116"/>
+            <path class="mv" d="M216 60 V96 M211 88 L216 96 L221 88"/>
+            <path class="axis" d="M40 220 H490"/>
+            <text class="dim" x="40" y="206">time</text>
+            <g class="ev" style="--d:1.3s"><circle cx="72" cy="220" r="6"/><text x="72" y="248" text-anchor="middle">Confirmed</text><text class="dim" x="72" y="266" text-anchor="middle">+0s</text></g>
+            <g class="dl" style="--d:1.7s"><path d="M264 176 V232"/><text x="264" y="168" text-anchor="middle">deadline +60s</text></g>
+            <g class="ev late" style="--d:2.1s"><circle cx="360" cy="220" r="6"/><text x="360" y="248" text-anchor="middle">Shipped</text><text class="dim" x="360" y="266" text-anchor="middle">+90s</text></g>
+            <path class="gap" style="--d:2.4s" d="M264 198 H360 M264 193 V203 M360 193 V203"/>
+            <text class="gaplbl" style="--d:2.4s" x="312" y="190" text-anchor="middle">late</text>
+          </svg>
+        </figure>
+      </article>
+
+      <article class="step" data-i="3" aria-labelledby="st4">
+        <div class="step-copy">
+          <p class="step-k">04 · rules</p>
+          <h3 id="st4">Name the rules, once.</h3>
+          <p>Each rule is a <span class="mono">Constraint&lt;Order&gt;</span> next to the type: a name, a sentence, a promise about behaviour. Write constraints, get AutoTests. Code your AI can generate and you can read.</p>
+          <p class="verdict">Now the model says what it must do.</p>
+        </div>
+        <figure class="fig f4">
+          <svg viewBox="0 0 520 300" role="img" aria-label="The Order model with five named rules attached: ConfirmedOrdersHaveLines to Lines and Status, LegalMoves to Status, VersionNeverGoesBack to Version, TotalNeverNegative to Total, and CancelIsRepeatable to the whole order.">
+            <rect class="frame" x="20" y="20" width="170" height="260" rx="8"/>
+            <text class="th" x="38" y="46">Order</text>
+            <text x="38" y="84">Lines</text><text x="38" y="124">Status</text><text x="38" y="164">Version</text><text x="38" y="204">Total</text><text x="38" y="244">Label</text>
+            <g class="link" style="--d:.2s"><path d="M190 80 C240 80 240 56 296 56"/><path d="M190 120 C240 120 240 56 296 56"/></g>
+            <g class="link" style="--d:.5s"><path d="M190 120 C240 120 240 104 296 104"/></g>
+            <g class="link" style="--d:.8s"><path d="M190 160 C240 160 240 152 296 152"/></g>
+            <g class="link" style="--d:1.1s"><path d="M190 200 C240 200 240 200 296 200"/></g>
+            <g class="link dash" style="--d:1.4s"><path d="M190 252 C240 252 240 248 296 248"/></g>
+            <g class="rule" style="--d:.3s"><rect x="296" y="40" width="208" height="32" rx="16"/><text x="400" y="61" text-anchor="middle">ConfirmedOrdersHaveLines</text></g>
+            <g class="rule" style="--d:.6s"><rect x="296" y="88" width="208" height="32" rx="16"/><text x="400" y="109" text-anchor="middle">LegalMoves</text></g>
+            <g class="rule" style="--d:.9s"><rect x="296" y="136" width="208" height="32" rx="16"/><text x="400" y="157" text-anchor="middle">VersionNeverGoesBack</text></g>
+            <g class="rule" style="--d:1.2s"><rect x="296" y="184" width="208" height="32" rx="16"/><text x="400" y="205" text-anchor="middle">TotalNeverNegative</text></g>
+            <g class="rule" style="--d:1.5s"><rect x="296" y="232" width="208" height="32" rx="16"/><text x="400" y="253" text-anchor="middle">CancelIsRepeatable</text></g>
+          </svg>
+        </figure>
+      </article>
+
+      <article class="step" data-i="4" aria-labelledby="st5">
+        <div class="step-copy">
+          <p class="step-k">05 · guardrails</p>
+          <h3 id="st5">Nine questions, asked of every rule.</h3>
+          <p>AI writes code faster than you can review it. The constraint metadata generates into CsCheck, which asks each rule nine questions that almost no test suite asks.</p>
+          <p class="verdict">You did not read the diff. The rule did.</p>
+        </div>
+        <figure class="fig f5">
+          <ol class="tiles" aria-label="The nine questions, with one failing in this illustration">
+            <li class="tile" style="--d:.2s"><span class="tn">1</span><span class="tl">Invariant</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+            <li class="tile" style="--d:.35s"><span class="tn">2</span><span class="tl">Idempotency</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+            <li class="tile bad" style="--d:.5s"><span class="tn">3</span><span class="tl">Monotonicity</span><span class="tk" aria-hidden="true">✕</span><span class="sr">fails</span></li>
+            <li class="tile" style="--d:.65s"><span class="tn">4</span><span class="tl">Conservation</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+            <li class="tile" style="--d:.8s"><span class="tn">5</span><span class="tl">Absence</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+            <li class="tile" style="--d:.95s"><span class="tn">6</span><span class="tl">Temporal</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+            <li class="tile" style="--d:1.1s"><span class="tn">7</span><span class="tl">Liveness</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+            <li class="tile" style="--d:1.25s"><span class="tn">8</span><span class="tl">Confluence</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+            <li class="tile" style="--d:1.4s"><span class="tn">9</span><span class="tl">Vacancy</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+          </ol>
+          <p class="caught"><span class="chip fail"><b>Monotonicity</b> failed</span> a change nobody reviewed. Caught by the rule.</p>
+          <p class="note-s">Illustration. The real report is below.</p>
+        </figure>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="rules" aria-labelledby="rules-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">the rules, written once</p>
+      <h2 id="rules-h">Write the rules. Run one line. Plant a bug.</h2>
+      <p>Five named rules and a single test line. Plant a bug and read what the generated test says.</p>
+    </div>
+
+    <div class="demo" id="demo" style="margin-top: var(--space-6)">
+      <div class="win">
+        <div class="win-bar"><span class="file">OrderConstraints.cs</span><span class="right">the rules, written once</span></div>
+<pre class="code" tabindex="0"><code><span class="t">[Constraints]</span>
+<span class="k">public static partial class</span> <span class="t">OrderConstraints</span>
+{
+    <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">TotalNeverNegative</span> =
+        <span class="t">Constraints&lt;Order&gt;</span>.Always(o =&gt; o.Total &gt;= 0, <span class="s">"An order total is never negative."</span>);
+
+    <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">ConfirmedOrdersHaveLines</span> = <span class="t">Constraints&lt;Order&gt;</span>
+        .When(o =&gt; o.Status == OrderStatus.Confirmed)
+        .Requires(o =&gt; o.Lines.Count &gt; 0, <span class="s">"A confirmed order has at least one line."</span>);
+
+    <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">LegalMoves</span> = <span class="t">Constraints&lt;Order&gt;</span>
+        .Transitions(o =&gt; o.Status)
+        .Allow(OrderStatus.Pending, OrderStatus.Confirmed)
+        .Allow(OrderStatus.Confirmed, OrderStatus.Shipped)
+        .Allow(OrderStatus.Pending, OrderStatus.Cancelled)
+        .Allow(OrderStatus.Confirmed, OrderStatus.Cancelled);
+
+    <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">CancelIsRepeatable</span> =
+        <span class="t">Constraints&lt;Order&gt;</span>.Idempotent(o =&gt; o.Cancel());
+
+    <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">VersionNeverGoesBack</span> =
+        <span class="t">Constraints&lt;Order&gt;</span>.Monotonic(o =&gt; o.Version, MonotonicDirection.NonDecreasing);
+}</code></pre>
+      </div>
+
+      <div class="win">
+        <div class="win-bar"><span class="file">OrderTests.cs</span><span class="right">the whole test · driven by CsCheck</span></div>
+<pre class="code" tabindex="0"><code><span class="k">await</span> <span class="t">AutoTest</span>.For(OrderConstraints.Instance, orders).RunAsync();</code></pre>
+      </div>
+
+      <div class="win js-only flex" style="margin-top: var(--space-4); padding: .5rem .9rem; align-items: center; gap: var(--space-4); flex-wrap: wrap; background: var(--bg-raise);">
+        <span class="mono" style="font-size:.75rem;color:var(--fg-3)">Same rules, same test. Change the code under test:</span>
+        <button class="toggle" id="plant" type="button" aria-pressed="false" aria-controls="demo-out"><span class="pip" aria-hidden="true"></span><span id="plant-label">Plant a bug</span></button>
+      </div>
+
+      <div class="win planted-only">
+        <div class="win-bar"><span class="file">Order.cs</span><span class="right">one method added</span></div>
+<pre class="code" tabindex="0"><code><span class="add"><span class="k">public</span> <span class="t">Order</span> Reset() =&gt; <span class="k">this with</span> { Version = 0 };</span></code></pre>
+      </div>
+
+      <div class="win" id="demo-out">
+        <div class="win-bar"><span class="status-dot fail" id="dot" aria-hidden="true"></span><span class="file">dotnet test</span></div>
+        <p class="idle-only">// plant a bug above, then read what the generated test says</p>
+        <div class="report-wrap">
+          <div class="report-top">
+            <span class="chip fail"><b>Monotonicity</b> failed</span>
+            <span class="chip accent">question 3 · Does it ever go backwards?</span>
+          </div>
+<pre class="report typed" id="report" tabindex="0"><span class="l hd">Monotonicity failed.</span><!--
+--><span class="l">&#8203;</span><!--
+--><span class="l"><span class="rk">Rule broken   </span>version-never-goes-back: Expected NonDecreasing but moved from 1 to 0.</span><!--
+--><span class="l"><span class="rk">Operation     </span>Reset()</span><!--
+--><span class="l"><span class="rk">Started from  </span>Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" }</span><!--
+--><span class="l"><span class="rk">Produced      </span>Order { Lines = [], Status = Cancelled, Version = 0, Total = 0, Label = "" }</span><!--
+--><span class="l">&#8203;</span><!--
+--><span class="l"><span class="lk">Law           </span><span class="law">No operation moves a value that may only go one way in the other direction.</span></span><!--
+--><span class="l"><span class="lk">Consequence   </span>An older result overwrites a newer one, a counter goes back or a timestamp regresses, without anything saying so.</span><!--
+--><span class="l">&#8203;</span><!--
+--><span class="l seed">Smallest case found, after 4 shrinks. To run this case again: .Seed("7ub38ErvzD2a")</span></pre>
+        </div>
+        <p class="sr" id="demo-live" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ NINE QUESTIONS ============ -->
+<section id="questions" aria-labelledby="q-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">the differentiator</p>
+      <h2 id="q-h">Nine questions almost no test suite asks.</h2>
+      <p>Most tests check whether one example works. The generated tests ask these nine, and each one catches a specific kind of real production bug. Hover, focus or tap a row to watch the bug happen.</p>
+    </div>
+
+    <div class="qwrap">
+    <table class="qtable" id="qtable">
+      <caption class="sr">The nine questions and the bug each catches</caption>
+      <thead><tr><th scope="col">#</th><th scope="col">Test axis</th><th scope="col">Question</th><th scope="col">The bug it catches</th><th scope="col"><span class="sr">Animation</span></th></tr></thead>
+      <tbody>
+        <tr class="q">
+          <th scope="row" class="qnum">1</th><td class="qaxis"><a href="axes/01-invariant/">Invariant</a></td>
+          <td><button class="qbtn" type="button" aria-pressed="false">Is it true in every state?</button></td>
+          <td class="qbug">an operation that lets a bad value in</td>
+          <td class="qstage"><svg class="stage s1" viewBox="0 0 160 56" role="img" aria-label="Five states are checked in turn. The fourth breaks the rule."><circle cx="20" cy="28" r="9"/><circle cx="50" cy="28" r="9"/><circle cx="80" cy="28" r="9"/><circle class="bad" cx="110" cy="28" r="9"/><circle cx="140" cy="28" r="9"/><path class="x" d="M106 24 l8 8 M114 24 l-8 8"/></svg></td>
+        </tr>
+        <tr class="q">
+          <th scope="row" class="qnum">2</th><td class="qaxis"><a href="axes/02-idempotency/">Idempotency</a></td>
+          <td><button class="qbtn" type="button" aria-pressed="false">Does doing it twice change anything?</button></td>
+          <td class="qbug">a retry that changes state twice</td>
+          <td class="qstage"><svg class="stage s2" viewBox="0 0 160 56" role="img" aria-label="The same call is made twice and the stored value changes a second time."><path class="ln a1" d="M12 28 h22 m-6 -5 l6 5 l-6 5"/><path class="ln a2" d="M44 28 h22 m-6 -5 l6 5 l-6 5"/><rect class="box" x="88" y="14" width="56" height="28" rx="5"/><text class="v1" x="116" y="33" text-anchor="middle">1</text><text class="v2" x="116" y="33" text-anchor="middle">2</text></svg></td>
+        </tr>
+        <tr class="q">
+          <th scope="row" class="qnum">3</th><td class="qaxis"><a href="axes/03-monotonicity/">Monotonicity</a></td>
+          <td><button class="qbtn" type="button" aria-pressed="false">Does it ever go backwards?</button></td>
+          <td class="qbug">an older result overwriting a newer one</td>
+          <td class="qstage"><svg class="stage s3" viewBox="0 0 160 56" role="img" aria-label="Three bars grow, then the fourth drops below the third."><path class="ln base" d="M12 48 H148"/><rect x="26" y="36" width="20" height="12" rx="2"/><rect x="58" y="26" width="20" height="22" rx="2"/><rect x="90" y="14" width="20" height="34" rx="2"/><rect class="bad" x="122" y="14" width="20" height="34" rx="2"/></svg></td>
+        </tr>
+        <tr class="q">
+          <th scope="row" class="qnum">4</th><td class="qaxis"><a href="axes/04-conservation/">Conservation</a></td>
+          <td><button class="qbtn" type="button" aria-pressed="false">Did anything appear or vanish?</button></td>
+          <td class="qbug">totals that drift</td>
+          <td class="qstage"><svg class="stage s4" viewBox="0 0 160 56" role="img" aria-label="Three items are counted, one disappears, and the total no longer matches."><rect x="12" y="20" width="16" height="16" rx="3"/><rect x="36" y="20" width="16" height="16" rx="3"/><rect class="gone" x="60" y="20" width="16" height="16" rx="3"/><text class="mis" x="92" y="32" font-size="14">≠</text><text class="lbl" x="108" y="31">total</text></svg></td>
+        </tr>
+        <tr class="q">
+          <th scope="row" class="qnum">5</th><td class="qaxis"><a href="axes/05-absence/">Absence</a></td>
+          <td><button class="qbtn" type="button" aria-pressed="false">Can a bad sequence ever happen?</button></td>
+          <td class="qbug">a cancelled order that still ships</td>
+          <td class="qstage"><svg class="stage s5" viewBox="0 0 160 56" role="img" aria-label="An order is Cancelled and then Shipped, which should never follow."><g class="c1"><rect x="4" y="17" width="58" height="22" rx="4"/><text x="33" y="31" text-anchor="middle">Cancelled</text></g><path class="ln arr" d="M68 28 h20 m-6 -5 l6 5 l-6 5" stroke-dasharray="80"/><g class="c2"><rect class="bad" x="98" y="17" width="58" height="22" rx="4"/><text class="bad-t" x="127" y="31" text-anchor="middle">Shipped</text></g></svg></td>
+        </tr>
+        <tr class="q">
+          <th scope="row" class="qnum">6</th><td class="qaxis"><a href="axes/06-temporal/">Temporal</a></td>
+          <td><button class="qbtn" type="button" aria-pressed="false">Does B follow A within a deadline?</button></td>
+          <td class="qbug">a promise missed by one unlucky gap</td>
+          <td class="qstage"><svg class="stage s6" viewBox="0 0 160 56" role="img" aria-label="A marker travels along a line and lands just past the deadline tick."><path class="ln" d="M10 36 H150"/><path class="tick" d="M100 26 V46"/><text class="w" x="100" y="20" text-anchor="middle">deadline</text><circle class="ring" cx="112" cy="36" r="9"/><circle class="dot" cx="112" cy="36" r="5"/></svg></td>
+        </tr>
+        <tr class="q">
+          <th scope="row" class="qnum">7</th><td class="qaxis"><a href="axes/07-liveness/">Liveness</a></td>
+          <td><button class="qbtn" type="button" aria-pressed="false">Does it eventually finish?</button></td>
+          <td class="qbug">the endless spinner</td>
+          <td class="qstage"><svg class="stage s7" viewBox="0 0 160 56" role="img" aria-label="A spinner that turns and never completes."><circle class="track" cx="80" cy="28" r="13"/><path class="arc" d="M80 15 a13 13 0 0 1 13 13"/></svg></td>
+        </tr>
+        <tr class="q">
+          <th scope="row" class="qnum">8</th><td class="qaxis"><a href="axes/08-confluence/">Confluence</a></td>
+          <td><button class="qbtn" type="button" aria-pressed="false">Does input order change the output?</button></td>
+          <td class="qbug">two rebuilds publishing different results</td>
+          <td class="qstage"><svg class="stage s8" viewBox="0 0 160 56" role="img" aria-label="The same two inputs in a different order produce two different outputs."><g class="r1"><text x="10" y="22">a b</text><path class="ln" d="M42 19 h26 m-5 -4 l5 4 l-5 4"/><text x="80" y="22">ab</text></g><g class="r2"><text x="10" y="46">b a</text><path class="ln" d="M42 43 h26 m-5 -4 l5 4 l-5 4"/><text class="out-bad" x="80" y="46">ba</text></g><text class="mis" x="112" y="38">≠</text></svg></td>
+        </tr>
+        <tr class="q">
+          <th scope="row" class="qnum">9</th><td class="qaxis"><a href="axes/09-vacancy/">Vacancy</a></td>
+          <td><button class="qbtn" type="button" aria-pressed="false">Did the test even reach the rule?</button></td>
+          <td class="qbug">a green test that checked nothing</td>
+          <td class="qstage"><svg class="stage s9" viewBox="0 0 160 56" role="img" aria-label="The test passes, but its path stops short of the rule it was meant to reach."><text class="ok" x="8" y="14">✓ green</text><path class="arrow" d="M10 38 H78 m-6 -5 l6 5 l-6 5"/><rect class="target" x="104" y="22" width="46" height="26" rx="4"/><text x="127" y="38" text-anchor="middle">rule</text><text class="never" x="152" y="14" text-anchor="end">never reached</text></svg></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INCIDENT REPORTS ============ -->
+<section id="reports" aria-labelledby="r-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">when it breaks</p>
+      <h2 id="r-h">A failure you can read. So can your AI.</h2>
+      <p>Each failure names the rule, the operation and the starting value, states the law that was broken and what it costs in production, and arrives shrunk to the smallest case with a seed that replays it (shrinking and seeds come from CsCheck). Rich enough for an agent to read, fix the code and replay.</p>
+    </div>
+
+    <div class="reports">
+      <article class="win rcard" aria-labelledby="rc1">
+        <div class="win-bar"><span class="chip fail" id="rc1"><b>Monotonicity</b> failed</span><span class="chip accent">question 3</span></div>
+        <div class="shrink js-only" id="shrink" aria-label="Shrinking demonstration">
+          <div class="shrink-top"><span id="shrink-step">generated value</span><button class="mini" type="button" id="replay">Replay</button></div>
+          <pre class="shrink-line" id="shrink-line" aria-hidden="true"></pre>
+          <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+          <div class="shrink-seed" id="shrink-seed" aria-hidden="true"></div>
+          <p class="sr" id="shrink-live" role="status" aria-live="polite"></p>
+          <p style="margin:0;font:400 .75rem/1.5 var(--font-mono);color:var(--fg-3)">Illustrative path. The report states only the first value shape and the smallest case; ▒ stands for generated data.</p>
+        </div>
+<pre class="report" tabindex="0"><span class="l hd">Monotonicity failed.</span><!--
+--><span class="l">&#8203;</span><!--
+--><span class="l"><span class="rk">Rule broken   </span>version-never-goes-back: Expected NonDecreasing but moved from 1 to 0.</span><!--
+--><span class="l"><span class="rk">Operation     </span>Reset()</span><!--
+--><span class="l"><span class="rk">Started from  </span>Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" }</span><!--
+--><span class="l"><span class="rk">Produced      </span>Order { Lines = [], Status = Cancelled, Version = 0, Total = 0, Label = "" }</span><!--
+--><span class="l">&#8203;</span><!--
+--><span class="l"><span class="lk">Law           </span><span class="law">No operation moves a value that may only go one way in the other direction.</span></span><!--
+--><span class="l"><span class="lk">Consequence   </span>An older result overwrites a newer one, a counter goes back or a timestamp regresses, without anything saying so.</span><!--
+--><span class="l">&#8203;</span><!--
+--><span class="l seed">Smallest case found, after 4 shrinks. To run this case again: .Seed("7ub38ErvzD2a")</span></pre>
+      </article>
+
+      <article class="win rcard" aria-labelledby="rc2">
+        <div class="win-bar"><span class="chip fail" id="rc2"><b>Temporal</b> failed</span><span class="chip accent">question 6</span></div>
+<pre class="report" tabindex="0"><span class="l hd">Temporal failed.</span><!--
+--><span class="l">&#8203;</span><!--
+--><span class="l"><span class="rk">Rule broken      </span>confirmed-ships-within-a-minute</span><!--
+--><span class="l"><span class="rk">Noticed at       </span>+60s</span><!--
+--><span class="l"><span class="rk">What happened    </span>No matching event within 00:01:00 after Confirmed</span><!--
+--><span class="l"><span class="rk">Events recorded  </span>+0s  Confirmed</span><!--
+--><span class="l">                 +90s  Shipped</span><!--
+--><span class="l"><span class="rk">Calls made       </span>wait 1s, Confirm</span><!--
+--><span class="l">&#8203;</span><!--
+--><span class="l"><span class="lk">Law              </span><span class="law">What must follow something within a deadline does, however the time between calls is spent.</span></span><!--
+--><span class="l"><span class="lk">Consequence      </span>A deadline is missed under timing the tests never tried, so a stuck state is reported as in progress for good.</span><!--
+--><span class="l">&#8203;</span><!--
+--><span class="l seed">Smallest case found, after 5 shrinks. To run this case again: .Seed("0i1vmP3ChLc5")</span></pre>
+      </article>
+    </div>
+
+    <ol class="loop" aria-label="The fix loop">
+      <li><b>1</b> A rule fails and prints the report.</li>
+      <li><b>2</b> The agent reads the rule, the operation and the law.</li>
+      <li><b>3</b> The agent fixes the code.</li>
+      <li><b>4</b> <span class="mono">.Seed("7ub38ErvzD2a")</span> replays the exact case.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ ONE RULE, THREE JOBS ============ -->
+<section id="one-rule" aria-labelledby="j-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">one declaration</p>
+      <h2 id="j-h">One rule, three jobs.</h2>
+      <p>You wrote <span class="mono" style="color:var(--accent)">TotalNeverNegative</span> once. You did not write it again in a validator, a test and a monitor.</p>
+    </div>
+
+    <div class="rule-chip"><span>TotalNeverNegative</span></div>
+    <svg class="fan" viewBox="0 0 300 56" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M150 0 C150 30 50 26 50 56"/>
+      <path d="M150 0 V56"/>
+      <path class="dash" d="M150 0 C150 30 250 26 250 56"/>
+    </svg>
+    <div class="jobs">
+      <div class="job">
+        <span class="num">01</span>
+        <h3>It validates</h3>
+        <p>The rule checks a value where it is built, so a bad value is stopped at the door instead of three calls later.</p>
+      </div>
+      <div class="job">
+        <span class="num">02</span>
+        <h3>It tests itself</h3>
+        <p>The rule's metadata is generated into CsCheck tests and run against machine-generated data. You write no test code for it.</p>
+        <pre><code>await AutoTest.For(OrderConstraints.Instance, orders).RunAsync();</code></pre>
+      </div>
+      <div class="job optin">
+        <span class="num">03</span>
+        <h3>It can watch</h3>
+        <p>The same rule can watch a live stream of events for the same breach.</p>
+        <span class="chip tag">opt-in</span>
+      </div>
+    </div>
+    <p class="note">It works on immutable records and on services or classes that change in place, and it awaits async operations.</p>
+  </div>
+</section>
+
+<!-- ============ ADOPTION ============ -->
+<section id="adoption" aria-labelledby="a-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">gradual adoption</p>
+      <h2 id="a-h">Start as a warning. Become an error on a date you choose.</h2>
+      <p>Nothing breaks on the day you add a rule. Findings are reported until the date you set, and from then on they are errors.</p>
+    </div>
+
+    <div class="adopt">
+      <div class="win">
+        <div class="win-bar"><span class="file">Severity</span></div>
+<pre class="code" tabindex="0"><code>.WithSeverity(Severity.Warning)                                    <span class="c">// start: nothing breaks, findings are reported</span>
+.WithSeverityUntil(Severity.Warning, <span class="k">new</span> <span class="t">DateTimeOffset</span>(2026, 12, 1, 0, 0, 0, TimeSpan.Zero), Severity.Error)   <span class="c">// error from this date</span></code></pre>
+      </div>
+
+      <div>
+        <div class="sevtab-wrap">
+          <table class="sevtab">
+            <caption class="sr">Severity by date</caption>
+            <thead><tr><th scope="col">Date</th><th scope="col">Severity</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">before 2026-12-01</td><td class="mono" style="color:var(--warn)">Warning</td></tr>
+              <tr><td class="mono">from 2026-12-01</td><td class="mono" style="color:var(--fail)">Error</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="dial js-only" id="dial">
+          <label for="date">Move the date</label>
+          <div class="dial-date" id="date-out">2026-11-15</div>
+          <input id="date" type="range" min="0" max="61" step="1" value="14" aria-describedby="dial-effect">
+          <div class="rail" aria-hidden="true"></div>
+          <div class="rail-labels" aria-hidden="true"><span>2026-11-01</span><span>2026-12-01</span><span>2027-01-01</span></div>
+          <div class="sev warn" id="sev" role="status"><span id="sev-label">WARNING</span></div>
+          <p class="dial-effect" id="dial-effect">Findings are reported. Nothing breaks.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="data" aria-labelledby="g-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">two kinds of data</p>
+      <h2 id="g-h">Adversarial and real-world data, judged by the same rules.</h2>
+      <p>CsCheck drives the tests: its generators hunt for the case you did not think of. Bogus fills the same types with data that looks like production. Neither needs its own rules.</p>
+    </div>
+    <div class="gens">
+      <article class="gen adv" tabindex="0" aria-labelledby="gen1">
+        <p class="gen-k">adversarial · CsCheck</p>
+        <h3 id="gen1">Hunts the case you did not think of.</h3>
+        <ul>
+          <li>Starts at the edges: empty, zero, one, the largest, out of order.</li>
+          <li>Shrinks every failure to the smallest case.</li>
+          <li>Replays it from a seed.</li>
+        </ul>
+        <div class="tokens" aria-label="Examples of adversarial values"><span>empty</span><span>zero</span><span>one</span><span>largest</span><span>negative</span><span>repeated</span><span>out of order</span></div>
+        <pre class="code" tabindex="0"><code>Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" }</code></pre>
+      </article>
+      <article class="gen real" tabindex="0" aria-labelledby="gen2">
+        <p class="gen-k">real world · Bogus</p>
+        <h3 id="gen2">Looks like Tuesday in production.</h3>
+        <ul>
+          <li>Names, addresses, emails, amounts and dates shaped like your customers.</li>
+          <li>Finds rules that are too strict, or too loose, for data that actually exists.</li>
+          <li>Failures read like records someone would recognise.</li>
+        </ul>
+        <div class="tokens" aria-label="Examples of real-world values"><span>name</span><span>address</span><span>email</span><span>amount</span><span>date</span><span>label</span></div>
+      </article>
+    </div>
+    <div class="judge"><b>The same constraints judge both:</b><span class="chip accent">ConfirmedOrdersHaveLines</span><span class="chip accent">LegalMoves</span><span class="chip accent">VersionNeverGoesBack</span><span class="chip accent">TotalNeverNegative</span><span class="chip accent">CancelIsRepeatable</span></div>
+  </div>
+</section>
+
+<section class="closing" aria-labelledby="c-h">
+  <div class="wrap">
+    <p class="eyebrow">start here</p>
+    <h2 id="c-h">Write the rule <em>once</em>.</h2>
+    <div class="cta-row">
+      <a class="btn primary" href="getting-started/">read the docs →</a>
+      <a class="btn ghost" href="https://github.com/nullean/entities"><img class="icon" src="assets/github.svg" alt="">view on github ↗</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="nl" href="https://nullean.net">nullean ↗</a>
+    <span>© Nullean. MIT licensed.</span>
+    <nav class="fam" aria-label="Nullean projects">
+      <a href="https://curb.nullean.net">{}curb ↗</a>
+      <a href="https://mermaider.nullean.net">mermaider ↗</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="app.js" defer></script>
+</body>
+</html>
