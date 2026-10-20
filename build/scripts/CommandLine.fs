@@ -11,10 +11,14 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None);SubCommand>] Apps
     | [<CliPrefix(CliPrefix.None);SubCommand>] Pack
     | [<CliPrefix(CliPrefix.None);SubCommand>] Release
+    | [<CliPrefix(CliPrefix.None);SubCommand>] Publish
 
     | [<CliPrefix(CliPrefix.None);Hidden;SubCommand>] PristineCheck
     | [<CliPrefix(CliPrefix.None);Hidden;SubCommand>] GeneratePackages
     | [<CliPrefix(CliPrefix.None);Hidden;SubCommand>] ValidatePackages
+    | [<CliPrefix(CliPrefix.None);Hidden;SubCommand>] GenerateReleaseNotes
+    | [<CliPrefix(CliPrefix.None);Hidden;SubCommand>] GenerateApiChanges
+    | [<CliPrefix(CliPrefix.None);Hidden;SubCommand>] CreateReleaseOnGithub
 
     | [<Inherit;AltCommandLine("-s")>] SingleTarget of bool
     | [<Inherit;AltCommandLine("-c")>] CleanCheckout of bool
@@ -29,13 +33,17 @@ with
             | Aot -> "publishes examples/Nullean.Entities.AotSmoke NativeAOT (trim/AOT warnings are errors) and runs it"
             | Apps -> "runs every console app under examples/Apps; one that exits non-zero fails the build"
             | Pack -> "builds and packs the NuGet packages"
-            | Release -> "runs build, tests, then creates and validates packages"
+            | Release -> "runs the clean checkout check, tests, packs and validates the packages, then writes release notes and the public API changes since the last release"
+            | Publish -> "release, then creates the GitHub release for the current version (needs --token)"
             | SingleTarget _ -> "runs the provided sub command without running its dependencies"
             | CleanCheckout _ -> "skip the clean checkout check that guards the release target"
             | Token _ -> "token used to authenticate with GitHub"
             | PristineCheck
             | GeneratePackages
             | ValidatePackages
+            | GenerateReleaseNotes
+            | GenerateApiChanges
+            | CreateReleaseOnGithub
                 -> "Undocumented, dependent target"
 
     member this.Name =
