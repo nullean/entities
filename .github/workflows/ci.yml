@@ -69,6 +69,7 @@ jobs:
     environment: nuget
     permissions:
       contents: write
+      pull-requests: read
 
     steps:
       - uses: actions/checkout@v6
@@ -89,15 +90,40 @@ jobs:
           ./build.sh generatepackages -s true
           ./build.sh validatepackages -s true
 
-      - name: Release notes
-        run: ./build.sh generatereleasenotes -s true --token ${{ secrets.GITHUB_TOKEN }}
-
       - name: Public API changes since the previous release
         run: ./build.sh generateapichanges -s true
 
       - name: Publish to nuget.org
         run: dotnet nuget push '.artifacts/build-output/*.nupkg' -k ${{ secrets.NUGET_ORG_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
 
-      # last, so a release is announced only once its packages are out; a failed run can be re-run (--skip-duplicate)
-      - name: Create the GitHub release
-        run: ./build.sh createreleaseongithub -s true --token ${{ secrets.GITHUB_TOKEN }}
+      # last, so a release is announced only once its packages are out; a failed run can be re-run (--skip-duplicate). The notes are the draft release-drafter
+      # kept from the merged pull requests; publishing it for this tag makes it the release.
+      - name: Publish the GitHub release
+        uses: release-drafter/release-drafter@34d80673e067bdc0c24568d3af899c216adcfaa9 # v7.7.0
+        with:
+          tag: ${{ github.ref_name }}
+          version: ${{ github.ref_name }}
+          publish: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      # the public API changes go on the release itself, after the notes
+      - name: Add the public API changes to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          shopt -s nullglob
+          changes=(.artifacts/build-output/breaking-changes-*.md)
+          if [ ${#changes[@]} -eq 0 ]; then
+            echo "no public API changes to add"
+            exit 0
+          fi
+          gh release view "$TAG" --json body --jq .body > release-body.md
+          for f in "${changes[@]}"; do
+            printf '\n\n' >> release-body.md
+            cat "$f" >> release-body.md
+          done
+          gh release edit "$TAG" --notes-file release-body.md
