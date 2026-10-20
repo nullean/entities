@@ -33,6 +33,10 @@ A record whose methods return the next value is what the step axes run on. A ser
 
 The step axes run the operations of the type (every public method that returns the type, or the ones you add). An operation that is not in the list is not attacked.
 
+## `Conserves` covers every operation you register
+
+A quantity is conserved across all the operations under test, so an operation that changes it on purpose (a deposit, a refund) breaks the rule by design. Register only the operations that must keep it, or count the inflow in the state. See [Conservation](axes/04-conservation.md#when-an-operation-changes-the-total-on-purpose).
+
 ## Packages
 
 The packages are not published to NuGet yet. Until they are, reference them from a checkout.
