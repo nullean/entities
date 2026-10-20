@@ -49,6 +49,15 @@
     <RepositoryType>git</RepositoryType>
     <PackageIcon>nuget-icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- Symbols travel inside the dll (no separate snupkg to publish). SourceLink itself is built into the SDK; EmbedUntrackedSources adds what it cannot reach:
+         files generated at build time (the [Constraints] companions, GeneratedRegex) are not in git, so their text is embedded and a debugger can step into them. -->
+    <DebugType>embedded</DebugType>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+
+  <!-- A CI build records repository-relative paths, so a package built on a runner does not carry its checkout path. -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <!-- PackageIcon/PackageReadmeFile above only name the files; NuGet still needs them added to the

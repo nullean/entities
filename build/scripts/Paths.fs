@@ -26,12 +26,19 @@ let RootRelative path = Path.GetRelativePath(Root.FullName, path)
 
 let Output = DirectoryInfo(Path.Combine(Root.FullName, ".artifacts", "build-output"))
 
+// Every package this repository ships: the packable projects under src/ (the source generator is bundled into Nullean.Entities, not a package of its own).
 let mapProjectToNuget =
-    Map.empty
-        .Add("Nullean.Entities", "Nullean.Entities")
-        .Add("Nullean.Entities.Reactive", "Nullean.Entities.Reactive")
-        .Add("Nullean.Entities.CsCheck", "Nullean.Entities.CsCheck")
-        .Add("Nullean.Entities.CsCheck.Reactive", "Nullean.Entities.CsCheck.Reactive")
+    [ "Nullean.Entities"
+      "Nullean.Entities.Reactive"
+      "Nullean.Entities.FileSystem"
+      "Nullean.Entities.Extensions.DependencyInjection"
+      "Nullean.Entities.AspNetCore"
+      "Nullean.Entities.Argh"
+      "Nullean.Entities.CsCheck"
+      "Nullean.Entities.CsCheck.Reactive"
+      "Nullean.Entities.CsCheck.FileSystem"
+      "Nullean.Entities.CsCheck.AutoBogus" ]
+    |> List.fold (fun (m: Map<string, string>) name -> m.Add(name, name)) Map.empty<string, string>
 
 let buildOnlyPackages = Set.empty<string>
 

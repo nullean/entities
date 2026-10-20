@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace Nullean.Entities.CsCheck.Tests;
@@ -15,7 +14,7 @@ public partial class NoBlockingTests
 	[Test]
 	public async Task Library_source_never_blocks_on_a_task()
 	{
-		var root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(ThisFile())!, "..", ".."));
+		var root = RepositoryRoot();
 		var offenders = new[] { "src", "tests", "examples" }
 			.SelectMany(dir => Directory.EnumerateFiles(Path.Combine(root, dir), "*.cs", SearchOption.AllDirectories))
 			.Where(
@@ -35,5 +34,14 @@ public partial class NoBlockingTests
 	[GeneratedRegex(@"\.GetAwaiter\(\)\s*\.GetResult\(\)|\.Result\b(?!\w)|\.Wait\(\)")]
 	private static partial Regex Blocking();
 
-	private static string ThisFile([CallerFilePath] string path = "") => path;
+	// Found from where the test runs, not from the path the compiler recorded: a CI build maps source paths to "/_/", so [CallerFilePath] names a folder that does not exist there.
+	private static string RepositoryRoot()
+	{
+		var directory = new DirectoryInfo(AppContext.BaseDirectory);
+		while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "nullean-entities.slnx")))
+		{
+			directory = directory.Parent;
+		}
+		return directory?.FullName ?? throw new InvalidOperationException("nullean-entities.slnx was not found above the test's folder");
+	}
 }

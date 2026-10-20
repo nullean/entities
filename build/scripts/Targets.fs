@@ -3,6 +3,7 @@ module Targets
 #nowarn "3391" // Nullable<int> implicit conversions from ProcNet's ExitCode
 
 open Argu
+open System
 open System.IO
 open Bullseye
 open CommandLine
@@ -16,7 +17,16 @@ let private execResult binary args =
     let result = Proc.Start(binary, List.toArray args)
     result.ExitCode
 
-let private restoreTools = lazy(exec "dotnet" ["tool"; "restore"])
+// `dotnet tool restore` restores the whole manifest, and on a cold NuGet cache it reports the husky entry as failed ("not contained in the package with Package Id husky;
+// the commands contained in the package are curb") while every other tool, including the ones the build runs, restores. husky and curb are git-hook tools the build never
+// runs, so a failed restore is reported and the build goes on: a tool that is really missing fails loudly where it is first run.
+let private restoreTools =
+    lazy(
+        try
+            exec "dotnet" ["tool"; "restore"]
+        with :? ProcExecException as e ->
+            printfn "WARNING: dotnet tool restore did not restore every tool (%s); continuing, the tools the build runs fail on their own if they are missing" e.Message
+    )
 
 let private currentVersion =
     lazy(
@@ -78,8 +88,16 @@ let private validatePackages (arguments:ParseResults<Arguments>) =
     // value curb itself validates against, not the bare tag version.
     let version = currentVersionInformational.Value
     let packages = Directory.GetFiles(Paths.Output.FullName, "*.nupkg")
+    // a package that is missing is as much a failure as one that is wrong: every package this repository ships must have been packed
+    let expected = Paths.mapProjectToNuget |> Map.toList |> List.map fst
+    let missing = expected |> List.filter (fun name -> not (packages |> Array.exists (fun p -> Path.GetFileName(p).StartsWith(name + "." + version.Split('+').[0], System.StringComparison.Ordinal))))
+    if not missing.IsEmpty then failwithf "These packages were not packed: %s" (String.concat ", " missing)
+    // The validator is a net8 tool that loads each package's assembly and its references, and a net11.0 assembly references System.Runtime 11, which an older runtime cannot
+    // supply ("Could not load file or assembly 'System.Runtime, Version=11.0.0.0'"). Letting it roll forward to the newest runtime installed, previews included, is what lets it read them.
+    Environment.SetEnvironmentVariable("DOTNET_ROLL_FORWARD", "LatestMajor")
+    Environment.SetEnvironmentVariable("DOTNET_ROLL_FORWARD_TO_PRERELEASE", "1")
     for package in packages do
-        exec "dotnet" ["nupkg-validator"; package; "-v"; version]
+        exec "dotnet" ["nupkg-validator"; package; "-v"; version; "-k"; Paths.SignKey]
 
 let Setup (parsed:ParseResults<Arguments>) (arguments:Arguments) =
     let singleTarget = parsed.TryGetResult SingleTarget |> Option.defaultValue false
