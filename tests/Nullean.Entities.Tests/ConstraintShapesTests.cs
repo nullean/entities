@@ -21,9 +21,40 @@ internal sealed record Located(string Id, int Line, string? Ref = null);
 
 internal sealed record Doc(IReadOnlyList<Located> Items);
 
+internal sealed record Aisle(string Id, IReadOnlyList<Located> Books);
+
+internal sealed record Library(IReadOnlyList<Aisle> Aisles);
+
 public class ConstraintShapesTests
 {
 	private static readonly Constraint<Site> UniqueUrls = Constraints<Site>.Unique(s => s.Pages, p => p.Url);
+
+	[Test]
+	public void References_names_the_collection_when_the_selector_calls_a_method()
+	{
+		var warehouse = new Library([new("s1", [new("b1", 1, "gone")])]);
+		var viaSelectMany = Constraints<Library>.References(
+			l => l.Aisles.SelectMany(s => s.Books),
+			b => b.Ref is null ? [] : [b.Ref],
+			l => l.Aisles.Select(s => s.Id)
+		);
+		var viaProperty = Constraints<Library>.References(l => l.Aisles, s => s.Books.Select(b => b.Ref!), l => l.Aisles.Select(s => s.Id));
+
+		ConstraintSet.From(("viaSelectMany", viaSelectMany)).Validate(warehouse).Should().ContainSingle().Which.Member.Should().Be("Aisles");
+		ConstraintSet.From(("viaProperty", viaProperty)).Validate(warehouse).Should().ContainSingle().Which.Member.Should().Be("Aisles");
+	}
+
+	[Test]
+	public void MemberOf_keeps_a_property_path_and_drops_a_trailing_call()
+	{
+		Constraints<Library>.MemberOf("l => l.Aisles").Should().Be("Aisles");
+		Constraints<Library>.MemberOf("l => l.Address.City").Should().Be("Address.City");
+		Constraints<Library>.MemberOf("l => l.Aisles.SelectMany(s => s.Books)").Should().Be("Aisles");
+		Constraints<Library>.MemberOf("l => l.Aisle.Books.Where(b => b.Line > 0)").Should().Be("Aisle.Books");
+		Constraints<Library>.MemberOf("l => l.Compute()").Should().BeNull();
+		Constraints<Library>.MemberOf("l => Aisles(l)").Should().BeNull();
+		Constraints<Library>.MemberOf(null).Should().BeNull();
+	}
 
 	[Test]
 	public void Unique_reports_each_duplicated_key_once_with_the_key_as_evidence()
