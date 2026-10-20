@@ -2,9 +2,9 @@
 
 ![Nullean.Entities: rules as named values for .NET](docs/images/png/entities-social-card.png)
 
-**Types say what a thing is. Nothing says what it must do.**
+**Types hold data. Nothing constrains it beyond its type.**
 
-C# records and unions say what an order holds and which cases exist. They cannot say that a total is never negative, that cancelling twice is cancelling once, that a version never goes back, or that a confirmed order ships within a minute. Those rules end up in `if` statements, validators and people's heads, written again for each use, and they drift apart.
+A well-typed `Order` can still have a negative total, ship after it was cancelled, or lose a version. C# records and unions say what an order holds and which cases exist. They cannot say that a total is never negative, that cancelling twice is cancelling once, that a version never goes back, or that a confirmed order ships within a minute. Those rules end up in `if` statements, validators and people's heads, written again for each use, and they drift apart.
 
 Nullean.Entities makes them **first-class**: a rule is a named value, declared once next to the type. The same declaration validates a value, is tested automatically on generated data, and watches live events. And the tests it writes ask nine questions most test suites never ask.
 

@@ -1,11 +1,11 @@
 ---
 navigation_title: Why
-description: Types say what a thing is. Nothing says what it must do. {{product}} makes those rules first-class, and then tests them on axes you have probably never considered.
+description: Types hold data. Nothing constrains it beyond its type. {{product}} makes those rules first-class, and then tests them on axes you have probably never considered.
 ---
 
 # Why {{product}}
 
-**Types say what a thing is. Nothing says what it must do.**
+**Types hold data. Nothing constrains it beyond its type.**
 
 A record with `Total`, `Status` and `Lines` tells the compiler what an order holds. It does not tell anything that a total is never negative, that you can only ship a confirmed order, that cancelling twice is cancelling once, or that a confirmed order ships within a minute. The compiler is excellent at shape and silent on behaviour.
 

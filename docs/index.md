@@ -1,13 +1,13 @@
 ---
 navigation_title: Home
-description: Types say what a thing is. Nothing says what it must do. Nullean.Entities makes those rules first-class, and tests them on nine axes you have probably never considered.
+description: Types hold data. Nothing constrains it beyond its type. Nullean.Entities makes those rules first-class, and tests them on nine axes you have probably never considered.
 ---
 
 # Nullean.Entities
 
-**Types say what a thing is. Nothing says what it must do.**
+**Types hold data. Nothing constrains it beyond its type.**
 
-C# records and unions say what an order holds and which cases exist. They cannot say that a total is never negative, that cancelling twice is cancelling once, that a version never goes back, or that a confirmed order ships within a minute. Those rules end up in `if` statements, validators and people's heads, written again for each use, and they drift apart.
+A well-typed `Order` can still have a negative total, ship after it was cancelled, or lose a version. C# records and unions say what an order holds and which cases exist. They cannot say that a total is never negative, that cancelling twice is cancelling once, that a version never goes back, or that a confirmed order ships within a minute. Those rules end up in `if` statements, validators and people's heads, written again for each use, and they drift apart.
 
 {{product}} makes them **first-class**: a rule is a named value, declared once, next to the type.
 

@@ -3,25 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nullean.Entities — rules as named values for .NET</title>
-<meta name="description" content="Declare a business rule once, next to the type. It validates the value, tests itself against generated data, and can watch live events.">
-<meta name="theme-color" content="#08090b">
 <base href="/">
-
-<!-- Social previews: this page is copied over the generated index.html (see CLAUDE.md), so it never goes
-     through docs-builder's own Open Graph generation and needs these by hand. -->
+<title>Nullean.Entities — constrain and validate your domain data</title>
+<meta name="description" content="Types hold data. Nothing constrains it beyond its type. Write constraints for your .NET domain and get AutoTests: guardrails for code your AI can generate and you can read.">
+<link rel="canonical" href="https://entities.nullean.net/">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Nullean.Entities">
+<meta property="og:title" content="Nullean.Entities: constrain and validate your domain data">
+<meta property="og:description" content="Types hold data. Nothing constrains it beyond its type. Write constraints, get AutoTests.">
 <meta property="og:url" content="https://entities.nullean.net/">
-<meta property="og:title" content="Nullean.Entities — rules as named values for .NET">
-<meta property="og:description" content="Declare a business rule once, next to the type. It validates the value, tests itself against generated data, and can watch live events.">
 <meta property="og:image" content="https://entities.nullean.net/_static/entities-social-card.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="entities. wordmark with a three-state machine mark, in bone and copper on near-black">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Nullean.Entities — rules as named values for .NET">
-<meta name="twitter:description" content="Declare a business rule once, next to the type. It validates the value, tests itself against generated data, and can watch live events.">
+<meta name="twitter:title" content="Nullean.Entities: constrain and validate your domain data">
+<meta name="twitter:description" content="Types hold data. Nothing constrains it beyond its type. Write constraints, get AutoTests.">
 <meta name="twitter:image" content="https://entities.nullean.net/_static/entities-social-card.png">
-
+<meta name="theme-color" content="#08090b">
 <link rel="icon" href="assets/mark-small.svg" type="image/svg+xml">
 <link rel="icon" type="image/png" sizes="32x32" href="images/png/entities-mark-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="images/png/entities-mark-16.png">
@@ -42,10 +41,11 @@
       <svg class="logo" viewBox="0 0 276 96" height="48" width="138.0" role="img" aria-label="entities"><defs><linearGradient id="nvf" x1="0" y1=".2" x2="1" y2=".8"><stop offset=".44" stop-color="#e0d8c1"/><stop offset=".56" stop-color="#db8553"/></linearGradient><radialGradient id="nvg" cx=".18" cy=".12" r="1.2"><stop offset="0" stop-color="#1b2126"/><stop offset=".55" stop-color="#0d1013"/><stop offset="1" stop-color="#08090b"/></radialGradient><linearGradient id="nvs" x1="0" y1="0" x2="1" y2="0"><stop offset=".35" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".8"/><stop offset=".65" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="nvm"><rect width="276" height="96" fill="#fff"/><rect x="5" y="5" width="266" height="86" fill="#000"/></mask></defs><rect width="276" height="96" rx="10" fill="url(#nvf)"/><g mask="url(#nvm)"><rect class="sheen" x="-120" y="-20" width="120" height="136" fill="url(#nvs)" transform="skewX(-18)"/></g><rect x="5" y="5" width="266" height="86" rx="5" fill="url(#nvg)"/><g transform="translate(14 16)"><circle cx="12" cy="14" r="8" fill="#e0d8c1" fill-opacity=".16" stroke="#e0d8c1" stroke-width="4"/><circle cx="52" cy="14" r="8" fill="#e0d8c1" fill-opacity=".16" stroke="#e0d8c1" stroke-width="4"/><circle cx="32" cy="52" r="9" fill="#e0d8c1" fill-opacity=".16" stroke="#e0d8c1" stroke-width="3.2"/><circle cx="32" cy="52" r="3.6" fill="#e0d8c1"/><circle cx="3.6" cy="3.2" r="2.6" fill="#e0d8c1"/><line x1="23.60" y1="14.00" x2="34.20" y2="14.00" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#e0d8c1"/><polygon points="40.40,14.00 33.40,17.60 33.40,10.40" fill="#e0d8c1"/><line x1="46.60" y1="24.27" x2="40.76" y2="35.36" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#e0d8c1"/><polygon points="37.87,40.85 37.94,32.98 44.31,36.33" fill="#e0d8c1"/><path d="M21.44 45.13Q11.4 38.6 11.59 30.99" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#db8553" stroke-dasharray="0.1 6.2"/><polygon points="11.72,25.60 14.77,31.87 8.37,31.72" fill="#db8553"/><line class="den" x1="7.72" y1="40.10" x2="20.26" y2="33.86" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#db8553"/><circle class="tk" cx="12" cy="14" r="3.2" fill="#ece7d9" opacity="0"/></g><g font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="700"><text x="90" y="59" font-size="32" letter-spacing="-1" fill="#ffffff">entities<tspan fill="#db8553">.</tspan></text></g></svg>
     </a>
     <nav class="nav-links" aria-label="Page">
-      <a class="hide-sm" href="#questions">nine questions</a>
+      <a class="hide-sm" href="#questions">nine axes</a>
       <a class="hide-sm" href="#reports">reports</a>
-      <a class="hide-sm" href="#one-rule">one rule</a>
-      <a class="hide-sm" href="#adoption">adoption</a>
+      <a class="hide-sm" href="#walkthrough">walkthrough</a>
+      <a class="hide-sm" href="#relations">relations</a>
+      <a class="hide-sm" href="#machines">state machines</a>
       <a href="getting-started/">docs</a>
     </nav>
     <a class="btn nav-btn" href="https://github.com/nullean/entities"><img class="icon" src="assets/github.svg" alt="">github →</a>
@@ -57,178 +57,171 @@
 <section class="hero" id="top">
   <div class="wrap">
     <p class="badge"><i></i>nullean.entities · .net</p>
-    <h1><span class="a">AI writes code faster than you can review.</span><span class="b">Constrain and <em>validate</em> your domain data.</span></h1>
-    <p class="lede">Write constraints, get AutoTests: code your AI can generate and you can read. Every change, human or agent, is checked against your view of the world by tests you never wrote.</p>
+    <h1><span class="a">Types hold data.</span><span class="b">Nothing constrains it <em>beyond its type.</em></span></h1>
+    <p class="lede">Write the rules once, in plain C#. Nullean.Entities turns them into validation, state machines and thousands of generated tests. CsCheck drives them, shrinks every failure to its smallest case, and the report is clear enough for an AI to fix.</p>
     <div class="cta-row">
-      <a class="btn primary" href="getting-started/" id="docs">read the docs →</a>
+      <a class="btn primary" href="getting-started/">read the docs →</a>
       <a class="btn ghost" href="https://github.com/nullean/entities"><img class="icon" src="assets/github.svg" alt="">view on github ↗</a>
     </div>
 
-    <!-- ============ STORY ============ -->
-    <div class="story" id="story" data-stage="1" aria-labelledby="story-h">
-      <h2 class="sr" id="story-h">Why a record is not enough, in five steps</h2>
-      <div class="story-nav js-only" role="group" aria-label="Story steps">
-        <button class="sbtn" type="button" data-go="0" aria-current="step"><span class="n">1</span>Record</button>
-        <button class="sbtn" type="button" data-go="1"><span class="n">2</span>Table</button>
-        <button class="sbtn" type="button" data-go="2"><span class="n">3</span>Time</button>
-        <button class="sbtn" type="button" data-go="3"><span class="n">4</span>Rules</button>
-        <button class="sbtn" type="button" data-go="4"><span class="n">5</span>Guardrails</button>
-        <span class="story-ctl">
-          <button class="mini" type="button" id="s-prev" aria-label="Previous step">←</button>
-          <button class="mini" type="button" id="s-play">Pause</button>
-          <button class="mini" type="button" id="s-next" aria-label="Next step">→</button>
-        </span>
+    <!-- ============ HERO: code first, the dimensions it drives ============ -->
+    <figure class="morph" id="morph" data-stage="7" aria-labelledby="morph-h">
+      <figcaption class="sr" id="morph-h">Code first. A plain C# record gains constraints, relations, a state machine, time rules and a service, and each line of code adds a dimension. One line then generates the tests with CsCheck, and finally every rule has been reached.</figcaption>
+      <div class="m-foot">
+        <p class="m-cap" id="m-cap">Every layer in place: code that states what the types cannot, and what it drives.</p>
+        <div class="m-meter" aria-hidden="true"><span>hope</span><div class="meter"><i id="m-fill" style="width:100%"></i></div><span>evidence</span></div>
+        <ol class="m-steps" id="m-steps" aria-label="Layers">
+          <li><span class="n">0</span>Types</li><li><span class="n">1</span>Relations</li><li><span class="n">2</span>Constraints</li><li><span class="n">3</span>State machine</li><li><span class="n">4</span>Temporality</li><li><span class="n">5</span>Services</li><li><span class="n">6</span>AutoTests</li><li><span class="n">7</span>Confidence</li>
+        </ol>
+        <button class="mini js-only" type="button" id="m-play">Replay</button>
+        <p class="sr" id="m-live" role="status" aria-live="polite"></p>
       </div>
-      <div class="story-bar js-only" aria-hidden="true"><i id="s-bar"></i></div>
-      <p class="sr" id="s-live" role="status" aria-live="polite"></p>
-
-      <article class="step is-active" data-i="0" aria-labelledby="st1">
-        <div class="step-copy">
-          <p class="step-k">01 · a record</p>
-          <h3 id="st1">Types say what a thing is.</h3>
-          <p>Fields and cases. A record describes shape and stops there.</p>
-          <p class="verdict">Not enough.</p>
-        </div>
-        <figure class="fig f1">
-          <div class="win"><div class="win-bar"><span class="file">Order</span><span class="right">shape only</span></div>
-<pre class="code" tabindex="0"><code><span class="c">// fields and cases</span>
-<span class="k">record</span> <span class="t">Order</span>(
-    <span class="fld" style="--d:.15s">Lines</span>,
-    <span class="fld" style="--d:.3s">Status</span>,
-    <span class="fld" style="--d:.45s">Version</span>,
-    <span class="fld" style="--d:.6s">Total</span>,
-    <span class="fld" style="--d:.75s">Label</span>);</code></pre>
+      <div class="m-grid">
+        <div class="win m-code">
+          <div class="win-bar"><span class="file">Order.cs</span><span class="right">plain C#. no database.</span></div>
+          <div class="m-codebox" id="m-codebox" tabindex="0" aria-label="The code, growing one block per layer">
+<pre class="code"><code><span class="mg cg" data-s="0"><span class="k">public record</span> <span class="t">Order</span>(   <span class="c">// 0 · a record: shape, nothing more</span>
+    <span class="t">Guid</span> Id, <span class="t">Guid</span> CustomerId,
+    <span class="t">IReadOnlyList</span>&lt;<span class="t">Line</span>&gt; Lines,
+    <span class="t">OrderStatus</span> Status, <span class="k">int</span> Version, <span class="k">decimal</span> Total, <span class="k">string</span> Label);</span><span class="mg cg" data-s="1"><span class="c">// 1 · rules between rows, written next to the types</span>
+<span class="k">var</span> linesPointAtAnOrder = <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.References(
+    s =&gt; s.Lines, l =&gt; [l.OrderId], s =&gt; s.Orders.Select(o =&gt; o.Id));
+<span class="k">var</span> orderIdsAreUnique = <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.Unique(s =&gt; s.Orders, o =&gt; o.Id);</span><span class="mg cg" data-s="2"><span class="c">// 2 · rules about values, with a name and a sentence</span>
+<span class="k">var</span> totalNeverNegative = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(
+    o =&gt; o.Total, t =&gt; t &gt;= 0, <span class="s">"An order total is never negative."</span>);
+<span class="k">var</span> moneyIsConserved = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(
+    o =&gt; o.Lines.Sum(l =&gt; l.Qty * l.Price) == o.Total,
+    <span class="s">"The total is the sum of the lines."</span>);</span><span class="mg cg" data-s="3"><span class="c">// 3 · what may follow what</span>
+<span class="k">var</span> lifecycle = <span class="t">StateMachine</span>.Define&lt;<span class="t">OrderStatus</span>, <span class="k">string</span>&gt;(<span class="t">OrderStatus</span>.Draft)
+    .Permit(<span class="s">"place"</span>, <span class="t">OrderStatus</span>.Draft, <span class="t">OrderStatus</span>.Placed)
+    .Permit(<span class="s">"pay"</span>, <span class="t">OrderStatus</span>.Placed, <span class="t">OrderStatus</span>.Paid)
+    .Permit(<span class="s">"ship"</span>, <span class="t">OrderStatus</span>.Paid, <span class="t">OrderStatus</span>.Shipped)
+    .Permit(<span class="s">"cancel"</span>, [<span class="t">OrderStatus</span>.Placed, <span class="t">OrderStatus</span>.Paid],
+        <span class="t">OrderStatus</span>.Cancelled)
+    .Build();</span><span class="mg cg" data-s="4"><span class="c">// 4 · time: never backwards, and when a rule bites</span>
+<span class="k">var</span> versionNeverGoesBack = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;
+    .Monotonic(o =&gt; o.Version, <span class="t">MonotonicDirection</span>.NonDecreasing)
+    .WithSeverityUntil(<span class="t">Severity</span>.Warning,
+        <span class="k">new</span> <span class="t">DateTimeOffset</span>(2027, 1, 1, 0, 0, 0, <span class="t">TimeSpan</span>.Zero), <span class="t">Severity</span>.Error);</span><span class="mg cg" data-s="5"><span class="c">// 5 · the same rules on a mutable, async service</span>
+<span class="k">var</span> rules = <span class="t">ConstraintSet</span>
+    .From((<span class="s">"money-is-conserved"</span>,
+        <span class="t">Constraints</span>&lt;<span class="t">WalletState</span>&gt;.Conserves(s =&gt; s.Checking + s.Savings)))
+    .Map&lt;<span class="t">Wallet</span>&gt;(w =&gt; w.State);
+<span class="k">await</span> <span class="t">AutoTest</span>.For(rules, () =&gt; <span class="k">new</span> <span class="t">Wallet</span>())
+    .MutateAsync&lt;<span class="k">int</span>&gt;(<span class="s">"Move"</span>, (w, n) =&gt; w.MoveAsync(n), _ =&gt; <span class="t">Gen</span>.Int[1, 12])
+    .RunAsync();</span><span class="mg cg" data-s="6"><span class="c">// 6 · one line: CsCheck generates, shrinks, replays</span>
+<span class="k">await</span> <span class="t">AutoTest</span>.For(OrderConstraints.Instance).RunAsync();</span><span class="mg cg" data-s="7"><span class="c">// 7 · nothing more to write.</span>
+<span class="c">// every rule was reached.</span></span></code></pre>
           </div>
-          <div class="win"><div class="win-bar"><span class="file">a value</span></div>
-<pre class="code" tabindex="0"><code>Order { Lines = [], Status = Cancelled, Version = 1, Total = 0, Label = "" }</code></pre>
-          </div>
-          <ul class="asks" aria-label="What the record cannot say">
-            <li style="--d:1.1s">Total never negative?</li>
-            <li style="--d:1.3s">Cancelled, then Shipped?</li>
-            <li style="--d:1.5s">The same call twice?</li>
-          </ul>
-        </figure>
-      </article>
-
-      <article class="step" data-i="1" aria-labelledby="st2">
-        <div class="step-copy">
-          <p class="step-k">02 · a table</p>
-          <h3 id="st2">Project it to a schema.</h3>
-          <p>Columns, keys, relations. The database now knows the shape too.</p>
-          <p class="verdict">Still not enough.</p>
         </div>
-        <figure class="fig f2">
-          <svg viewBox="0 0 520 300" role="img" aria-label="An entity relationship sketch: an Order table with columns Lines, Status, Version, Total and Label, related one to many with a Line table. Projected from the record.">
-            <g class="tbl">
-              <rect class="frame" x="24" y="24" width="220" height="214" rx="8"/>
-              <path class="hdr" d="M24 32 a8 8 0 0 1 8 -8 h204 a8 8 0 0 1 8 8 v26 h-220 z"/>
-              <text class="th" x="42" y="46">Order</text>
-              <g class="row" style="--d:.2s"><text x="42" y="84">Lines</text><path d="M24 96 h220"/></g>
-              <g class="row" style="--d:.4s"><text x="42" y="120">Status</text><path d="M24 132 h220"/></g>
-              <g class="row" style="--d:.6s"><text x="42" y="156">Version</text><path d="M24 168 h220"/></g>
-              <g class="row" style="--d:.8s"><text x="42" y="192">Total</text><path d="M24 204 h220"/></g>
-              <g class="row" style="--d:1s"><text x="42" y="228">Label</text></g>
+
+        <div class="win m-view">
+          <div class="win-bar"><span class="file">think of it as</span><span class="right"><b id="m-think">a plain shape</b></span></div>
+          <svg viewBox="0 0 520 534" role="img" aria-label="What the code drives. Questions a record cannot answer, replaced by relation checks where one dangling key is red. Two named rules, one rejecting Total equals minus five. A lifecycle from Draft to Placed to Paid to Shipped with Cancelled and a denied dotted copper edge from Cancelled to Shipped. Five generated tests. A Wallet whose one-unit leak is shrunk to one action. Finally everything is green and every rule was reached.">
+            <defs>
+              <marker id="mo-a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
+              <marker id="mo-d" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk-d"/></marker>
+            </defs>
+
+            <g class="mg" data-s="0">
+              <g class="q0">
+                <g class="st" style="--d:.1s"><rect class="rl2" x="10" y="60" width="220" height="170" rx="4"/><text class="rn" x="22" y="80">Order</text><path class="ed" d="M10 90 H230"/><text class="tn" x="22" y="108">Id  Guid</text><text class="tn" x="22" y="128">CustomerId  Guid</text><text class="tn" x="22" y="148">Lines  Line[]</text><text class="tn" x="22" y="168">Status  OrderStatus</text><text class="tn" x="22" y="188">Version  int</text><text class="tn" x="22" y="208">Total  decimal</text></g>
+                <g class="st" style="--d:.4s"><rect class="qc" x="250" y="68" width="260" height="32" rx="3"/><text class="qt" x="264" y="89">Total never negative?</text></g>
+                <g class="st" style="--d:.7s"><rect class="qc" x="250" y="112" width="260" height="32" rx="3"/><text class="qt" x="264" y="133">Cancelled, then Shipped?</text></g>
+                <g class="st" style="--d:1s"><rect class="qc" x="250" y="156" width="260" height="32" rx="3"/><text class="qt" x="264" y="177">The same call twice?</text></g>
+                <g class="st" style="--d:1.3s"><text class="ty" x="250" y="214">a record cannot say.</text></g>
+              </g>
             </g>
-            <g class="tbl small">
-              <rect class="frame" x="352" y="52" width="140" height="80" rx="8"/>
-              <path class="hdr" d="M352 60 a8 8 0 0 1 8 -8 h124 a8 8 0 0 1 8 8 v26 h-140 z"/>
-              <text class="th" x="368" y="74">Line</text>
-              <text class="dim" x="368" y="114">…</text>
+
+            <g class="mg" data-s="1">
+              <g class="er only-s">
+                <g class="st" style="--d:.1s"><rect class="rl2" x="10" y="12" width="130" height="96" rx="4"/><text class="rn" x="22" y="32">Customer</text><path class="ed" d="M10 42 H140"/><text class="tn" x="22" y="60">Id</text><text class="tn" x="22" y="80">Name</text></g>
+                <g class="st" style="--d:.3s"><rect class="rl2" x="195" y="12" width="140" height="136" rx="4"/><text class="rn" x="207" y="32">Order</text><path class="ed" d="M195 42 H335"/><text class="tn" x="207" y="60">Id</text><text class="fkt" x="207" y="80">CustomerId</text><text class="tn" x="207" y="100">Total</text><text class="tn" x="207" y="120">Status</text><text class="tn" x="207" y="140">Version</text></g>
+                <g class="st" style="--d:.5s"><rect class="rl2" x="390" y="12" width="120" height="112" rx="4"/><text class="rn" x="402" y="32">Line</text><path class="ed" d="M390 42 H510"/><text class="tn" x="402" y="60">Id</text><text class="fkt" x="402" y="80">OrderId</text><text class="tn" x="402" y="100">Qty</text><text class="tn" x="402" y="120">Price</text></g>
+                <g class="st" style="--d:.8s"><path class="ed" d="M195 80 H142" marker-end="url(#mo-a)"/><path class="ed" d="M390 80 H337" marker-end="url(#mo-a)"/><text class="ty" x="150" y="74">n → 1</text><text class="ty" x="345" y="74">n → 1</text></g>
+              </g>
+              <g class="rows">
+              <g class="st" style="--d:.1s"><rect class="gd" x="10" y="12" width="300" height="32" rx="3"/><text class="gt" x="26" y="33">Line l1 → Order o1 ✓</text></g>
+              <g class="st" style="--d:.3s"><rect class="gd" x="10" y="50" width="300" height="32" rx="3"/><text class="gt" x="26" y="71">Line l2 → Order o1 ✓</text></g>
+              <g class="st" style="--d:.5s">
+                <g class="pre6"><rect class="bd" x="10" y="88" width="300" height="32" rx="3"/><text class="bt" x="26" y="109">Line l3 → Order o7 ✕ missing</text></g>
+                <g class="at6"><rect class="gd" x="10" y="88" width="300" height="32" rx="3"/><text class="gt" x="26" y="109">Line l3 → Order o1 ✓</text></g>
+              </g>
+              <g class="st" style="--d:.8s"><text class="ac" x="330" y="33">Unique</text><text class="ac" x="330" y="57">References</text><text class="ac" x="330" y="81">Acyclic</text><text class="ac" x="330" y="105">NoChains</text></g>
+              </g>
             </g>
-            <path class="rel" d="M244 84 H338 M338 84 L352 72 M338 84 L352 84 M338 84 L352 96" />
-            <text class="dim" x="262" y="76">1</text><text class="dim" x="318" y="76">n</text>
-            <text class="note" x="24" y="272">projected from the record · sketch</text>
-          </svg>
-        </figure>
-      </article>
 
-      <article class="step" data-i="2" aria-labelledby="st3">
-        <div class="step-copy">
-          <p class="step-k">03 · time</p>
-          <h3 id="st3">Then time walks in.</h3>
-          <p>Ordering, repetition, drift, deadlines. Those rules live in people's heads and get rewritten a little differently each time.</p>
-          <p class="verdict">Nothing says what it must do.</p>
-        </div>
-        <figure class="fig f3">
-          <svg viewBox="0 0 520 300" role="img" aria-label="Order states Pending, Confirmed, Shipped and Cancelled with legal moves between them. Below, a timeline: Confirmed at plus 0 seconds, a deadline at plus 60 seconds, and Shipped at plus 90 seconds, which is late.">
-            <g class="chips">
-              <g class="chip" style="--d:.1s"><rect x="20" y="30" width="96" height="30" rx="6"/><text x="68" y="50" text-anchor="middle">Pending</text></g>
-              <g class="chip" style="--d:.3s"><rect x="164" y="30" width="104" height="30" rx="6"/><text x="216" y="50" text-anchor="middle">Confirmed</text></g>
-              <g class="chip" style="--d:.5s"><rect x="316" y="30" width="96" height="30" rx="6"/><text x="364" y="50" text-anchor="middle">Shipped</text></g>
-              <g class="chip" style="--d:.7s"><rect x="164" y="96" width="104" height="30" rx="6"/><text x="216" y="116" text-anchor="middle">Cancelled</text></g>
+            <g class="mg" data-s="2">
+              <g class="st" style="--d:.1s"><rect class="rl" x="10" y="134" width="250" height="46" rx="4"/><text class="rn" x="24" y="154">total-never-negative</text>
+                <g class="pre6"><text class="bt" x="24" y="171">Total = -5 → rejected</text></g><g class="at6"><text class="gt" x="24" y="171">Total = -5 → rejected</text></g></g>
+              <g class="st" style="--d:.5s"><rect class="rl" x="270" y="134" width="240" height="46" rx="4"/><text class="rn" x="284" y="154">money-is-conserved</text><text class="ty" x="284" y="171">lines sum to Total</text></g>
+              <g class="st only-s" style="--d:.9s"><text class="bt" x="10" y="206">Rejected: Order.Total = -5</text><text class="ty" x="10" y="224">Rule broken: total-never-negative</text></g>
             </g>
-            <path class="mv" d="M116 45 H164 M156 40 L164 45 L156 50"/>
-            <path class="mv" d="M268 45 H316 M308 40 L316 45 L308 50"/>
-            <path class="mv" d="M92 60 V111 H164 M156 106 L164 111 L156 116"/>
-            <path class="mv" d="M216 60 V96 M211 88 L216 96 L221 88"/>
-            <path class="axis" d="M40 220 H490"/>
-            <text class="dim" x="40" y="206">time</text>
-            <g class="ev" style="--d:1.3s"><circle cx="72" cy="220" r="6"/><text x="72" y="248" text-anchor="middle">Confirmed</text><text class="dim" x="72" y="266" text-anchor="middle">+0s</text></g>
-            <g class="dl" style="--d:1.7s"><path d="M264 176 V232"/><text x="264" y="168" text-anchor="middle">deadline +60s</text></g>
-            <g class="ev late" style="--d:2.1s"><circle cx="360" cy="220" r="6"/><text x="360" y="248" text-anchor="middle">Shipped</text><text class="dim" x="360" y="266" text-anchor="middle">+90s</text></g>
-            <path class="gap" style="--d:2.4s" d="M264 198 H360 M264 193 V203 M360 193 V203"/>
-            <text class="gaplbl" style="--d:2.4s" x="312" y="190" text-anchor="middle">late</text>
-          </svg>
-        </figure>
-      </article>
 
-      <article class="step" data-i="3" aria-labelledby="st4">
-        <div class="step-copy">
-          <p class="step-k">04 · rules</p>
-          <h3 id="st4">Name the rules, once.</h3>
-          <p>Each rule is a <span class="mono">Constraint&lt;Order&gt;</span> next to the type: a name, a sentence, a promise about behaviour. Write constraints, get AutoTests. Code your AI can generate and you can read.</p>
-          <p class="verdict">Now the model says what it must do.</p>
-        </div>
-        <figure class="fig f4">
-          <svg viewBox="0 0 520 300" role="img" aria-label="The Order model with five named rules attached: ConfirmedOrdersHaveLines to Lines and Status, LegalMoves to Status, VersionNeverGoesBack to Version, TotalNeverNegative to Total, and CancelIsRepeatable to the whole order.">
-            <rect class="frame" x="20" y="20" width="170" height="260" rx="8"/>
-            <text class="th" x="38" y="46">Order</text>
-            <text x="38" y="84">Lines</text><text x="38" y="124">Status</text><text x="38" y="164">Version</text><text x="38" y="204">Total</text><text x="38" y="244">Label</text>
-            <g class="link" style="--d:.2s"><path d="M190 80 C240 80 240 56 296 56"/><path d="M190 120 C240 120 240 56 296 56"/></g>
-            <g class="link" style="--d:.5s"><path d="M190 120 C240 120 240 104 296 104"/></g>
-            <g class="link" style="--d:.8s"><path d="M190 160 C240 160 240 152 296 152"/></g>
-            <g class="link" style="--d:1.1s"><path d="M190 200 C240 200 240 200 296 200"/></g>
-            <g class="link dash" style="--d:1.4s"><path d="M190 252 C240 252 240 248 296 248"/></g>
-            <g class="rule" style="--d:.3s"><rect x="296" y="40" width="208" height="32" rx="16"/><text x="400" y="61" text-anchor="middle">ConfirmedOrdersHaveLines</text></g>
-            <g class="rule" style="--d:.6s"><rect x="296" y="88" width="208" height="32" rx="16"/><text x="400" y="109" text-anchor="middle">LegalMoves</text></g>
-            <g class="rule" style="--d:.9s"><rect x="296" y="136" width="208" height="32" rx="16"/><text x="400" y="157" text-anchor="middle">VersionNeverGoesBack</text></g>
-            <g class="rule" style="--d:1.2s"><rect x="296" y="184" width="208" height="32" rx="16"/><text x="400" y="205" text-anchor="middle">TotalNeverNegative</text></g>
-            <g class="rule" style="--d:1.5s"><rect x="296" y="232" width="208" height="32" rx="16"/><text x="400" y="253" text-anchor="middle">CancelIsRepeatable</text></g>
-          </svg>
-        </figure>
-      </article>
+            <g class="mg" data-s="3">
+              <g class="st" style="--d:0s"><circle class="sd" cx="10" cy="215" r="4.5"/><path class="ed" d="M14 215 H20"/></g>
+              <g class="st" style="--d:.15s"><rect class="nd" x="22" y="200" width="76" height="30" rx="4"/><text class="nt" x="60" y="219" text-anchor="middle">Draft</text></g>
+              <g class="st" style="--d:.45s"><path class="dr ed" pathLength="1" d="M98 215 H148" marker-end="url(#mo-a)"/></g>
+              <g class="st" style="--d:.6s"><rect class="nd" x="150" y="200" width="76" height="30" rx="4"/><text class="nt" x="188" y="219" text-anchor="middle">Placed</text></g>
+              <g class="st" style="--d:.9s"><path class="dr ed" pathLength="1" d="M226 215 H276" marker-end="url(#mo-a)"/></g>
+              <g class="st" style="--d:1.05s"><rect class="nd" x="278" y="200" width="76" height="30" rx="4"/><text class="nt" x="316" y="219" text-anchor="middle">Paid</text></g>
+              <g class="st" style="--d:1.35s"><path class="dr ed" pathLength="1" d="M354 215 H404" marker-end="url(#mo-a)"/></g>
+              <g class="st" style="--d:1.5s"><rect class="nd" x="406" y="200" width="76" height="30" rx="4"/><rect class="fin" x="409.5" y="203.5" width="69" height="23" rx="2"/><text class="nt" x="444" y="219" text-anchor="middle">Shipped</text></g>
+              <g class="st" style="--d:1.8s"><path class="dr ed" pathLength="1" d="M188 230 V289 H212" marker-end="url(#mo-a)"/><path class="dr ed" pathLength="1" d="M326 230 V289 H316" marker-end="url(#mo-a)"/></g>
+              <g class="st" style="--d:2s"><rect class="nd" x="214" y="274" width="100" height="30" rx="4"/><rect class="fin" x="217.5" y="277.5" width="93" height="23" rx="2"/><text class="nt" x="264" y="293" text-anchor="middle">Cancelled</text></g>
+              <g class="st" style="--d:2.5s"><path class="dn" d="M316 299 H430 Q444 299 444 285 V234" marker-end="url(#mo-d)"/><path class="dbar" d="M380 288 V310"/><text class="dt" x="380" y="326" text-anchor="middle">denied</text></g>
+            </g>
 
-      <article class="step" data-i="4" aria-labelledby="st5">
-        <div class="step-copy">
-          <p class="step-k">05 · guardrails</p>
-          <h3 id="st5">Nine questions, asked of every rule.</h3>
-          <p>AI writes code faster than you can review it. The constraint metadata generates into CsCheck, which asks each rule nine questions that almost no test suite asks.</p>
-          <p class="verdict">You did not read the diff. The rule did.</p>
+            <g class="mg" data-s="4">
+              <g class="st" style="--d:.1s"><rect class="rl" x="10" y="342" width="500" height="50" rx="4"/>
+                <text class="rn" x="24" y="362">version-never-goes-down</text>
+                <path class="ed" d="M290 366 H490"/>
+                <circle class="sd" cx="306" cy="366" r="4"/><circle class="sd" cx="360" cy="366" r="4"/><circle class="sd" cx="414" cy="366" r="4"/><circle class="sd" cx="468" cy="366" r="4"/>
+                <text class="ty" x="24" y="381">v1 → v2 → v3 → v4, never back · warning until 2027-01-01</text></g>
+              <g class="st only-s" style="--d:.6s"><text class="bt" x="10" y="414">Rejected: Version 4 → 3</text><text class="ty" x="10" y="432">warning now, error from 2027-01-01</text></g>
+            </g>
+
+            <g class="mg" data-s="5">
+              <g class="st" style="--d:.1s"><rect class="rl2" x="10" y="404" width="270" height="40" rx="4"/><text class="tn" x="24" y="421">Wallet · 1 action</text>
+                <g class="pre6"><text class="bt" x="24" y="437">leak shrunk from 6</text></g><g class="at6"><text class="gt" x="24" y="437">money conserved ✓</text></g></g>
+              <g class="st only-s" style="--d:.6s"><text class="tn" x="10" y="468">Move(1)</text><text class="ty" x="10" y="486">the smallest case that loses a unit</text></g>
+            </g>
+
+            <g class="mg" data-s="6">
+              <g class="st only-s" style="--d:0.10s"><text class="tn" x="10" y="394">Exhaustive</text><text class="ty" x="120" y="394">every state × every trigger</text></g>
+              <g class="st only-s" style="--d:0.22s"><text class="tn" x="10" y="410">Sample</text><text class="ty" x="120" y="410">random valid values, seeded</text></g>
+              <g class="st only-s" style="--d:0.34s"><text class="tn" x="10" y="426">Walks</text><text class="ty" x="120" y="426">random legal walks of the machine</text></g>
+              <g class="st only-s" style="--d:0.46s"><text class="tn" x="10" y="442">Conform</text><text class="ty" x="120" y="442">the code matches the machine</text></g>
+              <g class="st only-s" style="--d:0.58s"><text class="tn" x="10" y="458">Commutes</text><text class="ty" x="120" y="458">the order of calls does not matter</text></g>
+              <g class="st" style="--d:0s"><text class="vac2" x="10" y="486">CsCheck generates the cases · shrinks failures · replays by seed</text></g>
+              <g class="st" style="--d:0.20s"><rect class="tc" x="10" y="498" width="96" height="28" rx="4"/><text class="tn sm" x="58" y="516" text-anchor="middle">✓ Exhaustive</text></g>
+              <g class="st" style="--d:0.35s"><rect class="tc" x="112" y="498" width="96" height="28" rx="4"/><text class="tn sm" x="160" y="516" text-anchor="middle">✓ Sample</text></g>
+              <g class="st" style="--d:0.50s"><rect class="tc" x="214" y="498" width="96" height="28" rx="4"/><text class="tn sm" x="262" y="516" text-anchor="middle">✓ Walks</text></g>
+              <g class="st" style="--d:0.65s"><rect class="tc" x="316" y="498" width="96" height="28" rx="4"/><text class="tn sm" x="364" y="516" text-anchor="middle">✓ Conform</text></g>
+              <g class="st" style="--d:0.80s"><rect class="tc" x="418" y="498" width="92" height="28" rx="4"/><text class="tn sm" x="464" y="516" text-anchor="middle">✓ Commutes</text></g>
+            </g>
+
+            <g class="mg" data-s="7">
+              <g class="st" style="--d:.1s"><text class="vac" x="296" y="424">✓ every rule was reached</text></g>
+              <g class="st" style="--d:.5s">
+                <rect class="ax" x="296" y="430" width="16" height="10" rx="2"/><rect class="ax" x="316" y="430" width="16" height="10" rx="2"/><rect class="ax" x="336" y="430" width="16" height="10" rx="2"/>
+                <rect class="ax" x="356" y="430" width="16" height="10" rx="2"/><rect class="ax" x="376" y="430" width="16" height="10" rx="2"/><rect class="ax" x="396" y="430" width="16" height="10" rx="2"/>
+                <rect class="ax" x="416" y="430" width="16" height="10" rx="2"/><rect class="ax" x="436" y="430" width="16" height="10" rx="2"/><rect class="ax" x="456" y="430" width="16" height="10" rx="2"/>
+                <text class="ty" x="478" y="440">9</text></g>
+            </g>
+          </svg>
         </div>
-        <figure class="fig f5">
-          <ol class="tiles" aria-label="The nine questions, with one failing in this illustration">
-            <li class="tile" style="--d:.2s"><span class="tn">1</span><span class="tl">Invariant</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
-            <li class="tile" style="--d:.35s"><span class="tn">2</span><span class="tl">Idempotency</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
-            <li class="tile bad" style="--d:.5s"><span class="tn">3</span><span class="tl">Monotonicity</span><span class="tk" aria-hidden="true">✕</span><span class="sr">fails</span></li>
-            <li class="tile" style="--d:.65s"><span class="tn">4</span><span class="tl">Conservation</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
-            <li class="tile" style="--d:.8s"><span class="tn">5</span><span class="tl">Absence</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
-            <li class="tile" style="--d:.95s"><span class="tn">6</span><span class="tl">Temporal</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
-            <li class="tile" style="--d:1.1s"><span class="tn">7</span><span class="tl">Liveness</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
-            <li class="tile" style="--d:1.25s"><span class="tn">8</span><span class="tl">Confluence</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
-            <li class="tile" style="--d:1.4s"><span class="tn">9</span><span class="tl">Vacancy</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
-          </ol>
-          <p class="caught"><span class="chip fail"><b>Monotonicity</b> failed</span> a change nobody reviewed. Caught by the rule.</p>
-          <p class="note-s">Illustration. The real report is below.</p>
-        </figure>
-      </article>
-    </div>
+      </div>
+
+    </figure>
   </div>
 </section>
+
 
 <section id="rules" aria-labelledby="rules-h">
   <div class="wrap">
     <div class="sec-head">
-      <p class="eyebrow">the rules, written once</p>
+      <p class="eyebrow">and on a record</p>
       <h2 id="rules-h">Write the rules. Run one line. Plant a bug.</h2>
       <p>Five named rules and a single test line. Plant a bug and read what the generated test says.</p>
     </div>
@@ -239,19 +232,20 @@
 <pre class="code" tabindex="0"><code><span class="t">[Constraints]</span>
 <span class="k">public static partial class</span> <span class="t">OrderConstraints</span>
 {
-    <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">TotalNeverNegative</span> =
-        <span class="t">Constraints&lt;Order&gt;</span>.Always(o =&gt; o.Total &gt;= 0, <span class="s">"An order total is never negative."</span>);
+    <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">TotalNeverNegative</span> = <span class="t">Constraints&lt;Order&gt;</span>.Always(
+        o =&gt; o.Total, t =&gt; t &gt;= 0, <span class="s">"An order total is never negative."</span>);
 
-    <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">ConfirmedOrdersHaveLines</span> = <span class="t">Constraints&lt;Order&gt;</span>
-        .When(o =&gt; o.Status == OrderStatus.Confirmed)
-        .Requires(o =&gt; o.Lines.Count &gt; 0, <span class="s">"A confirmed order has at least one line."</span>);
+    <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">PlacedOrdersHaveLines</span> = <span class="t">Constraints&lt;Order&gt;</span>
+        .When(o =&gt; o.Status == OrderStatus.Placed)
+        .Requires(o =&gt; o.Lines.Count &gt; 0, <span class="s">"A placed order has at least one line."</span>);
 
     <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">LegalMoves</span> = <span class="t">Constraints&lt;Order&gt;</span>
         .Transitions(o =&gt; o.Status)
-        .Allow(OrderStatus.Pending, OrderStatus.Confirmed)
-        .Allow(OrderStatus.Confirmed, OrderStatus.Shipped)
-        .Allow(OrderStatus.Pending, OrderStatus.Cancelled)
-        .Allow(OrderStatus.Confirmed, OrderStatus.Cancelled);
+        .Allow(OrderStatus.Draft, OrderStatus.Placed)
+        .Allow(OrderStatus.Placed, OrderStatus.Paid)
+        .Allow(OrderStatus.Paid, OrderStatus.Shipped)
+        .Allow(OrderStatus.Placed, OrderStatus.Cancelled)
+        .Allow(OrderStatus.Paid, OrderStatus.Cancelled);
 
     <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">CancelIsRepeatable</span> =
         <span class="t">Constraints&lt;Order&gt;</span>.Idempotent(o =&gt; o.Cancel());
@@ -263,7 +257,7 @@
 
       <div class="win">
         <div class="win-bar"><span class="file">OrderTests.cs</span><span class="right">the whole test · driven by CsCheck</span></div>
-<pre class="code" tabindex="0"><code><span class="k">await</span> <span class="t">AutoTest</span>.For(OrderConstraints.Instance, orders).RunAsync();</code></pre>
+<pre class="code" tabindex="0"><code><span class="k">await</span> <span class="t">AutoTest</span>.For(OrderConstraints.Instance).RunAsync();</code></pre>
       </div>
 
       <div class="win js-only flex" style="margin-top: var(--space-4); padding: .5rem .9rem; align-items: center; gap: var(--space-4); flex-wrap: wrap; background: var(--bg-raise);">
@@ -307,14 +301,14 @@
   <div class="wrap">
     <div class="sec-head">
       <p class="eyebrow">the differentiator</p>
-      <h2 id="q-h">Nine questions almost no test suite asks.</h2>
+      <h2 id="q-h">Nine axes almost no test suite asks about.</h2>
       <p>Most tests check whether one example works. The generated tests ask these nine, and each one catches a specific kind of real production bug. Hover, focus or tap a row to watch the bug happen.</p>
     </div>
 
     <div class="qwrap">
     <table class="qtable" id="qtable">
       <caption class="sr">The nine questions and the bug each catches</caption>
-      <thead><tr><th scope="col">#</th><th scope="col">Test axis</th><th scope="col">Question</th><th scope="col">The bug it catches</th><th scope="col"><span class="sr">Animation</span></th></tr></thead>
+      <thead><tr><th scope="col">#</th><th scope="col">Axis</th><th scope="col">Question</th><th scope="col">The bug it catches</th><th scope="col"><span class="sr">Animation</span></th></tr></thead>
       <tbody>
         <tr class="q">
           <th scope="row" class="qnum">1</th><td class="qaxis"><a href="axes/01-invariant/">Invariant</a></td>
@@ -461,7 +455,7 @@
         <span class="num">02</span>
         <h3>It tests itself</h3>
         <p>The rule's metadata is generated into CsCheck tests and run against machine-generated data. You write no test code for it.</p>
-        <pre><code>await AutoTest.For(OrderConstraints.Instance, orders).RunAsync();</code></pre>
+        <pre><code>await AutoTest.For(OrderConstraints.Instance).RunAsync();</code></pre>
       </div>
       <div class="job optin">
         <span class="num">03</span>
@@ -486,8 +480,11 @@
     <div class="adopt">
       <div class="win">
         <div class="win-bar"><span class="file">Severity</span></div>
-<pre class="code" tabindex="0"><code>.WithSeverity(Severity.Warning)                                    <span class="c">// start: nothing breaks, findings are reported</span>
-.WithSeverityUntil(Severity.Warning, <span class="k">new</span> <span class="t">DateTimeOffset</span>(2026, 12, 1, 0, 0, 0, TimeSpan.Zero), Severity.Error)   <span class="c">// error from this date</span></code></pre>
+<pre class="code" tabindex="0"><code><span class="k">var</span> start = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(o =&gt; o.Total, t =&gt; t &gt;= 0)
+    .WithSeverity(<span class="t">Severity</span>.Warning);   <span class="c">// start: nothing breaks, findings are reported</span>
+<span class="k">var</span> onADate = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(o =&gt; o.Total, t =&gt; t &gt;= 0)
+    .WithSeverityUntil(<span class="t">Severity</span>.Warning,
+        <span class="k">new</span> <span class="t">DateTimeOffset</span>(2026, 12, 1, 0, 0, 0, <span class="t">TimeSpan</span>.Zero), <span class="t">Severity</span>.Error);   <span class="c">// error from this date</span></code></pre>
       </div>
 
       <div>
@@ -547,6 +544,580 @@
       </article>
     </div>
     <div class="judge"><b>The same constraints judge both:</b><span class="chip accent">ConfirmedOrdersHaveLines</span><span class="chip accent">LegalMoves</span><span class="chip accent">VersionNeverGoesBack</span><span class="chip accent">TotalNeverNegative</span><span class="chip accent">CancelIsRepeatable</span></div>
+  </div>
+</section>
+
+<!-- ============ QUICK WALKTHROUGH ============ -->
+<section id="walkthrough" aria-labelledby="wt-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">a quick walkthrough</p>
+      <h2 id="wt-h">One Order, built up in <em>seven stages</em>.</h2>
+      <p>Step through it, or let it play. Each stage keeps what came before and adds one thing. Plant a bug at stages 2, 4 and 5.</p>
+    </div>
+    <!-- ============ BUILD: one Order, seven stages ============ -->
+    <div class="build" id="build" data-stage="6" aria-labelledby="build-h">
+      <h2 class="sr" id="build-h">One Order, built up in seven stages: from types only to a system you can trust</h2>
+
+      <div class="b-ctl js-only" role="group" aria-label="Build controls">
+        <div class="b-steps" role="group" aria-label="Stages">
+          <button class="sbtn" type="button" data-go="0"><span class="n">0</span>Types</button>
+          <button class="sbtn" type="button" data-go="1"><span class="n">1</span>Relations</button>
+          <button class="sbtn" type="button" data-go="2"><span class="n">2</span>Constraints</button>
+          <button class="sbtn" type="button" data-go="3"><span class="n">3</span>Machine</button>
+          <button class="sbtn" type="button" data-go="4"><span class="n">4</span>AutoTests</button>
+          <button class="sbtn" type="button" data-go="5"><span class="n">5</span>Services</button>
+          <button class="sbtn" type="button" data-go="6"><span class="n">6</span>Confidence</button>
+        </div>
+        <div class="b-bar">
+          <button class="mini" type="button" id="b-prev" aria-label="Previous stage">←</button>
+          <button class="mini" type="button" id="b-play">Pause</button>
+          <button class="mini" type="button" id="b-next" aria-label="Next stage">→</button>
+          <label class="b-scrub"><span class="sr">Scrub through the stages</span><input id="b-range" type="range" min="0" max="6" step="1" value="0"></label>
+          <button class="toggle" id="b-plant" type="button" aria-pressed="false" disabled><span class="pip" aria-hidden="true"></span><span id="b-plant-label">Plant a bug</span></button>
+        </div>
+        <div class="b-meter" aria-hidden="true">
+          <span class="mk-l">hope</span>
+          <div class="meter"><i id="b-fill"></i></div>
+          <span class="mk-r">evidence</span>
+          <span class="b-state" id="b-state">hope</span>
+        </div>
+      </div>
+      <p class="sr" id="b-announce" role="status" aria-live="polite"></p>
+
+      <div class="b-caps js-only" id="b-caps"></div>
+
+      <div class="b-stack" id="b-stack">
+
+        <!-- 0 -->
+        <article class="stg" data-i="0" aria-labelledby="g0">
+          <header class="stg-h">
+            <p class="step-k">stage 0 · types only</p>
+            <h3 id="g0">Types hold data.</h3>
+            <p>A record gives the Order its shape and stops there. It cannot say how rows relate, which values are allowed, what may follow what, or what a repeated call does.</p>
+          </header>
+          <div class="stg-grid">
+            <div class="win stg-code"><div class="win-bar"><span class="file">Order.cs</span><span class="right">types only</span></div>
+<pre class="code" tabindex="0"><code><span class="ly" data-s="0"><span class="k">public enum</span> <span class="t">OrderStatus</span> { Draft, Placed, Paid, Shipped, Cancelled }
+
+<span class="k">public record</span> <span class="t">Order</span>(
+    <span class="t">Guid</span> Id, <span class="t">Guid</span> CustomerId,
+    <span class="t">IReadOnlyList</span>&lt;<span class="t">Line</span>&gt; Lines,
+    <span class="t">OrderStatus</span> Status, <span class="k">int</span> Version, <span class="k">decimal</span> Total, <span class="k">string</span> Label);</span></code></pre></div>
+            <div class="win vw" data-s="0" role="group" aria-label="A valid Order value, and the three questions a record cannot answer">
+              <div class="win-bar"><span class="file">a value</span><span class="right">legal, as far as the compiler knows</span></div>
+              <div class="vw-body">
+<pre class="code val"><code><span class="ln" style="--d:.1s">Order {</span>
+<span class="ln" style="--d:.25s">  Id = o1, CustomerId = c1, Lines = [],</span>
+<span class="ln" style="--d:.4s">  Status = <span class="bad-v">Cancelled</span>, Version = 1, Total = <span class="bad-v">0</span>, Label = ""</span>
+<span class="ln" style="--d:.55s">}</span></code></pre>
+                <ul class="compiles" aria-label="Also legal, as far as the compiler knows">
+                  <li style="--d:.7s"><code>Total = -5</code><span>compiles</span></li>
+                  <li style="--d:.8s"><code>Status = Shipped, Lines = []</code><span>compiles</span></li>
+                  <li style="--d:.9s"><code>Cancelled → Shipped</code><span>compiles</span></li>
+                </ul>
+                <ul class="asks" aria-label="What the record cannot say">
+                  <li data-a="2" style="--d:1.2s">Total never negative? <span class="by">answered at stage 2</span></li>
+                  <li data-a="3" style="--d:1.4s">Cancelled, then Shipped? <span class="by">answered at stage 3</span></li>
+                  <li data-a="4" style="--d:1.6s">The same call twice? <span class="by">answered at stage 4</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- 1 -->
+        <article class="stg" data-i="1" aria-labelledby="g1">
+          <header class="stg-h">
+            <p class="step-k">stage 1 · relations</p>
+            <h3 id="g1">Rows point at rows.</h3>
+            <p>An Order has many Lines, and each Line carries a foreign key. Four constraints cut across rows: <span class="mono">Unique</span>, <span class="mono">References</span>, <span class="mono">Acyclic</span> and <span class="mono">NoChains</span>. A dangling <span class="mono">Line.OrderId</span> turns red.</p>
+          </header>
+          <div class="stg-grid">
+            <div class="win stg-code"><div class="win-bar"><span class="file">Line.cs</span><span class="right">+ added at this stage</span></div>
+<pre class="code" tabindex="0"><code><span class="ly" data-s="1"><span class="k">public record</span> <span class="t">Line</span>(
+    <span class="t">Guid</span> Id, <span class="t">Guid</span> OrderId,
+    <span class="k">string</span> Sku, <span class="k">int</span> Qty, <span class="k">decimal</span> Price);
+
+<span class="k">public record</span> <span class="t">Shop</span>(
+    <span class="t">IReadOnlyList</span>&lt;<span class="t">Order</span>&gt; Orders, <span class="t">IReadOnlyList</span>&lt;<span class="t">Customer</span>&gt; Customers,
+    <span class="t">IReadOnlyList</span>&lt;<span class="t">Category</span>&gt; Categories)
+{
+    <span class="k">public</span> <span class="t">IEnumerable</span>&lt;<span class="t">Line</span>&gt; Lines =&gt; Orders.SelectMany(o =&gt; o.Lines);
+}
+
+<span class="t">[Constraints]</span>
+<span class="k">public static partial class</span> <span class="t">ShopConstraints</span>
+{
+    <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Shop</span>, <span class="t">Guid</span>&gt;
+        <span class="n">OrderIdsAreUnique</span> = <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.Unique(s =&gt; s.Orders, o =&gt; o.Id);
+
+    <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Shop</span>, <span class="t">Guid</span>&gt;
+        <span class="n">LinesPointAtAnOrder</span> = <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.References(
+            s =&gt; s.Lines, l =&gt; [l.OrderId], s =&gt; s.Orders.Select(o =&gt; o.Id));
+    <span class="c">// Acyclic and NoChains have the same shape: see the relations section</span>
+}</span></code></pre></div>
+            <div class="win vw" data-s="1" role="group" aria-label="Order is related one to many with Line. One Line points at an Order that does not exist and is shown in red.">
+              <div class="win-bar"><span class="file">Order 1 — n Line</span><span class="right">References</span></div>
+              <div class="vw-body">
+                <svg class="erd-mini" viewBox="0 0 520 124" aria-hidden="true">
+                  <g class="tb" style="--d:.05s"><rect class="fr" x="10" y="8" width="170" height="104" rx="6"/><path class="hd" d="M10 14 a6 6 0 0 1 6 -6 h158 a6 6 0 0 1 6 6 v20 h-170 z"/><text class="th" x="24" y="23">Order</text>
+                    <text x="24" y="54">Id</text><text x="24" y="76">CustomerId</text><text x="24" y="98">Total</text></g>
+                  <g class="tb" style="--d:.3s"><rect class="fr" x="340" y="8" width="170" height="104" rx="6"/><path class="hd" d="M340 14 a6 6 0 0 1 6 -6 h158 a6 6 0 0 1 6 6 v20 h-170 z"/><text class="th" x="354" y="23">Line</text>
+                    <text x="354" y="54">Id</text><text class="fk" x="354" y="76">OrderId</text><text x="354" y="98">Qty</text></g>
+                  <g class="fkline" style="--d:.7s"><path d="M340 72 H260 V50 H182" pathLength="1"/><path d="M340 72 l-12 -6 M340 72 l-12 6" /><text x="190" y="44" class="dim">1</text><text x="318" y="66" class="dim">n</text></g>
+                </svg>
+                <ol class="rows" aria-label="Three Line rows">
+                  <li class="r" style="--d:.9s"><code>l1</code><code>OrderId = o1</code><span class="res"><span aria-hidden="true">✓</span> References</span></li>
+                  <li class="r" style="--d:1.05s"><code>l2</code><code>OrderId = o1</code><span class="res"><span aria-hidden="true">✓</span> References</span></li>
+                  <li class="r dangling" style="--d:1.2s"><code>l3</code><code>OrderId = o7</code><span class="res"><span aria-hidden="true">✕</span> References: no Order has Id o7</span></li>
+                </ol>
+                <ul class="cons" aria-label="Constraints that span rows"><li>Unique</li><li>References</li><li>Acyclic</li><li>NoChains</li><li class="more"><a href="#relations">break one ↓</a></li></ul>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- 2 -->
+        <article class="stg" data-i="2" aria-labelledby="g2">
+          <header class="stg-h">
+            <p class="step-k">stage 2 · constraints</p>
+            <h3 id="g2">Name the rules, next to the type.</h3>
+            <p>A rule is a value with a name and a sentence. Enter a bad Total and it is rejected on the spot; the violation names the rule and the member.</p>
+          </header>
+          <div class="stg-grid">
+            <div class="win stg-code"><div class="win-bar"><span class="file">OrderConstraints.cs</span><span class="right">+ added at this stage</span></div>
+<pre class="code" tabindex="0"><code><span class="ly" data-s="2"><span class="t">[Constraints]</span>
+<span class="k">public static partial class</span> <span class="t">OrderConstraints</span>
+{
+    <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Order</span>&gt;
+        <span class="n">TotalNeverNegative</span> = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(
+            o =&gt; o.Total, t =&gt; t &gt;= 0,
+            <span class="s">"An order total is never negative."</span>);
+
+    <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Order</span>&gt;
+        <span class="n">MoneyIsConserved</span> = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(
+            o =&gt; o.Lines.Sum(l =&gt; l.Qty * l.Price) == o.Total,
+            <span class="s">"The total is the sum of the lines."</span>);
+}</span></code></pre></div>
+            <div class="win vw" data-s="2" role="group" aria-label="Try a value for Order.Total. Rules are checked as you type.">
+              <div class="win-bar"><span class="file">try it</span><span class="right">Lines sum to 42</span></div>
+              <div class="vw-body">
+                <div class="tryit js-only">
+                  <label for="b-total">Order.Total</label>
+                  <input id="b-total" type="number" step="1" value="42" inputmode="numeric" aria-describedby="b-viol">
+                  <button class="mini" type="button" id="b-total-reset">Reset to 42</button>
+                </div>
+                <ul class="rulelist" aria-label="Rules">
+                  <li class="rl" data-rule="total-never-negative" style="--d:.1s"><span class="rn">total-never-negative</span><span class="st"><span aria-hidden="true">✓</span> <span class="stt">holds</span></span></li>
+                  <li class="rl" data-rule="money-is-conserved" style="--d:.25s"><span class="rn">money-is-conserved</span><span class="st"><span aria-hidden="true">✓</span> <span class="stt">holds</span></span></li>
+                </ul>
+<pre class="report viol" id="b-viol" tabindex="0"><span class="l hd">Rejected: Order.Total = -5</span><span class="l"><span class="rk">Rule broken   </span>total-never-negative</span><span class="l"><span class="rk">Member        </span>Total</span><span class="l"><span class="rk">Message       </span>An order total is never negative.</span><span class="l"><span class="rk">Rule broken   </span>money-is-conserved</span><span class="l"><span class="rk">Message       </span>The total is the sum of the lines.</span></pre>
+                <p class="vw-note">Rule names, members and messages are what <span class="mono">Validate</span> returns. The Rejected line is a label.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- 3 -->
+        <article class="stg" data-i="3" aria-labelledby="g3">
+          <header class="stg-h">
+            <p class="step-k">stage 3 · state machine</p>
+            <h3 id="g3">Draw what may follow what.</h3>
+            <p>Draft, Placed, Paid, then Shipped or Cancelled. The diagram is the spec: the edge that is not there, Cancelled to Shipped, is denied. Mermaid goes in, and the same Mermaid comes out.</p>
+          </header>
+          <div class="stg-grid">
+            <div class="win stg-code"><div class="win-bar"><span class="file">OrderMachine.cs</span><span class="right">+ added at this stage</span></div>
+<pre class="code" tabindex="0"><code><span class="ly" data-s="3"><span class="k">public static readonly</span>
+    <span class="t">StateMachine</span>&lt;<span class="t">OrderStatus</span>, <span class="k">string</span>&gt; <span class="n">Lifecycle</span> = <span class="t">StateMachine</span>
+        .Define&lt;<span class="t">OrderStatus</span>, <span class="k">string</span>&gt;(<span class="t">OrderStatus</span>.Draft)
+        .Permit(<span class="s">"place"</span>, <span class="t">OrderStatus</span>.Draft, <span class="t">OrderStatus</span>.Placed)
+        .Permit(<span class="s">"pay"</span>, <span class="t">OrderStatus</span>.Placed, <span class="t">OrderStatus</span>.Paid)
+        .Permit(<span class="s">"ship"</span>, <span class="t">OrderStatus</span>.Paid, <span class="t">OrderStatus</span>.Shipped)
+        .Permit(<span class="s">"cancel"</span>, [<span class="t">OrderStatus</span>.Placed, <span class="t">OrderStatus</span>.Paid],
+            <span class="t">OrderStatus</span>.Cancelled)
+        .Build();
+<span class="c">// no edge from Cancelled to Shipped: denied</span></span></code></pre></div>
+            <div class="win vw" data-s="3" role="group" aria-label="State diagram of the Order lifecycle with the denied edge from Cancelled to Shipped">
+              <div class="win-bar"><span class="file">Lifecycle</span><span class="right">the diagram is the spec</span></div>
+              <div class="vw-body">
+                <svg class="mch" viewBox="0 0 568 212" role="img" aria-label="State diagram of the Order lifecycle. Draft goes to Placed, then Paid, then Shipped. Placed and Paid can go to Cancelled. The edge from Cancelled to Shipped is denied and drawn dotted in copper with a bar."><defs><marker id="mh-a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker><marker id="mh-d" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk-d"/></marker></defs><g class="edges"><g class="e start" style="--d:.15s"><circle cx="62" cy="12" r="5"/><path d="M62 18 V42" pathLength="1" marker-end="url(#mh-a)"/></g><g class="e" data-e="Draft>Placed" style="--d:.55s"><path d="M108 63 H162" pathLength="1" marker-end="url(#mh-a)"/><text x="136" y="53" text-anchor="middle">place</text></g><g class="e" data-e="Placed>Paid" style="--d:.8s"><path d="M256 63 H310" pathLength="1" marker-end="url(#mh-a)"/><text x="284" y="53" text-anchor="middle">pay</text></g><g class="e" data-e="Paid>Shipped" style="--d:1.05s"><path d="M404 63 H458" pathLength="1" marker-end="url(#mh-a)"/><text x="432" y="53" text-anchor="middle">ship</text></g><g class="e" data-e="Placed>Cancelled" style="--d:1.3s"><path d="M210 82 V159 H227" pathLength="1" marker-end="url(#mh-a)"/><text x="202" y="118" text-anchor="end">cancel</text></g><g class="e" data-e="Paid>Cancelled" style="--d:1.5s"><path d="M358 82 V159 H341" pathLength="1" marker-end="url(#mh-a)"/><text x="366" y="118" text-anchor="start">cancel</text></g></g><g class="nodes"><g class="n" data-n="Draft" style="--d:.05s"><rect x="16" y="44" width="92" height="38" rx="4"/><text x="62.0" y="67.5" text-anchor="middle">Draft</text></g><g class="n" data-n="Placed" style="--d:.4s"><rect x="164" y="44" width="92" height="38" rx="4"/><text x="210.0" y="67.5" text-anchor="middle">Placed</text></g><g class="n" data-n="Paid" style="--d:.65s"><rect x="312" y="44" width="92" height="38" rx="4"/><text x="358.0" y="67.5" text-anchor="middle">Paid</text></g><g class="n" data-n="Shipped" style="--d:.9s"><rect x="460" y="44" width="92" height="38" rx="4"/><rect class="fin" x="463.5" y="47.5" width="85" height="31" rx="2"/><text x="506.0" y="67.5" text-anchor="middle">Shipped</text></g><g class="n" data-n="Cancelled" style="--d:1.15s"><rect x="229" y="140" width="110" height="38" rx="4"/><rect class="fin" x="232.5" y="143.5" width="103" height="31" rx="2"/><text x="284.0" y="163.5" text-anchor="middle">Cancelled</text></g></g><g class="den" style="--d:1.9s"><path d="M341 172 H470 Q506 172 506 136 V90" marker-end="url(#mh-d)"/><path class="bar" d="M404 160 V184"/><text x="404" y="203" text-anchor="middle">denied: Cancelled → Shipped</text></g><g class="ext"><path d="M341 172 H470 Q506 172 506 136 V90" marker-end="url(#mh-d)"/><text x="404" y="203" text-anchor="middle">the implementation allows it</text></g></svg>
+                <p class="vw-note">The same diagram can be read from, and written to, Mermaid.</p>
+                <div class="tryit js-only"><button class="mini" type="button" id="b-try-deny">Try Cancelled → Shipped</button><span class="try-out" id="b-deny-out" aria-live="polite"></span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- 4 -->
+        <article class="stg" data-i="4" aria-labelledby="g4">
+          <header class="stg-h">
+            <p class="step-k">stage 4 · autotests</p>
+            <h3 id="g4">Write constraints. Get tests.</h3>
+            <p>One line runs a test for each axis your rules declare. Add <code>.Deeper()</code> for Exhaustive, Faults and Conform on the state machine, and <code>.Commutes()</code> for order. All of it is generated from the constraints and the machine, driven by CsCheck. Code your AI can generate and you can read.</p>
+          </header>
+          <div class="stg-grid">
+            <div class="win stg-code"><div class="win-bar"><span class="file">OrderTests.cs</span><span class="right">+ added at this stage</span></div>
+<pre class="code" tabindex="0"><code><span class="ly" data-s="4"><span class="k">await</span> <span class="t">AutoTest</span>.For(OrderConstraints.Instance).RunAsync();   <span class="c">// the axes the rules declare</span>
+Lifecycle.Spec().Exhaustive();                              <span class="c">// every state reached, every edge taken</span>
+<span class="c">// Sample, ConformTo and Commutes are one more line each,</span>
+<span class="c">// built from the same constraints and the same machine</span></span></code></pre></div>
+            <div class="win vw" data-s="4" role="group" aria-label="Five generated tests streaming in with counters">
+              <div class="win-bar"><span class="status-dot" aria-hidden="true"></span><span class="file">dotnet test</span><span class="right">generated</span></div>
+              <div class="vw-body">
+                <ol class="tests" aria-label="Generated tests">
+                  <li class="test" style="--d:.1s"><span class="tn">Exhaustive</span><span class="td">every state with every trigger</span><span class="tc"><b class="cnt" data-to="20">20</b> pairs</span><span class="tk" aria-hidden="true">✓</span></li>
+                  <li class="test" style="--d:.5s"><span class="tn">Sample</span><span class="td">generated Orders, shrunk on failure</span><span class="tc"><b class="cnt" data-to="1000">1000</b> cases</span><span class="tk" aria-hidden="true">✓</span></li>
+                  <li class="test" style="--d:.9s"><span class="tn">Walks</span><span class="td">random legal paths through the machine</span><span class="tc"><b class="cnt" data-to="500">500</b> walks</span><span class="tk" aria-hidden="true">✓</span></li>
+                  <li class="test conform" style="--d:1.3s"><span class="tn">Conform</span><span class="td">the implementation against the diagram</span><span class="tc"><b class="cnt" data-to="20">20</b> pairs</span><span class="tk" aria-hidden="true">✓</span></li>
+                  <li class="test" style="--d:1.7s"><span class="tn">Commutes</span><span class="td">does order of input change the output</span><span class="tc"><b class="cnt" data-to="200">200</b> orderings</span><span class="tk" aria-hidden="true">✓</span></li>
+                </ol>
+                <p class="conform-out" id="b-conform-out"><span class="l hd">Conform failed.</span> The implementation allows Cancelled → Shipped. The diagram denies it.</p>
+                <p class="vw-note">20 pairs is 5 states × 4 triggers. Other counters are illustrative.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- 5 -->
+        <article class="stg" data-i="5" aria-labelledby="g5">
+          <header class="stg-h">
+            <p class="step-k">stage 5 · services</p>
+            <h3 id="g5">Lift the same rules onto a service.</h3>
+            <p>A mutable, async <span class="mono">Wallet</span> keeps its state in place. A one-unit leak shrinks to the smallest failing sequence of actions, with a seed that replays it.</p>
+          </header>
+          <div class="stg-grid">
+            <div class="win stg-code"><div class="win-bar"><span class="file">Wallet.cs</span><span class="right">+ added at this stage</span></div>
+<pre class="code" tabindex="0"><code><span class="ly" data-s="5"><span class="k">public record</span> <span class="t">WalletState</span>(<span class="k">int</span> Checking, <span class="k">int</span> Savings);
+
+<span class="k">public class</span> <span class="t">Wallet</span>
+{
+    <span class="k">public</span> <span class="t">WalletState</span> State =&gt; <span class="k">new</span>(_checking, _savings);
+    <span class="k">private int</span> _checking = 30, _savings = 10;
+
+    <span class="k">public async</span> <span class="t">Task</span> MoveAsync(<span class="k">int</span> amount)
+    {
+        <span class="k">await</span> <span class="t">Task</span>.Yield();
+        <span class="k">if</span> (amount &lt;= 0 || amount &gt; _checking) <span class="k">return</span>;
+        _checking -= amount;
+<span class="okline">        _savings += amount;
+</span><span class="bugdiff"><span class="del">-       _savings += amount;</span>
+<span class="add2">+       _savings += amount - 1;</span>
+</span>    }
+}
+
+<span class="c">// rules are written against a state; Map says where it lives</span>
+<span class="k">var</span> rules = <span class="t">ConstraintSet</span>
+    .From((<span class="s">"money-is-conserved"</span>,
+        <span class="t">Constraints</span>&lt;<span class="t">WalletState</span>&gt;.Conserves(s =&gt; s.Checking + s.Savings)))
+    .Map&lt;<span class="t">Wallet</span>&gt;(w =&gt; w.State);
+<span class="k">await</span> <span class="t">AutoTest</span>.For(rules, () =&gt; <span class="k">new</span> <span class="t">Wallet</span>())
+    .MutateAsync&lt;<span class="k">int</span>&gt;(<span class="s">"Move"</span>, (w, n) =&gt; w.MoveAsync(n), _ =&gt; <span class="t">Gen</span>.Int[1, 12])
+    .Steps(1, 6)
+    .RunAsync();</span></code></pre></div>
+            <div class="win vw" data-s="5" role="group" aria-label="A Wallet service under test. Planting a bug shrinks a failing action sequence to the smallest case.">
+              <div class="win-bar"><span class="status-dot" id="b-wdot" aria-hidden="true"></span><span class="file">dotnet test</span><span class="right">Wallet · money-is-conserved</span></div>
+              <div class="vw-body wal" id="b-wal">
+                <div class="wal-top"><span class="wal-step">sampling action sequences</span><button class="mini js-only wal-replay" type="button" disabled>Replay</button></div>
+<pre class="wal-seq" aria-hidden="true"></pre>
+                <div class="meter" aria-hidden="true"><i class="wal-meter"></i></div>
+<pre class="report wal-report" tabindex="0"><span class="l hd">Conservation failed.</span><span class="l">&#8203;</span><span class="l"><span class="rk">Rule broken   </span>money-is-conserved did not conserve its value (was 40, became 39).</span><span class="l"><span class="rk">Operation     </span>Move(1)</span><span class="l"><span class="rk">Started from  </span>Wallet { State = WalletState { Checking = 30, Savings = 10 } }</span><span class="l"><span class="rk">Produced      </span>Wallet { State = WalletState { Checking = 29, Savings = 10 } }</span><span class="l">&#8203;</span><span class="l"><span class="lk">Law           </span><span class="law">No operation creates or destroys a quantity that must be conserved.</span></span><span class="l"><span class="lk">Consequence   </span>Totals drift: something appears or vanishes between the two halves of a change.</span><span class="l">&#8203;</span><span class="l seed">Smallest case found, after 1 shrink. To run this case again: .Seed("7DTWL8nvnax7")</span></pre>
+                <p class="wal-ok"><span class="l ok">Conserved</span> across every sampled action sequence.</p>
+                <p class="vw-note">The report is real output for this Wallet. The shrink path above it is illustrative.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- 6 -->
+        <article class="stg" data-i="6" aria-labelledby="g6">
+          <header class="stg-h">
+            <p class="step-k">stage 6 · confidence</p>
+            <h3 id="g6">Not hope. Evidence.</h3>
+            <p>Nine questions asked of every rule, and one more: did the tests reach the rule at all? Green means something because vacancy is checked too.</p>
+          </header>
+          <div class="stg-grid">
+            <div class="win stg-code"><div class="win-bar"><span class="file">CI</span><span class="right">nothing new to write</span></div>
+<pre class="code" tabindex="0"><code><span class="ly" data-s="6">dotnet test
+<span class="c"># the same rules and the same line run on every change,</span>
+<span class="c"># human or agent.</span></span></code></pre></div>
+            <div class="win vw" data-s="6" role="group" aria-label="All nine test axes pass and every rule was reached">
+              <div class="win-bar"><span class="status-dot ok" aria-hidden="true"></span><span class="file">dotnet test</span><span class="right">all green</span></div>
+              <div class="vw-body">
+                <ol class="tiles" aria-label="The nine axes">
+                  <li class="tile" style="--d:.05s"><span class="tn">1</span><span class="tl">Invariant</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+                  <li class="tile" style="--d:.15s"><span class="tn">2</span><span class="tl">Idempotency</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+                  <li class="tile" style="--d:.25s"><span class="tn">3</span><span class="tl">Monotonicity</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+                  <li class="tile" style="--d:.35s"><span class="tn">4</span><span class="tl">Conservation</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+                  <li class="tile" style="--d:.45s"><span class="tn">5</span><span class="tl">Absence</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+                  <li class="tile" style="--d:.55s"><span class="tn">6</span><span class="tl">Temporal</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+                  <li class="tile" style="--d:.65s"><span class="tn">7</span><span class="tl">Liveness</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+                  <li class="tile" style="--d:.75s"><span class="tn">8</span><span class="tl">Confluence</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+                  <li class="tile" style="--d:.85s"><span class="tn">9</span><span class="tl">Vacancy</span><span class="tk" aria-hidden="true">✓</span><span class="sr">passes</span></li>
+                </ol>
+                <ul class="reached" aria-label="Rules reached by the tests">
+                  <li style="--d:1s"><span aria-hidden="true">✓</span> total-never-negative</li>
+                  <li style="--d:1.1s"><span aria-hidden="true">✓</span> money-is-conserved</li>
+                  <li style="--d:1.2s"><span aria-hidden="true">✓</span> Lifecycle</li>
+                  <li style="--d:1.3s"><span aria-hidden="true">✓</span> Wallet</li>
+                </ul>
+                <p class="vacancy" style="--d:1.6s"><b>Vacancy</b> every rule was reached.</p>
+                <p class="vw-note">Illustration of an all-green run.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <ul class="b-asks js-only" id="b-asks" aria-label="Questions a record cannot answer"></ul>
+      <p class="b-hint js-only">Drag the scrubber, or press ← → on it. Code is a sketch of the shape; type names are the library's, signatures are illustrative.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RELATIONS ============ -->
+<section id="relations" aria-labelledby="rel-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">your domain, as a database model</p>
+      <h2 id="rel-h">Think of your domain as a database model. <em>Say its constraints.</em></h2>
+      <p>Orders, Lines, Customers and Categories behave like tables with keys, and the rules between them are usually implicit: a key that must exist, an id that must be unique, a tree that must not loop. This library lets you encode those rules next to the types. Break one below and the violation points at the member.</p>
+    </div>
+
+    <div class="rel" id="rel">
+      <div class="rel-erd win">
+        <div class="win-bar"><span class="file">Customer · Order · Line · Category</span><span class="right">entity relationships</span></div>
+        <svg class="erd" id="erd" viewBox="0 0 640 290" role="img" aria-label="Entity relationship view. Order belongs to Customer through CustomerId. Line belongs to Order through OrderId. Category points at its parent through ParentId, a tree from Root to Fiction to Poetry. A customer can be merged into another customer through MergedIntoId, from c1 to c2.">
+          <defs>
+            <marker id="er-a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker>
+            <marker id="er-r" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk-r"/></marker>
+          </defs>
+          <!-- tables -->
+          <g class="tb"><rect class="fr" x="16" y="14" width="180" height="98" rx="6"/><path class="hd" d="M16 20 a6 6 0 0 1 6 -6 h168 a6 6 0 0 1 6 6 v20 h-180 z"/><text class="th" x="30" y="31">Customer</text>
+            <g class="row" data-m="Customer.Id"><rect class="hl" x="18.0" y="40.0" width="176" height="24" rx="2"/><text x="30" y="56">Id</text></g>
+            <g class="row" data-m="Customer.Name"><rect class="hl" x="18.0" y="64.0" width="176" height="24" rx="2"/><text x="30" y="80">Name</text></g>
+            <g class="row" data-m="Customer.MergedIntoId"><rect class="hl" x="18.0" y="88.0" width="176" height="24" rx="2"/><text x="30" y="104">MergedIntoId</text></g></g>
+          <g class="tb"><rect class="fr" x="230" y="14" width="180" height="98" rx="6"/><path class="hd" d="M230 20 a6 6 0 0 1 6 -6 h168 a6 6 0 0 1 6 6 v20 h-180 z"/><text class="th" x="244" y="31">Order</text>
+            <g class="row" data-m="Order.Id"><rect class="hl" x="232.0" y="40.0" width="176" height="24" rx="2"/><text x="244" y="56">Id</text></g>
+            <g class="row" data-m="Order.CustomerId"><rect class="hl" x="232.0" y="64.0" width="176" height="24" rx="2"/><text x="244" y="80">CustomerId</text></g>
+            <g class="row" data-m="Order.Total"><rect class="hl" x="232.0" y="88.0" width="176" height="24" rx="2"/><text x="244" y="104">Total</text></g></g>
+          <g class="tb"><rect class="fr" x="444" y="14" width="180" height="98" rx="6"/><path class="hd" d="M444 20 a6 6 0 0 1 6 -6 h168 a6 6 0 0 1 6 6 v20 h-180 z"/><text class="th" x="458" y="31">Line</text>
+            <g class="row" data-m="Line.Id"><rect class="hl" x="446.0" y="40.0" width="176" height="24" rx="2"/><text x="458" y="56">Id</text></g>
+            <g class="row" data-m="Line.OrderId"><rect class="hl" x="446.0" y="64.0" width="176" height="24" rx="2"/><text x="458" y="80">OrderId</text></g>
+            <g class="row" data-m="Line.Qty"><rect class="hl" x="446.0" y="88.0" width="176" height="24" rx="2"/><text x="458" y="104">Qty</text></g></g>
+          <!-- foreign keys -->
+          <path class="fk" d="M230 76 H213 V52 H198" marker-end="url(#er-a)"/>
+          <path class="fk fk-line" d="M444 76 H427 V52 H412" marker-end="url(#er-a)"/>
+          <text class="dim" x="204" y="42">1</text><text class="dim" x="218" y="70">n</text>
+          <text class="dim" x="418" y="42">1</text><text class="dim" x="432" y="70">n</text>
+          <!-- annotations, shown per scenario -->
+          <text class="ann a-dup" x="244" y="130">Order.Id o1 appears twice</text>
+          <text class="ann a-ref" x="624" y="130" text-anchor="end">OrderId = o7 · no such Order</text>
+          <!-- category tree -->
+          <text class="cap" x="16" y="166">Category.ParentId · child points at parent</text>
+          <g class="nd"><rect x="16" y="180" width="76" height="30" rx="4"/><text x="54" y="199" text-anchor="middle">Root</text></g>
+          <g class="nd"><rect x="116" y="180" width="76" height="30" rx="4"/><text x="154" y="199" text-anchor="middle">Fiction</text></g>
+          <g class="nd"><rect x="216" y="180" width="76" height="30" rx="4"/><text x="254" y="199" text-anchor="middle">Poetry</text></g>
+          <path class="fk" d="M116 195 H94" marker-end="url(#er-a)"/>
+          <path class="fk" d="M216 195 H194" marker-end="url(#er-a)"/>
+          <path class="cyc" d="M54 212 Q154 270 254 212" marker-end="url(#er-r)"/>
+          <text class="ann a-cyc" x="154" y="266" text-anchor="middle">Root → Poetry → Fiction → Root</text>
+          <!-- merged customers -->
+          <text class="cap" x="340" y="166">Customer.MergedIntoId · merged into</text>
+          <g class="nd"><rect x="340" y="180" width="76" height="30" rx="4"/><text x="378" y="199" text-anchor="middle">c1</text></g>
+          <g class="nd"><rect x="440" y="180" width="76" height="30" rx="4"/><text x="478" y="199" text-anchor="middle">c2</text></g>
+          <g class="nd"><rect x="540" y="180" width="76" height="30" rx="4"/><text x="578" y="199" text-anchor="middle">c3</text></g>
+          <path class="fk" d="M416 195 H436" marker-end="url(#er-a)"/>
+          <path class="chn" d="M516 195 H536" marker-end="url(#er-r)"/>
+          <text class="ann a-chain" x="478" y="238" text-anchor="middle">c1 → c2 → c3 is a chain</text>
+        </svg>
+        <div class="seg js-only" role="group" aria-label="Break something">
+          <span class="seg-l">Break something:</span>
+          <button class="mini" type="button" data-sc="dup" aria-pressed="false">Duplicate a key</button>
+          <button class="mini" type="button" data-sc="ref" aria-pressed="false">Break a key</button>
+          <button class="mini" type="button" data-sc="cyc" aria-pressed="false">Add a cycle</button>
+          <button class="mini" type="button" data-sc="chain" aria-pressed="false">Chain a merge</button>
+          <button class="mini" type="button" data-sc="">Reset</button>
+        </div>
+      </div>
+
+      <div class="rel-side">
+        <div class="win">
+          <div class="win-bar"><span class="file">Relations.cs</span><span class="right">across rows</span></div>
+<pre class="code" tabindex="0"><code><span class="t">[Constraints]</span>
+<span class="k">public static partial class</span> <span class="t">ShopConstraints</span>
+{
+<span class="cl" data-k="dup">    <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Shop</span>, <span class="t">Guid</span>&gt; <span class="n">OrderIdsAreUnique</span> =
+        <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.Unique(s =&gt; s.Orders, o =&gt; o.Id);</span><span class="cl" data-k="ref">    <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Shop</span>, <span class="t">Guid</span>&gt; <span class="n">LinesPointAtAnOrder</span> =
+        <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.References(
+            s =&gt; s.Lines, l =&gt; [l.OrderId], s =&gt; s.Orders.Select(o =&gt; o.Id));</span><span class="cl" data-k="cyc">    <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Shop</span>&gt; <span class="n">CategoriesHaveNoCycles</span> =
+        <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.Acyclic(
+            s =&gt; s.Categories, c =&gt; c.Id, c =&gt; c.ParentId <span class="k">is</span> { } p ? [p] : []);</span><span class="cl" data-k="chain">    <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Shop</span>&gt; <span class="n">MergesAreNotChained</span> =
+        <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.NoChains(
+            s =&gt; s.Customers, c =&gt; c.Id, c =&gt; c.MergedIntoId ?? c.Id);</span>}</code></pre>
+        </div>
+
+        <div class="win viols" id="viols" aria-live="polite">
+          <div class="win-bar"><span class="status-dot" id="rel-dot" aria-hidden="true"></span><span class="file">dotnet test</span></div>
+          <p class="idle-only">// break something on the left; the violation points at the member</p>
+<pre class="report viol v-dup" tabindex="0"><span class="l hd">Unique failed.</span><span class="l"><span class="rk">Rule broken   </span>order-ids-are-unique</span><span class="l"><span class="rk">Member        </span>Orders</span><span class="l"><span class="rk">What happened </span>order-ids-are-unique: 'o1' appears 2 times.</span></pre>
+<pre class="report viol v-ref" tabindex="0"><span class="l hd">References failed.</span><span class="l"><span class="rk">Rule broken   </span>lines-point-at-an-order</span><span class="l"><span class="rk">Member        </span>Lines</span><span class="l"><span class="rk">What happened </span>lines-point-at-an-order: 'o7' refers to nothing.</span></pre>
+<pre class="report viol v-cyc" tabindex="0"><span class="l hd">Acyclic failed.</span><span class="l"><span class="rk">Rule broken   </span>categories-have-no-cycles</span><span class="l"><span class="rk">Member        </span>Categories</span><span class="l"><span class="rk">What happened </span>categories-have-no-cycles: cycle Root -&gt; Poetry -&gt; Fiction -&gt; Root.</span></pre>
+<pre class="report viol v-chain" tabindex="0"><span class="l hd">NoChains failed.</span><span class="l"><span class="rk">Rule broken   </span>merges-are-not-chained</span><span class="l"><span class="rk">Member        </span>Customers</span><span class="l"><span class="rk">What happened </span>merges-are-not-chained: 'c1' maps to 'c2', which maps onwards.</span></pre>
+          <p class="vw-note" style="padding:0 1.25rem 1rem">Real rule names, members and wording from <span class="mono">Validate</span>, with the Guids shortened to o1, l3 and so on.</p>
+          <p class="sr" id="rel-live" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STATE MACHINES ============ -->
+<section id="machines" aria-labelledby="mc-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">your domain, as a state machine</p>
+      <h2 id="mc-h">Think of your domain and services as a state machine. <em>Encode it, visualize it.</em></h2>
+      <p>What may follow what is usually implicit too. This library lets you encode it once, check the implementation against it, and print the Mermaid to boot.</p>
+    </div>
+
+    <div class="mc-kind">
+      <p class="gen-k">StateMachine&lt;TState, TTrigger&gt;</p>
+      <p class="mc-sub">Values moved by named triggers.</p>
+    </div>
+
+    <div class="mc" id="mc">
+      <div class="win mc-diagram">
+        <div class="win-bar"><span class="file">Lifecycle</span><span class="right" id="mc-walk-label">draft → …</span></div>
+        <div class="vw-body">
+          <svg class="mch" viewBox="0 0 568 212" role="img" aria-label="State diagram of the Order lifecycle. Draft goes to Placed, then Paid, then Shipped. Placed and Paid can go to Cancelled. The edge from Cancelled to Shipped is denied and drawn dotted in copper with a bar."><defs><marker id="ms-a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker><marker id="ms-d" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk-d"/></marker></defs><g class="edges"><g class="e start" style="--d:.15s"><circle cx="62" cy="12" r="5"/><path d="M62 18 V42" pathLength="1" marker-end="url(#ms-a)"/></g><g class="e" data-e="Draft>Placed" style="--d:.55s"><path d="M108 63 H162" pathLength="1" marker-end="url(#ms-a)"/><text x="136" y="53" text-anchor="middle">place</text></g><g class="e" data-e="Placed>Paid" style="--d:.8s"><path d="M256 63 H310" pathLength="1" marker-end="url(#ms-a)"/><text x="284" y="53" text-anchor="middle">pay</text></g><g class="e" data-e="Paid>Shipped" style="--d:1.05s"><path d="M404 63 H458" pathLength="1" marker-end="url(#ms-a)"/><text x="432" y="53" text-anchor="middle">ship</text></g><g class="e" data-e="Placed>Cancelled" style="--d:1.3s"><path d="M210 82 V159 H227" pathLength="1" marker-end="url(#ms-a)"/><text x="202" y="118" text-anchor="end">cancel</text></g><g class="e" data-e="Paid>Cancelled" style="--d:1.5s"><path d="M358 82 V159 H341" pathLength="1" marker-end="url(#ms-a)"/><text x="366" y="118" text-anchor="start">cancel</text></g></g><g class="nodes"><g class="n" data-n="Draft" style="--d:.05s"><rect x="16" y="44" width="92" height="38" rx="4"/><text x="62.0" y="67.5" text-anchor="middle">Draft</text></g><g class="n" data-n="Placed" style="--d:.4s"><rect x="164" y="44" width="92" height="38" rx="4"/><text x="210.0" y="67.5" text-anchor="middle">Placed</text></g><g class="n" data-n="Paid" style="--d:.65s"><rect x="312" y="44" width="92" height="38" rx="4"/><text x="358.0" y="67.5" text-anchor="middle">Paid</text></g><g class="n" data-n="Shipped" style="--d:.9s"><rect x="460" y="44" width="92" height="38" rx="4"/><rect class="fin" x="463.5" y="47.5" width="85" height="31" rx="2"/><text x="506.0" y="67.5" text-anchor="middle">Shipped</text></g><g class="n" data-n="Cancelled" style="--d:1.15s"><rect x="229" y="140" width="110" height="38" rx="4"/><rect class="fin" x="232.5" y="143.5" width="103" height="31" rx="2"/><text x="284.0" y="163.5" text-anchor="middle">Cancelled</text></g></g><g class="den" style="--d:1.9s"><path d="M341 172 H470 Q506 172 506 136 V90" marker-end="url(#ms-d)"/><path class="bar" d="M404 160 V184"/><text x="404" y="203" text-anchor="middle">denied: Cancelled → Shipped</text></g><g class="ext"><path d="M341 172 H470 Q506 172 506 136 V90" marker-end="url(#ms-d)"/><text x="404" y="203" text-anchor="middle">the implementation allows it</text></g></svg>
+          <div class="walk js-only" role="group" aria-label="Walk the machine">
+            <button class="mini" type="button" id="mc-new">New walk</button>
+            <button class="mini" type="button" id="mc-step">Step →</button>
+            <ol class="trail" id="mc-trail" aria-label="Walk so far"></ol>
+          </div>
+          <p class="sr" id="mc-live" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <div class="conf" id="conf">
+        <div class="win">
+          <div class="win-bar"><span class="file">Order.cs</span><span class="right">the implementation</span></div>
+<pre class="code" tabindex="0"><code><span class="k">public</span> <span class="t">Order</span> Ship() =&gt; <span class="conf-ok">Status <span class="k">is</span> OrderStatus.Paid
+    ? <span class="k">this with</span> { Status = OrderStatus.Shipped }
+    : <span class="k">this</span>;</span><span class="conf-bad">Status <span class="k">is</span> OrderStatus.Paid <span class="k">or</span> OrderStatus.Cancelled   <span class="c">// Cancelled slipped in</span>
+    ? <span class="k">this with</span> { Status = OrderStatus.Shipped }
+    : <span class="k">this</span>;</span>
+
+Lifecycle.ConformTo(<span class="t">Order</span>.Draft(), o =&gt; o.Status, bindings: [
+    (<span class="s">"place"</span>, o =&gt; o.Place()), (<span class="s">"pay"</span>, o =&gt; o.Pay()),
+    (<span class="s">"ship"</span>, o =&gt; o.Ship()), (<span class="s">"cancel"</span>, o =&gt; o.Cancel())]);</code></pre>
+        </div>
+        <div class="win">
+          <div class="win-bar"><span class="status-dot" id="conf-dot" aria-hidden="true"></span><span class="file">dotnet test</span>
+            <span class="right js-only"><button class="toggle" id="conf-plant" type="button" aria-pressed="false"><span class="pip" aria-hidden="true"></span><span id="conf-label">Plant a bug</span></button></span></div>
+          <p class="conf-pass"><span class="l ok">ConformTo passed.</span> Every edge the implementation allows is in the diagram, and every denied edge is refused.</p>
+<pre class="report conf-fail" tabindex="0"><span class="l hd">Implementation diverged from the specification at step 4</span><span class="l"><span class="rk">Reason </span>after ship in Cancelled the machine says Cancelled, but the entity is in Shipped</span><span class="l"><span class="rk">Trace  </span></span><span class="l">         Draft</span><span class="l">     1 place</span><span class="l">         Placed</span><span class="l">     2 cancel</span><span class="l">         Cancelled</span><span class="l">     3 cancel</span><span class="l">         Cancelled</span><span class="l"> &gt;&gt;  4 ship</span><span class="l">         Cancelled</span><span class="l seed">Set seed: "2jBvK6qtRCw8" or -e CsCheck_Seed=2jBvK6qtRCw8 to reproduce (0 shrinks, 77 skipped, 100 total).</span></pre>
+          <p class="vw-note" style="padding:0 1.25rem 1rem">Real ConformTo output for this bug. The seed replays it.</p>
+          <p class="sr" id="conf-live" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+
+    <details class="mm-d" open><summary>And the Mermaid comes out too</summary>
+      <div class="win"><div class="win-bar"><span class="file">Lifecycle.mmd</span><span class="right">printed from the machine</span></div>
+<pre class="code" tabindex="0"><code>stateDiagram-v2
+    [*] --&gt; Draft
+    Draft --&gt; Placed : place
+    Placed --&gt; Paid : pay
+    Paid --&gt; Shipped : ship
+    Placed --&gt; Cancelled : cancel
+    Paid --&gt; Cancelled : cancel</code></pre></div>
+      <p class="vw-note">Print the machine as Mermaid to put the diagram in your docs, or read a Mermaid diagram in to build the machine.</p>
+    </details>
+
+    <div class="mc-kind">
+      <p class="gen-k">StateMachine&lt;TState&gt;</p>
+      <p class="mc-sub">Case types of a union or record hierarchy, moved by guards.</p>
+    </div>
+    <div class="mc mc2">
+      <div class="win">
+        <div class="win-bar"><span class="file">Checkout</span><span class="right">guards on the edges</span></div>
+        <div class="vw-body"><svg class="mch mch-b" viewBox="0 0 568 168" role="img" aria-label="Three case types of a Checkout hierarchy: Cart moves to Addressed when Lines.Count is above zero, and Addressed moves to Paid when the address is complete. Paid back to Cart is denied."><defs><marker id="mk-a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk"/></marker><marker id="mk-d" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="mk-d"/></marker></defs><g class="e start"><circle cx="56" cy="14" r="5"/><path d="M56 20 V48" pathLength="1" marker-end="url(#mk-a)"/></g><g class="e"><path d="M96 78 H222" pathLength="1" marker-end="url(#mk-a)"/><text x="159" y="68" text-anchor="middle" class="guard">[Lines.Count &gt; 0]</text></g><g class="e"><path d="M324 78 H450" pathLength="1" marker-end="url(#mk-a)"/><text x="387" y="68" text-anchor="middle" class="guard">[Address complete]</text></g><g class="n"><rect x="16" y="54" width="80" height="48" rx="4"/><text x="56.0" y="82" text-anchor="middle">Cart</text></g><g class="n"><rect x="224" y="54" width="100" height="48" rx="4"/><text x="274.0" y="82" text-anchor="middle">Addressed</text></g><g class="n"><rect x="452" y="54" width="76" height="48" rx="4"/><rect class="fin" x="455.5" y="57.5" width="69" height="41" rx="2"/><text x="490.0" y="82" text-anchor="middle">Paid</text></g><g class="den"><path d="M490 106 V136 H56 V108" marker-end="url(#mk-d)"/><path class="bar" d="M273 124 V148"/><text x="273" y="162" text-anchor="middle">denied: Paid → Cart</text></g></svg></div>
+      </div>
+      <div class="win">
+        <div class="win-bar"><span class="file">Checkout.cs</span><span class="right">case types</span></div>
+<pre class="code" tabindex="0"><code><span class="k">public abstract record</span> <span class="t">Checkout</span>;
+<span class="k">public record</span> <span class="t">Cart</span>(<span class="t">IReadOnlyList</span>&lt;<span class="t">Line</span>&gt; Lines) : <span class="t">Checkout</span>;
+<span class="k">public record</span> <span class="t">Addressed</span>(
+    <span class="t">IReadOnlyList</span>&lt;<span class="t">Line</span>&gt; Lines, <span class="t">Address</span> To) : <span class="t">Checkout</span>;
+<span class="k">public record</span> <span class="t">Paid</span>(<span class="t">Guid</span> PaymentId) : <span class="t">Checkout</span>;
+
+<span class="k">var</span> checkout = <span class="t">StateMachine</span>&lt;<span class="t">Checkout</span>&gt;.Define(m =&gt; m
+    .Initial&lt;<span class="t">Cart</span>&gt;(s =&gt; s.To&lt;<span class="t">Addressed</span>&gt;(c =&gt; c.Lines.Count &gt; 0))
+    .State&lt;<span class="t">Addressed</span>&gt;(s =&gt; s.To&lt;<span class="t">Paid</span>&gt;(a =&gt; a.To.IsComplete))
+    .Terminal&lt;<span class="t">Paid</span>&gt;());</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TESTING SERVICES ============ -->
+<section id="services" aria-labelledby="sv-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">not just records</p>
+      <h2 id="sv-h">Test services, <em>not just records</em>.</h2>
+      <p>Most business logic lives in mutable classes and async services. The same rules lift onto them: say where the state lives, and the tests drive the service through generated action sequences. No Rx needed.</p>
+    </div>
+
+    <div class="sv" id="sv">
+      <div class="win">
+        <div class="win-bar"><span class="file">Wallet.cs</span><span class="right">mutable · async</span></div>
+<pre class="code" tabindex="0"><code><span class="k">public record</span> <span class="t">WalletState</span>(<span class="k">int</span> Checking, <span class="k">int</span> Savings);
+
+<span class="k">public class</span> <span class="t">Wallet</span>
+{
+    <span class="k">public</span> <span class="t">WalletState</span> State =&gt; <span class="k">new</span>(_checking, _savings);
+    <span class="k">private int</span> _checking = 30, _savings = 10;
+
+    <span class="k">public async</span> <span class="t">Task</span> MoveAsync(<span class="k">int</span> amount)
+    {
+        <span class="k">await</span> <span class="t">Task</span>.Yield();
+        <span class="k">if</span> (amount &lt;= 0 || amount &gt; _checking) <span class="k">return</span>;
+        _checking -= amount;
+<span class="okline">        _savings += amount;
+</span><span class="bugdiff"><span class="del">-       _savings += amount;</span>
+<span class="add2">+       _savings += amount - 1;</span>
+</span>    }
+}
+
+<span class="c">// say where the state lives; the rules apply to it</span>
+<span class="k">var</span> rules = <span class="t">ConstraintSet</span>
+    .From((<span class="s">"money-is-conserved"</span>,
+        <span class="t">Constraints</span>&lt;<span class="t">WalletState</span>&gt;.Conserves(s =&gt; s.Checking + s.Savings)))
+    .Map&lt;<span class="t">Wallet</span>&gt;(w =&gt; w.State);
+
+<span class="k">await</span> <span class="t">AutoTest</span>.For(rules, () =&gt; <span class="k">new</span> <span class="t">Wallet</span>())
+    .MutateAsync&lt;<span class="k">int</span>&gt;(<span class="s">"Move"</span>, (w, n) =&gt; w.MoveAsync(n), _ =&gt; <span class="t">Gen</span>.Int[1, 12])
+    .Steps(1, 6)
+    .RunAsync();</code></pre>
+      </div>
+
+      <div class="win">
+        <div class="win-bar"><span class="status-dot" id="sv-dot" aria-hidden="true"></span><span class="file">dotnet test</span>
+          <span class="right js-only"><button class="toggle" id="sv-plant" type="button" aria-pressed="false"><span class="pip" aria-hidden="true"></span><span id="sv-label">Plant a bug</span></button></span></div>
+        <div class="vw-body wal" id="sv-wal">
+          <div class="wal-top"><span class="wal-step">sampling action sequences</span><button class="mini js-only wal-replay" type="button" disabled>Replay</button></div>
+<pre class="wal-seq" aria-hidden="true"></pre>
+          <div class="meter" aria-hidden="true"><i class="wal-meter"></i></div>
+<pre class="report wal-report" tabindex="0"><span class="l hd">Conservation failed.</span><span class="l">&#8203;</span><span class="l"><span class="rk">Rule broken   </span>money-is-conserved did not conserve its value (was 40, became 39).</span><span class="l"><span class="rk">Operation     </span>Move(1)</span><span class="l"><span class="rk">Started from  </span>Wallet { State = WalletState { Checking = 30, Savings = 10 } }</span><span class="l"><span class="rk">Produced      </span>Wallet { State = WalletState { Checking = 29, Savings = 10 } }</span><span class="l">&#8203;</span><span class="l"><span class="lk">Law           </span><span class="law">No operation creates or destroys a quantity that must be conserved.</span></span><span class="l"><span class="lk">Consequence   </span>Totals drift: something appears or vanishes between the two halves of a change.</span><span class="l">&#8203;</span><span class="l seed">Smallest case found, after 1 shrink. To run this case again: .Seed("7DTWL8nvnax7")</span></pre>
+          <p class="wal-ok"><span class="l ok">Conserved</span> across every sampled action sequence.</p>
+          <p class="vw-note">The report is real output for this Wallet. The shrink path above it is illustrative.</p>
+        </div>
+        <p class="sr" id="sv-live" role="status" aria-live="polite"></p>
+      </div>
+    </div>
   </div>
 </section>
 
