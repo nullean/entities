@@ -7,7 +7,7 @@ Packages are versioned from git tags by [MinVer](https://github.com/adamralph/mi
 | Event | What happens |
 |---|---|
 | Pull request | Build, test, pack and validate. Nothing is published. |
-| Push to `main` | The same, then every package is pushed to the `nullean` GitHub Packages feed as a canary (`0.1.0-canary.0.87`). |
+| Push to `main` | The same. Nothing is published: there is no canary feed (GitHub Packages was refused by the organisation's billing limit, and a tag is the only way a package reaches nuget.org). |
 | Push of a tag `X.Y.Z` or `X.Y.Z-pre.N` | The same, then the release notes and API changes are written, the GitHub release is created, and the ten packages are pushed to nuget.org. |
 
 ## Cutting a release

@@ -1,7 +1,7 @@
 name: CI
 
-# Pull requests build, test, pack and validate. A push to main also publishes canaries to GitHub Packages.
-# A tag (X.Y.Z or X.Y.Z-pre.N) also publishes the ten packages to nuget.org and creates the GitHub release. See RELEASING.md.
+# Pull requests and pushes to main build, test, pack and validate. A tag (X.Y.Z or X.Y.Z-pre.N) also publishes the ten packages to nuget.org
+# and creates the GitHub release. See RELEASING.md.
 on:
   pull_request:
   push:
@@ -59,48 +59,6 @@ jobs:
 
       - name: Publish and run the AOT smoke app
         run: dotnet run --project build/scripts -- aot
-
-  canary:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build, aot]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - run: git fetch --prune --tags
-        shell: bash
-
-      - uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
-
-      # The same commit the build job tested, packed again here: MinVer gives the same version, and no artifact is passed between jobs (the artifact quota is an account-level limit
-      # that would otherwise fail every build on main).
-      - name: Pack and validate
-        run: |
-          ./build.sh generatepackages -s true
-          ./build.sh validatepackages -s true
-
-      - name: Push canaries to GitHub Packages
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          for attempt in 1 2 3 4 5; do
-            if dotnet nuget push '.artifacts/build-output/*.nupkg' -s https://nuget.pkg.github.com/nullean/index.json -k "$GITHUB_TOKEN" --skip-duplicate; then
-              exit 0
-            fi
-            echo "push failed (attempt $attempt of 5)"
-            sleep $((attempt * 3))
-          done
-          exit 1
 
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
