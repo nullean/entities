@@ -84,30 +84,37 @@
     <span class="t">Guid</span> Id, <span class="t">Guid</span> CustomerId,
     <span class="t">IReadOnlyList</span>&lt;<span class="t">Line</span>&gt; Lines,
     <span class="t">OrderStatus</span> Status, <span class="k">int</span> Version, <span class="k">decimal</span> Total, <span class="k">string</span> Label);</span><span class="mg cg" data-s="1"><span class="c">// 1 · rules between rows, written next to the types</span>
-<span class="k">var</span> linesPointAtAnOrder = <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.References(
+<span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Shop</span>&gt; LinesPointAtAnOrder =
+    <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.References(
     s =&gt; s.Lines, l =&gt; [l.OrderId], s =&gt; s.Orders.Select(o =&gt; o.Id));
-<span class="k">var</span> orderIdsAreUnique = <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.Unique(s =&gt; s.Orders, o =&gt; o.Id);</span><span class="mg cg" data-s="2"><span class="c">// 2 · rules about values, with a name and a sentence</span>
-<span class="k">var</span> totalNeverNegative = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(
+<span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Shop</span>&gt; OrderIdsAreUnique =
+    <span class="t">Constraints</span>&lt;<span class="t">Shop</span>&gt;.Unique(s =&gt; s.Orders, o =&gt; o.Id);</span><span class="mg cg" data-s="2"><span class="c">// 2 · rules about values, with a name and a sentence</span>
+<span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Order</span>&gt; TotalNeverNegative =
+    <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(
     o =&gt; o.Total, t =&gt; t &gt;= 0, <span class="s">"An order total is never negative."</span>);
-<span class="k">var</span> moneyIsConserved = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(
+<span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Order</span>&gt; MoneyIsConserved =
+    <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(
     o =&gt; o.Lines.Sum(l =&gt; l.Qty * l.Price) == o.Total,
     <span class="s">"The total is the sum of the lines."</span>);</span><span class="mg cg" data-s="3"><span class="c">// 3 · what may follow what</span>
-<span class="k">var</span> lifecycle = <span class="t">StateMachine</span>.Define&lt;<span class="t">OrderStatus</span>, <span class="k">string</span>&gt;(<span class="t">OrderStatus</span>.Draft)
+<span class="k">public static readonly</span> <span class="t">StateMachine</span>&lt;<span class="t">OrderStatus</span>, <span class="k">string</span>&gt; Lifecycle =
+    <span class="t">StateMachine</span>.Define&lt;<span class="t">OrderStatus</span>, <span class="k">string</span>&gt;(<span class="t">OrderStatus</span>.Draft)
     .Permit(<span class="s">"place"</span>, <span class="t">OrderStatus</span>.Draft, <span class="t">OrderStatus</span>.Placed)
     .Permit(<span class="s">"pay"</span>, <span class="t">OrderStatus</span>.Placed, <span class="t">OrderStatus</span>.Paid)
     .Permit(<span class="s">"ship"</span>, <span class="t">OrderStatus</span>.Paid, <span class="t">OrderStatus</span>.Shipped)
     .Permit(<span class="s">"cancel"</span>, [<span class="t">OrderStatus</span>.Placed, <span class="t">OrderStatus</span>.Paid],
         <span class="t">OrderStatus</span>.Cancelled)
     .Build();</span><span class="mg cg" data-s="4"><span class="c">// 4 · time: never backwards, and when a rule bites</span>
-<span class="k">var</span> versionNeverGoesBack = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;
+<span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Order</span>&gt; VersionNeverGoesBack =
+    <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;
     .Monotonic(o =&gt; o.Version, <span class="t">MonotonicDirection</span>.NonDecreasing)
     .WithSeverityUntil(<span class="t">Severity</span>.Warning,
         <span class="k">new</span> <span class="t">DateTimeOffset</span>(2027, 1, 1, 0, 0, 0, <span class="t">TimeSpan</span>.Zero), <span class="t">Severity</span>.Error);</span><span class="mg cg" data-s="5"><span class="c">// 5 · the same rules on a mutable, async service</span>
-<span class="k">var</span> rules = <span class="t">ConstraintSet</span>
+<span class="k">public static readonly</span> <span class="t">ConstraintSet</span>&lt;<span class="t">Wallet</span>&gt; WalletRules =
+    <span class="t">ConstraintSet</span>
     .From((<span class="s">"money-is-conserved"</span>,
         <span class="t">Constraints</span>&lt;<span class="t">WalletState</span>&gt;.Conserves(s =&gt; s.Checking + s.Savings)))
     .Map&lt;<span class="t">Wallet</span>&gt;(w =&gt; w.State);
-<span class="k">await</span> <span class="t">AutoTest</span>.For(rules, () =&gt; <span class="k">new</span> <span class="t">Wallet</span>())
+<span class="k">await</span> <span class="t">AutoTest</span>.For(WalletRules, () =&gt; <span class="k">new</span> <span class="t">Wallet</span>())
     .MutateAsync&lt;<span class="k">int</span>&gt;(<span class="s">"Move"</span>, (w, n) =&gt; w.MoveAsync(n), _ =&gt; <span class="t">Gen</span>.Int[1, 12])
     .RunAsync();</span><span class="mg cg" data-s="6"><span class="c">// 6 · one line: CsCheck generates, shrinks, replays</span>
 <span class="k">await</span> <span class="t">AutoTest</span>.For(OrderConstraints.Instance).RunAsync();</span><span class="mg cg" data-s="7"><span class="c">// 7 · nothing more to write.</span>
@@ -480,9 +487,11 @@
     <div class="adopt">
       <div class="win">
         <div class="win-bar"><span class="file">Severity</span></div>
-<pre class="code" tabindex="0"><code><span class="k">var</span> start = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(o =&gt; o.Total, t =&gt; t &gt;= 0)
+<pre class="code" tabindex="0"><code><span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Order</span>&gt; Start =
+    <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(o =&gt; o.Total, t =&gt; t &gt;= 0)
     .WithSeverity(<span class="t">Severity</span>.Warning);   <span class="c">// start: nothing breaks, findings are reported</span>
-<span class="k">var</span> onADate = <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(o =&gt; o.Total, t =&gt; t &gt;= 0)
+<span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Order</span>&gt; OnADate =
+    <span class="t">Constraints</span>&lt;<span class="t">Order</span>&gt;.Always(o =&gt; o.Total, t =&gt; t &gt;= 0)
     .WithSeverityUntil(<span class="t">Severity</span>.Warning,
         <span class="k">new</span> <span class="t">DateTimeOffset</span>(2026, 12, 1, 0, 0, 0, <span class="t">TimeSpan</span>.Zero), <span class="t">Severity</span>.Error);   <span class="c">// error from this date</span></code></pre>
       </div>
@@ -807,11 +816,12 @@ Lifecycle.Spec().Exhaustive();                              <span class="c">// e
 }
 
 <span class="c">// rules are written against a state; Map says where it lives</span>
-<span class="k">var</span> rules = <span class="t">ConstraintSet</span>
+<span class="k">public static readonly</span> <span class="t">ConstraintSet</span>&lt;<span class="t">Wallet</span>&gt; WalletRules =
+    <span class="t">ConstraintSet</span>
     .From((<span class="s">"money-is-conserved"</span>,
         <span class="t">Constraints</span>&lt;<span class="t">WalletState</span>&gt;.Conserves(s =&gt; s.Checking + s.Savings)))
     .Map&lt;<span class="t">Wallet</span>&gt;(w =&gt; w.State);
-<span class="k">await</span> <span class="t">AutoTest</span>.For(rules, () =&gt; <span class="k">new</span> <span class="t">Wallet</span>())
+<span class="k">await</span> <span class="t">AutoTest</span>.For(WalletRules, () =&gt; <span class="k">new</span> <span class="t">Wallet</span>())
     .MutateAsync&lt;<span class="k">int</span>&gt;(<span class="s">"Move"</span>, (w, n) =&gt; w.MoveAsync(n), _ =&gt; <span class="t">Gen</span>.Int[1, 12])
     .Steps(1, 6)
     .RunAsync();</span></code></pre></div>
@@ -1053,7 +1063,8 @@ Lifecycle.ConformTo(<span class="t">Order</span>.Draft(), o =&gt; o.Status, bind
     <span class="t">IReadOnlyList</span>&lt;<span class="t">Line</span>&gt; Lines, <span class="t">Address</span> To) : <span class="t">Checkout</span>;
 <span class="k">public record</span> <span class="t">Paid</span>(<span class="t">Guid</span> PaymentId) : <span class="t">Checkout</span>;
 
-<span class="k">var</span> checkout = <span class="t">StateMachine</span>&lt;<span class="t">Checkout</span>&gt;.Define(m =&gt; m
+<span class="k">public static readonly</span> <span class="t">StateMachine</span>&lt;<span class="t">Checkout</span>&gt; CheckoutMachine =
+    <span class="t">StateMachine</span>&lt;<span class="t">Checkout</span>&gt;.Define(m =&gt; m
     .Initial&lt;<span class="t">Cart</span>&gt;(s =&gt; s.To&lt;<span class="t">Addressed</span>&gt;(c =&gt; c.Lines.Count &gt; 0))
     .State&lt;<span class="t">Addressed</span>&gt;(s =&gt; s.To&lt;<span class="t">Paid</span>&gt;(a =&gt; a.To.IsComplete))
     .Terminal&lt;<span class="t">Paid</span>&gt;());</code></pre>
@@ -1093,12 +1104,13 @@ Lifecycle.ConformTo(<span class="t">Order</span>.Draft(), o =&gt; o.Status, bind
 }
 
 <span class="c">// say where the state lives; the rules apply to it</span>
-<span class="k">var</span> rules = <span class="t">ConstraintSet</span>
+<span class="k">public static readonly</span> <span class="t">ConstraintSet</span>&lt;<span class="t">Wallet</span>&gt; WalletRules =
+    <span class="t">ConstraintSet</span>
     .From((<span class="s">"money-is-conserved"</span>,
         <span class="t">Constraints</span>&lt;<span class="t">WalletState</span>&gt;.Conserves(s =&gt; s.Checking + s.Savings)))
     .Map&lt;<span class="t">Wallet</span>&gt;(w =&gt; w.State);
 
-<span class="k">await</span> <span class="t">AutoTest</span>.For(rules, () =&gt; <span class="k">new</span> <span class="t">Wallet</span>())
+<span class="k">await</span> <span class="t">AutoTest</span>.For(WalletRules, () =&gt; <span class="k">new</span> <span class="t">Wallet</span>())
     .MutateAsync&lt;<span class="k">int</span>&gt;(<span class="s">"Move"</span>, (w, n) =&gt; w.MoveAsync(n), _ =&gt; <span class="t">Gen</span>.Int[1, 12])
     .Steps(1, 6)
     .RunAsync();</code></pre>
