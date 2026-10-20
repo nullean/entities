@@ -93,6 +93,15 @@ let private validatePackages (arguments:ParseResults<Arguments>) =
     let expected = Paths.mapProjectToNuget |> Map.toList |> List.map fst
     let missing = expected |> List.filter (fun name -> not (packages |> Array.exists (fun p -> Path.GetFileName(p).StartsWith(name + "." + version.Split('+').[0], System.StringComparison.Ordinal))))
     if not missing.IsEmpty then failwithf "These packages were not packed: %s" (String.concat ", " missing)
+    // Nullean.Entities carries the [Constraints] source generator as an analyzer; a package without it builds and restores, and then [Constraints] does nothing for whoever installs it
+    // (0.1.0-preview.1 shipped like that). The validator checks the assembly, not what else the package holds, so this is checked here.
+    let core = packages |> Array.tryFind (fun p -> Path.GetFileName(p).StartsWith("Nullean.Entities." + version.Split('+').[0], System.StringComparison.Ordinal))
+    match core with
+    | None -> failwith "Nullean.Entities was not packed"
+    | Some path ->
+        use zip = System.IO.Compression.ZipFile.OpenRead path
+        if not (zip.Entries |> Seq.exists (fun e -> e.FullName = "analyzers/dotnet/cs/Nullean.Entities.SourceGenerators.dll")) then
+            failwithf "%s does not contain analyzers/dotnet/cs/Nullean.Entities.SourceGenerators.dll, so [Constraints] would do nothing for a consumer" (Path.GetFileName path)
     // The validator is a net8 tool that loads each package's assembly and its references, and a net11.0 assembly references System.Runtime 11, which an older runtime cannot
     // supply ("Could not load file or assembly 'System.Runtime, Version=11.0.0.0'"). Letting it roll forward to the newest runtime installed, previews included, is what lets it read them.
     Environment.SetEnvironmentVariable("DOTNET_ROLL_FORWARD", "LatestMajor")

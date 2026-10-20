@@ -14,13 +14,15 @@
   <!-- Packs the generator's own DLL into this package under analyzers/dotnet/cs. A consumer who
        installs Nullean.Entities (or anything that depends on it, since NuGet analyzer assets flow
        transitively through PackageReference) gets [Constraint] support without a separate install.
-       @(Analyzer) is populated above by OutputItemType="Analyzer" with the resolved build output
-       path — but it also always carries the SDK's own built-in generators (LibraryImport,
-       GeneratedRegex, ...), so the Filename condition below is required, not decorative, or every
-       package would silently ship the SDK's generators as if this repo owned them. -->
+       The path is asked of the generator project itself. Reading @(Analyzer) (what OutputItemType="Analyzer"
+       fills in) does not work here: this project is multi-targeted, packing runs in the outer build, and the
+       outer build has no @(Analyzer) at all, so the package shipped without the generator (0.1.0-preview.1). -->
   <Target Name="PackConstraintGenerator" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="../Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="ConstraintGeneratorDll" />
+    </MSBuild>
     <ItemGroup>
-      <None Include="@(Analyzer)" Condition="'%(Filename)' == 'Nullean.Entities.SourceGenerators'" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="@(ConstraintGeneratorDll)" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     </ItemGroup>
   </Target>
 </Project>
