@@ -26,7 +26,7 @@ public static partial class OrderConstraints
 ## One declaration, three jobs
 
 1. **It validates.** `OrderConstraints.All.Validate(order)` checks a value where it is built, and a finding names the rule.
-2. **It is tested, automatically.** One line runs every test those rules imply. You write none of them.
+2. **It is tested, automatically.** One line runs a test for each of the nine axes your rules declare. You write none of them. [`.Deeper()`](guides/deeper.md) and `.Commutes()` add a proof over every reachable state and a check that two operations commute.
 3. **It watches events.** The same vocabulary describes rules about order and time in a live stream.
 
 ```csharp
