@@ -1,6 +1,6 @@
 /* Nullean.Entities landing page, on the Nullean Design System. Needs tokens.css first. No framework. */
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 5rem; background: var(--bg); }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; background: var(--bg); }
 body {
   margin: 0; position: relative; background: var(--bg); color: var(--text);
   font: 400 15px/1.6 var(--font-mono);
@@ -37,7 +37,7 @@ pre code { font: inherit; background: none; border: 0; padding: 0; }
 .icon { width: 16px; height: 16px; display: block; flex: none; }
 
 /* ---------- nav: no fill, 1px soft line ---------- */
-.nav { position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--line-tint-soft); }
+.nav { position: relative; z-index: 10; border-bottom: 1px solid var(--line-tint-soft); }
 .nav .wrap { display: flex; align-items: center; gap: var(--space-5); min-height: 4rem; }
 .lockup { display: inline-flex; align-items: center; text-decoration: none; }
 .lockup svg { height: 48px; width: auto; display: block; }
