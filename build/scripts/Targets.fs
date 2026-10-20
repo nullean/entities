@@ -99,6 +99,62 @@ let private validatePackages (arguments:ParseResults<Arguments>) =
     for package in packages do
         exec "dotnet" ["nupkg-validator"; package; "-v"; version; "-k"; Paths.SignKey]
 
+let private tokenArgs (arguments:ParseResults<Arguments>) =
+    match arguments.TryGetResult Token with
+    | None -> []
+    | Some token -> ["--token"; token]
+
+let private releaseNotesFile () =
+    Paths.RootRelative <| Path.Combine(Paths.Output.FullName, sprintf "release-notes-%s.md" currentVersion.Value)
+
+// A package that has never been published has nothing to compare the public API with, which is every package on a first release.
+let private isOnNuget (package:string) =
+    let url = sprintf "https://api.nuget.org/v3-flatcontainer/%s/index.json" (package.ToLowerInvariant())
+    let r = Proc.Start("curl", "-s", "-L", "-o", "/dev/null", "-w", "%{http_code}", url)
+    r.ConsoleOut |> Seq.exists (fun l -> l.Line.Trim() = "200")
+
+let private generateReleaseNotes (arguments:ParseResults<Arguments>) =
+    restoreTools.Value |> ignore
+    let args =
+        (Paths.Repository.Split("/") |> Seq.toList)
+        @ ["--version"; currentVersion.Value
+           "--label"; "enhancement"; "New Features"
+           "--label"; "bug"; "Bug Fixes"
+           "--label"; "documentation"; "Docs Improvements"]
+        @ tokenArgs arguments
+        @ ["--output"; releaseNotesFile ()]
+    exec "dotnet" (["release-notes"] @ args)
+
+let private generateApiChanges (arguments:ParseResults<Arguments>) =
+    restoreTools.Value |> ignore
+    let output = Paths.RootRelative Paths.Output.FullName
+    for package in Paths.mapProjectToNuget |> Map.toList |> List.map fst do
+        if not (isOnNuget package) then
+            printfn "%s: not on nuget.org yet, no previous public API to compare with" package
+        else
+            printfn "%s: public API changes since the previous release" package
+            exec "dotnet"
+                [ "assembly-differ"
+                  sprintf "previous-nuget|%s|%s|%s" package currentVersion.Value Paths.MainTFM
+                  // UseArtifactsOutput puts a multi-targeted project's build in release_<tfm>
+                  sprintf "directory|.artifacts/bin/%s/release_%s" package Paths.MainTFM
+                  "-a"; "true"; "--target"; package; "-f"; "github-comment"
+                  "--output"; Path.Combine(output, sprintf "breaking-changes-%s.md" package) ]
+
+let private createReleaseOnGithub (arguments:ParseResults<Arguments>) =
+    restoreTools.Value |> ignore
+    if (arguments.TryGetResult Token).IsNone then failwith "creating a GitHub release needs --token"
+    let breakingChanges =
+        Paths.Output.GetFiles("breaking-changes-*.md")
+        |> Seq.collect (fun f -> ["--body"; Paths.RootRelative f.FullName])
+        |> Seq.toList
+    let args =
+        (Paths.Repository.Split("/") |> Seq.toList)
+        @ ["create-release"; "--version"; currentVersion.Value; "--body"; releaseNotesFile ()]
+        @ breakingChanges
+        @ tokenArgs arguments
+    exec "dotnet" (["release-notes"] @ args)
+
 let Setup (parsed:ParseResults<Arguments>) (arguments:Arguments) =
     let singleTarget = parsed.TryGetResult SingleTarget |> Option.defaultValue false
 
@@ -119,4 +175,8 @@ let Setup (parsed:ParseResults<Arguments>) (arguments:Arguments) =
     dep "generatepackages" ["build"] generatePackages
     dep "validatepackages" ["generatepackages"] validatePackages
     dep "pack" ["test"; "generatepackages"; "validatepackages"] (fun _ -> printfn "Pack complete")
-    dep "release" ["pristinecheck"; "pack"] (fun _ -> printfn "Release complete")
+    target "generatereleasenotes" generateReleaseNotes
+    target "generateapichanges" generateApiChanges
+    target "createreleaseongithub" createReleaseOnGithub
+    dep "release" ["pristinecheck"; "pack"; "generatereleasenotes"; "generateapichanges"] (fun _ -> printfn "Release complete")
+    dep "publish" ["release"; "createreleaseongithub"] (fun _ -> printfn "Publish complete")
