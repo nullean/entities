@@ -41,7 +41,7 @@ public sealed record Order(OrderStatus Status, int Version)
 }
 
 // The rules, declared once next to the type. [Constraints] gathers every static field into OrderConstraints.All.
-[Constraints]
+[Constraints<Order>]
 public static partial class OrderConstraints
 {
 	public static readonly Constraint<Order> CancelIsRepeatable = Constraints<Order>.Idempotent(o => o.Cancel());

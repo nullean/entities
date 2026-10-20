@@ -36,7 +36,7 @@ public enum OrderStatus { Pending, Confirmed, Shipped, Cancelled }
 
 public sealed record Order(Guid Id, OrderStatus Status, IReadOnlyList<string> Lines);
 
-[Constraints]
+[Constraints<Order>]
 public static partial class OrderConstraints
 {
 	public static readonly Constraint<Order> MustHaveLines =
@@ -273,7 +273,7 @@ public void BulkConfirm(IEnumerable<Order> orders)
 
 ```csharp
 // After: one rule, applied at every call site
-[Constraints]
+[Constraints<Order>]
 public static partial class OrderConstraints
 {
     public static readonly Constraint<Order> MustHaveLines =
@@ -412,7 +412,7 @@ put it on the type once, and every static `Constraint<T>`/`ReactiveConstraint<TE
 property declared directly on it is picked up with no tagging at all:
 
 ```csharp
-[Constraints]
+[Constraints<Order>]
 public static partial class OrderConstraints
 {
     public static readonly Constraint<Order> TotalNeverNegative = Constraints<Order>.Always(o => o.Total >= 0);
@@ -430,7 +430,7 @@ public static partial class OrderConstraints
 but shouldn't be counted as one of the type's own rules:
 
 ```csharp
-[Constraints]
+[Constraints<Order>]
 public static partial class OrderConstraints
 {
     [ConstraintIgnore]

@@ -33,7 +33,7 @@ using Nullean.Entities;
 
 public sealed record Order(Guid Id, decimal Total);
 
-[Constraints]
+[Constraints<Order>]
 public static partial class OrderConstraints
 {
 	public static readonly Constraint<Order> TotalNeverNegative = Constraints<Order>.Always(o => o.Total >= 0, "An order total is never negative.");
