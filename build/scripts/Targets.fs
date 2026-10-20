@@ -63,8 +63,9 @@ let private apps (arguments:ParseResults<Arguments>) =
 let private aot (arguments:ParseResults<Arguments>) =
     exec "dotnet" ["publish"; "examples/Nullean.Entities.AotSmoke"; "-c"; "Release"; "-f"; "net10.0"]
     let binary = Path.Combine(Paths.Root.FullName, ".artifacts", "publish", "Nullean.Entities.AotSmoke", "release_net10.0", if System.OperatingSystem.IsWindows() then "Nullean.Entities.AotSmoke.exe" else "Nullean.Entities.AotSmoke")
-    let code = execResult binary []
-    if code.HasValue && code.Value <> 0 then failwithf "AOT smoke app exited with %O" code
+    // Proc.Exec, not Proc.Start: the smoke app exits at once, and Proc.Start's buffered readers can then touch a process that is already disposed
+    // (ObjectDisposedException on a fast runner). Exec streams to the console and throws on a non-zero exit, which is the same check.
+    exec binary []
 
 let private pristineCheck (arguments:ParseResults<Arguments>) =
     let doCheck = arguments.TryGetResult CleanCheckout |> Option.defaultValue true
