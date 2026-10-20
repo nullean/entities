@@ -1,0 +1,43 @@
+# https://github.com/release-drafter/release-drafter?tab=readme-ov-file#configuration-options
+# The release notes are drafted from pull request labels as they merge to main; a tag publishes the draft (see .github/workflows/ci.yml and RELEASING.md).
+template: |
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...$RESOLVED_VERSION
+name-template: 'Nullean.Entities $RESOLVED_VERSION'
+tag-template: '$RESOLVED_VERSION'
+change-template: '- $TITLE by @$AUTHOR in #$NUMBER'
+categories:
+  - title: '💥 Breaking Changes'
+    labels:
+      - 'breaking' # When a breaking change is introduced
+  - title: '✨ Features'
+    labels:
+      - 'feature' # When a new feature is introduced
+      - 'enhancement' # When an existing feature is improved
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'bug' # When a bug is fixed
+      - 'fix' # When a bug is fixed
+  - title: '📝 Documentation'
+    labels:
+      - 'documentation' # When documentation is updated
+  - title: '🧰 Maintenance'
+    labels:
+      - 'chore' # When a chore is done
+      - 'dependencies' # When dependencies are updated
+  - title: '⚙️ Automation'
+    labels:
+      - 'automation' # When automation is updated
+      - 'ci' # When automation is updated
+exclude-labels:
+  - 'changelog:skip' # When a PR should be excluded from the changelog
+version-resolver:
+  major:
+    labels:
+      - 'breaking'
+  minor:
+    labels:
+      - 'feature'
+      - 'enhancement'
+  default: patch

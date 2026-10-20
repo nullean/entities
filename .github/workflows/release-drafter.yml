@@ -1,0 +1,24 @@
+name: release-drafter
+
+# Keeps a draft release up to date with the pull requests merged to main. A tag publishes it (the release job in ci.yml).
+on:
+  workflow_dispatch: ~
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  update-release-draft:
+    concurrency:
+      group: release-drafter
+    permissions:
+      contents: write
+      pull-requests: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: release-drafter/release-drafter@34d80673e067bdc0c24568d3af899c216adcfaa9 # v7.7.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
