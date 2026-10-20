@@ -1,12 +1,15 @@
 name: CI
 
+# Pull requests build, test, pack and validate. A push to main also publishes canaries to GitHub Packages.
+# A tag (X.Y.Z or X.Y.Z-pre.N) also publishes the ten packages to nuget.org and creates the GitHub release. See RELEASING.md.
 on:
   pull_request:
   push:
     branches:
       - main
     tags:
-      - "*.*.*"
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-*"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,9 +19,9 @@ permissions:
   contents: read
 
 jobs:
-  build-test-pack:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v6
@@ -32,16 +35,113 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Build and test
-        run: ./build.sh test
-
-      - name: Pack
-        run: ./build.sh pack -c false
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+      # build, every test project on every target framework, then pack and validate the ten packages
+      - name: Build, test, pack
+        run: ./build.sh pack
 
       - name: Upload packages
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         with:
           name: packages
           path: .artifacts/build-output/*.nupkg
+          if-no-files-found: error
+
+  # The core and Reactive packages claim to be trim and AOT clean: publish the smoke app NativeAOT on each OS and run it.
+  aot:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Publish and run the AOT smoke app
+        run: dotnet run --project build/scripts -- aot
+
+  canary:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, aot]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: packages
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Push canaries to GitHub Packages
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if dotnet nuget push 'packages/*.nupkg' -s https://nuget.pkg.github.com/nullean/index.json -k "$GITHUB_TOKEN" --skip-duplicate; then
+              exit 0
+            fi
+            echo "push failed (attempt $attempt of 5)"
+            sleep $((attempt * 3))
+          done
+          exit 1
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: [build, aot]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # An environment named "nuget" can require a reviewer before this job runs. Without one configured, the job just runs.
+    environment: nuget
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --prune --tags
+        shell: bash
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # the packages the build job tested, not a rebuild of them
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: .artifacts/build-output
+
+      # the public API diff reads the build output
+      - name: Build
+        run: ./build.sh build -s true
+
+      - name: Release notes
+        run: ./build.sh generatereleasenotes -s true --token ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Public API changes since the previous release
+        run: ./build.sh generateapichanges -s true
+
+      - name: Publish to nuget.org
+        run: dotnet nuget push '.artifacts/build-output/*.nupkg' -k ${{ secrets.NUGET_ORG_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
+
+      # last, so a release is announced only once its packages are out; a failed run can be re-run (--skip-duplicate)
+      - name: Create the GitHub release
+        run: ./build.sh createreleaseongithub -s true --token ${{ secrets.GITHUB_TOKEN }}
