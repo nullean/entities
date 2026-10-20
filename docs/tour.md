@@ -55,7 +55,7 @@ mutate"**: an invalid next state is never committed, so it never reaches downstr
 // A switch over OrderEvent that omits any case won't build.
 
 // ── What the type system can't say about Order ───────────────────────────
-[Constraints] // every static Constraint<Order> field below is found automatically — no per-field tag
+[Constraints<Order>] // every static Constraint<Order> field below is found automatically — no per-field tag
 public static partial class OrderConstraints
 {
     // Total >= 0. message is optional: omitted, a violation names the constraint itself

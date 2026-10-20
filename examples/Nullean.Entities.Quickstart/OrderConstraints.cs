@@ -1,7 +1,7 @@
 namespace Nullean.Entities.Quickstart;
 
 // Every rule the Order must keep, written once, next to the type. [Constraints] gathers the static fields into OrderConstraints.All.
-[Constraints]
+[Constraints<Order>]
 public static partial class OrderConstraints
 {
 	// one state: true in every state

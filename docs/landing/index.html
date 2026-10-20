@@ -247,7 +247,7 @@
     <div class="demo" id="demo" style="margin-top: var(--space-6)">
       <div class="win">
         <div class="win-bar"><span class="file">OrderConstraints.cs</span><span class="right">the rules, written once</span></div>
-<pre class="code" tabindex="0"><code><span class="t">[Constraints]</span>
+<pre class="code" tabindex="0"><code><span class="t">[Constraints&lt;Order&gt;]</span>
 <span class="k">public static partial class</span> <span class="t">OrderConstraints</span>
 {
     <span class="k">public static readonly</span> <span class="t">Constraint&lt;Order&gt;</span> <span class="n">TotalNeverNegative</span> = <span class="t">Constraints&lt;Order&gt;</span>.Always(
@@ -666,7 +666,7 @@
     <span class="k">public</span> <span class="t">IEnumerable</span>&lt;<span class="t">Line</span>&gt; Lines =&gt; Orders.SelectMany(o =&gt; o.Lines);
 }
 
-<span class="t">[Constraints]</span>
+<span class="t">[Constraints&lt;Shop&gt;]</span>
 <span class="k">public static partial class</span> <span class="t">ShopConstraints</span>
 {
     <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Shop</span>, <span class="t">Guid</span>&gt;
@@ -707,7 +707,7 @@
           </header>
           <div class="stg-grid">
             <div class="win stg-code"><div class="win-bar"><span class="file">OrderConstraints.cs</span><span class="right">+ added at this stage</span></div>
-<pre class="code" tabindex="0"><code><span class="ly" data-s="2"><span class="t">[Constraints]</span>
+<pre class="code" tabindex="0"><code><span class="ly" data-s="2"><span class="t">[Constraints&lt;Order&gt;]</span>
 <span class="k">public static partial class</span> <span class="t">OrderConstraints</span>
 {
     <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Order</span>&gt;
@@ -965,7 +965,7 @@ Lifecycle.Spec().Exhaustive();                              <span class="c">// e
       <div class="rel-side">
         <div class="win">
           <div class="win-bar"><span class="file">Relations.cs</span><span class="right">across rows</span></div>
-<pre class="code" tabindex="0"><code><span class="t">[Constraints]</span>
+<pre class="code" tabindex="0"><code><span class="t">[Constraints&lt;Shop&gt;]</span>
 <span class="k">public static partial class</span> <span class="t">ShopConstraints</span>
 {
 <span class="cl" data-k="dup">    <span class="k">public static readonly</span> <span class="t">Constraint</span>&lt;<span class="t">Shop</span>, <span class="t">Guid</span>&gt; <span class="n">OrderIdsAreUnique</span> =

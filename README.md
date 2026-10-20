@@ -23,7 +23,7 @@ Nullean.Entities makes them **first-class**: a rule is a named value, declared o
 ## An order, in one screen
 
 ```csharp
-[Constraints]
+[Constraints<Order>]
 public static partial class OrderConstraints
 {
 	public static readonly Constraint<Order> TotalNeverNegative = Constraints<Order>.Always(o => o.Total >= 0, "An order total is never negative.");

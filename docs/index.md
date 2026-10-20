@@ -12,7 +12,7 @@ A well-typed `Order` can still have a negative total, ship after it was cancelle
 {{product}} makes them **first-class**: a rule is a named value, declared once, next to the type.
 
 ```csharp
-[Constraints]
+[Constraints<Order>]
 public static partial class OrderConstraints
 {
 	public static readonly Constraint<Order> TotalNeverNegative = Constraints<Order>.Always(o => o.Total >= 0, "An order total is never negative.");
