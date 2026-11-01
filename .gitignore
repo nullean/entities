@@ -61,3 +61,6 @@ tests/corpus-repos/
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Python bytecode (scripts/docs-pages.py)
+__pycache__/
