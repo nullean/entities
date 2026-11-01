@@ -70,6 +70,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
+      id-token: write   # NuGet trusted publishing: exchange the workflow's OIDC token for a short-lived key
 
     steps:
       - uses: actions/checkout@v6
@@ -93,8 +94,17 @@ jobs:
       - name: Public API changes since the previous release
         run: ./build.sh generateapichanges -s true
 
+      # Trusted publishing: nuget.org trusts this repository's ci.yml in the nuget environment (a policy
+      # owned by the nullean organization), so there is no long-lived API key to expire. The key it returns lasts an hour, so the
+      # login sits right before the push. NUGET_USER is the nuget.org profile name, set at the org level.
+      - name: Log in to nuget.org (trusted publishing)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Publish to nuget.org
-        run: dotnet nuget push '.artifacts/build-output/*.nupkg' -k ${{ secrets.NUGET_ORG_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push '.artifacts/build-output/*.nupkg' -k ${{ steps.nuget-login.outputs.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
 
       # last, so a release is announced only once its packages are out; a failed run can be re-run (--skip-duplicate). The notes are the draft release-drafter
       # kept from the merged pull requests; publishing it for this tag makes it the release.
