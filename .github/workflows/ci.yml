@@ -127,3 +127,21 @@ jobs:
             cat "$f" >> release-body.md
           done
           gh release edit "$TAG" --notes-file release-body.md
+
+  # Builds the documentation as the docs workflow deploys it (design-system layout, theme, landing page), so a pull
+  # request that breaks the docs build or scripts/docs-finish.sh fails here rather than on main.
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      # The design-system layout is behind a feature flag, read from the environment only.
+      - name: Build documentation
+        uses: elastic/docs-builder@main
+        env:
+          FEATURE_NAVIGATION_PREVIEW: true
+
+      - name: Theme and landing page
+        run: scripts/docs-finish.sh .artifacts/docs/html
