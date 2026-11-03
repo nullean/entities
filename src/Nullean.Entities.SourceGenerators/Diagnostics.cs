@@ -68,6 +68,24 @@ internal static class Diagnostics
 		isEnabledByDefault: true
 	);
 
+	public static readonly DiagnosticDescriptor AlreadyValidatableObject = new(
+		"NECG011",
+		"Type already implements IValidatableObject",
+		"'{0}' asks for ValidatableObject = true but already has an IValidatableObject.Validate method (its own or a base type's); call {0}.Constraints.Validate(this) from that method, or drop the option",
+		Category,
+		DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
+
+	public static readonly DiagnosticDescriptor ValidatableObjectNeedsSelf = new(
+		"NECG012",
+		"ValidatableObject needs a type that constrains itself",
+		"'{0}' asks for ValidatableObject = true but its constraints are not about '{0}' itself; IValidatableObject can only be added to the type the rules check",
+		Category,
+		DiagnosticSeverity.Error,
+		isEnabledByDefault: true
+	);
+
 	// Info, not a warning: a consumer that treats warnings as errors must not fail to build because a model carries [Phone] or a custom validation attribute.
 	public static readonly DiagnosticDescriptor UnsupportedAnnotation = new(
 		"NECG010",
