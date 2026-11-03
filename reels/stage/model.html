@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model your world</title>
+<link rel="stylesheet" href="stage.css">
+<style>
+/* relations */
+.rel { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto; gap: calc(var(--u) * 1.6); }
+.rows { display: flex; flex-direction: column; gap: calc(var(--u) * .5); }
+.row { display: flex; align-items: center; gap: .8em; padding: calc(var(--u) * .45) calc(var(--u) * .8); border-radius: 5px; background: #ffffff06;
+  border: 1px solid transparent; font-size: calc(var(--u) * 1.4); color: var(--bone); }
+.row .key { color: var(--dim); font-size: .8em; width: 2.4em; }
+.row .arrow { color: var(--dim); }
+.row.bad.in, .bad-now .row.bad { background: var(--bad-lo); border-color: #ef6b5b66; color: #ffd6cf; animation: shake .45s ease both; }
+.tree { position: relative; }
+.tree svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.tree .rows { gap: calc(var(--u) * .5); }
+.tree .row.d1 { margin-left: calc(var(--u) * 2.4); }
+.loop path { fill: none; stroke: var(--bad); stroke-width: 2.5; stroke-dasharray: 400; stroke-dashoffset: 400; }
+.loop.in path { animation: dash .9s var(--ease) forwards; }
+.reports { position: relative; grid-column: 1 / -1; min-height: calc(var(--u) * 7.5); }
+
+/* time */
+.timeline { position: relative; height: calc(var(--u) * 15); margin: 0 calc(var(--u) * 2); }
+.axis { position: absolute; left: 0; right: 0; top: 60%; height: 2px; background: var(--line-hi); }
+.tick { position: absolute; top: calc(60% + var(--u) * 1); transform: translateX(-50%); color: var(--dim); font-size: calc(var(--u) * 1.05); }
+.window { position: absolute; top: 18%; height: 42%; left: 0; width: calc(30 / 90 * 100%); border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, #6fcf9712, #6fcf9730); border: 1px solid #6fcf9755; border-bottom: 0; }
+.window span { position: absolute; top: calc(var(--u) * .6); left: calc(var(--u) * .8); color: var(--ok); font-size: calc(var(--u) * 1.1); }
+.deadline { position: absolute; top: 18%; bottom: 40%; left: calc(30 / 90 * 100%); width: 2px; background: var(--ok); }
+.run2 .window { background: linear-gradient(180deg, #ef6b5b10, #ef6b5b2a); border-color: #ef6b5b66; }
+.run2 .window span { color: var(--bad); }
+.run2 .deadline { background: var(--bad); animation: pulse 1.2s ease 2; }
+.pin { position: absolute; top: 60%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * .6); }
+.pin i { width: calc(var(--u) * 1.4); height: calc(var(--u) * 1.4); border-radius: 50%; background: var(--bone); box-shadow: 0 0 0 4px #e0d8c122; }
+.pin span { position: absolute; bottom: calc(100% + var(--u) * .4); white-space: nowrap; font-size: calc(var(--u) * 1.2); color: var(--bone-hi); }
+.pin.first span { left: 50%; } .pin span { left: 50%; transform: translateX(-50%); } .pin.first span { transform: translateX(-100%); margin-left: calc(var(--u) * .4); }
+.pin.good i { background: var(--ok); box-shadow: 0 0 0 5px var(--ok-lo); }
+.pin.late i { background: var(--bad); box-shadow: 0 0 0 5px var(--bad-lo); }
+.pin.late span { color: #ffd6cf; }
+.pin[data-at]:not(.in) { opacity: 0; transform: translate(-50%, -150%); }
+.clock { position: absolute; top: calc(60% - 1px); left: 0; height: 4px; width: 0; background: linear-gradient(90deg, transparent, var(--copper)); border-radius: 2px; }
+.clock.in { animation: sweep 1.8s linear forwards; }
+@keyframes sweep { to { width: 100%; } }
+.runs { display: grid; gap: calc(var(--u) * 1.4); }
+.runs .card { padding-bottom: calc(var(--u) * .4); }
+.runs .card h3 { display: flex; justify-content: space-between; align-items: center; }
+
+/* machine */
+.machine svg { width: 100%; height: auto; overflow: visible; }
+.machine .st rect { fill: #0d1013; stroke: var(--line-hi); stroke-width: 1.5; rx: 10; transition: stroke .4s, fill .4s; }
+.machine .st text { fill: var(--bone-hi); font-family: var(--display); font-size: 22px; font-weight: 500; text-anchor: middle; dominant-baseline: central; }
+.machine .st.here rect { stroke: var(--copper); fill: #1e1510; }
+.machine .ed path { fill: none; stroke: #e0d8c155; stroke-width: 2; marker-end: url(#arr); transition: stroke .4s; }
+.machine .ed.lit path { stroke: var(--copper); stroke-width: 3; marker-end: url(#arr-hi); }
+.machine .ed text { fill: var(--dim); font-size: 15px; font-family: var(--mono); text-anchor: middle; }
+.machine .nope path { fill: none; stroke: var(--bad); stroke-width: 3; stroke-dasharray: 8 7; marker-end: url(#arr-bad); opacity: 0; transition: opacity .3s; }
+.machine .nope text { fill: var(--bad); font-size: 30px; font-weight: 700; text-anchor: middle; opacity: 0; }
+.machine .nope.in path, .machine .nope.in text { opacity: 1; }
+.machine .nope.in { animation: shake .5s ease .2s both; }
+.machine .tok { fill: var(--copper); filter: drop-shadow(0 0 8px #db8553aa); transition: transform .8s var(--ease); }
+.machine svg text { font-size: 22px; }
+.docframe { position: relative; border: 1px dashed transparent; border-radius: 14px; padding: calc(var(--u) * 1.6); transition: border-color .5s, background .5s; }
+.docframe .tag { position: absolute; top: calc(var(--u) * -1.1); left: calc(var(--u) * 1.4); background: var(--bg2); padding: 0 .6em; color: var(--copper-hi);
+  font-size: calc(var(--u) * 1.15); opacity: 0; transition: opacity .5s; }
+.docframe.in { border-color: #db855388; background: #db85530a; }
+.docframe.in .tag { opacity: 1; }
+
+/* operations */
+.ops { display: grid; grid-template-columns: repeat(3, 1fr); gap: calc(var(--u) * 1.4); }
+.ops .card { display: flex; flex-direction: column; gap: calc(var(--u) * 1); min-height: calc(var(--u) * 30); }
+.ops .card.in { border-color: #db855366; }
+.ops .card[data-at]:not(.in) { opacity: .28; }
+.ops .card:not(.in) .eq, .ops .card:not(.in) .state:last-of-type { visibility: hidden; }
+.ops .snip { font-size: calc(var(--u) * 1); color: var(--copper-hi); background: #ffffff06; border-radius: 5px; padding: .5em .7em; white-space: pre; }
+.state { font-size: calc(var(--u) * 1.15); padding: calc(var(--u) * .6) calc(var(--u) * .8); border-radius: 6px; background: #ffffff07; color: var(--bone); }
+.state b { color: var(--copper-hi); font-weight: 500; }
+.op { color: var(--dim); font-size: calc(var(--u) * 1.05); text-align: center; }
+.eq { margin-top: auto; text-align: center; font-size: calc(var(--u) * 1.3); }
+.gauge { display: flex; align-items: flex-end; gap: calc(var(--u) * .7); height: calc(var(--u) * 11); padding: 0 calc(var(--u) * .5); }
+.gauge i { flex: 1; background: var(--copper); border-radius: 4px 4px 0 0; opacity: .9; height: 0; transition: height .6s var(--spring); position: relative; }
+.gauge i span { position: absolute; top: calc(var(--u) * -1.8); left: 0; right: 0; text-align: center; font-style: normal; font-size: calc(var(--u) * 1.05); color: var(--bone); }
+.ops .card.in .gauge i:nth-child(1) { height: 20%; transition-delay: .2s; } .ops .card.in .gauge i:nth-child(2) { height: 45%; transition-delay: .5s; }
+.ops .card.in .gauge i:nth-child(3) { height: 70%; transition-delay: .8s; } .ops .card.in .gauge i:nth-child(4) { height: 95%; transition-delay: 1.1s; }
+.accts { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--u) * .8); }
+.acct { text-align: center; padding: calc(var(--u) * .8); border-radius: 6px; background: #ffffff07; }
+.acct small { display: block; color: var(--dim); font-size: calc(var(--u) * .95); }
+.acct b { font-family: var(--display); font-size: calc(var(--u) * 2.4); color: var(--bone-hi); font-weight: 500; }
+.acct .after { display: none; } .ops .card.in .acct .after { display: inline; } .ops .card.in .acct .before { display: none; }
+.ops .card.in .acct b { animation: pop .5s var(--spring) .6s both; }
+
+/* values */
+.factory { display: grid; grid-template-columns: 1fr auto 1fr; gap: calc(var(--u) * 1.6); align-items: center; }
+.call { font-size: calc(var(--u) * 1.35); color: var(--bone-hi); }
+.call .t { color: var(--copper-hi); }
+.checks { display: flex; flex-direction: column; gap: calc(var(--u) * .7); }
+.check { display: flex; gap: .7em; align-items: center; padding: calc(var(--u) * .5) calc(var(--u) * .9); border-radius: 6px; background: #ffffff06; font-size: calc(var(--u) * 1.1); color: var(--muted); }
+.check i { font-style: normal; width: 1.2em; text-align: center; color: var(--dim); }
+.v1 .check i::before { content: "✓"; color: var(--ok); }
+.v2 .check i::before { content: "✗"; color: var(--bad); }
+.v2 .check { color: #ffd6cf; background: var(--bad-lo); }
+.funnel { color: var(--dim); font-size: calc(var(--u) * 3); }
+.result { font-size: calc(var(--u) * 1.25); line-height: 1.6; }
+.vrow .report .r { grid-template-columns: 13em 1fr; }
+.vrow { display: grid; grid-template-columns: 1fr; gap: calc(var(--u) * 1.4); }
+
+/* files */
+.fs { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--u) * 1.6); align-items: start; }
+.root { position: relative; border: 1.5px solid #e0d8c140; border-radius: 12px; padding: calc(var(--u) * 2) calc(var(--u) * 1.4) calc(var(--u) * 1.2); }
+.root > .tag { position: absolute; top: calc(var(--u) * -1); left: calc(var(--u) * 1.2); background: var(--bg2); padding: 0 .5em; color: var(--copper-hi); font-size: calc(var(--u) * 1.15); }
+.f { padding: calc(var(--u) * .35) calc(var(--u) * .6); font-size: calc(var(--u) * 1.2); color: var(--bone); border-radius: 4px; }
+.f.d { color: var(--muted); }
+.f.in2 { margin-left: calc(var(--u) * 2); }
+.ghost { color: var(--bad) !important; border: 1px dashed #ef6b5b88; background: var(--bad-lo); }
+.escape { position: absolute; left: calc(var(--u) * 1.2); bottom: calc(var(--u) * -3.2); color: var(--bad); font-size: calc(var(--u) * 1.2); white-space: nowrap; }
+.escape[data-at]:not(.in) { opacity: 0; transform: translateY(-50%); }
+.refs .f { display: flex; justify-content: space-between; gap: 1em; }
+.refs .f span:last-child { color: var(--dim); }
+.refs .f.bad.in { background: var(--bad-lo); color: #ffd6cf; animation: shake .45s ease both; }
+.refs .f.bad.in span:last-child { color: var(--bad); }
+
+/* close */
+.six { display: grid; grid-template-columns: repeat(3, 1fr); gap: calc(var(--u) * 1.4); width: min(100%, calc(var(--u) * 100)); margin-top: calc(var(--u) * 3); }
+.six .card { text-align: left; }
+.six .card h3 { color: var(--copper-hi); }
+.six .card code { color: var(--muted); font-size: calc(var(--u) * 1.05); }
+.beat.on .six .card { animation: pop .5s var(--spring) both; }
+.beat.on .six .card:nth-child(2) { animation-delay: .1s; } .beat.on .six .card:nth-child(3) { animation-delay: .2s; }
+.beat.on .six .card:nth-child(4) { animation-delay: .3s; } .beat.on .six .card:nth-child(5) { animation-delay: .4s; }
+.beat.on .six .card:nth-child(6) { animation-delay: .5s; }
+</style>
+</head>
+<body>
+<button id="next" aria-label="next"></button>
+
+<section class="beat solo" id="title">
+  <div class="copy">
+    <p class="eyebrow">beyond one order</p>
+    <h1>Model your <em>world.</em></h1>
+    <p class="lede" style="margin-inline:auto">The same rules reach past a single field: across records, over time, through a lifecycle, out to the disk.</p>
+  </div>
+  <div class="chips">
+    <span class="chip"><b>01</b>relations</span><span class="chip"><b>02</b>time</span><span class="chip"><b>03</b>state machines</span>
+    <span class="chip"><b>04</b>operations</span><span class="chip"><b>05</b>values</span><span class="chip"><b>06</b>files</span>
+  </div>
+</section>
+
+<section class="beat" id="relations">
+  <div class="copy">
+    <p class="eyebrow"><b>01</b>relations</p>
+    <h2>Keys and trees, <em>no database.</em></h2>
+    <p class="lede">Think of your model as tables, and say what holds between the rows.</p>
+<div class="code"><span class="l" data-now data-at="1"><span class="t">Constraints</span>&lt;Site&gt;.<span class="k">Unique</span>(s =&gt; s.Pages, p =&gt; p.Url)</span><span class="l" data-now data-at="2"><span class="t">Constraints</span>&lt;Site&gt;.<span class="k">References</span>(
+    s =&gt; s.Toc, t =&gt; t.Children, s =&gt; s.Urls)</span><span class="l" data-now data-at="3"><span class="t">Constraints</span>&lt;Site&gt;.<span class="k">Acyclic</span>(
+    s =&gt; s.Toc, t =&gt; t.Url, t =&gt; t.Children)</span><span class="l" data-now data-at="4"><span class="t">Constraints</span>&lt;Site&gt;.<span class="k">NoChains</span>(
+    s =&gt; s.Redirects, r =&gt; r.From, r =&gt; r.To)</span></div>
+  </div>
+  <div class="stage rel">
+    <div class="card">
+      <h3>Pages <small>Url</small></h3>
+      <div class="rows">
+        <div class="row"><span class="key">pk</span>/install</div>
+        <div class="row"><span class="key">pk</span>/guide</div>
+        <div class="row"><span class="key">pk</span>/api</div>
+        <div class="row bad arrive" data-at="1" data-gone="2"><span class="key">pk</span>/install</div>
+      </div>
+    </div>
+    <div class="card tree">
+      <h3>Table of contents <small>Children</small></h3>
+      <div class="rows">
+        <div class="row">/guide</div>
+        <div class="row d1"><span class="arrow">└</span>/install</div>
+        <div class="row d1" id="api-row"><span class="arrow">└</span>/api</div>
+        <div class="row d1 bad arrive" data-at="2" data-gone="3"><span class="arrow">└</span>/missing</div>
+        <div class="row d1 bad arrive" data-at="3" data-gone="4"><span class="arrow">└</span>/api <span class="arrow">→</span> /guide</div>
+      </div>
+      <svg class="loop" data-at="3" data-gone="4" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M 88 74 C 104 60, 104 30, 40 36" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="card" style="grid-column: 1 / -1">
+      <h3>Redirects <small>From → To</small></h3>
+      <div class="rows" style="flex-direction: row; gap: calc(var(--u) * 1)">
+        <div class="row">/start <span class="arrow">→</span> /guide</div>
+        <div class="row">/old <span class="arrow">→</span> /guide</div>
+        <div class="row bad arrive" data-at="4">/older <span class="arrow">→</span> /old</div>
+      </div>
+    </div>
+    <div class="reports">
+      <div class="report arrive" data-at="1" data-gone="2"><div class="h">Invariant failed.</div><div class="r"><span>Rule broken</span><span>unique-urls: '/install' appears 2 times.</span></div></div>
+      <div class="report arrive" data-at="2" data-gone="3"><div class="h">Invariant failed.</div><div class="r"><span>Rule broken</span><span>toc-pages-exist: '/missing' refers to nothing.</span></div></div>
+      <div class="report arrive" data-at="3" data-gone="4"><div class="h">Invariant failed.</div><div class="r"><span>Rule broken</span><span>toc-is-a-tree: cycle /guide -&gt; /api -&gt; /guide.</span></div></div>
+      <div class="report arrive" data-at="4"><div class="h">Invariant failed.</div><div class="r"><span>Rule broken</span><span>redirects-are-direct: '/older' maps to '/old', which maps onwards.</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="beat" id="time">
+  <div class="copy">
+    <p class="eyebrow"><b>02</b>time</p>
+    <h2>What must follow, <em>and how soon.</em></h2>
+    <p class="lede">Rules over a stream of events: after this, that, within a deadline. Or never.</p>
+<div class="code"><span class="l in"><span class="t">After</span>&lt;ClientEvent.Sent&gt;()
+    .<span class="k">Then</span>&lt;ClientEvent.Succeeded,
+          ClientEvent.GaveUp&gt;(<span class="c">/* by RequestId */</span>)
+    .<span class="k">Within</span>(TimeSpan.FromSeconds(<span class="s">30</span>))</span></div>
+  </div>
+  <div class="stage runs">
+    <div class="card">
+      <h3>A request that answered <span class="ok-pill arrive" data-at="1">held</span></h3>
+      <div class="timeline">
+        <div class="window"><span>within 30s</span></div><div class="deadline"></div>
+        <div class="axis"></div>
+        <div class="tick" style="left:0">+0s</div><div class="tick" style="left:33.3%">+30s</div><div class="tick" style="left:66.6%">+60s</div><div class="tick" style="left:100%">+90s</div>
+        <div class="pin first" style="left:0"><i></i><span>Sent</span></div>
+        <div class="pin good" data-at="1" style="left:20%"><i></i><span>Succeeded +18s</span></div>
+      </div>
+    </div>
+    <div class="card run2 arrive" data-at="2">
+      <h3>A request that hung <span class="bad-pill arrive" data-at="3">missed</span></h3>
+      <div class="timeline">
+        <div class="window"><span>within 30s</span></div><div class="deadline"></div>
+        <div class="axis"></div><div class="clock" data-at="2"></div>
+        <div class="tick" style="left:0">+0s</div><div class="tick" style="left:33.3%">+30s</div><div class="tick" style="left:66.6%">+60s</div><div class="tick" style="left:100%">+90s</div>
+        <div class="pin first" style="left:0"><i></i><span>Sent</span></div>
+        <div class="pin late" data-at="3" style="left:46.6%"><i></i><span>Succeeded +42s</span></div>
+      </div>
+    </div>
+    <div class="report arrive" data-at="3"><div class="h">Temporal failed.</div><div class="r"><span>What happened</span><span>No matching event within 00:00:30 after Sent</span></div></div>
+  </div>
+</section>
+
+<section class="beat" id="machine">
+  <div class="copy">
+    <p class="eyebrow"><b>03</b>state machines</p>
+    <h2>Only the <em>legal moves.</em></h2>
+    <p class="lede">Walked one move at a time, and drawn from the same definition, so the diagram in your docs can't drift.</p>
+<div class="code"><span class="l in"><span class="t">Constraints</span>&lt;Order&gt;
+    .<span class="k">Transitions</span>(o =&gt; o.Status)
+    .<span class="k">Allow</span>(Pending, Confirmed)
+    .<span class="k">Allow</span>(Confirmed, Shipped)
+    .<span class="k">Allow</span>(Pending, Cancelled)
+    .<span class="k">Allow</span>(Confirmed, Cancelled)</span></div>
+  </div>
+  <div class="stage machine">
+    <div class="docframe" data-at="4">
+      <span class="tag">OrderConstraints.Instance.Spec().Mermaid()</span>
+      <svg viewBox="0 -70 760 420">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e0d8c177"/></marker>
+          <marker id="arr-hi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#db8553"/></marker>
+          <marker id="arr-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ef6b5b"/></marker>
+        </defs>
+        <g class="ed" id="e-pc"><path d="M150 90 L300 90"/><text x="225" y="76">Confirm</text></g>
+        <g class="ed" id="e-cs"><path d="M450 90 L600 90"/><text x="525" y="76">Ship</text></g>
+        <g class="ed"><path d="M90 120 C 110 260, 260 300, 300 300"/><text x="150" y="250">Cancel</text></g>
+        <g class="ed"><path d="M375 120 L375 268"/><text x="410" y="200">Cancel</text></g>
+        <g class="nope" data-at="3"><path d="M680 58 C 620 -60, 140 -60, 92 55"/><text x="385" y="-20">✗</text></g>
+        <g class="st" id="s-p"><rect x="20" y="60" width="130" height="60"/><text x="85" y="90">Pending</text></g>
+        <g class="st" id="s-c"><rect x="300" y="60" width="150" height="60"/><text x="375" y="90">Confirmed</text></g>
+        <g class="st" id="s-s"><rect x="600" y="60" width="130" height="60"/><text x="665" y="90">Shipped</text></g>
+        <g class="st"><rect x="300" y="270" width="150" height="60"/><text x="375" y="300">Cancelled</text></g>
+        <circle class="tok" id="tok" r="9" cx="0" cy="0"/>
+      </svg>
+    </div>
+    <div class="report arrive" data-at="3"><div class="h">Invariant failed.</div><div class="r"><span>Rule broken</span><span>legal-moves does not allow the transition from Shipped to Pending.</span></div></div>
+  </div>
+</section>
+
+<section class="beat" id="operations">
+  <div class="copy">
+    <p class="eyebrow"><b>04</b>operations</p>
+    <h2>What a step <em>may do.</em></h2>
+    <p class="lede">Not just what a state looks like: what each operation is allowed to change.</p>
+  </div>
+  <div class="stage ops">
+    <div class="card" data-at="1">
+      <h3>Idempotent</h3>
+      <div class="snip">Idempotent(o =&gt; o.Cancel())</div>
+      <div class="state">Pending <b>v1</b></div>
+      <div class="op">Cancel()</div>
+      <div class="state">Cancelled <b>v2</b></div>
+      <div class="op">Cancel() again</div>
+      <div class="state">Cancelled <b>v2</b></div>
+      <div class="eq"><span class="ok-pill">twice = once</span></div>
+    </div>
+    <div class="card" data-at="2">
+      <h3>Monotonic</h3>
+      <div class="snip">Monotonic(o =&gt; o.Version,
+  NonDecreasing)</div>
+      <div class="gauge"><i><span>v1</span></i><i><span>v2</span></i><i><span>v3</span></i><i><span>v4</span></i></div>
+      <div class="eq"><span class="ok-pill">only up</span></div>
+    </div>
+    <div class="card" data-at="3">
+      <h3>Conserves</h3>
+      <div class="snip">Conserves(t =&gt; t.From.Balance
+  + t.To.Balance)</div>
+      <div class="accts">
+        <div class="acct"><small>From</small><b><span class="before">10</span><span class="after">7</span></b></div>
+        <div class="acct"><small>To</small><b><span class="before">6</span><span class="after">9</span></b></div>
+      </div>
+      <div class="op">Transfer(3)</div>
+      <div class="eq"><span class="ok-pill">16 before, 16 after</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="beat" id="values">
+  <div class="copy">
+    <p class="eyebrow"><b>05</b>values</p>
+    <h2>Can't be built <em>invalid.</em></h2>
+    <p class="lede">Check in a factory, not a constructor: you get a value, or every reason it isn't one.</p>
+<div class="code"><span class="l in"><span class="k">public static</span> Result&lt;Money&gt; Create(
+    <span class="k">decimal</span> amount, <span class="k">string</span>? currency) =&gt;
+    Rules.<span class="k">Validated</span>(<span class="k">new</span> Money(amount, currency));</span></div>
+  </div>
+  <div class="stage vrow">
+    <div class="card factory v1 arrive" data-at="1">
+      <div class="call">Money.<span class="t">Create</span>(12.50m, "EUR")</div>
+      <div class="checks">
+        <div class="check"><i></i>amount-is-positive</div>
+        <div class="check"><i></i>amount-has-cents</div>
+        <div class="check"><i></i>currency-is-iso</div>
+      </div>
+      <div class="result"><span class="ok-pill">Ok</span><br>12.50 EUR</div>
+    </div>
+    <div class="card factory v2 arrive" data-at="2">
+      <div class="call">Money.<span class="t">Create</span>(-5.001m, "eu")</div>
+      <div class="checks">
+        <div class="check"><i></i>amount-is-positive</div>
+        <div class="check"><i></i>amount-has-cents</div>
+        <div class="check"><i></i>currency-is-iso</div>
+      </div>
+      <div class="result"><span class="bad-pill">Fail</span></div>
+    </div>
+    <div class="report arrive" data-at="2">
+      <div class="r"><span>amount-is-positive</span><span>The amount must be greater than zero</span></div>
+      <div class="r"><span>amount-has-cents</span><span>The amount has at most two decimals</span></div>
+      <div class="r"><span>currency-is-iso</span><span>The currency is a three-letter code like EUR</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="beat" id="files">
+  <div class="copy">
+    <p class="eyebrow"><b>06</b>files</p>
+    <h2>The disk a model <em>points at.</em></h2>
+    <p class="lede">Paths a model holds must exist, and stay inside the folder they belong to.</p>
+<div class="code"><span class="l" data-now data-at="1"><span class="t">Files</span>&lt;Docset&gt;.<span class="k">Exist</span>(d =&gt; d.Pages)</span><span class="l" data-now data-at="2"><span class="t">Files</span>&lt;Docset&gt;.<span class="k">StayInside</span>(
+    d =&gt; d.Root, d =&gt; d.Pages.Concat(d.Images))</span></div>
+  </div>
+  <div class="stage">
+    <div class="fs">
+      <div class="root">
+        <span class="tag">/docs</span>
+        <div class="f">docset.yml</div>
+        <div class="f">index.md</div>
+        <div class="f">guide.md</div>
+        <div class="f ghost arrive" data-at="1">setup.md</div>
+        <div class="f d">img/</div>
+        <div class="f in2">logo.png</div>
+        <div class="escape" data-at="2">↘ img/../../secret.png resolves to /secret.png, outside</div>
+      </div>
+      <div class="card refs">
+        <h3>Docset <small>what docset.yml names</small></h3>
+        <div class="f"><span>index.md</span><span>page</span></div>
+        <div class="f"><span>guide.md</span><span>page</span></div>
+        <div class="f bad" data-at="1"><span>setup.md</span><span>page</span></div>
+        <div class="f"><span>img/logo.png</span><span>image</span></div>
+        <div class="f bad" data-at="2"><span>img/../../secret.png</span><span>image</span></div>
+      </div>
+    </div>
+    <div class="reports" style="grid-column:auto; margin-top: calc(var(--u) * 3)">
+      <div class="report arrive" data-at="1" data-gone="2"><div class="r"><span>Rule broken</span><span>pages-exist: '/docs/setup.md' does not exist.</span></div></div>
+      <div class="report arrive" data-at="2"><div class="r"><span>Rule broken</span><span>files-stay-in-the-docset: '/secret.png' is outside '/docs'.</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="beat solo" id="close">
+  <div class="copy">
+    <h2>One model. <em>One set of rules.</em></h2>
+  </div>
+  <div class="six">
+    <div class="card"><h3>Relations</h3><code>Unique · References · Acyclic · NoChains</code></div>
+    <div class="card"><h3>Time</h3><code>After · Then · Within · Never</code></div>
+    <div class="card"><h3>State machines</h3><code>Transitions · StateMachine · Mermaid</code></div>
+    <div class="card"><h3>Operations</h3><code>Idempotent · Monotonic · Conserves</code></div>
+    <div class="card"><h3>Values</h3><code>Validated → Result&lt;T&gt;</code></div>
+    <div class="card"><h3>Files</h3><code>Exist · StayInside · NotSymlink</code></div>
+  </div>
+</section>
+
+<script src="stage.js"></script>
+<script>
+// The machine beat: the token walks Pending → Confirmed → Shipped, one legal move per step.
+(() => {
+  const beat = document.getElementById("machine"), tok = document.getElementById("tok");
+  const at = { p: [85, 90], c: [375, 90], s: [665, 90] };
+  const where = ["p", "c", "s", "s", "s"];
+  beat.addEventListener("step", e => {
+    const s = e.detail, k = where[s];
+    tok.setAttribute("transform", `translate(${at[k][0]}, ${at[k][1] - 44})`);
+    beat.querySelectorAll(".st").forEach(g => g.classList.remove("here"));
+    beat.querySelector("#s-" + k).classList.add("here");
+    beat.querySelector("#e-pc").classList.toggle("lit", s >= 1);
+    beat.querySelector("#e-cs").classList.toggle("lit", s >= 2);
+  });
+  // stage.js has already shown the starting step; show it again now that this listener is on.
+  beat.dispatchEvent(new CustomEvent("step", { detail: +beat.dataset.step || 0 }));
+})();
+</script>
+</body>
+</html>

@@ -1,27 +1,51 @@
-# Scene 4: built on CsCheck, not instead of it. The same Order tested with plain CsCheck, every property by hand, beside
-# the one line that drives every axis the rules declare.
+# Scene 4: built on CsCheck. stage/cscheck.html, full bleed: CsCheck's engine underneath, what Entities adds on top
+# (first-class properties, nine axes, AutoTest), the rules as discoverable properties, and the one line that runs them.
 Import //reels/entities.reelpreset
-Screen code
+Open ../stage/cscheck.html
 
 Output //.artifacts/reel/scenes/04-one-line.mp4
+Set Browser chromium
 Set Viewport 1600x900
-Set FontSize 18
+Set Cursor off
+Set ClickRipples off
+Set WaitTimeout 20s
 
-Code //tests/Nullean.Entities.Quickstart.Tests/PlainCsCheckTests.cs at "Gen<OrderLine>"
+Hide
+Wait css:"#next"
+Sleep 1s
+Open ../stage/cscheck.html
+Wait css:"#layers.on"
+Show
 Say@skeptic "I already do property testing. I use CsCheck."
-Say "Good. So does Entities. Here's the order tested with plain CsCheck."
-Focus lines 29-37
-Say "Good code. But every property is written by hand: the inputs, the law, the comparison, for every rule you thought of."
-Focus off
-Split //tests/Nullean.Entities.Quickstart.Tests/QuickstartTests.cs at "Gen<OrderLine>"
-Link "Gen<Order> Orders" -> "Gen<Order> Orders" "the same CsCheck Gen"
-Say "With Entities, the generator stays. What goes is the property."
-Link "Cancelling_twice_is_cancelling_once" -> "EveryDeclaredAxisHolds" "declared as Idempotent"
-Link "No_operation_lowers_the_version" -> "EveryDeclaredAxisHolds" "declared as Monotonic"
-Link "The_total_is_never_negative" -> "EveryDeclaredAxisHolds" "declared as Always"
-Say "The rule is the property. One line runs a case for every axis the rules declare, against every public method that returns an order."
-Say@skeptic "Even one I add next month?"
-Say "Even that one. No new test code."
-Link off
-Split off
-Sleep 300ms
+Say@over "Good. Entities is built on CsCheck: its generators, its shrinking, its seeds. On top, it adds [e1] first-class properties, [e2] nine axes, [e3] and AutoTest. [done]"
+Wait [e1]
+Click css:"#next"
+Wait [e2]
+Click css:"#next"
+Wait [e3]
+Click css:"#next"
+Wait [done]
+Sleep 800ms
+
+Click css:"#next"
+Say@over "Every rule you declare is a named property with a shape, [shape] and the shape says which questions to ask. [all] A source generator gathers them, so nothing is written twice."
+Wait [shape]
+Click css:"#next"
+Wait [all]
+Click css:"#next"
+Sleep 2s
+
+Click css:"#next"
+Say@over "Then one line: [rules] your rules and your CsCheck generator. [ops] It finds the operations on the type, [axes] and runs every axis the rules declare. [kept] Every failure is shrunk by CsCheck, with a seed to replay it."
+Wait [rules]
+Click css:"#next"
+Wait [ops]
+Click css:"#next"
+Wait [axes]
+Click css:"#next"
+Wait [kept]
+Click css:"#next"
+Sleep 2500ms
+Say@skeptic "And a rule I add next month?"
+Say "Found, and tested. No new test code."
+Sleep 500ms
