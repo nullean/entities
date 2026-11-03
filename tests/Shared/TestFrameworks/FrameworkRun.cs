@@ -1,11 +1,12 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace Nullean.Entities.TestFrameworks;
 
 // Runs this test assembly again as a child process (every project here is a Microsoft.Testing.Platform executable), so a test can look at what the
 // framework itself discovered and reported: the number of tests listed, and which ones failed.
-public static class FrameworkRun
+public static partial class FrameworkRun
 {
 	public static async Task<(int ExitCode, string Output)> RunAsync(Assembly tests, bool broken, params string[] arguments)
 	{
@@ -37,6 +38,10 @@ public static class FrameworkRun
 			process.Kill(entireProcessTree: true);
 			throw new TimeoutException("the child test run did not finish in five minutes");
 		}
-		return (process.ExitCode, await stdout.ConfigureAwait(false) + await stderr.ConfigureAwait(false));
+		// a CI runner gets colored output even when redirected: strip the escape codes so the checks read the same text everywhere
+		return (process.ExitCode, Ansi().Replace(await stdout.ConfigureAwait(false) + await stderr.ConfigureAwait(false), ""));
 	}
+
+	[GeneratedRegex(@"\x1B\[[0-9;?]*[A-Za-z]")]
+	private static partial Regex Ansi();
 }
