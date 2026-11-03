@@ -20,7 +20,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Nullean.Entities.SourceGenerators;
 
-internal sealed record AnnotationEntry(string Name, string Expression);
+// FromAttribute: the rule is the meaning of a DataAnnotations attribute (not an implicit <Property>Required rule), so a DataAnnotations validator already reports it.
+internal sealed record AnnotationEntry(string Name, string Expression, bool FromAttribute = false);
 
 internal sealed record UnsupportedAnnotation(string Property, string Attribute, Location Location);
 
@@ -98,7 +99,8 @@ internal static class Annotations
 					result.Entries.Add(
 						new AnnotationEntry(
 							name,
-							$"global::Nullean.Entities.Constraints<{typeArgDisplay}>.Always(x => x.{property.Name}, {built.Predicate}, {Quote(built.Message)})"
+							$"global::Nullean.Entities.Constraints<{typeArgDisplay}>.Always(x => x.{property.Name}, {built.Predicate}, {Quote(built.Message)})",
+							FromAttribute: true
 						)
 					);
 				}

@@ -57,6 +57,22 @@ return SignUp.Constraints.Apply(current, change).ToHttpResult();
 `services.AddControllers().AddConstraintValidation()` validates registered action arguments into `ModelState`; an `[ApiController]` answers with its usual 400.
 `ModelState.AddViolations(violations, prefix)` is public for code that validates by hand; keys are `prefix.Member`.
 
+## AddValidation() or these filters
+
+.NET 10's own `builder.Services.AddValidation()` validates DataAnnotations on minimal API arguments. With [`[Constraints(ValidatableObject = true)]`](data-annotations.md#constraints-inside-dataannotations-validation)
+it runs the constraints too, with no package beyond `Nullean.Entities` and no registration per type. Pick by what you need:
+
+| | `AddValidation()` + `ValidatableObject = true` | `ValidateWith` / `ValidateConstraints` (this package) |
+|---|---|---|
+| Package | none beyond `Nullean.Entities` | `Nullean.Entities.AspNetCore` |
+| Attributes and constraints | attributes first; constraints only once every attribute passes | every broken rule at once, attributes included (they are rules of the set) |
+| Rules that are not about one member | reported under an empty key | keyed by the rule's name |
+| Companion sets (`[Constraints<T>]`), `Apply`, `Result<T>` mapping, exception handler | no | yes |
+| Also covers | MVC, Blazor forms, Options, `Validator.TryValidateObject` | minimal APIs and MVC (`AddConstraintValidation`) |
+
+Use `AddValidation()` when the app already validates DataAnnotations and the model can constrain itself; use these filters for a companion set, for one 400 that lists every broken
+rule, or for the `Apply` and `Result<T>` paths. Pick one per endpoint.
+
 ## Limits
 
 - `ValidateWith` takes the first handler argument of type `T`. `ValidateConstraints` looks up each argument by its exact runtime type, so a derived type needs its own registration.

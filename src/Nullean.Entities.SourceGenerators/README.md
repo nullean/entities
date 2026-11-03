@@ -84,9 +84,10 @@ error NECG001: 'ThingRules' has [Constraint] members but is not declared partial
 | `ReactiveConstraint<T>` members | A `ReactiveConstraintSet<T> All` with `IReactiveConstraintsFor<T>`; see [Nullean.Entities.Reactive](https://www.nuget.org/packages/Nullean.Entities.Reactive). |
 | DataAnnotations on `T` | Rules named `<property>-<attribute>`, such as `name-required` and `age-range`. |
 | A `required` or get-only non-nullable property | A null-only `<property>-required` rule (off with `ImplicitRequired = false`). |
+| `[Constraints(ValidatableObject = true)]` | `IValidatableObject`, so DataAnnotations validation (`Validator`, `AddValidation()`, MVC, Blazor, Options) runs the set's errors, minus the attribute rules it already checks. |
 | `[ConstraintIgnore]` | Leaves a member, property or method out. |
 
-Diagnostics: `NECG001` to `NECG007` are errors (not partial, not static, wrong type, a non-partial container, mixed kinds, inconsistent type argument, a member about another type). `NECG010` (an unsupported validation attribute) and `NECG020` (a method not used as an action) are Info.
+Diagnostics: `NECG001` to `NECG007` are errors (not partial, not static, wrong type, a non-partial container, mixed kinds, inconsistent type argument, a member about another type), and so are `NECG011` (`ValidatableObject = true` on a type that already has an `IValidatableObject.Validate`) and `NECG012` (`ValidatableObject = true` on a set about another type). `NECG010` (an unsupported validation attribute) and `NECG020` (a method not used as an action) are Info.
 
 ## Pitfalls and limits
 
@@ -95,7 +96,8 @@ Diagnostics: `NECG001` to `NECG007` are errors (not partial, not static, wrong t
 - Types must be `partial`, and so must every type that contains them. Nested and generic types are supported.
 - C# does not allow a type parameter in an attribute argument, so a generic companion declares a `Constraint<Box<T>>` field instead of using `[Constraints<Box<T>>]`.
 - Adding `required` or get-only members to a type under `[Constraints]` adds implicit `-required` rules to its generated set.
-- A validation attribute the generator does not know (`[Phone]`, a custom one, `IValidatableObject`) is reported as `NECG010`, not turned into a rule.
+- A validation attribute the generator does not know (`[Phone]`, a custom one) is reported as `NECG010`, not turned into a rule. A hand-written `IValidatableObject.Validate` is not read.
+- With `ValidatableObject = true`, DataAnnotations validators call the generated `Validate` only once every attribute passes. `AddValidation()` cannot see a generated interface: on a type with no validation attribute, write `: IValidatableObject` on the declaration (the generator supplies the method).
 - Annotations cover one property at a time. Cross-field rules, collections and sequential rules are `Constraint<T>` members.
 
 ## Next
@@ -191,6 +193,11 @@ just that the generator emits the text you'd expect.
   - **They reach into what the type holds.** The members that must be set on a nested object, on the items of a list or on the values of a dictionary get a rule too, named after the path
     (`environments-uri-required`, `owner-address-city-required`), reached null-safely (an absent holder says nothing about its members) up to three levels deep. The nested type needs no attribute.
     `ImplicitRequired = false` turns these off with the others.
+- **`ValidatableObject = true`** on `[Constraints]` (off by default) makes the type implement `IValidatableObject` with an explicit `Validate` that returns every error of `T.Constraints.Validate(this)` as a
+  `ValidationResult` keyed by `Violation.Member`. Left out: the rules generated from DataAnnotations attributes (the same validator checks the attributes, so they would be reported twice) and
+  warnings and hints. The implicit `<property>-required` rules are kept, since no attribute reports them. The clock is the `TimeProvider` from the `ValidationContext`'s services, or the system one.
+  A type that already has a `Validate` (or inherits one) is `NECG011`; a set about another type is `NECG012`. Listing `IValidatableObject` on the declaration without implementing it is allowed, and
+  is what `AddValidation()`'s own generator needs to see a type that has no validation attribute.
 - **`[Constraints<T>]`** on a companion class names the type its rules are about, so a companion with no hand-written rule still gets `T`'s annotations (and `T`'s `Actions`). A member about another type is `NECG007`.
 - **`Actions`** lists the entity's operations as data (`EntityActions<T>`), for test drivers that walk its states or run its operations. A public instance method with zero or one by-value argument is an action when it yields the next `T`:
   it returns `T`, or a **generic wrapper of `T`** (a `Result<T>` that carries diagnostics, a tuple) that has exactly one readable member of type `T`, which the action reads (`x.Close().Value`). With several members of type `T`

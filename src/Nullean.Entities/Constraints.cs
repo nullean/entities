@@ -1049,6 +1049,15 @@ public sealed class ConstraintsAttribute : Attribute
 	/// get-only auto property. Default true; a member with an explicit <c>[Required]</c> gets that attribute's rule instead, and <c>[ConstraintIgnore]</c> leaves a member out.
 	/// </summary>
 	public bool ImplicitRequired { get; set; } = true;
+
+	/// <summary>
+	/// Whether the generator also makes the type implement <see cref="System.ComponentModel.DataAnnotations.IValidatableObject"/>, so whatever runs DataAnnotations
+	/// validation (<c>Validator.TryValidateObject</c>, minimal API <c>AddValidation()</c>, MVC model binding, Blazor's <c>DataAnnotationsValidator</c>, Options
+	/// <c>ValidateDataAnnotations()</c>) also runs <c>Constraints.Validate</c>. It reports every error violation as a <c>ValidationResult</c> keyed by
+	/// <see cref="Violation.Member"/>, except the rules generated from DataAnnotations attributes, which those attributes already report; warnings and hints are left out.
+	/// Default false. Only for a type that constrains itself (NECG012), and not on a type that already implements <c>IValidatableObject</c> (NECG011).
+	/// </summary>
+	public bool ValidatableObject { get; set; }
 }
 
 /// <summary>

@@ -47,7 +47,7 @@ Each attribute means what DataAnnotations says it means:
 - An explicit `[Required]` also rejects an empty or blank string.
 - An empty string passes `[RegularExpression]`, and a pattern must match the **whole** string.
 - `[ConstraintIgnore]` on a property leaves its annotations out.
-- Any other validation attribute (`[Phone]`, a custom `ValidationAttribute`, `IValidatableObject`) is reported as the Info diagnostic `NECG010`, not skipped silently. Write those as a `Constraint<T>`.
+- Any other validation attribute (`[Phone]`, a custom `ValidationAttribute`) is reported as the Info diagnostic `NECG010`, not skipped silently. Write those as a `Constraint<T>`. A hand-written `IValidatableObject.Validate` is not read either.
 
 ### Members that must be set
 
@@ -85,6 +85,71 @@ SignUp.Constraints.Probe().NeverViolated.Should().BeEmpty();   // generated data
 
 `Probe` reports a rule the generated data never broke; for annotations that list is empty, because the boundary values break each one. [`AutoTest.For<SignUp>()`](../getting-started/index.md)
 runs the nine axes over the same rules and data. The examples on this page are tested in `tests/Nullean.Entities.CsCheck.Tests/DataAnnotationsPageTests.cs`.
+
+## Constraints inside DataAnnotations validation
+
+The other direction: make whatever already runs DataAnnotations validation run the constraints too. `[Constraints(ValidatableObject = true)]` makes the type implement
+`IValidatableObject`, so `Validator.TryValidateObject(..., validateAllProperties: true)`, minimal API `builder.Services.AddValidation()` (Microsoft.Extensions.Validation, .NET 10),
+MVC model binding, Blazor's `DataAnnotationsValidator` and Options `ValidateDataAnnotations()` report the hand-written rules next to the attributes, with no package beyond `Nullean.Entities`:
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+using Nullean.Entities;
+
+[Constraints(ValidatableObject = true)]
+public sealed partial class Booking
+{
+	[Required] public string? Guest { get; set; }
+	[Range(1, 10)] public int Nights { get; set; }
+	public DateOnly From { get; set; }
+	public DateOnly To { get; set; }
+
+	public static readonly Constraint<Booking> EndsAfterItStarts =
+		Constraints<Booking>.Always(b => b, b => b.To > b.From, "To must be after From", member: "To");
+}
+
+builder.Services.AddValidation();
+app.MapPost("/bookings", (Booking b) => TypedResults.Ok());
+```
+
+```text
+POST /bookings {"guest":"Ada","nights":2,"from":"2026-01-02","to":"2026-01-01"}
+HTTP/1.1 400 Bad Request
+
+{"title":"One or more validation errors occurred.","errors":{"To":["To must be after From"]}}
+```
+
+What the generated `Validate` reports:
+
+- Every **error** of `Booking.Constraints.Validate(this)`, as a `ValidationResult` keyed by `Violation.Member` (no member names when the rule has no member). Warnings and hints are
+  not validation failures and are left out.
+- **Not** the rules generated from the attributes (`guest-required`, `nights-range`): the attributes are validated by the same caller, and reporting them again would show each of
+  those errors twice.
+- **The implicit `<property>-required` rules are reported.** They come from `required` and get-only members, not from an attribute, so nothing else reports them. Like everywhere else
+  they are prerequisites: while one is broken, the other rules wait.
+- The clock for time-aware rules is the `TimeProvider` registered with the caller's services (`ValidationContext.GetService`), or the system clock.
+
+**The attributes go first.** `Validator.TryValidateObject`, `AddValidation()`, MVC and Options all call `IValidatableObject.Validate` only once every attribute on the object passes
+(checked by running each on .NET 10). A request that breaks `[Range]` and `EndsAfterItStarts` gets the range error; the constraint error comes once the range is fixed. Each error is
+reported once, never twice.
+
+**List the interface when the type has no attribute.** `AddValidation()` finds the types to validate with its own source generator, which cannot see code another generator adds. A type
+with at least one validation attribute is found anyway; a type with none is skipped silently and its constraints never run. Write the interface on the declaration and the generator
+supplies the method:
+
+```csharp
+[Constraints(ValidatableObject = true)]
+public sealed partial class Transfer : IValidatableObject
+{
+	public decimal Amount { get; set; }
+	public static readonly Constraint<Transfer> Positive = Constraints<Transfer>.Always(t => t.Amount, a => a > 0, "Amount must be positive");
+}
+```
+
+The option is off by default. It needs a type that constrains itself (a companion class is the error `NECG012`), and a type that already has its own `Validate` (or inherits one) is the
+error `NECG011`: call `T.Constraints.Validate(this)` from that method instead. The generated method is plain C#, no reflection. These examples are tested in
+`tests/Nullean.Entities.AspNetCore.Tests/ValidatableObjectEndpointTests.cs` (behind `AddValidation()`) and `tests/Nullean.Entities.Tests/ValidatableObjectTests.cs` (`Validator.TryValidateObject`).
+For when to use this or the `Nullean.Entities.AspNetCore` filters, see [ASP.NET Core](aspnetcore.md#addvalidation-or-these-filters).
 
 ## Where DataAnnotations stop
 

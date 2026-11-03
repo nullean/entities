@@ -181,7 +181,7 @@ The kind of rule decides the test: a state rule becomes an invariant test, `Idem
 - `[Constraints]` and `[Constraint]` need a `partial` type (and `partial` containing types) and `static` members. A mistake is a build error (`NECG001` and its siblings) that generates nothing for that type, not a warning.
 - Check values in a factory (`Validated`), not in a constructor: `with` copies and deserialisers bypass constructors, and a constructor that reads a static rule set depends on static initialisation order.
 - Constraints are synchronous. A rule that needs a service call is a mutation that makes the call plus a constraint on its result.
-- A validation attribute the generator does not know (`[Phone]`, a custom one, `IValidatableObject`) gets the Info diagnostic `NECG010`. Write that rule as a `Constraint<T>`.
+- A validation attribute the generator does not know (`[Phone]`, a custom one) gets the Info diagnostic `NECG010`. Write that rule as a `Constraint<T>`.
 - `StateMachine<TState>` finds union and record cases by reflection and is marked `[RequiresUnreferencedCode]`. The rest of this package, including generated constraints, is trim and AOT clean.
 - `Nullean.Entities.CsCheck` builds generated data by reflection: use it in tests, not in a published app.
 - `Eventually` and `Required()` temporal rules are decided only when the run finishes, so they are for a bounded run.
@@ -736,7 +736,7 @@ annotations on `Order`, plus any `Constraint<Order>` field you add. A plain `[Co
 Names are the kebab-case of `<Property><Attribute>` (`name-required`, `age-range`, `reference-pattern`); if that collides with a constraint you declared, yours keeps the name and the annotation's gets an `Annotation` suffix.
 Each attribute means what DataAnnotations says it means: null passes everything except `[Required]`, an empty string passes `[RegularExpression]`, and a pattern must match the whole string.
 The generated code is plain C# with no `Validator` call and no reflection, so it is trim and AOT safe. `[ConstraintIgnore]` on a property leaves its annotations out. Any other validation
-attribute (`[Phone]`, a custom one, `IValidatableObject`) is reported as an Info diagnostic, `NECG010`, not skipped silently; write those as a `Constraint<T>`. Cross-field rules, collections and
+attribute (`[Phone]`, a custom one) is reported as an Info diagnostic, `NECG010`, not skipped silently; write those as a `Constraint<T>`. Cross-field rules, collections and
 sequential rules still need constraints: annotations cover one property at a time. The generator in `Nullean.Entities.CsCheck` reads the same attributes and draws each rule's boundary: see [DataAnnotations](https://entities.nullean.net/integration/data-annotations/).
 
 ### Members that must be set are required too
@@ -747,6 +747,16 @@ A non-nullable reference property that has to be set also gets a null-only rule 
 property. `[ConstraintIgnore]` on the property leaves it out, and `[Constraints<Order>(ImplicitRequired = false)]` (or `[Constraints(ImplicitRequired = false)]`) turns the implicit rules off for the
 set. Positional record parameters are public init properties, not get-only, so they get no implicit rule: annotate them with `[Required]`. This is a change for a type that already used
 `required` or get-only members under `[Constraints]` / `[Constraints<T>]`: its generated set now contains these extra rules.
+
+### Constraints inside DataAnnotations validation
+
+`[Constraints(ValidatableObject = true)]` (off by default) makes the type implement `IValidatableObject`, so whatever runs DataAnnotations validation runs its constraints too:
+`Validator.TryValidateObject(..., validateAllProperties: true)`, minimal API `builder.Services.AddValidation()`, MVC model binding, Blazor's `DataAnnotationsValidator`, Options
+`ValidateDataAnnotations()`. The generated `Validate` returns every error of `T.Constraints.Validate(this)` as a `ValidationResult` keyed by `Violation.Member`, except the rules generated
+from the attributes (the validator checks those itself, and would otherwise report them twice). Implicit `<property>-required` rules are included, warnings and hints are not. Those
+validators call `Validate` only once every attribute passes. `AddValidation()` cannot see a generated interface, so a type with no validation attribute must list `: IValidatableObject`
+itself (the generator supplies the method). A type that already has a `Validate` is the error `NECG011`; a companion set is `NECG012`. See
+[DataAnnotations](https://entities.nullean.net/integration/data-annotations/#constraints-inside-dataannotations-validation).
 
 ## Rules over collections and graphs
 

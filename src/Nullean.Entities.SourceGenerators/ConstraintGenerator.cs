@@ -111,11 +111,13 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		found.AddRange(AutoMembers(type));
 		// A [Constraints] type that declares no Constraint<T> field but carries DataAnnotations still gets a set: the annotations are the rules.
 		var implicitRequired = ImplicitRequiredOf(ctx);
-		if (found.Count == 0 && Annotations.For(type, "T", [], implicitRequired).Entries.Count > 0)
+		var validatableObject = ValidatableObjectOf(ctx);
+		// ValidatableObject = true is never dropped silently: a type with no rule yet still gets its (empty) set and the interface.
+		if (found.Count == 0 && (validatableObject || Annotations.For(type, "T", [], implicitRequired).Entries.Count > 0))
 		{
 			found.Add(new MemberInfo(type, type, "", true, type.Locations.FirstOrDefault() ?? Location.None, AnnotationOnly: true));
 		}
-		return [.. found.Select(m => m with { ImplicitRequired = implicitRequired })];
+		return [.. found.Select(m => m with { ImplicitRequired = implicitRequired, ValidatableObject = validatableObject })];
 	}
 
 	/// <summary>
@@ -147,6 +149,10 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	// ImplicitRequired = false on [Constraints] / [Constraints<T>] turns off the <Property>Required rules for required and get-only members.
 	private static bool ImplicitRequiredOf(GeneratorAttributeSyntaxContext ctx) =>
 		!ctx.Attributes[0].NamedArguments.Any(n => n.Key == "ImplicitRequired" && n.Value.Value is false);
+
+	// ValidatableObject = true on [Constraints] makes the type implement IValidatableObject over its own set.
+	private static bool ValidatableObjectOf(GeneratorAttributeSyntaxContext ctx) =>
+		ctx.Attributes[0].NamedArguments.Any(n => n.Key == "ValidatableObject" && n.Value.Value is true);
 
 	private static IEnumerable<MemberInfo> AutoMembers(INamedTypeSymbol type) =>
 		type
@@ -314,8 +320,24 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 					);
 				}
 			}
+			var validatableObject = false;
+			if (groupMembers.Any(m => m.ValidatableObject))
+			{
+				if (kind != ConstraintKind.Sync || !SymbolEqualityComparer.Default.Equals(containingType, typeArgument))
+				{
+					spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.ValidatableObjectNeedsSelf, anchor, containingType.Name));
+				}
+				else if (ImplementsValidate(containingType))
+				{
+					spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.AlreadyValidatableObject, anchor, containingType.Name));
+				}
+				else
+				{
+					validatableObject = true;
+				}
+			}
 			var source = kind == ConstraintKind.Sync
-				? GenerateSync(containingType, typeArgument, orderedMembers, annotations, spc.ReportDiagnostic)
+				? GenerateSync(containingType, typeArgument, orderedMembers, annotations, spc.ReportDiagnostic, validatableObject)
 				: GenerateReactive(containingType, typeArgument, orderedMembers);
 
 			spc.AddSource(HintName(containingType), SourceText.From(source, Encoding.UTF8));
@@ -368,7 +390,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		ITypeSymbol typeArgument,
 		ImmutableArray<MemberInfo> members,
 		AnnotationResult? annotations,
-		Action<Diagnostic> report
+		Action<Diagnostic> report,
+		bool validatableObject = false
 	)
 	{
 		var selfAttach = SymbolEqualityComparer.Default.Equals(type, typeArgument);
@@ -385,7 +408,9 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		// TypeConstraints struct instead — see NestedTypeConstraints for why it's never on the spec
 		// class's own base list, even when the class isn't `static`.
 		var (baseList, nested) = selfAttach
-			? ($" : global::Nullean.Entities.IHaveConstraints<{type.Name}{TypeParameters(type)}>", null)
+			? ($" : global::Nullean.Entities.IHaveConstraints<{type.Name}{TypeParameters(type)}>"
+			// The type may list the interface itself (so other generators, which cannot see this one's output, know about it); then only Validate is added.
+			+ (validatableObject && !Lists(type, ValidatableObjectInterface) ? ", global::System.ComponentModel.DataAnnotations.IValidatableObject" : ""), null)
 			: (string.Empty, NestedTypeConstraints(
 				type,
 				"global::Nullean.Entities.IConstraintsFor",
@@ -411,8 +436,47 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			],
 			nested,
 			actions.Source,
-			annotations?.Fields
+			annotations?.Fields,
+			validatableObject ? ValidateMethod(type, annotations) : null
 		);
+	}
+
+	private const string ValidatableObjectInterface = "System.ComponentModel.DataAnnotations.IValidatableObject";
+
+	private static bool Lists(INamedTypeSymbol type, string interfaceName) => type.AllInterfaces.Any(i => i.ToDisplayString() == interfaceName);
+
+	// Whether the type, or a base type, already has a Validate for IValidatableObject. Listing the interface without implementing it is not: that is the
+	// way to make it visible to another generator (Microsoft.Extensions.Validation's), and this generator then writes the method.
+	private static bool ImplementsValidate(INamedTypeSymbol type) =>
+		type.AllInterfaces.FirstOrDefault(i => i.ToDisplayString() == ValidatableObjectInterface) is { } validatable
+		&& validatable.GetMembers("Validate").FirstOrDefault() is { } validate
+		&& type.FindImplementationForInterfaceMember(validate) is not null;
+
+	// IValidatableObject.Validate over the type's own set: every error violation becomes a ValidationResult keyed by its member. The rules generated from
+	// DataAnnotations attributes are skipped, because the attributes themselves are validated by the same caller: reporting them here too would report
+	// each of those errors twice. The implicit <Property>Required rules are not attributes, so nothing else reports them, and they stay. Warnings and hints
+	// are not validation failures. A TimeProvider registered with the caller's services is used for the time-aware rules.
+	private static string ValidateMethod(INamedTypeSymbol type, AnnotationResult? annotations)
+	{
+		const string Da = "global::System.ComponentModel.DataAnnotations";
+		var skipped = (annotations?.Entries ?? [])
+			.Where(e => e.FromAttribute)
+			.Select(e => Annotations.Quote(global::Nullean.Entities.ConstraintName.Of(e.Name)))
+			.ToList();
+		var skip = skipped.Count == 0 ? "" : $" || violation.ConstraintId is {string.Join(" or ", skipped)}";
+		return $"global::System.Collections.Generic.IEnumerable<{Da}.ValidationResult> {Da}.IValidatableObject.Validate({Da}.ValidationContext validationContext)\n"
+		+ "    {\n"
+		+ $"        var results = new global::System.Collections.Generic.List<{Da}.ValidationResult>();\n"
+		+ $"        foreach (var violation in {type.Name}{TypeParameters(type)}.Constraints.Validate(this, validationContext.GetService(typeof(global::System.TimeProvider)) as global::System.TimeProvider))\n"
+		+ "        {\n"
+		+ $"            if (violation.Severity != global::Nullean.Entities.Severity.Error{skip})\n"
+		+ "            {\n"
+		+ "                continue;\n"
+		+ "            }\n"
+		+ $"            results.Add(violation.Member is {{ }} member ? new {Da}.ValidationResult(violation.Message, new[] {{ member }}) : new {Da}.ValidationResult(violation.Message));\n"
+		+ "        }\n"
+		+ "        return results;\n"
+		+ "    }";
 	}
 
 	// What the generator found when it looked at T's methods for actions: the source of the Actions property (null when there are none), and the info
@@ -658,7 +722,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		IEnumerable<string> args,
 		string? nestedType = null,
 		string? actionsMember = null,
-		IEnumerable<string>? staticFields = null
+		IEnumerable<string>? staticFields = null,
+		string? extraMember = null
 	)
 	{
 		var ns = type.ContainingNamespace.IsGlobalNamespace ? null : type.ContainingNamespace.ToDisplayString();
@@ -704,6 +769,11 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		{
 			sb.AppendLine();
 			sb.AppendLine($"{indent}    {actionsMember}");
+		}
+		if (extraMember is not null)
+		{
+			sb.AppendLine();
+			sb.AppendLine($"{indent}    {extraMember.Replace("\n", "\n" + indent)}");
 		}
 		if (nestedType is not null)
 		{
@@ -755,6 +825,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		Location Location,
 		bool AnnotationOnly = false,
 		ITypeSymbol? AnnotationType = null,
-		bool ImplicitRequired = true
+		bool ImplicitRequired = true,
+		bool ValidatableObject = false
 	);
 }
