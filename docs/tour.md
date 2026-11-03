@@ -288,7 +288,7 @@ compile time. See [Nullean.Entities.CsCheck](src/Nullean.Entities.CsCheck/README
 
 - `Unique`, `References`, `Acyclic` and `NoChains` express the rules a real domain has over collections and graphs (duplicate ids, dangling references, include cycles, redirect chains).
 - DataAnnotations (`[Required]`, `[Range]`, `[StringLength]`, ...) on a `[Constraints]` type become generated constraints, so an annotated model is already a set you can test.
-- [`docs/integration/`](docs/integration/index.md) has a page per integration: ASP.NET Core, options, Argh, Blazor forms, DataAnnotations, Bogus, file systems, Rx, Marten, EF Core and MassTransit.
+- [`docs/integration/`](docs/integration/index.md) has a page per integration: ASP.NET Core, options, Argh, System.CommandLine, Blazor forms, DataAnnotations, Bogus, file systems, Rx, Marten, EF Core and MassTransit.
 - The core and Reactive packages are trim and AOT clean, and a NativeAOT build of both is part of the repository's own build (`./build.sh aot`).
 
 ## Type-state machines
@@ -426,6 +426,7 @@ Eight console apps in [`examples/Apps`](examples/Apps), each a `Program.cs` that
 | `Nullean.Entities.AspNetCore` | *Optional.* Endpoint filters, exception handler, result mapping and an MVC filter that answer violations with a 400 `ValidationProblem` | `Nullean.Entities.Extensions.DependencyInjection`, ASP.NET Core |
 | `Nullean.Entities.Argh` | *Optional.* `ArghConstraints.Register<T>()`: a [Nullean.Argh](https://github.com/nullean/argh) command's option objects are validated against constraints and reported as `Error: --flag: message` | `Nullean.Entities`, `Nullean.Argh.Interfaces` ≥ 0.21 |
 | `Nullean.Entities.Blazor` | *Optional.* `<ConstraintValidator Constraints="..." />`: an `EditForm` validator that shows violations under each field (`ValidationMessage`) and in `ValidationSummary` | `Nullean.Entities`, `Microsoft.AspNetCore.Components.Forms` ≥ 10.0 |
+| `Nullean.Entities.SystemCommandLine` | *Optional.* `command.ValidateConstraints(bind)`: a System.CommandLine command's options are checked before its action runs and reported like a parse error, `--option: message` | `Nullean.Entities`, `System.CommandLine` 2.0 |
 | `Nullean.Entities.CsCheck.AutoBogus` | *Optional.* An AutoBogus-backed generator for teams that already configure `AutoFaker` | `Nullean.Entities.CsCheck`, `Soenneker.Utils.AutoBogus` |
 
 ```sh
