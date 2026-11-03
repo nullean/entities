@@ -246,6 +246,58 @@ public static class StateMachineSpecExtensions
 		return null;
 	}
 
+	/// <summary>
+	/// <see cref="ConformTo{TState, TTrigger, TEntity}"/> on every transition of the machine instead of on sampled walks: each transition is applied
+	/// to an entity brought to its state by a shortest path, so a divergence is reported with the fewest steps that reach it.
+	/// </summary>
+	public static EntitySpecReport ConformToExhaustive<TState, TTrigger, TEntity>(
+		this StateMachine<TState, TTrigger> machine,
+		TEntity initial,
+		Func<TEntity, TState> stateOf,
+		Action<string>? writeLine = null,
+		params (TTrigger Trigger, Func<TEntity, TEntity> Apply)[] bindings
+	) where TState : notnull where TTrigger : notnull
+	{
+		RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(initial));
+		var byName = bindings.ToDictionary(b => Convert.ToString(b.Trigger, System.Globalization.CultureInfo.InvariantCulture)!, b => b.Apply);
+		return BuildSpec(machine, includeTimeouts: false)
+			.ConformExhaustive(
+				() => new EntityHolder<TEntity>(initial),
+				(holder, step) =>
+				{
+					holder.Entity = byName[step.Action](holder.Entity);
+					return Diverged(stateOf(holder.Entity), step.Action, step.Before, step.After);
+				},
+				writeLine
+			);
+	}
+
+	/// <summary><see cref="ConformToExhaustive{TState, TTrigger, TEntity}"/> for a class that mutates in place: a fresh entity from <paramref name="create"/> per transition.</summary>
+	public static EntitySpecReport ConformToMutableExhaustive<TState, TTrigger, TEntity>(
+		this StateMachine<TState, TTrigger> machine,
+		Func<TEntity> create,
+		Func<TEntity, TState> stateOf,
+		Action<string>? writeLine = null,
+		params (TTrigger Trigger, Action<TEntity> Apply)[] bindings
+	) where TState : notnull where TTrigger : notnull
+	{
+		RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(create()));
+		var byName = bindings.ToDictionary(b => Convert.ToString(b.Trigger, System.Globalization.CultureInfo.InvariantCulture)!, b => b.Apply);
+		return BuildSpec(machine, includeTimeouts: false)
+			.ConformExhaustive(
+				() => new EntityHolder<TEntity>(create()),
+				(holder, step) =>
+				{
+					byName[step.Action](holder.Entity);
+					return Diverged(stateOf(holder.Entity), step.Action, step.Before, step.After);
+				},
+				writeLine
+			);
+	}
+
+	private static string? Diverged<TState>(TState actual, string action, TState before, TState after) =>
+		EqualityComparer<TState>.Default.Equals(actual, after) ? null : $"after {action} in {before} the machine says {after}, but the entity is in {actual}";
+
 	/// <summary><see cref="ConformTo{TState, TTrigger, TEntity}"/> for a class that mutates in place: a fresh entity per walk from <paramref name="create"/>.</summary>
 	public static EntitySpecReport ConformToMutable<TState, TTrigger, TEntity>(
 		this StateMachine<TState, TTrigger> machine,

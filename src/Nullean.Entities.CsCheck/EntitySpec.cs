@@ -443,6 +443,60 @@ public sealed class EntitySpec<T>
 			iter: iter
 		);
 
+	/// <summary>
+	/// <see cref="Conform{TSut}(Func{TSut}, Func{TSut, EntityStep{T}, string}, Action{string}, int, int, string, long, int, int)"/> on every transition
+	/// of the reachable state space instead of on sampled walks: each transition is checked down a shortest path from the start, so a divergence is
+	/// reported with the fewest steps that reach it. Needs a space that closes within <paramref name="maxStates"/>, as <see cref="Exhaustive"/> does.
+	/// With <paramref name="clone"/>, a transition is one step on a copy of the implementation that reached its state, instead of a replay from
+	/// <paramref name="create"/>; a copy must share nothing a step changes.
+	/// </summary>
+	public EntitySpecReport ConformExhaustive<TSut>(
+		Func<TSut> create,
+		Func<TSut, EntityStep<T>, string?> apply,
+		Action<string>? writeLine = null,
+		int maxStates = 100_000,
+		int maxDepth = int.MaxValue,
+		Func<TSut, TSut>? clone = null
+	)
+	{
+		EntitySpecReport? last = null;
+		foreach (var start in Starts())
+		{
+			CheckStart(start);
+			var (spec, domains) = Build(start, autoFaults: false);
+			last = EntitySpecReport.From(
+				SampleCall.Run(() =>
+						spec.ConformExhaustive(create, (sut, t) => apply(sut, ToStep(t, domains)), writeLine, maxStates, maxDepth, clone: clone)
+				)
+			);
+		}
+		return last!;
+	}
+
+	/// <summary>
+	/// Shorthand for <see cref="ConformExhaustive{TSut}(Func{TSut}, Func{TSut, EntityStep{T}, string}, Action{string}, int, int, Func{TSut, TSut})"/>:
+	/// <paramref name="apply"/> performs the step on the implementation, then <paramref name="agrees"/> compares it to the entity's new state.
+	/// </summary>
+	public EntitySpecReport ConformExhaustive<TSut>(
+		Func<TSut> create,
+		Action<TSut, EntityStep<T>> apply,
+		Func<TSut, T, bool> agrees,
+		Action<string>? writeLine = null,
+		int maxStates = 100_000
+	) =>
+		ConformExhaustive(
+			create,
+			(sut, step) =>
+			{
+				apply(sut, step);
+				return agrees(sut, step.After)
+					? null
+					: $"implementation disagrees with the entity after {step.Action}({step.Argument}); expected {_print(step.After)}";
+			},
+			writeLine,
+			maxStates
+		);
+
 	/// <summary>The two actions give the same entity in either order, from every reachable state and for every argument pair.</summary>
 	public void Commutes(string first, string second, long iter = -1, string? seed = null)
 	{

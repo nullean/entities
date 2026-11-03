@@ -158,6 +158,48 @@ public class DeclaredMachineTests
 			.NotBeNull();
 
 	[Test]
+	public void A_faithful_entity_conforms_to_every_transition_of_the_machine()
+	{
+		var immutable = Machine.ConformToExhaustive(
+			Door.New(),
+			d => d.State,
+			bindings: [("Open", d => d.Open()), ("Close", d => d.Close()), ("Lock", d => d.Lock()), ("Unlock", d => d.Unlock())]
+		);
+		var mutable = Machine.ConformToMutableExhaustive(
+			() => new MutableDoor(),
+			d => d.State,
+			bindings: [("Open", d => d.Open()), ("Close", d => d.Close()), ("Lock", d => d.Lock()), ("Unlock", d => d.Unlock())]
+		);
+
+		immutable.Closed.Should().BeTrue();
+		immutable.ConformedTransitions.Should().BeGreaterThan(0);
+		mutable.ConformedTransitions.Should().Be(immutable.ConformedTransitions);
+	}
+
+	[Test]
+	public void Every_transition_of_the_machine_finds_a_divergence_with_the_fewest_steps()
+	{
+		var act = () =>
+			Machine.ConformToExhaustive(
+				Door.New(),
+				d => d.State,
+				bindings: [
+					("Open", d => d.Open()),
+					("Close", d => d.Close()),
+					("Lock", d => d.State is DoorState.Closed or DoorState.Open ? d with { State = DoorState.Locked } : d),
+					("Unlock", d => d.Unlock()),
+				]
+			);
+
+		// no trimming and no retries: the exhaustive check reaches Open by its shortest path, then locks it
+		act.Should()
+			.Throw<Exception>()
+			.Which.Message.Should()
+			.Contain("diverged from the specification at step 2")
+			.And.Contain("after Lock in Open the machine says Open, but the entity is in Locked");
+	}
+
+	[Test]
 	public void An_entity_that_does_something_the_machine_forbids_is_caught()
 	{
 		// the lock "works" on an open door: the machine only allows locking a closed one
