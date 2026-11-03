@@ -71,6 +71,19 @@ await AutoTest.For(OrderConstraints.Instance, orders).RunAsync();
 
 Have you ever tested whether a retry changes state, whether arrival order changes the output, or whether a version can go back? Most teams have tested two or three of the nine. The other six are where the bugs that reach production live, because nobody thought to look.
 
+## Rules an agent can read
+
+An agent that changes a codebase needs to know what must stay true, and it needs to find out when it broke something. Rules held in `if` statements give it neither: it cannot ask which rules an `Order` has, and nothing fails until a test someone remembered to write.
+
+A rule declared with {{product}} gives it both:
+
+- **A list it can read first.** `OrderConstraints.All` holds every rule of the type, each with a name and a sentence that says what must be true.
+- **Tests nobody has to write.** The shape of each rule picks its test, so a change the agent makes is checked on every axis the rules declare, including the ones neither of you thought of.
+- **A failure it can act on.** A report names the rule, the operation and the value it started from, states the law, and arrives shrunk to the smallest case with a seed that replays it.
+- **No green that checked nothing.** If the generated inputs never reached a rule, the test fails, so "the tests pass" means the rules were exercised.
+
+The specification is the code, so it cannot drift from what the agent reads.
+
 ## What it is not
 
 It is not a replacement for your types or for example tests. It does not do I/O. It does not guess your rules: you decide what must be true, which is the part that needs thinking about the domain. It takes over the rest: writing the test, choosing the inputs, and checking that they reached the rule. See [known limitations](known-limitations.md).

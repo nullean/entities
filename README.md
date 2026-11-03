@@ -1,6 +1,6 @@
 # Nullean.Entities
 
-![Nullean.Entities: rules as named values for .NET](docs/images/png/entities-social-card.png)
+![Nullean.Entities: executable specifications for .NET](docs/images/png/entities-social-card.png)
 
 **Types hold data. Nothing constrains it beyond its type.**
 

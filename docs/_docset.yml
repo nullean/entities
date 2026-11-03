@@ -72,4 +72,5 @@ toc:
     children:
       - file: index.md
       - file: cscheck.md
+      - file: prior-art.md
   - file: known-limitations.md
