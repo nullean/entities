@@ -36,12 +36,19 @@ python3 -I "$root/scripts/docs-pages.py" "$out" "$root/docs" "$prefix" "images/e
 # left by an earlier run of this script is identical, so it passes.
 for entry in "$root"/docs/landing/*; do
   name="${entry##*/}"
-  if [[ "$name" != "index.html" && -e "$out/$name" ]] && ! diff -rq "$entry" "$out/$name" > /dev/null 2>&1; then
+  if [[ "$name" != "index.html" && -e "$out/$name" ]] && ! diff -rq -x index.html "$entry" "$out/$name" > /dev/null 2>&1; then
     echo "docs: docs/landing/$name would overwrite docs-builder's $name" >&2
     exit 1
   fi
 done
 cp -R "$root/docs/landing/." "$out/"
+# Pages serves css and js with a four-hour cache, so after a deploy a browser could pair new HTML with an old
+# stylesheet. The landing pages ask for them by a hash of their content instead: a change is a new URL.
+ver="$(cat "$root"/docs/landing/tokens.css "$root"/docs/landing/styles.css "$root"/docs/landing/app.js | shasum | cut -c1-10)"
+for page in "$out/index.html" "$out/tour/index.html"; do
+  sed -e "s|href=\"tokens.css\"|href=\"tokens.css?v=$ver\"|" -e "s|href=\"styles.css\"|href=\"styles.css?v=$ver\"|" \
+    -e "s|src=\"app.js\"|src=\"app.js?v=$ver\"|" "$page" > "$page.tmp" && mv "$page.tmp" "$page"
+done
 cp "$root/docs/robots.txt" "$out/robots.txt"
 # docs-builder ships JetBrains Mono and Inter in ds.css, not Space Grotesk; the theme's headings need it.
 mkdir -p "$out/fonts" && cp "$root"/docs/fonts/*.woff2 "$out/fonts/"
