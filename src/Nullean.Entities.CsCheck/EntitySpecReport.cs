@@ -49,6 +49,12 @@ public sealed class EntitySpecReport
 	/// <summary>For a sampled check: the steps taken over all walks.</summary>
 	public long StepsWalked { get; private init; }
 
+	/// <summary>For <c>ConformExhaustive</c>: the states whose transitions were checked against the implementation.</summary>
+	public int ConformedStates { get; private init; }
+
+	/// <summary>For <c>ConformExhaustive</c>: the transitions checked against the implementation.</summary>
+	public long ConformedTransitions { get; private init; }
+
 	/// <summary>Anything CsCheck wants to add, such as why a search stopped.</summary>
 	public string? Note { get; private init; }
 
@@ -76,6 +82,8 @@ public sealed class EntitySpecReport
 			Pruned = report.Pruned,
 			TracesWalked = report.TracesWalked,
 			StepsWalked = report.StepsWalked,
+			ConformedStates = report.ConformedStates,
+			ConformedTransitions = report.ConformedTransitions,
 			Note = report.Note,
 			NeverTriggered = [.. report.NeverTriggered],
 			NeverFired = [.. report.NeverFired],

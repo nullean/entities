@@ -38,6 +38,7 @@ var spec = OrderConstraints.Instance
 | `spec.Snapshot(expected)` | Hashes the state graph. Pass `0` once and copy the hash from the failure; it changes only when behaviour does. |
 | `spec.Faults()` | Mutation testing: breaks each action in turn (or the faults you `Fault(...)`), reports any no rule catches. |
 | `spec.Conform(() => new Repo(), (r, step) => r.Apply(step), (r, expected) => r.Get() == expected)` | Same walks drive a real implementation and the entity; compared after every step. |
+| `spec.ConformExhaustive(() => new Repo(), (r, step) => r.Apply(step), (r, expected) => r.Get() == expected)` | The same comparison on every transition of the reachable space, each reached by a shortest path, so a divergence is reported with the fewest steps. Needs a space that closes, as `Exhaustive()` does; `clone:` steps a copy instead of replaying the path. |
 | `spec.Commutes("A", "B")` / `spec.Idempotent("A")` | Laws, from every reachable state and for every argument. |
 | `spec.States()` | A `Gen<T>` of entities reached by running actions: valid by construction, shrinks to the shortest action sequence. |
 | `.StepScoped("AddLine", set)` | A rule that holds for one action only. |
@@ -122,7 +123,9 @@ state the machine says. It fails in two distinct ways, both useful:
 - **A divergence** ("after Resolve in Open the machine says Open, but the entity is in Resolved"): the entity does something the machine forbids.
   `SupportTicket.Resolve()` is unguarded, and only `Apply` stops it; conformance sees the method, not `Apply`.
 
-`ConformToMutable(create, stateOf, bindings: [(trigger, d => d.Open())])` is the same for a class that changes in place. Timeouts (`After`) are
+`ConformToMutable(create, stateOf, bindings: [(trigger, d => d.Open())])` is the same for a class that changes in place. `ConformToExhaustive` and
+`ConformToMutableExhaustive` check every transition of the machine instead of sampled walks, each down a shortest path, so a divergence comes out
+with the fewest steps that reach it on the first run. Timeouts (`After`) are
 explored by `Spec()`; conformance does not test them because that needs a clock (use `ManualTimeProvider` with a temporal rule).
 
 Mermaid in, machine out:
