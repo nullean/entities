@@ -786,13 +786,12 @@ footer { border-top: 1px solid var(--line-tint-soft); padding-block: var(--space
 .loses li::before { content: "✕"; position: absolute; left: 0; color: var(--fail); }
 .loses b { color: var(--text); font-weight: 600; }
 
-/* ---------- home: one rule, five readers ---------- */
-.fan.five { display: none; }
-.jobs.five .job h3 { font-size: 1rem; }
-.jobs.five .job p { font-size: .82rem; }
-.jobs.five .job pre { white-space: pre-wrap; }
-@media (min-width: 900px) { .jobs.five { margin-top: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); } }
-@media (min-width: 1180px) { .fan.five { display: block; } .jobs.five { margin-top: 0; grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+/* ---------- home: one rule, six readers ---------- */
+.fan.six { display: none; }
+.jobs.six .job h3 { font-size: 1rem; }
+.jobs.six .job p { font-size: .82rem; }
+.jobs.six .job pre { white-space: pre-wrap; }
+@media (min-width: 900px) { .fan.six { display: block; } .jobs.six { margin-top: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
 /* ---------- home: model your world ---------- */
 .world { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); margin-top: var(--space-6); }
