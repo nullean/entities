@@ -133,13 +133,18 @@ public partial class AutoGenCatalogTests
 	[Test]
 	public void A_failing_property_shrinks_toward_a_small_value()
 	{
-		var act = () => GenAuto.Of<Item>(AutoMode.Plausible).Sample(i => i.Name.Length <= 3, seed: "0N0XIzNsQ0O2", iter: 2_000, threads: 1);
+		// One field, so the value is the whole size CsCheck shrinks. On a record with several fields CsCheck minimises their combined size and no
+		// one field is sure to get small: a bound on Item.Name failed about 1 run in 100, on CsCheck 4.9.1 and 5.0.1 alike, and Item.Quantity
+		// ended anywhere from 4 to 98. Here it reaches the smallest failing value every time (60 of 60 runs).
+		var act = () => GenAuto.Of<Counted>(AutoMode.Plausible).Sample(c => c.Quantity <= 3, seed: "0N0XIzNsQ0O2", iter: 2_000, threads: 1);
 
 		var message = act.Should().Throw<CsCheckException>().Which.Message;
-		var name = NameInMessage().Match(message).Groups[1].Value;
-		name.Length.Should().BeInRange(4, 20);
+		var quantity = int.Parse(QuantityInMessage().Match(message).Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+		quantity.Should().Be(4);
 	}
 
-	[GeneratedRegex("Name = ([^,]*),")]
-	private static partial Regex NameInMessage();
+	[GeneratedRegex("Quantity = ([0-9]+)")]
+	private static partial Regex QuantityInMessage();
 }
+
+internal sealed record Counted(int Quantity);
