@@ -1,5 +1,4 @@
-# Scene 5: one line, nine axes. The home page's axes table: pressing a row plays the bug that axis catches. Then the
-# shrink demo: a failure reduced to its smallest case, with a seed. Recorded against the landing branch's build served
+# Scene 5: one line, nine axes. The home page's axes table: pressing a row plays the bug that axis catches. Recorded against the landing branch's build served
 # on 127.0.0.1:8765 (README.md).
 Import //reels/entities.reelpreset
 Open http://127.0.0.1:8765/index.html#questions
@@ -43,12 +42,3 @@ Click css:"#qtable tbody tr:nth-child(9) .qbtn"
 Wait [done]
 Sleep 600ms
 
-Hide
-Open http://127.0.0.1:8765/index.html#reports
-# It shrinks once by itself when it scrolls into view; Replay is enabled again when that run is done.
-Wait css:"#replay:not([disabled])"
-Show
-Say@over "And a failure [shrink] isn't a two-hundred-line random order. It's shrunk, step by step, to the smallest case that still fails."
-Wait [shrink]
-Click css:"#replay"
-Sleep 3s

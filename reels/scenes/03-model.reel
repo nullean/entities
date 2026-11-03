@@ -14,25 +14,19 @@ Hide
 Wait css:"#world .wcard"
 Sleep 1500ms
 Show
-Say "One order is where it starts. The same rules reach across your whole model."
-Say@over "Relations [rel] between records. Time: [time] what must follow, and how soon."
-Wait [rel]
-Zoom css:"#world .wcard:nth-of-type(1)" 1.4x
+Say@over "One order is where it starts. The same rules reach across your model: relations, [time] time, state machines, [ops] what an operation may do, values, and [files] the files a model points at. [done]"
 Wait [time]
 Zoom css:"#world .wcard:nth-of-type(2)" 1.4x
+Wait [ops]
 Zoom off
 Scroll down 5 css:"#world"
-Say@over "State machines, [sm] what an operation may do, [ops] values that can't be built invalid, [vals] and the files [files] a model points at. [done]"
-Wait [sm]
-Zoom css:"#world .wcard:nth-of-type(3)" 1.3x
-Wait [ops]
 Zoom css:"#world .wcard:nth-of-type(4)" 1.3x
-Wait [vals]
-Zoom css:"#world .wcard:nth-of-type(5)" 1.3x
 Wait [files]
 Zoom css:"#world .wcard:nth-of-type(6)" 1.3x
 Wait [done]
 Zoom off
+# A marker at the end of a long line is found before the line ends; hold for the rest of it.
+Sleep 2s
 
 Hide
 Open http://127.0.0.1:8765/tour/index.html#relations

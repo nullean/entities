@@ -56,21 +56,13 @@ Say@over "The code that builds an order [built] gets a result, never an invalid 
 Wait [built]
 Mark "rules.Validated(order)" 1
 Focus lines 7-8
-Say@over "An API [api] answers with problem details, keyed by field."
+Say@over "An API [api] answers with problem details, keyed by field,"
 Wait [api]
 Mark "AddConstraintProblemDetails()" 2
 Focus lines 10-11
-Say@over "Options [options] are checked at start-up."
-Wait [options]
-Mark "ValidateConstraints(ShopOptions.Rules)" 3
-Focus lines 13-14
-Say@over "The tests [tests] are one line,"
+Say@over "and the tests [tests] are one line."
 Wait [tests]
-Mark "AutoTest.For(OrderConstraints.Instance, Orders).RunAsync()" 4
-Focus lines 16-17
-Say@over "and the docs [docs] draw every reachable state."
-Wait [docs]
-Mark "Spec().Mermaid()" 5
+Mark "AutoTest.For(OrderConstraints.Instance, Orders).RunAsync()" 3
 Focus off
 Say@skeptic "Written once. Read by everything."
 Mark off
