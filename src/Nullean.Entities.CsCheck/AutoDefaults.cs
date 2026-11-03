@@ -251,11 +251,55 @@ internal static class StructuralKey
 			t => [.. t.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanRead && p.GetIndexParameters().Length == 0)]
 		);
 
+	/// <summary>
+	/// A total order over keys made by <see cref="Of"/>, so a set of states can be reduced to one representative (the smallest): sequences element by
+	/// element, then shorter first; types by name; comparable leaves of one type by their own order; anything else by type name and text.
+	/// </summary>
+	public static int Compare(object? a, object? b)
+	{
+		if (ReferenceEquals(a, b))
+		{
+			return 0;
+		}
+		if (a is null || b is null)
+		{
+			return a is null ? -1 : 1;
+		}
+		if (a is Seq x && b is Seq y)
+		{
+			for (var i = 0; i < Math.Min(x.Items.Length, y.Items.Length); i++)
+			{
+				var c = Compare(x.Items[i], y.Items[i]);
+				if (c != 0)
+				{
+					return c;
+				}
+			}
+			return x.Items.Length.CompareTo(y.Items.Length);
+		}
+		if (a is Type ta && b is Type tb)
+		{
+			return string.CompareOrdinal(ta.FullName, tb.FullName);
+		}
+		if (a.GetType() == b.GetType() && a is IComparable comparable)
+		{
+			return comparable.CompareTo(b);
+		}
+		var byType = string.CompareOrdinal(a.GetType().FullName, b.GetType().FullName);
+		return byType != 0
+			? byType
+			: string.CompareOrdinal(
+				Convert.ToString(a, System.Globalization.CultureInfo.InvariantCulture),
+				Convert.ToString(b, System.Globalization.CultureInfo.InvariantCulture)
+			);
+	}
+
 	private sealed class Seq(object?[] items) : IEquatable<Seq>
 	{
 		public bool Equals(Seq? other) => other is not null && items.AsSpan().SequenceEqual(other.Items);
 
-		private object?[] Items => items;
+		// internal, not public: StructuralKey.Of reads public properties, and a key inside a key must stay a leaf
+		internal object?[] Items => items;
 
 		public override bool Equals(object? obj) => obj is Seq other && Equals(other);
 
