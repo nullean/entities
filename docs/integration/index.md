@@ -14,6 +14,7 @@ The library has no opinion about your framework: a constraint set is a value you
 | ASP.NET Core: endpoint filters, MVC, ProblemDetails | Package `Nullean.Entities.AspNetCore` | [ASP.NET Core](aspnetcore.md) |
 | Dependency injection and `IOptions<T>` validation | Package `Nullean.Entities.Extensions.DependencyInjection` | [Options and DI](options.md) |
 | [Nullean.Argh](https://github.com/nullean/argh) command lines | Package `Nullean.Entities.Argh` | [Command-line apps](argh.md) |
+| TUnit, xUnit, NUnit and MSTest: one test per axis | Built into `Nullean.Entities.CsCheck` (`AsDataSource()`, `CaseNames`), no framework dependency | [Test frameworks](test-frameworks.md) |
 | DataAnnotations (`[Required]`, `[Range]`, ...) | Built in: the source generator in `Nullean.Entities`, and `GenAuto` in `Nullean.Entities.CsCheck` | [DataAnnotations](data-annotations.md) |
 | Bogus and AutoBogus test data | `GenFakerExtensions.Faker<T>` is built into `Nullean.Entities.CsCheck`; package `Nullean.Entities.CsCheck.AutoBogus` | [Bogus and AutoBogus](autobogus.md) |
 | Models that hold files (`System.IO.Abstractions`) | Packages `Nullean.Entities.FileSystem` and `Nullean.Entities.CsCheck.FileSystem` | [File systems](file-system.md) |

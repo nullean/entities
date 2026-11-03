@@ -147,6 +147,26 @@ public class AutoTestTests
 	}
 
 	[Test]
+	public async Task Case_names_round_trip_to_the_case_they_name_for_frameworks_that_serialize_their_data()
+	{
+		var auto = Sound().Action("Rewind", a => a with { Version = a.Version - 1 });
+
+		auto.CaseNames.Should().Equal("Invariant", "Idempotency", "Monotonicity", "Conservation", "Vacancy");
+		auto.CaseNames.Select(n => auto.Case(n).Axis).Should().Equal(auto.Cases.Select(c => c.Axis));
+		(await auto.Case("Invariant").RunAsync()).Should().BeOfType<AxisResult.Passed>();
+		var act = async () => await auto.Case("Monotonicity").RunAsync();
+		(await act.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Contain("Rewind");
+	}
+
+	[Test]
+	public void A_name_that_is_no_case_says_which_cases_there_are()
+	{
+		var act = () => Sound().Case("Liveness");
+
+		act.Should().Throw<ArgumentException>().Which.Message.Should().Contain("'Liveness'").And.Contain("Invariant, Idempotency");
+	}
+
+	[Test]
 	public void An_axis_the_type_requires_is_a_case_even_when_nothing_is_declared_for_it()
 	{
 		Sound().RequireAxes(Axis.Confluence).Cases.Select(c => c.Axis).Should().Contain(Axis.Confluence);

@@ -73,4 +73,8 @@ let TestProjects =
       "tests/Nullean.Entities.Argh.Tests"
       "tests/Nullean.Entities.Examples.Tests"
       "tests/Nullean.Entities.Quickstart.Tests"
+      // the same AutoTest one-liner in xUnit v3, NUnit and MSTest: each lists one test per axis and fails only the broken one
+      "tests/Nullean.Entities.CsCheck.Xunit.Tests"
+      "tests/Nullean.Entities.CsCheck.NUnit.Tests"
+      "tests/Nullean.Entities.CsCheck.MSTest.Tests"
       "tests/Nullean.Entities.Apps.Tests" ]

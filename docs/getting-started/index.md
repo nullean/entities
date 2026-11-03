@@ -136,7 +136,7 @@ public class QuickstartTests
 }
 ```
 
-`AutoTest.For(OrderConstraints.Instance, Orders)` reads the rules and finds the operations of `Order` itself: every public method that returns an `Order`. `AsDataSource()` hands your test framework one case per axis, so a failing axis fails only its own test.
+`AutoTest.For(OrderConstraints.Instance, Orders)` reads the rules and finds the operations of `Order` itself: every public method that returns an `Order`. `AsDataSource()` hands your test framework one case per axis, so a failing axis fails only its own test. This is TUnit; for xUnit, NUnit and MSTest see [Test frameworks](../integration/test-frameworks.md).
 
 Run it. It passes. Now look at the generator, because that is the part to get right.
 

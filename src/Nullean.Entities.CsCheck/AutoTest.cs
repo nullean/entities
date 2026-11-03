@@ -53,6 +53,26 @@ public sealed record AxisCase(Axis Axis, string Law, string Consequence, Func<Ta
 	public override string ToString() => Name ?? Axis.ToString();
 }
 
+// The data-source shapes AutoTest and EventAutoTest share, so the two stay identical.
+internal static class AxisCases
+{
+	// TUnit's [MethodDataSource]: a function per case, so TUnit creates and runs one axis at a time.
+	public static IEnumerable<Func<AxisCase>> AsDataSource(IReadOnlyList<AxisCase> cases) => cases.Select(c => (Func<AxisCase>)(() => c));
+
+	// xUnit's [MemberData] (as TheoryData<string>), NUnit's [TestCaseSource], MSTest's [DynamicData]: the case names. A string survives the serialization
+	// xUnit does at discovery (an AxisCase holds a delegate and does not: xUnit v3 then lists one test for the whole theory), so every framework lists one test
+	// per axis and can re-run just one.
+	public static IReadOnlyList<string> Names(IReadOnlyList<AxisCase> cases) => [.. cases.Select(c => c.ToString())];
+
+	public static AxisCase Named(IReadOnlyList<AxisCase> cases, string name) =>
+		cases.FirstOrDefault(c => c.ToString() == name)
+		?? throw new ArgumentException(
+			$"No case is named '{name}'. The cases are: {string.Join(", ", cases.Select(c => c.ToString()))}. A name comes from CaseNames, "
+			+ "so this one was made from an auto-test configured differently, or a rule on that axis was removed since the tests were discovered.",
+			nameof(name)
+		);
+}
+
 /// <summary>What every axis did for one type: a result per axis, and the rules no axis can attack because nothing declares their shape.</summary>
 public sealed record AutoTestReport(IReadOnlyList<AxisResult> Results, IReadOnlyList<string> Unclassified, IReadOnlyList<string>? NotOperations = null)
 {
@@ -332,7 +352,17 @@ public sealed partial class AutoTest<T>
 	/// The cases as a test framework's data source: <c>[MethodDataSource(nameof(Axes))]</c> over a method that returns this, with one test that awaits <c>axis.RunAsync()</c>.
 	/// Each is a function, so the framework creates and runs one axis at a time and a failing axis fails only its own test.
 	/// </summary>
-	public IEnumerable<Func<AxisCase>> AsDataSource() => Cases.Select(c => (Func<AxisCase>)(() => c));
+	public IEnumerable<Func<AxisCase>> AsDataSource() => AxisCases.AsDataSource(Cases);
+
+	/// <summary>
+	/// The name of each case (<see cref="AxisCase.ToString"/>), for frameworks whose data sources must serialize: xUnit's <c>[MemberData]</c> over a
+	/// <c>TheoryData&lt;string&gt;</c>, NUnit's <c>[TestCaseSource]</c>, MSTest's <c>[DynamicData]</c>. The test takes the name and runs <c>Case(name).RunAsync()</c>,
+	/// so the test explorer lists one test per axis.
+	/// </summary>
+	public IReadOnlyList<string> CaseNames => AxisCases.Names(Cases);
+
+	/// <summary>The case named <paramref name="name"/> (one of <see cref="CaseNames"/>). Throws <see cref="ArgumentException"/> listing the names when there is none.</summary>
+	public AxisCase Case(string name) => AxisCases.Named(Cases, name);
 
 	private bool IsDeclared(Axis axis) => axis == Axis.Vacancy ? _constraints.AsConstraints().Count > 0 : _constraints.AsConstraints().Any(c => c.Axis == axis);
 

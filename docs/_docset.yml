@@ -55,6 +55,7 @@ toc:
       - file: aspnetcore.md
       - file: options.md
       - file: argh.md
+      - file: test-frameworks.md
       - file: data-annotations.md
       - file: autobogus.md
       - file: file-system.md

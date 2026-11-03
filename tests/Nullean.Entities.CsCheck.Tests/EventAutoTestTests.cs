@@ -104,6 +104,17 @@ public class EventAutoTestTests
 	}
 
 	[Test]
+	public async Task Case_names_and_the_data_source_give_the_same_cases_as_Cases()
+	{
+		var auto = Auto(ships: false);
+
+		auto.CaseNames.Should().Equal(auto.Cases.Select(c => c.ToString()));
+		auto.AsDataSource().Select(f => f().Axis).Should().Equal(auto.Cases.Select(c => c.Axis));
+		var act = async () => await auto.Case("Temporal").RunAsync();
+		await act.Should().ThrowAsync<InvalidOperationException>();
+	}
+
+	[Test]
 	public async Task A_failing_case_carries_the_axis_law_and_consequence()
 	{
 		var act = async () => await Auto(ships: false).Cases.Single(c => c.Axis == Axis.Temporal).RunAsync();
