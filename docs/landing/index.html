@@ -43,6 +43,7 @@
     <nav class="nav-links" aria-label="Page">
       <a class="hide-sm" href="#types">why</a>
       <a class="hide-sm" href="#world">model</a>
+      <a class="hide-sm" href="#cscheck">cscheck</a>
       <a class="hide-sm" href="#questions">nine axes</a>
       <a class="hide-sm" href="#reports">reports</a>
       <a href="tour/">tour</a>
@@ -234,20 +235,37 @@
     <div class="sec-head">
       <p class="eyebrow">beyond one value</p>
       <h2 id="w-h">Model <em>your world.</em></h2>
-      <p>Rules reach past a single field: across rows, over time, through a lifecycle, out to the file system.</p>
+      <p>Rules reach past a single field: across rows, over time, through a lifecycle, out to the file system. Break each one to see what the rule says.</p>
     </div>
 
+    <!-- Each card holds its rule twice: as it holds, and broken. Without JS a card shows the broken state; with JS,
+         "break it" switches between them. -->
     <div class="world">
       <article class="wcard" aria-labelledby="w1">
-        <h3 id="w1">Relations</h3>
+        <div class="whead"><h3 id="w1">Relations</h3><button class="wbreak js-only" type="button" aria-pressed="false">break it</button></div>
         <p><span class="mono">Unique</span>, <span class="mono">References</span>, <span class="mono">Acyclic</span>, <span class="mono">NoChains</span>: keys and trees, no database.</p>
+        <div class="wviz" aria-hidden="true">
+          <div class="vlabel">Pages <i>Url</i></div>
+          <div class="vrows"><span>/install</span><span>/guide</span><span>/api</span><span class="bad">/install</span></div>
+        </div>
+        <p class="wreport" aria-live="polite"><span class="good">✓ every url is unique</span><span class="bad"><b>Rule broken</b> unique-page-urls: '/install' appears 2 times.</span></p>
 <pre class="code" tabindex="0"><code><span class="t">Constraints</span>&lt;<span class="t">DocumentationSet</span>&gt;
     .Unique(d =&gt; d.Pages, p =&gt; p.Url)</code></pre>
-        <p class="wlinks"><a href="tour/#relations">break one in the tour →</a><a href="design-principles/vocabulary/">docs →</a></p>
+        <p class="wlinks"><a href="tour/#relations">break more in the tour →</a><a href="design-principles/vocabulary/">docs →</a></p>
       </article>
       <article class="wcard" aria-labelledby="w2">
-        <h3 id="w2">Time</h3>
+        <div class="whead"><h3 id="w2">Time</h3><button class="wbreak js-only" type="button" aria-pressed="false">break it</button></div>
         <p>What must follow what within a deadline, and what must <span class="mono">Never</span> happen after something else.</p>
+        <div class="wviz" aria-hidden="true">
+          <div class="vtime">
+            <div class="vwin"></div><div class="vaxis"></div>
+            <span class="vtick" style="left:0">+0s</span><span class="vtick" style="left:50%">+30s deadline</span><span class="vtick" style="left:100%">+60s</span>
+            <span class="vpin" style="left:0"><i></i><b>Sent</b></span>
+            <span class="vpin good" style="left:40%"><i></i><b>Succeeded +24s</b></span>
+            <span class="vpin bad" style="left:75%"><i></i><b>Succeeded +45s</b></span>
+          </div>
+        </div>
+        <p class="wreport" aria-live="polite"><span class="good">✓ answered within the deadline</span><span class="bad"><b>Temporal failed</b> No matching event within 00:00:30 after Sent</span></p>
 <pre class="code" tabindex="0"><code>After&lt;<span class="t">ClientEvent.Sent</span>&gt;()
     .Then&lt;<span class="t">ClientEvent.Succeeded</span>, <span class="t">ClientEvent.GaveUp</span>&gt;(
         <span class="c">/* matched by RequestId */</span>)
@@ -255,8 +273,18 @@
         <p class="wlinks"><a href="axes/06-temporal/">the temporal axis →</a><a href="guides/time/">docs →</a></p>
       </article>
       <article class="wcard" aria-labelledby="w3">
-        <h3 id="w3">State machines</h3>
+        <div class="whead"><h3 id="w3">State machines</h3><button class="wbreak js-only" type="button" aria-pressed="false">break it</button></div>
         <p>States as case types, checked when the machine is defined. Mermaid in, Mermaid out.</p>
+        <div class="wviz" aria-hidden="true">
+          <svg class="vmachine" viewBox="0 -46 620 166">
+            <defs><marker id="wm-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e0d8c177"/></marker>
+            <marker id="wm-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ef6b5b"/></marker></defs>
+            <g class="ed"><path d="M110 30 H160"/><text x="135" y="20">Place</text><path d="M270 30 H320"/><text x="295" y="20">Confirm</text><path d="M440 30 H490"/><text x="465" y="20">Ship</text><path d="M215 50 C 215 90, 300 100, 320 100"/><path d="M380 50 V 82"/></g>
+            <g class="nope bad"><path d="M60 8 C 120 -50, 480 -50, 545 8"/><text x="302" y="-24">✗ Ship</text></g>
+            <g class="st"><rect x="10" y="10" width="100" height="40" rx="8"/><text x="60" y="30">Draft</text><rect x="160" y="10" width="110" height="40" rx="8"/><text x="215" y="30">Placed</text><rect x="320" y="10" width="120" height="40" rx="8"/><text x="380" y="30">Confirmed</text><rect x="490" y="10" width="110" height="40" rx="8"/><text x="545" y="30">Shipped</text><rect x="320" y="82" width="120" height="36" rx="8"/><text x="380" y="100">Cancelled</text></g>
+          </svg>
+        </div>
+        <p class="wreport" aria-live="polite"><span class="good">✓ only the legal moves</span><span class="bad"><b>Rejected</b> 'Ship' is not a transition out of Draft (permitted: Place)</span></p>
 <pre class="code" tabindex="0"><code><span class="t">StateMachine</span>&lt;<span class="t">OrderState</span>&gt;.Define(m =&gt; m
     .Initial&lt;<span class="t">OrderState.Draft</span>&gt;(s =&gt; s
         .On(<span class="s">"Place"</span>)
@@ -264,29 +292,96 @@
         <p class="wlinks"><a href="tour/#machines">walk one in the tour →</a><a href="reference/state-machines/">docs →</a></p>
       </article>
       <article class="wcard" aria-labelledby="w4">
-        <h3 id="w4">Behaviour of operations</h3>
+        <div class="whead"><h3 id="w4">Behaviour of operations</h3><button class="wbreak js-only" type="button" aria-pressed="false">break it</button></div>
         <p><span class="mono">Idempotent</span>, <span class="mono">Monotonic</span>, <span class="mono">Conserves</span>, <span class="mono">OrderIndependent</span>: what a step may do.</p>
+        <div class="wviz" aria-hidden="true">
+          <div class="vaccts">
+            <div class="vacct"><i>From</i><b>10</b></div><div class="vacct"><i>To</i><b>6</b></div><div class="vsum">= 16</div>
+            <div class="vop">Transfer(3)<span class="bad"> with a fee</span> →</div>
+            <div class="vacct"><i>From</i><b>7</b></div><div class="vacct"><i>To</i><b><span class="good">9</span><span class="bad">8</span></b></div><div class="vsum"><span class="good">= 16</span><span class="bad">= 15</span></div>
+          </div>
+        </div>
+        <p class="wreport" aria-live="polite"><span class="good">✓ 16 before, 16 after</span><span class="bad"><b>Conservation failed</b> A transfer cannot create or destroy money: was 16, became 15</span></p>
 <pre class="code" tabindex="0"><code><span class="t">Constraints</span>&lt;<span class="t">Transfer</span>&gt;.Conserves(
     t =&gt; t.From.Balance + t.To.Balance,
     <span class="s">"A transfer cannot create or destroy money"</span>)</code></pre>
         <p class="wlinks"><a href="tour/#services">shrink a leak in the tour →</a><a href="axes/">docs →</a></p>
       </article>
       <article class="wcard" aria-labelledby="w5">
-        <h3 id="w5">Values that cannot be built invalid</h3>
+        <div class="whead"><h3 id="w5">Values that cannot be built invalid</h3><button class="wbreak js-only" type="button" aria-pressed="false">break it</button></div>
         <p>Check in a factory, not a constructor, and hand back the reasons.</p>
+        <div class="wviz" aria-hidden="true">
+          <div class="vvalue">
+            <div class="vcall"><span class="good">Money.Create(12.50m, "EUR")</span><span class="bad">Money.Create(-5.001m, "eu")</span></div>
+            <div class="vchecks"><span>amount-is-positive</span><span>amount-has-cents</span><span>currency-is-iso</span></div>
+            <div class="vres"><span class="good pass">Ok · 12.50 EUR</span><span class="bad fail">Fail · 3 reasons</span></div>
+          </div>
+        </div>
+        <p class="wreport" aria-live="polite"><span class="good">✓ a value, never an invalid one</span><span class="bad"><b>Reasons</b> The amount must be greater than zero · The amount has at most two decimals · The currency is a three-letter code like EUR</span></p>
 <pre class="code" tabindex="0"><code><span class="k">public static</span> <span class="t">Result</span>&lt;<span class="t">Money</span>&gt; Create(
     <span class="k">decimal</span> amount, <span class="k">string</span>? currency) =&gt;
     Rules.Validated(<span class="k">new</span> <span class="t">Money</span>(amount, currency ?? <span class="s">""</span>));</code></pre>
         <p class="wlinks"><a href="tour/#rules">plant a bug in the tour →</a><a href="integration/">docs →</a></p>
       </article>
       <article class="wcard" aria-labelledby="w6">
-        <h3 id="w6">The outside world</h3>
+        <div class="whead"><h3 id="w6">The outside world</h3><button class="wbreak js-only" type="button" aria-pressed="false">break it</button></div>
         <p>Paths a model holds must exist, and stay inside the folder they belong to.</p>
-<pre class="code" tabindex="0"><code><span class="t">Files</span>&lt;<span class="t">Docset</span>&gt;.Exist(d =&gt; [d.SourceFile])
+        <div class="wviz" aria-hidden="true">
+          <div class="vlabel">/docs <i>what docset.yml names</i></div>
+          <div class="vrows"><span>index.md</span><span>guide.md</span><span>img/logo.png</span><span class="bad ghost">setup.md</span></div>
+        </div>
+        <p class="wreport" aria-live="polite"><span class="good">✓ every path exists, inside /docs</span><span class="bad"><b>Rule broken</b> '/docs/setup.md' does not exist.</span></p>
+<pre class="code" tabindex="0"><code><span class="t">Files</span>&lt;<span class="t">Docset</span>&gt;.Exist(d =&gt; d.Pages)
 <span class="t">Files</span>&lt;<span class="t">Docset</span>&gt;.StayInside(
     d =&gt; d.Root, d =&gt; d.Pages.Concat(d.Images))</code></pre>
         <p class="wlinks"><a href="integration/#models-that-hold-the-file-system">docs →</a></p>
       </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BUILT ON CSCHECK ============ -->
+<section id="cscheck" aria-labelledby="cs-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">the engine underneath</p>
+      <h2 id="cs-h">Built on <em>CsCheck.</em></h2>
+      <p><a href="https://github.com/AnthonyLloyd/CsCheck">CsCheck</a> is an excellent property-based testing library for .NET: fast, and it finds the smallest case that still fails. Entities builds on it, and adds what a test can't know without your rules.</p>
+    </div>
+
+    <div class="cs-grid">
+      <div class="layers">
+        <div class="slab top">
+          <h3>Entities <small>on top</small></h3>
+          <div class="caps">
+            <div class="cap"><b>First-class properties</b><span>the rules you declare, named and discoverable</span></div>
+            <div class="cap"><b>Nine axes</b><span>each rule's shape says which questions to ask</span></div>
+            <div class="cap"><b>AutoTest</b><span>finds the operations and runs every axis</span></div>
+          </div>
+        </div>
+        <div class="slab base">
+          <h3>CsCheck <small>the engine</small></h3>
+          <div class="caps four">
+            <div class="cap"><b>Generators</b><span><code>Gen&lt;T&gt;</code>, composed</span></div>
+            <div class="cap"><b>Shrinking</b><span>to the smallest failing case</span></div>
+            <div class="cap"><b>Seeds</b><span>replay exactly that case</span></div>
+            <div class="cap"><b>Model-based</b><span>and parallel testing</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="props">
+        <h3>Your rules <em>are</em> the properties</h3>
+        <p>Each rule is a named value with a shape. The shape tells the tests what to ask, so nobody writes the property by hand. <span class="mono">[Constraints&lt;Order&gt;]</span> gathers them into <span class="mono">OrderConstraints.All</span>: add a rule, and it is found.</p>
+        <ul class="proplist">
+          <li><span class="pn">total-never-negative</span><span class="ps">Always</span><span class="pa">01 invariant</span></li>
+          <li><span class="pn">cancel-is-repeatable</span><span class="ps">Idempotent</span><span class="pa">02 idempotency</span></li>
+          <li><span class="pn">version-never-goes-back</span><span class="ps">Monotonic</span><span class="pa">03 monotonicity</span></li>
+          <li><span class="pn">label-ignores-line-order</span><span class="ps">OrderIndependent</span><span class="pa">08 confluence</span></li>
+          <li><span class="pn">confirmed-orders-have-lines</span><span class="ps">When · Requires</span><span class="pa">01 invariant, guarded</span></li>
+        </ul>
+        <p class="ops-found"><span>AutoTest finds the operations</span> <code>AddLine</code> <code>Confirm</code> <code>Ship</code> <code>Cancel</code> <span>· every public method that returns an Order</span></p>
+      </div>
     </div>
   </div>
 </section>
@@ -297,7 +392,7 @@
     <div class="sec-head">
       <p class="eyebrow">the tests you did not write</p>
       <h2 id="q-h">One line. <em>Nine axes.</em></h2>
-      <p>Most tests check one example. This line asks every rule you declared these nine questions, each one a kind of production bug. Hover, focus or tap a row to watch it happen.</p>
+      <p>Most tests check one example. This line asks every rule you declared these nine questions, each one a kind of production bug. Hover, focus or tap a row to watch it happen; tap one to read its real failure.</p>
     </div>
 
     <div class="win one-line">
@@ -366,6 +461,27 @@
       </tbody>
     </table>
     </div>
+    <!-- The failure behind the pinned row, as the report writes it (values from docs/_snippets). app.js copies the row's
+         template in; without JS the table above stands alone. -->
+    <div class="qdetail js-only" id="qdetail" aria-live="polite"></div>
+    <template id="qd-1"><div class="qd-viz"><div class="qbox"><i>Started from</i>Total 0</div><div class="qop">AddRawLine()</div><div class="qbox bad"><i>Produced</i><b>Total -5</b>fig × 1 @ -5</div></div>
+      <div class="qd-rep"><p class="h">Invariant failed.</p><p><span>Rule broken</span>total-never-negative: An order total is never negative.</p><p class="seed">Smallest case found, after 1 shrink. <code>.Seed("9Rmf9J10O1j6")</code></p></div></template>
+    <template id="qd-2"><div class="qd-viz"><div class="qbox"><i>Started from</i>Pending · v0</div><div class="qop">Cancel()</div><div class="qbox"><i>Once gave</i>Cancelled · v1</div><div class="qop">Cancel()</div><div class="qbox bad"><i>Twice gave</i><b>Cancelled · v2</b></div></div>
+      <div class="qd-rep"><p class="h">Idempotency failed.</p><p><span>Rule broken</span>cancel-is-repeatable: doing it twice is not the same as doing it once.</p><p class="seed">This is the smallest case: nothing smaller failed. <code>.Seed("0N0XIzNsQ0O2")</code></p></div></template>
+    <template id="qd-3"><div class="qd-viz"><div class="qbox"><i>Started from</i>Cancelled · v1</div><div class="qop">Reset()</div><div class="qbox bad"><i>Produced</i><b>Cancelled · v0</b></div></div>
+      <div class="qd-rep"><p class="h">Monotonicity failed.</p><p><span>Rule broken</span>version-never-goes-back: Expected NonDecreasing but moved from 1 to 0.</p><p class="seed">Smallest case found, after 4 shrinks. <code>.Seed("7ub38ErvzD2a")</code></p></div></template>
+    <template id="qd-4"><div class="qd-viz"><div class="qbox"><i>Started from</i>Checking 10 · Savings 6 · <b>16</b></div><div class="qop">MoveWithFee(2)</div><div class="qbox bad"><i>Produced</i>Checking 7 · Savings 8 · <b>15</b></div></div>
+      <div class="qd-rep"><p class="h">Conservation failed.</p><p><span>Rule broken</span>money-is-conserved did not conserve its value (was 16, became 15).</p><p class="seed">Smallest case found, after 2 shrinks. <code>.Seed("db7hMFd37Kd8")</code></p></div></template>
+    <template id="qd-5"><div class="qd-viz"><div class="qev"><span>+0s Confirmed</span><span>+14s Cancelled</span><span class="bad">+30s Shipped</span></div></div>
+      <div class="qd-rep"><p class="h">Absence failed.</p><p><span>Rule broken</span>cancelled-orders-are-never-shipped</p><p><span>What happened</span>Cancelled, then Shipped</p><p class="seed">Smallest case found, after 4 shrinks. <code>.Seed("bJG2B9wvdYq4")</code></p></div></template>
+    <template id="qd-6"><div class="qd-viz"><div class="qev"><span>+0s Confirmed</span><span class="win">deadline +60s</span><span class="bad">+90s Shipped</span></div></div>
+      <div class="qd-rep"><p class="h">Temporal failed.</p><p><span>Rule broken</span>confirmed-ships-within-a-minute</p><p><span>What happened</span>No matching event within 00:01:00 after Confirmed</p><p class="seed">Smallest case found, after 5 shrinks. <code>.Seed("0i1vmP3ChLc5")</code></p></div></template>
+    <template id="qd-7"><div class="qd-viz"><div class="qev"><span>+0s Confirmed</span><span class="spin"></span><span class="bad ghost">Shipped?</span></div></div>
+      <div class="qd-rep"><p class="h">Liveness failed.</p><p><span>Rule broken</span>every-confirmed-order-ships</p><p><span>What happened</span>1 instance(s) never reached the target event: order</p><p class="seed">Smallest case found, after 1 shrink. <code>.Seed("9-RUpSdWxJb3")</code></p></div></template>
+    <template id="qd-8"><div class="qd-viz"><div class="qbox"><i>Lines as listed</i>pear, apple</div><div class="qop">reordered [1, 0]</div><div class="qbox bad"><i>Result</i><b>different</b>apple, pear</div></div>
+      <div class="qd-rep"><p class="h">Confluence failed.</p><p><span>Rule broken</span>first-sku-is-the-label: the result depends on the order the items are listed in.</p><p class="seed">Smallest case found, after 2 shrinks. <code>.Seed("dsRrQRlF6jV2")</code></p></div></template>
+    <template id="qd-9"><div class="qd-viz"><div class="qbox pass"><i>Test</i><b>✓ passed</b>200 values</div><div class="qop">but</div><div class="qbox bad"><i>Guard Status == Confirmed</i><b>0 of 200</b>never true</div></div>
+      <div class="qd-rep"><p class="h">Vacancy: the test passed without proving anything.</p><p><span>Rule</span>confirmed-orders-have-lines</p><p><span>Not exercised</span>its guard was never true for the 200 generated values, so the rule held without being exercised.</p></div></template>
   </div>
 </section>
 

@@ -498,6 +498,27 @@
       var was = tr.classList.contains('is-on');
       rows.forEach(function (r) { r.classList.remove('is-on'); $('.qbtn', r).setAttribute('aria-pressed', 'false'); });
       if (!was) { tr.classList.add('is-on'); btn.setAttribute('aria-pressed', 'true'); }
+      showFailure(was ? 0 : rows.indexOf(tr) + 1);
+    });
+  });
+
+  /* the pinned row's real failure, from its <template> under the table; none pinned, no panel */
+  var qdetail = $('#qdetail');
+  function showFailure(n) {
+    if (!qdetail) return;
+    var tpl = n && document.getElementById('qd-' + n);
+    qdetail.innerHTML = '';
+    if (tpl) qdetail.appendChild(tpl.content.cloneNode(true));
+  }
+
+  /* ================= model your world: each card breaks its own rule, and mends it again ================= */
+  $$('.wcard').forEach(function (card) {
+    var b = $('.wbreak', card);
+    if (!b) return;
+    b.addEventListener('click', function () {
+      var on = card.classList.toggle('is-broken');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.textContent = on ? 'fix it' : 'break it';
     });
   });
 
