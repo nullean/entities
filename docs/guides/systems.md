@@ -137,6 +137,14 @@ Then stops    no action changes this state, and the goal does not hold in it.
 
 The fix is in the design: a retry on a timer, which is a `Client` on orders that resends what is not yet paid.
 
+## Two-phase commit
+
+`tests/Nullean.Entities.CsCheck.Tests/TwoPhaseCommitTests.cs` models a coordinator and two participants. The coordinator asks both to prepare, each votes, and the coordinator commits only if both said yes. These hold:
+
+- **Atomicity**, in every interleaving: no participant commits while another aborts. A coordinator that commits on the first yes fails it.
+- **Once a transaction begins, both participants learn the outcome**, with delivery fair and nothing else. Voting needs no fairness: a run only stops where nothing can change, so a participant that can still vote will.
+- **The blocking problem.** A coordinator that keeps its votes only in memory (`Crashes(coordinator, durable: c => c with { Yes = [] })`) restarts still waiting, with the votes gone and nobody to resend them. The liveness rule fails with `crash coordinator` in the path and `Then stops` at the end. Logging the votes (`durable: c => c`) makes it hold.
+
 ## Keeping the search finite
 
 ```csharp
