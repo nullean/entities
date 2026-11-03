@@ -1,0 +1,67 @@
+# Scene 3: model your world. The home page's six cards, then two of them live on /tour/: relations broken one way
+# after another, and a state machine walked. Recorded against the landing branch's build served on 127.0.0.1:8765
+# (README.md); Chromium, which paints while reel isn't the active app.
+Import //reels/entities.reelpreset
+Open http://127.0.0.1:8765/index.html#world
+
+Output //.artifacts/reel/scenes/03-model.mp4
+Set Browser chromium
+Set Viewport 1440x1040
+Set WaitTimeout 20s
+Set ClickRipples on
+
+Hide
+Wait css:"#world .wcard"
+Sleep 1500ms
+Show
+Say "One order is where it starts. The same rules reach across your whole model."
+Say@over "Relations [rel] between records. Time: [time] what must follow, and how soon."
+Wait [rel]
+Zoom css:"#world .wcard:nth-of-type(1)" 1.4x
+Wait [time]
+Zoom css:"#world .wcard:nth-of-type(2)" 1.4x
+Zoom off
+Scroll down 5 css:"#world"
+Say@over "State machines, [sm] what an operation may do, [ops] values that can't be built invalid, [vals] and the files [files] a model points at. [done]"
+Wait [sm]
+Zoom css:"#world .wcard:nth-of-type(3)" 1.3x
+Wait [ops]
+Zoom css:"#world .wcard:nth-of-type(4)" 1.3x
+Wait [vals]
+Zoom css:"#world .wcard:nth-of-type(5)" 1.3x
+Wait [files]
+Zoom css:"#world .wcard:nth-of-type(6)" 1.3x
+Wait [done]
+Zoom off
+
+Hide
+Open http://127.0.0.1:8765/tour/index.html#relations
+Wait css:"button[data-sc='dup']"
+Sleep 1s
+Show
+Say "Think of it as a database model, and break it."
+Say@over "A duplicate key, [dup] a reference to nothing, [ref] a cycle, [cyc] a chain of redirects. [chain]"
+Wait [dup]
+Click css:"button[data-sc='dup']"
+Wait [ref]
+Click css:"button[data-sc='ref']"
+Wait [cyc]
+Click css:"button[data-sc='cyc']"
+Wait [chain]
+Click css:"button[data-sc='chain']"
+Say "Each one a named rule, with a failure that says which."
+
+Hide
+Open http://127.0.0.1:8765/tour/index.html#machines
+Wait css:"#mc-step"
+Sleep 1s
+Show
+Say@over "And a lifecycle, [walk] walked one legal move at a time, and drawn from the same definition, so the diagram in your docs can't drift."
+Wait [walk]
+Click css:"#mc-new"
+Click css:"#mc-step"
+Sleep 600ms
+Click css:"#mc-step"
+Sleep 600ms
+Click css:"#mc-step"
+Sleep 1500ms

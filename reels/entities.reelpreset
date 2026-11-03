@@ -1,0 +1,22 @@
+# What every scene of the entities film shares: the look, the two voices and the profiles. Each scene Imports it.
+
+# The landing page's ground; the sting pages (sting/) use the same tokens.
+Set Background social ? //reels/sting/media/backdrop-9x16.png : //reels/sting/media/backdrop-16x9.png
+Set Padding 5%
+
+# Two voices from voicebox on this Mac: the narrator (its "Main" profile), and a sceptical .NET developer who asks
+# what a viewer would ask. `Set Voice system` and `Set Voice skeptic system:Daniel` work without voicebox.
+Set Voice voicebox:Main
+Set Voice skeptic voicebox:Michael
+Set Ducking 30%
+# No subtitles in the wide cuts: they would cover the code being talked about. The social and feed profiles turn
+# them on, since feeds play muted.
+Set Subtitles off
+
+Set ZoomEasing smooth
+Set ZoomDuration 700ms
+Set TypingSpeed 35ms
+Set GifWidth 800
+
+# One recording, every outlet: entities-github.mp4, entities-web.mp4, entities-social.mp4 (9:16), entities-feed.mp4.
+Set Profiles github, web, social, feed

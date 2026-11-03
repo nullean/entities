@@ -1,0 +1,27 @@
+# Scene 4: built on CsCheck, not instead of it. The same Order tested with plain CsCheck, every property by hand, beside
+# the one line that drives every axis the rules declare.
+Import //reels/entities.reelpreset
+Screen code
+
+Output //.artifacts/reel/scenes/04-one-line.mp4
+Set Viewport 1600x900
+Set FontSize 18
+
+Code //tests/Nullean.Entities.Quickstart.Tests/PlainCsCheckTests.cs at "Gen<OrderLine>"
+Say@skeptic "I already do property testing. I use CsCheck."
+Say "Good. So does Entities. Here's the order tested with plain CsCheck."
+Focus lines 29-37
+Say "Good code. But every property is written by hand: the inputs, the law, the comparison, for every rule you thought of."
+Focus off
+Split //tests/Nullean.Entities.Quickstart.Tests/QuickstartTests.cs at "Gen<OrderLine>"
+Link "Gen<Order> Orders" -> "Gen<Order> Orders" "the same CsCheck Gen"
+Say "With Entities, the generator stays. What goes is the property."
+Link "Cancelling_twice_is_cancelling_once" -> "EveryDeclaredAxisHolds" "declared as Idempotent"
+Link "No_operation_lowers_the_version" -> "EveryDeclaredAxisHolds" "declared as Monotonic"
+Link "The_total_is_never_negative" -> "EveryDeclaredAxisHolds" "declared as Always"
+Say "The rule is the property. One line runs a case for every axis the rules declare, against every public method that returns an order."
+Say@skeptic "Even one I add next month?"
+Say "Even that one. No new test code."
+Link off
+Split off
+Sleep 300ms

@@ -1,0 +1,18 @@
+# The entities intro sting, 16x9: intro.html recorded by reel itself, unframed; finish.sh trims Chromium's window rim
+# and writes media/<name>.mp4, the film's IntroBackground.
+Open intro.html
+Output media/intro-16x9.take.mp4
+Set Viewport 1280x720
+Set Browser chromium
+Set Quality 90
+Set ClickRipples off
+Set Cursor off
+
+# Off camera: the fonts load, then the second Open starts every animation from its first frame.
+Hide
+Wait css:"main"
+Sleep 1s
+Open intro.html
+Wait css:"main"
+Show
+Sleep 4500ms

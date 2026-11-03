@@ -1,0 +1,77 @@
+# Scene 2, the turn: the rules buried as code in a constructor, a getter and a service lose their intent and can't be
+# listed, tested or reused. Entities makes them first-class metadata, which everything else can read.
+Import //reels/entities.reelpreset
+Screen code
+
+Output //.artifacts/reel/scenes/02-metadata.mp4
+Set Viewport 1600x900
+Set FontSize 19
+
+Code //reels/code/Order.guarded.cs
+Say "And it works. The rules are there: in the constructor,"
+Focus lines 6-11
+Mark "if (lines.Any(l => l.Price < 0))" 1
+Callout "ArgumentException" "why? the intent is gone"
+Say@over "in a property getter, [getter] where a check runs only in a debug build,"
+Wait [getter]
+Callout off
+Focus lines 17-25
+Mark "Debug.Assert(total >= 0)" 2
+Callout "Debug.Assert(total >= 0)" "and not in Release"
+Say@over "in a comment, [comment] and in a service somewhere else."
+Wait [comment]
+Callout off
+Focus lines 27-32
+Mark "// twice is fine?" 3
+Focus lines 35-43
+Mark "if (order.Version < stored.Version)" 4
+Callout "if (order.Version < stored.Version)" "this service only"
+Sleep 600ms
+Callout off
+Focus off
+Say "But you can't list them. You can't test one on its own. Your API can't reuse them, and nothing can read them."
+Say "Code hides a rule. Nothing makes it first class."
+Mark off
+
+Morph@ease-in-out,1400ms //examples/Nullean.Entities.Quickstart/OrderConstraints.cs
+Say "Entities makes each rule a named value, declared once, next to the type."
+Focus lines 7-8
+Mark "TotalNeverNegative" 1
+Say@over "Never negative. [idem] Cancelling twice is cancelling once."
+Wait [idem]
+Focus lines 22-26
+Mark "CancelIsRepeatable" 2
+Mark "VersionNeverGoesBack" 3
+Focus off
+Mark "[Constraints<Order>]" 4
+Callout "[Constraints<Order>]" "a generator gathers every rule into one set"
+Say "A source generator gathers them into one set. Now the rules are metadata."
+Callout off
+Mark off
+
+Code@slide-left //reels/code/Readers.cs
+Say "And metadata can be read by everything."
+Focus lines 4-5
+Say@over "The code that builds an order [built] gets a result, never an invalid order."
+Wait [built]
+Mark "rules.Validated(order)" 1
+Focus lines 7-8
+Say@over "An API [api] answers with problem details, keyed by field."
+Wait [api]
+Mark "AddConstraintProblemDetails()" 2
+Focus lines 10-11
+Say@over "Options [options] are checked at start-up."
+Wait [options]
+Mark "ValidateConstraints(ShopOptions.Rules)" 3
+Focus lines 13-14
+Say@over "The tests [tests] are one line,"
+Wait [tests]
+Mark "AutoTest.For(OrderConstraints.Instance, Orders).RunAsync()" 4
+Focus lines 16-17
+Say@over "and the docs [docs] draw every reachable state."
+Wait [docs]
+Mark "Spec().Mermaid()" 5
+Focus off
+Say@skeptic "Written once. Read by everything."
+Mark off
+Sleep 300ms

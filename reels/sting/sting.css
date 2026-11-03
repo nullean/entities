@@ -1,0 +1,43 @@
+/* The entities stings: the landing page's tokens (docs/landing/tokens.css), full bleed, sized from the viewport so
+   one page records at 16:9 and 9:16 alike. Every element plays once, in order, and holds. */
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap");
+:root { --bg: #08090b; --bg2: #0d1013; --bg3: #1b2126; --text: #e9ecf1; --muted: #98a1ae; --dim: #5a6472;
+  --bone: #e0d8c1; --bone-hi: #ece7d9; --copper: #db8553; --copper-hi: #e9b394; --ok: #6fcf97;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace; --display: "Space Grotesk", system-ui, sans-serif;
+  --u: min(1vw, 1.78vh); }
+@media (max-aspect-ratio: 1/1) { :root { --u: 1.9vw; } }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { background: radial-gradient(120% 90% at 18% 10%, var(--bg3) 0%, var(--bg2) 50%, var(--bg) 100%);
+  color: var(--text); font-family: var(--mono); display: grid; place-items: center; }
+body::before { content: ""; position: fixed; inset: 0; pointer-events: none;
+  background-image: linear-gradient(#e0d8c10b 1px, transparent 1px), linear-gradient(90deg, #e0d8c10b 1px, transparent 1px);
+  background-size: calc(var(--u) * 6) calc(var(--u) * 6);
+  mask-image: radial-gradient(60% 60% at 50% 50%, #000 0%, transparent 100%); animation: fade 1.2s ease-out both; }
+body::after { content: ""; position: fixed; width: calc(var(--u) * 70); height: calc(var(--u) * 70); border-radius: 50%;
+  background: radial-gradient(closest-side, #db855322, transparent); filter: blur(calc(var(--u) * 4));
+  animation: glow 4s ease-in-out both; }
+main { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 2.6);
+  text-align: center; padding: 0 calc(var(--u) * 4); }
+.lockup { width: calc(var(--u) * 46); height: auto; animation: rise .9s cubic-bezier(.2,.8,.2,1) .15s both; }
+.tagline { font-family: var(--display); font-weight: 500; font-size: calc(var(--u) * 3.6); letter-spacing: -.02em;
+  color: var(--bone-hi); margin: 0; animation: rise .8s cubic-bezier(.2,.8,.2,1) .9s both; }
+.tagline em { font-style: normal; color: var(--copper); }
+.sub { font-size: calc(var(--u) * 1.7); color: var(--muted); margin: 0; animation: fade .8s ease-out 1.5s both; }
+.axes { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(var(--u) * 1); margin-top: calc(var(--u) * 1.2); }
+.axes span { font-size: calc(var(--u) * 1.45); padding: calc(var(--u) * .55) calc(var(--u) * 1); border-radius: 4px;
+  border: 1px solid #e0d8c129; color: var(--bone); background: #0d1013cc; animation: pop .35s cubic-bezier(.2,.9,.3,1.4) both; }
+.axes span b { color: var(--dim); font-weight: 500; margin-right: .6em; }
+.axes span:last-child { border-color: var(--copper); color: var(--copper-hi); }
+.cmd { font-size: calc(var(--u) * 2); color: var(--text); background: var(--bg2); border: 1px solid #e0d8c129;
+  border-radius: 6px; padding: calc(var(--u) * 1.1) calc(var(--u) * 2); box-shadow: 0 24px 60px -20px rgba(0,0,0,.7);
+  animation: rise .7s cubic-bezier(.2,.8,.2,1) 1.4s both; }
+.cmd::before { content: "$ "; color: var(--copper); }
+.links { display: flex; gap: calc(var(--u) * 3); font-size: calc(var(--u) * 1.7); color: var(--bone); animation: fade .8s ease-out 2.1s both; }
+.links span::before { content: "→ "; color: var(--copper); }
+@media (max-aspect-ratio: 1/1) { .links { flex-direction: column; gap: calc(var(--u) * 1.2); } }
+@keyframes rise { from { opacity: 0; transform: translateY(calc(var(--u) * 2)) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { from { opacity: 0; transform: translateY(calc(var(--u) * 1)) scale(.8); } to { opacity: 1; transform: none; } }
+@keyframes glow { 0% { opacity: 0; transform: scale(.6); } 60% { opacity: 1; } 100% { opacity: .7; transform: scale(1.1); } }
+@media (max-aspect-ratio: 1/1) { .cmd { font-size: calc(var(--u) * 1.45); white-space: nowrap; } }

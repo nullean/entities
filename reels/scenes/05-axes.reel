@@ -1,0 +1,54 @@
+# Scene 5: one line, nine axes. The home page's axes table: pressing a row plays the bug that axis catches. Then the
+# shrink demo: a failure reduced to its smallest case, with a seed. Recorded against the landing branch's build served
+# on 127.0.0.1:8765 (README.md).
+Import //reels/entities.reelpreset
+Open http://127.0.0.1:8765/index.html#questions
+
+Output //.artifacts/reel/scenes/05-axes.mp4
+Set Browser chromium
+Set Viewport 1440x1040
+Set WaitTimeout 20s
+
+Hide
+Wait css:"#qtable"
+Sleep 1500ms
+Show
+Say "That one line asks every rule nine questions. Each one a kind of production bug."
+Say@over "Invariant: [q1] a step that lets a negative price in."
+Wait [q1]
+Click css:"#qtable tbody tr:nth-child(1) .qbtn"
+Say@over "Idempotency: [q2] a retry that changes things twice."
+Wait [q2]
+Click css:"#qtable tbody tr:nth-child(2) .qbtn"
+Say@skeptic "A retry that charges the card twice. I've shipped that one."
+Say@over "Monotonicity: [q3] an older result overwriting a newer one. Conservation: [q4] a fee, and money vanishes."
+Wait [q3]
+Click css:"#qtable tbody tr:nth-child(3) .qbtn"
+Wait [q4]
+Click css:"#qtable tbody tr:nth-child(4) .qbtn"
+Say@over "Absence: [q5] a cancelled order that still ships. Temporal: [q6] shipped at ninety seconds, promised within sixty."
+Wait [q5]
+Click css:"#qtable tbody tr:nth-child(5) .qbtn"
+Wait [q6]
+Click css:"#qtable tbody tr:nth-child(6) .qbtn"
+Scroll down 4 css:"#qtable"
+Say@over "Liveness: [q7] the spinner that never stops. Confluence: [q8] a label that depends on the order lines arrived in."
+Wait [q7]
+Click css:"#qtable tbody tr:nth-child(7) .qbtn"
+Wait [q8]
+Click css:"#qtable tbody tr:nth-child(8) .qbtn"
+Say@over "And vacancy, [q9] the one nobody asks: a green test that never reached the rule. Here that fails. [done]"
+Wait [q9]
+Click css:"#qtable tbody tr:nth-child(9) .qbtn"
+Wait [done]
+Sleep 600ms
+
+Hide
+Open http://127.0.0.1:8765/index.html#reports
+# It shrinks once by itself when it scrolls into view; Replay is enabled again when that run is done.
+Wait css:"#replay:not([disabled])"
+Show
+Say@over "And a failure [shrink] isn't a two-hundred-line random order. It's shrunk, step by step, to the smallest case that still fails."
+Wait [shrink]
+Click css:"#replay"
+Sleep 3s

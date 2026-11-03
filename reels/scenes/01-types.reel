@@ -1,0 +1,31 @@
+# Scene 1, the cold open: a type system can only encode so much. A well-typed Order, and three questions its type
+# can't answer.
+Import //reels/entities.reelpreset
+Screen code
+
+Output //.artifacts/reel/scenes/01-types.mp4
+Set Viewport 1600x900
+Set FontSize 19
+
+Code //examples/Nullean.Entities.Quickstart/Order.cs
+Focus lines 8-25
+Say "A type system can only encode so much."
+Say@over "This order compiles. But can its total [total] ever go negative?"
+Wait [total]
+Mark "decimal Total" 1
+Callout "decimal Total" "never negative?"
+Say@over "Is cancelling it twice [cancel] the same as cancelling once?"
+Wait [cancel]
+Mark "public Order Cancel()" 2
+Callout "public Order Cancel()" "twice the same as once?"
+Say@over "Does its version [version] only ever go up?"
+Wait [version]
+Mark "int Version" 3
+Callout "int Version" "only ever goes up?"
+Sleep 800ms
+Callout off
+Say "Types say what your data is. Not what must stay true."
+Say@skeptic "So I check it in the constructor. Like everyone does."
+Mark off
+Focus off
+Sleep 300ms
