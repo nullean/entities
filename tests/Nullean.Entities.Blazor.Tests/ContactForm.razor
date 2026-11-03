@@ -1,0 +1,13 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using Nullean.Entities.Blazor
+
+<EditForm Model="Model">
+	<ConstraintValidator Constraints="ContactRules.All" />
+	<InputText id="phone" @bind-Value="Model.Phone" />
+	<div id="phone-messages"><ValidationMessage For="() => Model.Phone" /></div>
+	<button type="submit">Save</button>
+</EditForm>
+
+@code {
+	[Parameter] public Contact Model { get; set; } = new();
+}

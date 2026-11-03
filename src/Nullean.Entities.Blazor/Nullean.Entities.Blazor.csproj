@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>A Blazor EditForm validator that checks the form model against its Nullean.Entities constraint set, so ValidationMessage and ValidationSummary show violations per field.</Description>
+    <PackageTags>constraints validation blazor editform forms</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Forms" />
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+  </ItemGroup>
+</Project>

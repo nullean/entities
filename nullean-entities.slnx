@@ -12,6 +12,7 @@
   <Project Path="src/Nullean.Entities.AspNetCore/Nullean.Entities.AspNetCore.csproj" />
   <Project Path="src/Nullean.Entities.Argh/Nullean.Entities.Argh.csproj" />
   <Project Path="src/Nullean.Entities.Diagnostics/Nullean.Entities.Diagnostics.csproj" />
+  <Project Path="src/Nullean.Entities.Blazor/Nullean.Entities.Blazor.csproj" />
   <Project Path="tests/Nullean.Entities.Tests/Nullean.Entities.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.SourceGenerators.Tests/Nullean.Entities.SourceGenerators.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Reactive.Tests/Nullean.Entities.Reactive.Tests.csproj" />
@@ -32,6 +33,7 @@
   <Project Path="tests/Nullean.Entities.AspNetCore.Tests/Nullean.Entities.AspNetCore.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Argh.Tests/Nullean.Entities.Argh.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Diagnostics.Tests/Nullean.Entities.Diagnostics.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.Blazor.Tests/Nullean.Entities.Blazor.Tests.csproj" />
   <Project Path="examples/Nullean.Entities.AotSmoke/Nullean.Entities.AotSmoke.csproj" />
   <Project Path="examples/Nullean.Entities.Examples/Nullean.Entities.Examples.csproj" />
   <Project Path="examples/Nullean.Entities.Integration.Examples/Nullean.Entities.Integration.Examples.csproj" />

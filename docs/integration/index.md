@@ -16,6 +16,7 @@ The library has no opinion about your framework: a constraint set is a value you
 | [Nullean.Argh](https://github.com/nullean/argh) command lines | Package `Nullean.Entities.Argh` | [Command-line apps](argh.md) |
 | TUnit, xUnit, NUnit and MSTest: one test per axis | Built into `Nullean.Entities.CsCheck` (`AsDataSource()`, `CaseNames`), no framework dependency | [Test frameworks](test-frameworks.md) |
 | Logging and metrics (`ILogger`, `System.Diagnostics.Metrics`, OpenTelemetry) | Package `Nullean.Entities.Diagnostics` | [Logging and metrics](diagnostics.md) |
+| Blazor `EditForm` validation | Package `Nullean.Entities.Blazor` | [Blazor forms](blazor.md) |
 | DataAnnotations (`[Required]`, `[Range]`, ...) | Built in: the source generator in `Nullean.Entities`, and `GenAuto` in `Nullean.Entities.CsCheck` | [DataAnnotations](data-annotations.md) |
 | Bogus and AutoBogus test data | `GenFakerExtensions.Faker<T>` is built into `Nullean.Entities.CsCheck`; package `Nullean.Entities.CsCheck.AutoBogus` | [Bogus and AutoBogus](autobogus.md) |
 | Models that hold files (`System.IO.Abstractions`) | Packages `Nullean.Entities.FileSystem` and `Nullean.Entities.CsCheck.FileSystem` | [File systems](file-system.md) |
@@ -43,7 +44,7 @@ Rules over two aggregates, rules on the declared or the resolved layer, and seve
 ## Trim and AOT
 
 `Nullean.Entities`, `Nullean.Entities.Reactive`, `Nullean.Entities.FileSystem`, `Nullean.Entities.Extensions.DependencyInjection`, `Nullean.Entities.AspNetCore`,
-`Nullean.Entities.Argh` and `Nullean.Entities.Diagnostics` use no reflection and are trim and NativeAOT clean. The first four, and `Nullean.Entities.Diagnostics`, are published NativeAOT in this repository's CI (`./build.sh aot`).
+`Nullean.Entities.Argh` and `Nullean.Entities.Diagnostics` use no reflection and are trim and NativeAOT clean. `Nullean.Entities.Blazor` uses no reflection and builds with the trim and AOT analyzers on. The first four, and `Nullean.Entities.Diagnostics`, are published NativeAOT in this repository's CI (`./build.sh aot`).
 The `Nullean.Entities.CsCheck` packages are for tests only and are not AOT-compatible.
 
 ## Complete, runnable versions

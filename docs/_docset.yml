@@ -57,6 +57,7 @@ toc:
       - file: argh.md
       - file: test-frameworks.md
       - file: diagnostics.md
+      - file: blazor.md
       - file: data-annotations.md
       - file: autobogus.md
       - file: file-system.md

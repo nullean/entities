@@ -88,7 +88,7 @@ The packages are not published yet; until they are, reference them from a checko
 | `Nullean.Entities.CsCheck.Reactive` | *Optional.* The same scripts on an Rx scheduler. |
 | `Nullean.Entities.Reactive` | *Optional.* Constraints over `IObservable<T>`. |
 | `Nullean.Entities.FileSystem`, `.CsCheck.FileSystem` | *Optional.* Rules over files and generated file-system worlds. |
-| `Nullean.Entities.Extensions.DependencyInjection`, `.AspNetCore`, `.Argh` | *Optional.* Validate options, requests and command-line arguments. |
+| `Nullean.Entities.Extensions.DependencyInjection`, `.AspNetCore`, `.Argh`, `.Blazor` | *Optional.* Validate options, requests, command-line arguments and Blazor forms. |
 | `Nullean.Entities.Diagnostics` | *Optional.* Violations seen at runtime as logs, metrics and trace events (OpenTelemetry picks them up by name; no dependency on it). |
 | `Nullean.Entities.CsCheck.AutoBogus` | *Optional.* Real-world data from an AutoFaker. |
 

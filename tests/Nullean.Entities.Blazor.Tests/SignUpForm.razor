@@ -1,0 +1,28 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using Nullean.Entities
+@using Nullean.Entities.Blazor
+
+<EditForm Model="Model" OnValidSubmit="() => Submitted++">
+	<ConstraintValidator Constraints="SignUp.Constraints" MinimumSeverity="MinimumSeverity" />
+
+	<InputText id="name" @bind-Value="Model.Name" />
+	<div id="name-messages"><ValidationMessage For="() => Model.Name" /></div>
+
+	<InputText id="email" @bind-Value="Model.Email" />
+	<div id="email-messages"><ValidationMessage For="() => Model.Email" /></div>
+
+	<InputText id="password" type="password" @bind-Value="Model.Password" />
+	<InputText id="confirm" type="password" @bind-Value="Model.Confirm" />
+	<div id="confirm-messages"><ValidationMessage For="() => Model.Confirm" /></div>
+
+	<InputCheckbox id="terms" @bind-Value="Model.AcceptTerms" />
+
+	<div id="summary"><ValidationSummary /></div>
+	<button type="submit">Sign up</button>
+</EditForm>
+
+@code {
+	[Parameter] public SignUp Model { get; set; } = new();
+	[Parameter] public Severity MinimumSeverity { get; set; } = Severity.Error;
+	public int Submitted { get; private set; }
+}
