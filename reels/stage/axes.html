@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nine axes</title>
+<link rel="stylesheet" href="stage.css">
+<style>
+/* One beat per axis. Each plays its bug by itself once it is shown, so one click a beat: .t1 parts arrive first,
+   .t2 when it breaks, .t3 with the report. The values are the real failures in docs/_snippets. */
+.num { font-family: var(--display); font-weight: 700; font-size: calc(var(--u) * 12); line-height: .8; color: transparent; -webkit-text-stroke: 1.5px #db855399; margin-bottom: calc(var(--u) * 1.4); }
+.q { font-family: var(--display); font-size: calc(var(--u) * 2.4); color: var(--bone-hi); margin: calc(var(--u) * 1.2) 0 0; line-height: 1.2; font-weight: 500; }
+.bug { color: var(--muted); font-size: calc(var(--u) * 1.5); margin-top: calc(var(--u) * 1.6); }
+.bug::before { content: "the bug  "; color: var(--copper); }
+.t1, .t2, .t3 { opacity: 0; }
+.beat.on .t1 { animation: pop .55s var(--spring) .45s both; }
+.beat.on .t2 { animation: pop .55s var(--spring) 1.2s both; }
+.beat.on .t3 { animation: rise .6s var(--ease) 2s both; }
+.beat.on .t2.shake { animation: pop .5s var(--spring) 1.2s both, shake .45s ease 1.7s; }
+
+.flow { display: flex; align-items: center; gap: calc(var(--u) * 1.2); justify-content: center; }
+.box { background: #0d1013ee; border: 1px solid var(--line-hi); border-radius: 12px; padding: calc(var(--u) * 1.3) calc(var(--u) * 1.5); min-width: calc(var(--u) * 15);
+  box-shadow: 0 24px 60px -24px #000c; font-size: calc(var(--u) * 1.5); line-height: 1.6; }
+.box h4 { margin: 0 0 .5em; font-family: var(--display); font-weight: 500; color: var(--muted); font-size: calc(var(--u) * 1.35); }
+.box .big { font-family: var(--display); font-size: calc(var(--u) * 4.2); color: var(--bone-hi); font-weight: 500; line-height: 1.1; }
+.box.bad { border-color: #ef6b5b88; background: #1a0f0dee; }
+.box.bad .big, .badtxt { color: var(--bad); }
+.box.ok { border-color: #6fcf9766; }
+.arrowop { color: var(--dim); font-size: calc(var(--u) * 1.35); text-align: center; white-space: nowrap; }
+.arrowop::after { content: "⟶"; display: block; font-size: calc(var(--u) * 2.4); color: var(--copper); line-height: 1; }
+.ne { font-family: var(--display); font-size: calc(var(--u) * 3); color: var(--bad); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: .1em 1em; }
+.kv span:nth-child(odd) { color: var(--dim); }
+.report .r { grid-template-columns: 8.5em 1fr; }
+
+/* the visual gets the room */
+.beat:not(.solo) { grid-template-columns: 27fr 73fr; }
+.stage { gap: calc(var(--u) * 2.6); }
+.report { font-size: calc(var(--u) * 1.3); }
+#idempotency .box { min-width: 0; padding: calc(var(--u) * 1.2); }
+#idempotency .box .big { font-size: calc(var(--u) * 2.7); }
+#idempotency .flow { gap: calc(var(--u) * .8); }
+/* monotonicity */
+.bars { display: flex; align-items: flex-end; gap: calc(var(--u) * 3); height: calc(var(--u) * 26); margin-bottom: calc(var(--u) * 2); justify-content: center; }
+.bars .bar { width: calc(var(--u) * 10); border-radius: 8px 8px 0 0; background: var(--copper); position: relative; }
+.bars .bar span { position: absolute; top: calc(var(--u) * -3); left: 0; right: 0; text-align: center; font-family: var(--display); font-size: calc(var(--u) * 2); color: var(--bone-hi); }
+.bars .bar small { position: absolute; bottom: calc(var(--u) * -2.6); left: 0; right: 0; text-align: center; color: var(--muted); font-size: calc(var(--u) * 1.3); }
+.bars .bar.bad { background: var(--bad); }
+
+/* conservation */
+.jars { display: flex; gap: calc(var(--u) * 1.4); }
+.jar { flex: 1; text-align: center; padding: calc(var(--u) * 1); border-radius: 8px; background: #ffffff07; }
+.jar small { display: block; color: var(--dim); }
+.jar b { font-family: var(--display); font-size: calc(var(--u) * 3); font-weight: 500; color: var(--bone-hi); }
+.total { margin-top: calc(var(--u) * 1); text-align: center; font-size: calc(var(--u) * 1.4); color: var(--muted); }
+.total b { color: var(--bone-hi); font-family: var(--display); font-size: 1.5em; font-weight: 500; }
+.box.bad .total b { color: var(--bad); }
+.coin { position: absolute; width: calc(var(--u) * 2.2); height: calc(var(--u) * 2.2); border-radius: 50%; background: var(--copper); box-shadow: 0 0 20px #db8553aa; opacity: 0; }
+.beat.on .coin { animation: drop 1.4s cubic-bezier(.5,0,.8,.4) 1.4s both; }
+@keyframes drop { 0% { opacity: 0; transform: translateY(0); } 4% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(calc(var(--u) * 16)); } }
+
+/* event strips */
+.strip { position: relative; height: calc(var(--u) * 20); margin: 0 calc(var(--u) * 3); }
+.strip .axis { position: absolute; left: 0; right: 0; top: 55%; height: 2px; background: var(--line-hi); }
+.strip .tick { white-space: nowrap; position: absolute; top: calc(55% + var(--u) * 2.2); transform: translateX(-50%); color: var(--dim); font-size: calc(var(--u) * 1.3); }
+.ev { position: absolute; top: 55%; transform: translate(-50%, -50%); }
+.ev i { display: block; width: calc(var(--u) * 2.4); height: calc(var(--u) * 2.4); border-radius: 50%; background: var(--bone); box-shadow: 0 0 0 5px #e0d8c11f; }
+.ev span { position: absolute; bottom: calc(100% + var(--u) * .8); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: calc(var(--u) * 1.9); color: var(--bone-hi); font-family: var(--display); }
+.ev.bad i { background: var(--bad); box-shadow: 0 0 0 7px var(--bad-lo); }
+.ev.bad span { color: #ffd6cf; }
+.ev.warn i { background: var(--copper); }
+.win { position: absolute; top: 15%; height: 40%; left: 0; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #ef6b5b0c, #ef6b5b26); border: 1px solid #ef6b5b55; border-bottom: 0; }
+.win span { position: absolute; top: calc(var(--u) * .6); left: calc(var(--u) * .8); color: var(--bad); font-size: calc(var(--u) * 1.2); }
+.forbid { position: absolute; top: 20%; height: 16%; border-top: 2px solid var(--bad); border-left: 2px solid var(--bad); border-right: 2px solid var(--bad); border-radius: 10px 10px 0 0; }
+.forbid span { position: absolute; top: calc(var(--u) * -2.6); left: 50%; transform: translateX(-50%); color: var(--bad); white-space: nowrap; font-size: calc(var(--u) * 1.25); }
+.spinner { width: calc(var(--u) * 7); height: calc(var(--u) * 7); border-radius: 50%; border: 4px solid #e0d8c122; border-top-color: var(--copper); animation: spin 1s linear infinite; }
+.slot { position: absolute; top: 55%; transform: translate(-50%, -50%); width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); border-radius: 50%; border: 2px dashed #ef6b5b99; }
+.slot span { position: absolute; bottom: calc(100% + var(--u) * .8); left: 50%; transform: translateX(-50%); white-space: nowrap; color: var(--bad); font-size: calc(var(--u) * 1.9); font-family: var(--display); }
+
+/* confluence */
+.lines { display: flex; gap: calc(var(--u) * .6); margin: .4em 0 .6em; }
+.ln { padding: .25em .7em; border-radius: 5px; background: #ffffff0a; color: var(--bone-hi); }
+.ln.a { border: 1px solid #6fcf9755; } .ln.p { border: 1px solid #db855388; }
+
+/* vacancy */
+.pass { display: flex; align-items: center; gap: calc(var(--u) * 1.4); font-size: calc(var(--u) * 2.2); color: var(--ok); font-family: var(--display); }
+.pass i { width: calc(var(--u) * 5); height: calc(var(--u) * 5); border-radius: 50%; border: 3px solid var(--ok); display: grid; place-items: center; font-style: normal; font-size: calc(var(--u) * 2.6); }
+.dots { display: grid; grid-template-columns: repeat(25, 1fr); gap: calc(var(--u) * .5); width: calc(var(--u) * 60); }
+.dots i { aspect-ratio: 1; border-radius: 50%; background: #e0d8c12a; }
+.guard { font-size: calc(var(--u) * 1.7); color: var(--muted); }
+.guard b { color: var(--bad); font-weight: 500; }
+
+/* close */
+.grid9 { display: grid; grid-template-columns: repeat(3, 1fr); gap: calc(var(--u) * 1.2); width: min(100%, calc(var(--u) * 135)); margin-top: calc(var(--u) * 3); text-align: left; }
+.grid9 .card { display: grid; grid-template-columns: auto 1fr; gap: 0 calc(var(--u) * 1.2); align-items: center; }
+.grid9 .card b { font-family: var(--display); font-size: calc(var(--u) * 3.4); color: var(--copper); font-weight: 700; grid-row: span 2; }
+.grid9 .card h3 { margin: 0; }
+.grid9 .card span { color: var(--muted); font-size: calc(var(--u) * 1.35); }
+.grid9 .card h3 { font-size: calc(var(--u) * 1.9); }
+.beat.on .grid9 .card { animation: pop .5s var(--spring) both; }
+.beat.on .grid9 .card:nth-child(2) { animation-delay: .08s; } .beat.on .grid9 .card:nth-child(3) { animation-delay: .16s; }
+.beat.on .grid9 .card:nth-child(4) { animation-delay: .24s; } .beat.on .grid9 .card:nth-child(5) { animation-delay: .32s; }
+.beat.on .grid9 .card:nth-child(6) { animation-delay: .4s; } .beat.on .grid9 .card:nth-child(7) { animation-delay: .48s; }
+.beat.on .grid9 .card:nth-child(8) { animation-delay: .56s; } .beat.on .grid9 .card:nth-child(9) { animation-delay: .64s; }
+</style>
+</head>
+<body>
+<button id="next" aria-label="next"></button>
+
+<section class="beat solo" id="title">
+  <div class="copy">
+    <p class="eyebrow">the tests you did not write</p>
+    <h1>One line. <em>Nine questions.</em></h1>
+    <p class="lede" style="margin-inline:auto">Each one a kind of production bug.</p>
+  </div>
+  <div class="chips">
+    <span class="chip"><b>01</b>invariant</span><span class="chip"><b>02</b>idempotency</span><span class="chip"><b>03</b>monotonicity</span>
+    <span class="chip"><b>04</b>conservation</span><span class="chip"><b>05</b>absence</span><span class="chip"><b>06</b>temporal</span>
+    <span class="chip"><b>07</b>liveness</span><span class="chip"><b>08</b>confluence</span><span class="chip"><b>09</b>vacancy</span>
+  </div>
+</section>
+
+<section class="beat" id="invariant">
+  <div class="copy"><div class="num">01</div><h2>Invariant</h2><p class="q">Is it true in every state?</p><p class="bug">a step that lets a negative price in</p></div>
+  <div class="stage">
+    <div class="flow">
+      <div class="box t1"><h4>Started from</h4><div class="kv"><span>Lines</span><span>[]</span><span>Total</span><span>0</span></div></div>
+      <div class="arrowop t1">AddRawLine()</div>
+      <div class="box bad t2 shake"><h4>Produced</h4><div class="kv"><span>Lines</span><span>fig × 1 @ <b class="badtxt">-5</b></span></div><div class="big">Total -5</div></div>
+    </div>
+    <div class="report t3"><div class="h">Invariant failed.</div><div class="r"><span>Rule broken</span><span>total-never-negative: An order total is never negative.</span></div><div class="seed">Smallest case found, after 1 shrink. <b>.Seed("9Rmf9J10O1j6")</b></div></div>
+  </div>
+</section>
+
+<section class="beat" id="idempotency">
+  <div class="copy"><div class="num">02</div><h2>Idempotency</h2><p class="q">Does doing it twice change anything?</p><p class="bug">a retry that charges the card twice</p></div>
+  <div class="stage">
+    <div class="flow">
+      <div class="box t1"><h4>Started from</h4><div class="big">Pending</div>Version 0</div>
+      <div class="arrowop t1">Cancel()</div>
+      <div class="box ok t1"><h4>Once gave</h4><div class="big">Cancelled</div>Version 1</div>
+      <div class="arrowop t2">Cancel()</div>
+      <div class="box bad t2 shake"><h4>Twice gave</h4><div class="big">Cancelled</div><span class="badtxt">Version 2</span></div>
+    </div>
+    <div class="report t3"><div class="h">Idempotency failed.</div><div class="r"><span>Rule broken</span><span>cancel-is-repeatable: doing it twice is not the same as doing it once.</span></div><div class="seed">This is the smallest case: nothing smaller failed. <b>.Seed("0N0XIzNsQ0O2")</b></div></div>
+  </div>
+</section>
+
+<section class="beat" id="monotonicity">
+  <div class="copy"><div class="num">03</div><h2>Monotonicity</h2><p class="q">Does it ever go backwards?</p><p class="bug">an older result overwriting a newer one</p></div>
+  <div class="stage">
+    <div class="bars">
+      <div class="bar t1" style="height:25%"><span>0</span><small>New()</small></div>
+      <div class="bar t1" style="height:60%"><span>1</span><small>Cancel()</small></div>
+      <div class="bar bad t2 shake" style="height:25%"><span>0</span><small>Reset()</small></div>
+    </div>
+    <div class="report t3"><div class="h">Monotonicity failed.</div><div class="r"><span>Rule broken</span><span>version-never-goes-back: Expected NonDecreasing but moved from 1 to 0.</span></div><div class="seed">Smallest case found, after 4 shrinks. <b>.Seed("7ub38ErvzD2a")</b></div></div>
+  </div>
+</section>
+
+<section class="beat" id="conservation">
+  <div class="copy"><div class="num">04</div><h2>Conservation</h2><p class="q">Did anything appear or vanish?</p><p class="bug">a fee, and money disappears</p></div>
+  <div class="stage">
+    <div class="flow" style="position:relative">
+      <div class="box t1" style="min-width:calc(var(--u)*24)"><h4>Started from</h4><div class="jars"><div class="jar"><small>Checking</small><b>10</b></div><div class="jar"><small>Savings</small><b>6</b></div></div><div class="total">Total <b>16</b></div></div>
+      <div class="arrowop t1">MoveWithFee(2)</div>
+      <div class="box bad t2" style="min-width:calc(var(--u)*24)"><h4>Produced</h4><div class="jars"><div class="jar"><small>Checking</small><b>7</b></div><div class="jar"><small>Savings</small><b>8</b></div></div><div class="total">Total <b>15</b></div></div>
+      <div class="coin" style="left:50%; top:20%"></div>
+    </div>
+    <div class="report t3"><div class="h">Conservation failed.</div><div class="r"><span>Rule broken</span><span>money-is-conserved did not conserve its value (was 16, became 15).</span></div><div class="seed">Smallest case found, after 2 shrinks. <b>.Seed("db7hMFd37Kd8")</b></div></div>
+  </div>
+</section>
+
+<section class="beat" id="absence">
+  <div class="copy"><div class="num">05</div><h2>Absence</h2><p class="q">Can a bad sequence ever happen?</p><p class="bug">a cancelled order that still ships</p></div>
+  <div class="stage">
+    <div class="card"><div class="strip">
+      <div class="axis"></div>
+      <div class="tick" style="left:0">+0s</div><div class="tick" style="left:46.7%">+14s</div><div class="tick" style="left:100%">+30s</div>
+      <div class="ev t1" style="left:0"><i></i><span>Confirmed</span></div>
+      <div class="ev warn t1" style="left:46.7%"><i></i><span>Cancelled</span></div>
+      <div class="ev bad t2 shake" style="left:100%"><i></i><span>Shipped</span></div>
+      <div class="forbid t3" style="left:46.7%; width:53.3%"><span>Cancelled, then Shipped</span></div>
+    </div></div>
+    <div class="report t3"><div class="h">Absence failed.</div><div class="r"><span>Rule broken</span><span>cancelled-orders-are-never-shipped</span></div><div class="r"><span>Noticed at</span><span>+30s</span></div><div class="seed">Smallest case found, after 4 shrinks. <b>.Seed("bJG2B9wvdYq4")</b></div></div>
+  </div>
+</section>
+
+<section class="beat" id="temporal">
+  <div class="copy"><div class="num">06</div><h2>Temporal</h2><p class="q">Does B follow A within a deadline?</p><p class="bug">shipped at ninety seconds, promised within sixty</p></div>
+  <div class="stage">
+    <div class="card"><div class="strip">
+      <div class="win t1" style="width:66.7%"><span>within 00:01:00</span></div>
+      <div class="axis"></div>
+      <div class="tick" style="left:0">+0s</div><div class="tick" style="left:66.7%">+60s</div><div class="tick" style="left:100%">+90s</div>
+      <div class="ev t1" style="left:0"><i></i><span>Confirmed</span></div>
+      <div class="ev bad t2 shake" style="left:100%"><i></i><span>Shipped</span></div>
+    </div></div>
+    <div class="report t3"><div class="h">Temporal failed.</div><div class="r"><span>Rule broken</span><span>confirmed-ships-within-a-minute</span></div><div class="r"><span>What happened</span><span>No matching event within 00:01:00 after Confirmed</span></div><div class="seed">Smallest case found, after 5 shrinks. <b>.Seed("0i1vmP3ChLc5")</b></div></div>
+  </div>
+</section>
+
+<section class="beat" id="liveness">
+  <div class="copy"><div class="num">07</div><h2>Liveness</h2><p class="q">Does it eventually finish?</p><p class="bug">the spinner that never stops</p></div>
+  <div class="stage">
+    <div class="card"><div class="strip">
+      <div class="axis"></div>
+      <div class="tick" style="left:0">+0s</div><div class="tick" style="left:93%">run settled</div>
+      <div class="ev t1" style="left:0"><i></i><span>Confirmed</span></div>
+      <div class="t1" style="position:absolute; left:50%; top:55%; transform:translate(-50%,-50%)"><div class="spinner"></div></div>
+      <div class="slot t2" style="left:93%"><span>Shipped?</span></div>
+    </div></div>
+    <div class="report t3"><div class="h">Liveness failed.</div><div class="r"><span>Rule broken</span><span>every-confirmed-order-ships</span></div><div class="r"><span>What happened</span><span>1 instance(s) never reached the target event: order</span></div><div class="seed">Smallest case found, after 1 shrink. <b>.Seed("9-RUpSdWxJb3")</b></div></div>
+  </div>
+</section>
+
+<section class="beat" id="confluence">
+  <div class="copy"><div class="num">08</div><h2>Confluence</h2><p class="q">Does input order change the output?</p><p class="bug">a label that depends on the order lines arrived in</p></div>
+  <div class="stage">
+    <div class="flow">
+      <div class="box t1"><h4>Lines as listed</h4><div class="lines"><span class="ln p">pear</span><span class="ln a">apple</span></div>Label <div class="big">pear</div></div>
+      <div class="ne t2">≠</div>
+      <div class="box bad t2 shake"><h4>Reordered [1, 0]</h4><div class="lines"><span class="ln a">apple</span><span class="ln p">pear</span></div>Label <div class="big">apple</div></div>
+    </div>
+    <div class="report t3"><div class="h">Confluence failed.</div><div class="r"><span>Rule broken</span><span>first-sku-is-the-label: the result depends on the order the items are listed in.</span></div><div class="seed">Smallest case found, after 2 shrinks. <b>.Seed("dsRrQRlF6jV2")</b></div></div>
+  </div>
+</section>
+
+<section class="beat" id="vacancy">
+  <div class="copy"><div class="num">09</div><h2>Vacancy</h2><p class="q">Did the test even reach the rule?</p><p class="bug">a green test that checked nothing</p></div>
+  <div class="stage" style="align-items:center">
+    <div class="pass t1"><i>✓</i>200 values, all passed</div>
+    <div class="dots t1" id="dots"></div>
+    <div class="guard t2">guard <b>Status == Confirmed</b>: true for <b>0 of 200</b></div>
+    <div class="report t3" style="align-self:stretch"><div class="h">Vacancy: the test passed without proving anything.</div><div class="r"><span>Rule</span><span>confirmed-orders-have-lines</span></div><div class="r"><span>Not exercised</span><span>its guard was never true for the 200 generated values.</span></div></div>
+  </div>
+</section>
+
+<section class="beat solo" id="close">
+  <div class="copy"><h2>Nine questions, <em>from one line.</em></h2></div>
+  <div class="grid9">
+    <div class="card"><b>01</b><h3>Invariant</h3><span>true in every state?</span></div>
+    <div class="card"><b>02</b><h3>Idempotency</h3><span>twice the same as once?</span></div>
+    <div class="card"><b>03</b><h3>Monotonicity</h3><span>ever go backwards?</span></div>
+    <div class="card"><b>04</b><h3>Conservation</h3><span>anything appear or vanish?</span></div>
+    <div class="card"><b>05</b><h3>Absence</h3><span>a bad sequence?</span></div>
+    <div class="card"><b>06</b><h3>Temporal</h3><span>B within a deadline of A?</span></div>
+    <div class="card"><b>07</b><h3>Liveness</h3><span>eventually finish?</span></div>
+    <div class="card"><b>08</b><h3>Confluence</h3><span>does input order matter?</span></div>
+    <div class="card"><b>09</b><h3>Vacancy</h3><span>did the test reach the rule?</span></div>
+  </div>
+</section>
+
+<script src="stage.js"></script>
+<script>
+// 200 drawn values, none of them Confirmed: the dots go grey, the guard never lit.
+(() => { const d = document.getElementById("dots"); for (let i = 0; i < 200; i++) d.appendChild(document.createElement("i")); })();
+</script>
+</body>
+</html>

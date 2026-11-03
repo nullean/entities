@@ -1,0 +1,51 @@
+# Scene 4: built on CsCheck. stage/cscheck.html, full bleed: CsCheck's engine underneath, what Entities adds on top
+# (first-class properties, nine axes, AutoTest), the rules as discoverable properties, and the one line that runs them.
+Import //reels/entities.reelpreset
+Open ../stage/cscheck.html
+
+Output //.artifacts/reel/scenes/04-one-line.mp4
+Set Browser chromium
+Set Viewport 1600x900
+Set Cursor off
+Set ClickRipples off
+Set WaitTimeout 20s
+
+Hide
+Wait css:"#next"
+Sleep 1s
+Open ../stage/cscheck.html
+Wait css:"#layers.on"
+Show
+Say@skeptic "I already do property testing. I use CsCheck."
+Say@over "Good. Entities is built on CsCheck: its generators, its shrinking, its seeds. On top, it adds [e1] first-class properties, [e2] nine axes, [e3] and AutoTest. [done]"
+Wait [e1]
+Click css:"#next"
+Wait [e2]
+Click css:"#next"
+Wait [e3]
+Click css:"#next"
+Wait [done]
+Sleep 800ms
+
+Click css:"#next"
+Say@over "Every rule you declare is a named property with a shape, [shape] and the shape says which questions to ask. [all] A source generator gathers them, so nothing is written twice."
+Wait [shape]
+Click css:"#next"
+Wait [all]
+Click css:"#next"
+Sleep 2s
+
+Click css:"#next"
+Say@over "Then one line: [rules] your rules and your CsCheck generator. [ops] It finds the operations on the type, [axes] and runs every axis the rules declare. [kept] Every failure is shrunk by CsCheck, with a seed to replay it."
+Wait [rules]
+Click css:"#next"
+Wait [ops]
+Click css:"#next"
+Wait [axes]
+Click css:"#next"
+Wait [kept]
+Click css:"#next"
+Sleep 2500ms
+Say@skeptic "And a rule I add next month?"
+Say "Found, and tested. No new test code."
+Sleep 500ms

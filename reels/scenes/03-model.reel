@@ -1,0 +1,86 @@
+# Scene 3: model your world. stage/model.html, full bleed: one beat each for relations, time, state machines,
+# operations, values and files, each broken on screen with the failure a report would give. A click on #next takes the
+# page's next step; the clicks land on the narration's markers.
+Import //reels/entities.reelpreset
+Open ../stage/model.html
+
+Output //.artifacts/reel/scenes/03-model.mp4
+Set Browser chromium
+Set Viewport 1600x900
+Set Cursor off
+Set ClickRipples off
+Set WaitTimeout 20s
+
+# Off camera: the fonts load, then the second Open starts every animation from its first frame.
+Hide
+Wait css:"#next"
+Sleep 1s
+Open ../stage/model.html
+Wait css:"#title.on"
+Show
+Say "One order is where it starts. The same rules reach across your whole model."
+
+Click css:"#next"
+Say@over "Relations. Think of it as tables, and break them: a duplicate key, [dup] a reference to nothing, [ref] a cycle, [cyc] a chain of redirects. [chain]"
+Wait [dup]
+Click css:"#next"
+Wait [ref]
+Click css:"#next"
+Wait [cyc]
+Click css:"#next"
+Wait [chain]
+Click css:"#next"
+Sleep 1500ms
+
+Click css:"#next"
+Say@over "Time: what must follow, and how soon. [held] A request that answers in time holds. [hung] One that hangs [late] misses its deadline."
+Wait [held]
+Click css:"#next"
+Wait [hung]
+Click css:"#next"
+Wait [late]
+Click css:"#next"
+Sleep 1500ms
+
+Click css:"#next"
+Say@over "State machines: only the legal moves, [m1] walked one at a time. [nope] A move the rules don't allow is caught, [docs] and the diagram in your docs is drawn from the same definition."
+Wait [m1]
+Click css:"#next"
+Sleep 700ms
+Click css:"#next"
+Wait [nope]
+Click css:"#next"
+Wait [docs]
+Click css:"#next"
+Sleep 1s
+
+Click css:"#next"
+Say@over "What an operation may do: [o1] cancelling twice is cancelling once, [o2] a version only goes up, [o3] a transfer keeps the total."
+Wait [o1]
+Click css:"#next"
+Wait [o2]
+Click css:"#next"
+Wait [o3]
+Click css:"#next"
+Sleep 1200ms
+
+Click css:"#next"
+Say@over "Values that can't be built invalid: [v1] good input gets a value, [v2] bad input gets every reason."
+Wait [v1]
+Click css:"#next"
+Wait [v2]
+Click css:"#next"
+Sleep 1200ms
+
+Click css:"#next"
+Say@over "And the disk a model points at: [f1] a page that doesn't exist, [f2] an image that escapes its folder."
+Wait [f1]
+Click css:"#next"
+Wait [f2]
+Click css:"#next"
+# A marker late in a line is found before the line ends; hold for the rest of it.
+Sleep 2500ms
+
+Click css:"#next"
+Say "One model. One set of rules."
+Sleep 800ms

@@ -1,0 +1,18 @@
+# The entities film: "Model your world. Get the tests for free." Each scene is its own reel, recorded on its own
+# (README.md); this one joins them, scene 6's reel of tracks included, between the intro and outro stings.
+Import //reels/entities.reelpreset
+Include scenes/01-types.reel
+Include@slide-left,ease-in-out,700ms scenes/02-metadata.reel
+Include@crossfade,600ms scenes/03-model.reel
+Include@slide-left,ease-in-out,700ms scenes/04-one-line.reel
+Include@zoom,ease-out,700ms scenes/05-axes.reel
+Include@slide-up,ease-in-out,700ms scenes/06-live.reel
+Include@crossfade,600ms scenes/07-reports.reel
+
+Output //.artifacts/reel/entities.mp4
+Output //.artifacts/reel/entities.gif
+# The stings carry their own titles, so the cards have none: they play as recorded, in the cut's shape.
+Set IntroBackground social ? //reels/sting/media/intro-9x16.mp4 : //reels/sting/media/intro-16x9.mp4
+Set OutroBackground social ? //reels/sting/media/outro-9x16.mp4 : //reels/sting/media/outro-16x9.mp4
+Intro@crossfade,ease-out,700ms 5s
+Outro@fade,800ms 4s

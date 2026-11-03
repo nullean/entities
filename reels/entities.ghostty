@@ -1,0 +1,24 @@
+# entities, dark: the landing page's ground with bone (primary) and copper (secondary). Copper is also the failure
+# colour, as it is on the landing page, so a failed test reads in the brand.
+background = 0d1013
+foreground = e9ecf1
+cursor-color = db8553
+cursor-text = 0d1013
+selection-background = 2d2c2a
+selection-foreground = ece7d9
+palette = 0=#1b2126
+palette = 1=#db8553
+palette = 2=#6fcf97
+palette = 3=#e0d8c1
+palette = 4=#98a1ae
+palette = 5=#e9b394
+palette = 6=#9fd3a6
+palette = 7=#e9ecf1
+palette = 8=#5a6472
+palette = 9=#e9b394
+palette = 10=#9fd3a6
+palette = 11=#ece7d9
+palette = 12=#b8c0cc
+palette = 13=#f0c9b2
+palette = 14=#bfe3c3
+palette = 15=#ffffff

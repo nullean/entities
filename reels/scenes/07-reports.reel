@@ -1,0 +1,44 @@
+# Scene 7: a failure you can read, and so can an agent. The labels of a real report (docs/_snippets, written by
+# BugGalleryTests), the seed that replays it, the typed result tools get, and the close.
+Import //reels/entities.reelpreset
+Screen code
+
+Output //.artifacts/reel/scenes/07-reports.mp4
+Set Viewport 1600x900
+Set FontSize 22
+
+Code //docs/_snippets/conservation.txt
+Say "Every failure reads the same way. Written for you, and for the agent fixing it with you."
+Say@over "The rule, by name, [rule] and what it saw."
+Wait [rule]
+Mark "money-is-conserved" 1
+Say@over "The operation, [op] the smallest state it started from, and what it produced."
+Wait [op]
+Mark "MoveWithFee(2)" 2
+Mark "Total = 16" 3
+Mark "Total = 15" 4
+Say@over "The law it broke, [law] and why that matters."
+Wait [law]
+Mark "No operation creates or destroys" 5
+Mark "Totals drift" 6
+Say@over "And a seed. [seed] Paste it in, and the same case runs again, while you fix it."
+Wait [seed]
+Mark ".Seed(" 7
+Callout "after 2 shrinks" "shrunk from whatever CsCheck found first"
+Sleep 1500ms
+Callout off
+Mark off
+
+Code@slide-left //src/Nullean.Entities.CsCheck/AxisResult.cs at "public abstract record AxisResult"
+Focus lines 10-32
+Say "For tools, each axis is a typed result: passed, with the rules it reached, or failed, with the report and its seed."
+Mark "Passed(Axis Axis, IReadOnlyList<string> Rules, int Samples" 1
+Mark "Failed(Axis Axis, string Report, string? Seed" 2
+Say@skeptic "So an agent reads it, replays it, and fixes it."
+Mark off
+Focus off
+
+Code@crossfade //reels/code/Install.cs
+Say "The core has no dependencies and runs under native AOT. And a new rule can start as a warning."
+Say "Model your world. Get the tests for free."
+Sleep 800ms

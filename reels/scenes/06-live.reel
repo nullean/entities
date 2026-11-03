@@ -1,0 +1,103 @@
+# Scene 6: catch a real bug. Two tracks recorded together and directed: Order.cs in a code screen, and a real shell in
+# a git worktree of this repository (reels/setup.sh makes and resets it). The shell plants a one-line bug and runs the
+# Quickstart tests; the code screen waits for each of its steps and morphs into the same edit as it lands. Nothing here
+# is staged: the failures are whatever the tests print.
+Import //reels/entities.reelpreset
+
+Screen code as code
+  Set Viewport 1100x760
+  Set FontSize 18
+  Set WaitTimeout 3m
+  Code //examples/Nullean.Entities.Quickstart/Order.cs at "public Order Cancel()"
+  Focus lines 16-25
+  Wait for planted
+  Morph@ease-in-out,1400ms //reels/code/Order.cancel-bug.cs at "public Order Cancel()"
+  Focus lines 16-24
+  Mark "public Order Cancel() => this with" 1
+  Callout "public Order Cancel() => this with" "the status check, simplified away"
+  Wait for caught
+  Callout off
+  Mark off
+  Wait for reverting
+  Morph@ease-in-out,1400ms //examples/Nullean.Entities.Quickstart/Order.cs at "public Order Cancel()" as reverted
+  Focus lines 16-25
+  Wait for green
+
+Screen terminal as term
+  Set Theme //reels/entities.ghostty
+  Set WorkingDirectory ~/code/wt/entities/reel-live
+  Set Title "entities — zsh"
+  Set Columns 150
+  Set Rows 56
+  Set FontSize 13
+  Set WaitTimeout 3m
+  Type@0ms "export DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1 TESTINGPLATFORM_TELEMETRY_OPTOUT=1; git checkout -- .; clear"
+  Key return
+  Wait exit as ready
+  Wait for hello to end
+  Type "cp .artifacts/planted/Order.cs examples/Nullean.Entities.Quickstart/Order.cs"
+  Key return as planted
+  Wait exit
+  Wait for cleanup to end
+  Type "dotnet run --project tests/Nullean.Entities.Quickstart.Tests -f net10.0 -- --treenode-filter \"/*/*/QuickstartTests/*\""
+  Key return as running
+  Wait /Test run summary/
+  Wait exit
+  # The terminal is tall (the whole report fits): zoomed onto its top half, both failures and their seeds.
+  Zoom@smooth,900ms @420,400 1.5x
+  Mark "Idempotency failed" 1
+  Mark "legal-moves does not allow" 2
+  Callout "Twice gave" "Version 2: cancelled twice"
+  Sleep 200ms as caught
+  Wait for seed
+  Callout off
+  Callout ".Seed(" "replays exactly this case"
+  Wait for replays to end
+  Callout off
+  Mark off
+  Zoom@smooth,700ms off
+  Type "git checkout -- . && clear"
+  Key return as reverting
+  Wait exit
+  Key up 2
+  Key return
+  Wait /Test run summary/
+  Wait exit
+  Mark "Passed!" 1
+  Sleep 2s as green
+
+Output //.artifacts/reel/scenes/06-live.mp4
+Set WaitTimeout 3m
+Set Layout social ? code / term : code | term
+
+# Off camera: the shell starts clean (the worktree reset, the screen cleared). Hide is the director's: it cuts every track.
+Hide
+Wait for ready to end
+Show
+
+Say "Now a real bug. The order on the left, a real shell on the right." as hello
+Say@skeptic "Go on then. Break it."
+Wait for planted
+Say "A harmless-looking cleanup: Cancel no longer checks the status first." as cleanup
+Spotlight term
+Wait for running
+Say "And now the tests nobody wrote. One per axis the rules declare."
+# Speed is the director's: inside a track it would shorten that track alone, and the tracks would drift apart.
+Speed 4x
+Wait for caught
+Speed off
+Fullscreen@smooth,800ms term
+Say "Two of five fail. Idempotency: cancel twice, and the version goes up twice."
+Say "And the invariant: a shipped order can now be cancelled. The transitions never allowed that move."
+Pip@smooth,1s code over term top-right
+Say@skeptic "From one line. I didn't write a test for either of those." as seed
+Say "Each one shrunk to the smallest case, with a seed that replays it while you fix it." as replays
+Wait for reverted
+Say "Put the check back,"
+Speed 4x
+Wait for green
+Speed off
+Layout@smooth,800ms social ? code / term : code | term
+Spotlight off
+Say "and all five pass."
+Sleep 1s

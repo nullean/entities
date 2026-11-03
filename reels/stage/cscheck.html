@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Built on CsCheck</title>
+<link rel="stylesheet" href="stage.css">
+<style>
+/* layers: CsCheck underneath, what Entities adds on top */
+.stack { display: flex; flex-direction: column-reverse; gap: calc(var(--u) * 1.4); }
+.slab { border-radius: 14px; padding: calc(var(--u) * 1.8) calc(var(--u) * 2); border: 1px solid var(--line-hi); background: #0d1013ee; box-shadow: 0 30px 80px -30px #000; }
+.slab h3 { margin: 0 0 calc(var(--u) * 1.2); font-family: var(--display); font-weight: 700; font-size: calc(var(--u) * 2.2); color: var(--bone-hi); display: flex; align-items: baseline; gap: .6em; }
+.slab h3 small { font-family: var(--mono); font-weight: 400; font-size: .5em; color: var(--muted); }
+.slab.base { border-color: #6fcf9755; background: linear-gradient(180deg, #6fcf970d, #0d1013ee); }
+.slab.base h3 { color: var(--ok); }
+.slab.top { border-color: #db855388; background: linear-gradient(180deg, #db855314, #0d1013ee); }
+.slab.top h3 { color: var(--copper-hi); }
+.caps { display: grid; grid-template-columns: repeat(4, 1fr); gap: calc(var(--u) * 1); }
+.caps.three { grid-template-columns: repeat(3, 1fr); }
+.cap { background: #ffffff07; border-radius: 8px; padding: calc(var(--u) * 1) calc(var(--u) * 1.1); }
+.cap b { display: block; font-family: var(--display); font-weight: 500; font-size: calc(var(--u) * 1.7); color: var(--bone-hi); margin-bottom: .35em; }
+.cap span { color: var(--muted); font-size: calc(var(--u) * 1.2); line-height: 1.45; }
+.cap code { color: var(--copper-hi); font-size: calc(var(--u) * 1); }
+.beat.on .slab.base .cap { animation: pop .5s var(--spring) both; }
+.beat.on .slab.base .cap:nth-child(1) { animation-delay: .4s; } .beat.on .slab.base .cap:nth-child(2) { animation-delay: .55s; }
+.beat.on .slab.base .cap:nth-child(3) { animation-delay: .7s; } .beat.on .slab.base .cap:nth-child(4) { animation-delay: .85s; }
+.beat.on .slab.base { animation: rise .7s var(--ease) both; }
+.slab.top[data-at]:not(.in) { opacity: 0; transform: translateY(calc(var(--u) * -3)); }
+.slab.top .cap.in { border: 1px solid #db855355; background: #db85530f; }
+
+/* discovered properties */
+.found { display: flex; flex-direction: column; gap: calc(var(--u) * .7); }
+.prop { display: grid; grid-template-columns: 1fr auto auto; gap: calc(var(--u) * 1.4); align-items: center; padding: calc(var(--u) * .8) calc(var(--u) * 1.2);
+  border-radius: 8px; background: #0d1013ee; border: 1px solid var(--line); font-size: calc(var(--u) * 1.3); }
+.prop .name { color: var(--bone-hi); }
+.prop .shape { color: var(--copper-hi); font-size: .9em; }
+.prop .ax { font-size: .8em; padding: .2em .7em; border-radius: 99px; border: 1px solid var(--line-hi); color: var(--bone); white-space: nowrap; }
+.beat.on .prop { animation: rise .5s var(--ease) both; }
+.beat.on .prop:nth-child(2) { animation-delay: .12s; } .beat.on .prop:nth-child(3) { animation-delay: .24s; }
+.beat.on .prop:nth-child(4) { animation-delay: .36s; } .beat.on .prop:nth-child(5) { animation-delay: .48s; }
+.beat.on .prop:nth-child(6) { animation-delay: .6s; }
+.prop .ax[data-at]:not(.in) { opacity: 0; transform: translateX(calc(var(--u) * -1)); }
+.prop .ax.in { border-color: #db855388; color: var(--copper-hi); background: #db855314; }
+.all { margin-top: calc(var(--u) * 1); font-size: calc(var(--u) * 1.25); color: var(--muted); }
+.all b { color: var(--copper-hi); font-weight: 500; }
+
+/* AutoTest */
+.beat.wide { grid-template-columns: 1fr; align-content: center; gap: calc(var(--u) * 2.4); }
+.beat.wide .lede { margin-bottom: 0; max-width: none; }
+.beat.wide h2 br { display: none; }
+.line { font-size: calc(var(--u) * 2.1); padding: calc(var(--u) * 1.6) calc(var(--u) * 2); background: var(--panel); border: 1px solid #db855366; border-radius: 12px; color: var(--bone-hi);
+  white-space: nowrap; box-shadow: 0 30px 80px -30px #000; position: relative; }
+.line .t { color: var(--copper-hi); } .line .k { color: #c792ea; }
+.line .u { position: relative; }
+.line .u::after { content: ""; position: absolute; left: 0; right: 0; bottom: -.25em; height: 3px; border-radius: 2px; background: var(--ok); transform: scaleX(0); transform-origin: left; transition: transform .6s var(--ease); }
+.line .u.in::after { transform: scaleX(1); }
+.line .u.rules::after { background: var(--copper); }
+.labels { display: flex; justify-content: space-between; font-size: calc(var(--u) * 1.15); margin-top: calc(var(--u) * .8); }
+.labels span { color: var(--muted); }
+.labels .g { color: var(--ok); } .labels .r { color: var(--copper-hi); }
+.opsrow { display: flex; gap: calc(var(--u) * 1); flex-wrap: wrap; align-items: center; font-size: calc(var(--u) * 1.3); }
+.opsrow > span:first-child { color: var(--dim); margin-right: calc(var(--u) * .5); }
+.opchip { padding: .35em .9em; border-radius: 6px; background: #ffffff08; border: 1px solid var(--line-hi); color: var(--bone-hi); }
+.opsrow .opchip[data-at]:not(.in) { opacity: 0; transform: scale(.8); }
+.axesrow { display: grid; grid-template-columns: repeat(9, 1fr); gap: calc(var(--u) * .7); }
+.axis-cell { border-radius: 8px; padding: calc(var(--u) * 1.1) calc(var(--u) * .5); text-align: center; background: #ffffff06; border: 1px solid var(--line); font-size: calc(var(--u) * 1.2); color: var(--muted); }
+.axis-cell b { display: block; font-family: var(--display); font-size: calc(var(--u) * 2.2); color: var(--dim); font-weight: 500; }
+.axis-cell i { display: block; height: calc(var(--u) * .5); border-radius: 3px; margin-top: calc(var(--u) * .7); background: #ffffff10; overflow: hidden; position: relative; }
+.axis-cell i::after { content: ""; position: absolute; inset: 0; background: var(--ok); transform: scaleX(0); transform-origin: left; }
+.runs.in .axis-cell.st i::after { animation: fill 1.4s var(--ease) forwards; }
+.runs.in .axis-cell.st:nth-child(2) i::after { animation-delay: .15s; } .runs.in .axis-cell.st:nth-child(3) i::after { animation-delay: .3s; }
+.runs.in .axis-cell.st:nth-child(8) i::after { animation-delay: .6s; }
+.runs.in .axis-cell.st:nth-child(9) i::after { animation-delay: .75s; }
+.runs.in .axis-cell.st { color: var(--bone); border-color: #6fcf9744; }
+.runs.in .axis-cell.st b { color: var(--ok); }
+.axis-cell.ev { border-style: dashed; }
+.axis-cell small { display: block; margin-top: .5em; font-size: .85em; color: var(--dim); }
+.axis-cell.na i { display: none; }
+.evnote { font-size: calc(var(--u) * 1.1); color: var(--dim); margin-top: calc(var(--u) * .6); text-align: right; }
+.evnote code { color: var(--muted); }
+@keyframes fill { to { transform: scaleX(1); } }
+.kept { display: flex; gap: calc(var(--u) * 1); flex-wrap: wrap; font-size: calc(var(--u) * 1.2); }
+.kept span { padding: .35em .9em; border-radius: 99px; background: var(--ok-lo); color: var(--ok); border: 1px solid #6fcf9755; }
+</style>
+</head>
+<body>
+<button id="next" aria-label="next"></button>
+
+<section class="beat" id="layers">
+  <div class="copy">
+    <p class="eyebrow">the engine underneath</p>
+    <h2>Built on <em>CsCheck.</em></h2>
+    <p class="lede">CsCheck is an excellent property-based testing library for .NET: fast, and it finds the smallest case that still fails. Entities builds on it, and adds what a test can't know without your rules.</p>
+  </div>
+  <div class="stage stack">
+    <div class="slab base">
+      <h3>CsCheck <small>the engine</small></h3>
+      <div class="caps">
+        <div class="cap"><b>Generators</b><span><code>Gen&lt;T&gt;</code>, composed</span></div>
+        <div class="cap"><b>Shrinking</b><span>to the smallest case that still fails</span></div>
+        <div class="cap"><b>Seeds</b><span>replay exactly that case</span></div>
+        <div class="cap"><b>Model-based</b><span>and parallel testing</span></div>
+      </div>
+    </div>
+    <div class="slab top" data-at="1">
+      <h3>Entities <small>on top</small></h3>
+      <div class="caps three">
+        <div class="cap" data-now data-at="1"><b>First-class properties</b><span>the rules you declare, named and discoverable</span></div>
+        <div class="cap" data-now data-at="2"><b>Nine axes</b><span>each rule's shape says which questions to ask</span></div>
+        <div class="cap" data-now data-at="3"><b>AutoTest</b><span>finds the operations and runs every axis</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="beat" id="properties">
+  <div class="copy">
+    <p class="eyebrow">first-class properties</p>
+    <h2>Your rules <em>are</em> the properties.</h2>
+    <p class="lede">Each one is a named value with a shape. The shape tells the tests what to ask, so nobody writes the property by hand.</p>
+  </div>
+  <div class="stage">
+    <div class="found">
+      <div class="prop"><span class="name">total-never-negative</span><span class="shape">Always</span><span class="ax" data-at="1">01 invariant</span></div>
+      <div class="prop"><span class="name">confirmed-orders-have-lines</span><span class="shape">When · Requires</span><span class="ax" data-at="1">01 invariant</span></div>
+      <div class="prop"><span class="name">legal-moves</span><span class="shape">Transitions</span><span class="ax" data-at="1">every step</span></div>
+      <div class="prop"><span class="name">cancel-is-repeatable</span><span class="shape">Idempotent</span><span class="ax" data-at="1">02 idempotency</span></div>
+      <div class="prop"><span class="name">version-never-goes-back</span><span class="shape">Monotonic</span><span class="ax" data-at="1">03 monotonicity</span></div>
+      <div class="prop"><span class="name">label-ignores-line-order</span><span class="shape">OrderIndependent</span><span class="ax" data-at="1">08 confluence</span></div>
+    </div>
+    <div class="all arrive" data-at="2"><b>OrderConstraints.All</b>: gathered by a source generator from <b>[Constraints&lt;Order&gt;]</b>. Add a rule, and it's found.</div>
+  </div>
+</section>
+
+<section class="beat wide" id="autotest">
+  <div class="copy">
+    <p class="eyebrow">AutoTest</p>
+    <h2>One line <em>runs it all.</em></h2>
+    <p class="lede">Your CsCheck generator, your rules, and the operations it finds on the type: every axis the rules declare.</p>
+  </div>
+  <div class="stage">
+    <div>
+      <div class="line"><span class="k">await</span> <span class="t">AutoTest</span>.For(<span class="u rules" data-at="1">OrderConstraints.Instance</span>, <span class="u" data-at="1">Orders</span>).RunAsync();</div>
+      <div class="labels arrive" data-at="1"><span class="r">↑ the rules, discovered</span><span class="g">↑ your CsCheck Gen&lt;Order&gt;</span></div>
+    </div>
+    <div class="opsrow"><span>operations found</span>
+      <span class="opchip" data-at="2">AddLine</span><span class="opchip" data-at="2">Confirm</span><span class="opchip" data-at="2">Ship</span><span class="opchip" data-at="2">Cancel</span>
+    </div>
+    <div class="runs arrive" data-at="3">
+      <div class="axesrow">
+        <div class="axis-cell st"><b>01</b>invariant<i></i></div>
+        <div class="axis-cell st"><b>02</b>idempotency<i></i></div>
+        <div class="axis-cell st"><b>03</b>monotonicity<i></i></div>
+        <div class="axis-cell na"><b>04</b>conservation<i></i><small>n/a: no rule</small></div>
+        <div class="axis-cell ev"><b>05</b>absence<i></i></div>
+        <div class="axis-cell ev"><b>06</b>temporal<i></i></div>
+        <div class="axis-cell ev"><b>07</b>liveness<i></i></div>
+        <div class="axis-cell st"><b>08</b>confluence<i></i></div>
+        <div class="axis-cell st"><b>09</b>vacancy<i></i></div>
+      </div>
+      <div class="evnote">05–07 run against a service's events, with <code>EventAutoTest</code></div>
+    </div>
+    <div class="kept arrive" data-at="4"><span>no property written by hand</span><span>shrunk by CsCheck</span><span>replayed by seed</span></div>
+  </div>
+</section>
+
+<script src="stage.js"></script>
+</body>
+</html>
