@@ -11,17 +11,21 @@ version you use.
 A saga is a state machine plus a stream of messages, which is what the temporal monitor is for. Keep one `TemporalMonitor` per correlation id and feed it the messages:
 
 ```csharp
-public sealed class OrderConsumer(MonitorStore monitors) : IConsumer<OrderShipped>
+public sealed class OrderConsumer(MonitorStore monitors, ConstraintDiagnostics diagnostics) : IConsumer<OrderShipped>
 {
     public Task Consume(ConsumeContext<OrderShipped> context)
     {
-        var monitor = monitors.For(context.Message.OrderId);        // TemporalMonitor<OrderEvent>, built from OrderRules.All
+        // TemporalMonitor<OrderEvent> built from OrderRules.All; the callback runs once, when the store creates it
+        var monitor = monitors.For(context.Message.OrderId, m => m.ReportTo(diagnostics));
         monitor.Observe(new OrderEvent.Shipped(context.Message.OrderId));
-        if (monitor.AnyViolated) /* log, alert, or fault the message */;
+        if (monitor.AnyViolated) /* already logged and counted; fault the message if it must not proceed */;
         return Task.CompletedTask;
     }
 }
 ```
+
+`ReportTo` comes from `Nullean.Entities.Diagnostics` ([Logging and metrics](diagnostics.md)): every violation becomes a log record and a count, including a deadline
+that passes between messages, which no `Consume` call would see.
 
 A deadline ("shipped within 5 minutes of confirmation") fires from the monitor's `TimeProvider`, so a test advances a `ManualTimeProvider` and the missed deadline appears
 without sleeping. To check a recorded run instead, `Trace.Check(events, OrderRules.All)` takes the log (a MassTransit audit store, a Marten stream) and returns every violation with its time.

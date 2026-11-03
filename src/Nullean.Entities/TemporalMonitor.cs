@@ -21,6 +21,7 @@ public sealed class TemporalMonitor<TEvent> : IDisposable
 	private readonly Channel<VerdictChange> _changes = Channel.CreateUnbounded<VerdictChange>();
 	private ITimer? _timer;
 	private bool _completed;
+	private List<VerdictChange>? _raise;
 
 	public TemporalMonitor(TemporalRuleSet<TEvent> rules, TimeProvider? time = null)
 	{
@@ -43,6 +44,13 @@ public sealed class TemporalMonitor<TEvent> : IDisposable
 
 	public bool AnyViolated => Current.Any(c => c.Verdict.IsViolated);
 
+	/// <summary>
+	/// Raised for every change of verdict, the same changes <see cref="Changes"/> yields, as they happen: for a listener that only watches (logging, metrics)
+	/// and must not compete with a reader of <see cref="Changes"/>. Raised on the thread that caused the change (<see cref="Observe"/>, <see cref="Complete"/>,
+	/// or the provider's timer for a deadline), after the monitor's lock is released; calls that do not overlap see changes in the order they happened. An exception from a handler propagates to that caller.
+	/// </summary>
+	public event Action<VerdictChange>? VerdictChanged;
+
 	/// <summary>Verdict changes in order. Completes when <see cref="Complete"/> or <see cref="Fail"/> is called.</summary>
 	public IAsyncEnumerable<VerdictChange> Changes(CancellationToken cancellationToken = default) => _changes.Reader.ReadAllAsync(cancellationToken);
 
@@ -62,6 +70,7 @@ public sealed class TemporalMonitor<TEvent> : IDisposable
 			}
 			PublishAndReschedule(now);
 		}
+		Raise();
 	}
 
 	/// <summary>The stream ended: reach every deadline, then decide liveness rules (<c>Eventually</c>, <c>Required</c>).</summary>
@@ -85,6 +94,7 @@ public sealed class TemporalMonitor<TEvent> : IDisposable
 			_timer = null;
 			_changes.Writer.TryComplete();
 		}
+		Raise();
 	}
 
 	/// <summary>The source of events failed: completes <see cref="Changes"/> with that exception.</summary>
@@ -114,6 +124,27 @@ public sealed class TemporalMonitor<TEvent> : IDisposable
 			}
 			PublishAndReschedule(now);
 		}
+		Raise();
+	}
+
+	// Hands the changes collected under the lock to VerdictChanged once it is released, so a handler can call back into the monitor.
+	private void Raise()
+	{
+		List<VerdictChange>? changes;
+		lock (_gate)
+		{
+			changes = _raise;
+			_raise = null;
+		}
+		if (changes is null)
+		{
+			return;
+		}
+		var handler = VerdictChanged;
+		foreach (var change in changes)
+		{
+			handler?.Invoke(change);
+		}
 	}
 
 	private void PublishAndReschedule(DateTimeOffset now)
@@ -137,7 +168,12 @@ public sealed class TemporalMonitor<TEvent> : IDisposable
 			if (!verdict.Equals(_published[i]))
 			{
 				_published[i] = verdict;
-				_changes.Writer.TryWrite(new VerdictChange(_monitors[i].Name, verdict, verdict.ViolationAt ?? now));
+				var change = new VerdictChange(_monitors[i].Name, verdict, verdict.ViolationAt ?? now);
+				_changes.Writer.TryWrite(change);
+				if (VerdictChanged is not null)
+				{
+					(_raise ??= []).Add(change);
+				}
 			}
 		}
 	}
