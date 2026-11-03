@@ -490,6 +490,48 @@
     });
   }
 
+  /* ================= the film in the hero: muted on a loop; full screen restarts it with sound ================= */
+  var hfv = $('#hfv'), hfilm = $('#hfilm');
+  if (hfv && hfilm) {
+    var sound = $('#hf-sound'), max = $('#hf-max');
+    var saveData = navigator.connection && navigator.connection.saveData;
+    var loops = !reduced() && !saveData;
+    var setSound = function () { sound.textContent = hfv.muted ? 'unmute' : 'mute'; sound.setAttribute('aria-pressed', hfv.muted ? 'false' : 'true'); };
+    if (loops) {
+      /* our buttons instead of the native bar while it loops; the video streams as it plays */
+      hfv.controls = false;
+      hfv.preload = 'auto';
+      var p = hfv.play();
+      if (p && p.catch) p.catch(function () { hfv.controls = true; hfilm.classList.add('is-native'); });
+    } else {
+      hfilm.classList.add('is-native');
+    }
+    sound.addEventListener('click', function () { hfv.muted = !hfv.muted; setSound(); if (hfv.paused) hfv.play(); });
+    var full = function () {
+      hfv.currentTime = 0;
+      hfv.muted = false;
+      hfv.loop = false;
+      hfv.controls = true;
+      setSound();
+      var go = hfv.requestFullscreen || hfv.webkitRequestFullscreen;
+      if (go) go.call(hfv);
+      else if (hfv.webkitEnterFullscreen) hfv.webkitEnterFullscreen();
+      hfv.play();
+    };
+    max.addEventListener('click', full);
+    $$('[data-film-max]').forEach(function (a) {
+      a.addEventListener('click', function (e) { e.preventDefault(); hfilm.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' }); full(); });
+    });
+    var back = function () {
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
+      /* out of full screen: back to the quiet loop, unless it never looped */
+      if (loops) { hfv.controls = false; hfv.loop = true; hfv.muted = true; setSound(); hfv.play(); }
+    };
+    document.addEventListener('fullscreenchange', back);
+    document.addEventListener('webkitfullscreenchange', back);
+    hfv.addEventListener('webkitendfullscreen', back);
+  }
+
   /* ================= nine questions: hover and focus replay via CSS; tap/click pins one row ================= */
   var rows = $$('#qtable tr.q');
   rows.forEach(function (tr) {

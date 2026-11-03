@@ -771,7 +771,7 @@ footer { border-top: 1px solid var(--line-tint-soft); padding-block: var(--space
 
 /* ---------- home: hero with code beside it ---------- */
 .hero-grid { display: grid; gap: var(--space-6); grid-template-columns: minmax(0, 1fr); align-items: start; }
-@media (min-width: 1100px) { .hero-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } .hero-code { margin-top: var(--space-6); } }
+@media (min-width: 1100px) { .hero-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: center; } }
 .hero-code .win { box-shadow: var(--shadow-terminal); }
 .tour-hero .lede { max-width: 40rem; }
 
@@ -811,9 +811,6 @@ footer { border-top: 1px solid var(--line-tint-soft); padding-block: var(--space
 @media (max-width: 480px) { .wrap { padding-inline: 16px; } }
 @media (max-width: 720px) { .qtable tr.q > td:nth-child(3) { grid-column: 2; } }
 
-/* the film: a 16:9 frame in the landing's window style; the poster shows until play */
-.film { margin-top: var(--space-5); border: 1px solid var(--line-tint-soft); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-terminal); background: #08090b; }
-.film video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #08090b; }
 
 /* ================= model your world: each card breaks its own rule ================= */
 /* A card shows its rule holding (.good) or broken (.bad). Without JS it shows the broken state, which says more;
@@ -928,3 +925,18 @@ footer { border-top: 1px solid var(--line-tint-soft); padding-block: var(--space
 .qd-rep p span { color: var(--dim); }
 .qd-rep p.h, .qd-rep p.seed { display: block; } .qd-rep p.h { color: var(--accent-2-hi); font-weight: 700; margin-bottom: .2em; }
 .qd-rep p.seed { color: var(--muted); margin-top: .3em; }
+
+/* ================= the film, in the hero ================= */
+.hero-film { min-width: 0; }
+.hfilm { position: relative; border: 1px solid var(--line-tint-soft); border-radius: var(--radius-lg); overflow: hidden; background: #08090b; box-shadow: var(--shadow-terminal); aspect-ratio: 16 / 9; }
+.hfilm video { display: block; width: 100%; height: 100%; object-fit: cover; background: #08090b; }
+.hfilm-ui { position: absolute; right: .75rem; bottom: .75rem; display: flex; gap: .5rem; }
+.hf-btn { font: 500 .78rem var(--font-mono); color: #e9ecf1; background: rgba(8, 9, 11, .72); border: 1px solid rgba(224, 216, 193, .3); border-radius: 99px;
+  padding: .4rem .9rem; min-height: 36px; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: border-color .15s, background-color .15s; }
+.hf-btn:hover, .hf-btn:focus-visible { border-color: var(--accent); background: rgba(8, 9, 11, .88); }
+.hf-max { color: var(--accent-2-hi); border-color: color-mix(in srgb, var(--accent-2) 55%, transparent); }
+.hfilm.is-native .hfilm-ui { display: none; }
+.hfilm-note { margin: .6rem 0 0; font: 400 .75rem var(--font-mono); color: var(--dim); text-align: right; }
+.hfilm-note a { color: var(--muted); }
+.code-pair { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(480px, 100%), 1fr)); align-items: start; margin-top: var(--space-5); }
+.code-pair .win { box-shadow: var(--shadow-terminal); min-width: 0; }
