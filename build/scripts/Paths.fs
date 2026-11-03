@@ -34,6 +34,7 @@ let mapProjectToNuget =
       "Nullean.Entities.Extensions.DependencyInjection"
       "Nullean.Entities.AspNetCore"
       "Nullean.Entities.Argh"
+      "Nullean.Entities.Diagnostics"
       "Nullean.Entities.CsCheck"
       "Nullean.Entities.CsCheck.Reactive"
       "Nullean.Entities.CsCheck.FileSystem"
@@ -71,6 +72,7 @@ let TestProjects =
       "tests/Nullean.Entities.Extensions.DependencyInjection.Tests"
       "tests/Nullean.Entities.AspNetCore.Tests"
       "tests/Nullean.Entities.Argh.Tests"
+      "tests/Nullean.Entities.Diagnostics.Tests"
       "tests/Nullean.Entities.Examples.Tests"
       "tests/Nullean.Entities.Quickstart.Tests"
       // the same AutoTest one-liner in xUnit v3, NUnit and MSTest: each lists one test per axis and fails only the broken one

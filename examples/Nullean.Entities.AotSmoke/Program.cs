@@ -1,8 +1,11 @@
+using System.Diagnostics.Metrics;
 using System.Reactive.Subjects;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nullean.Entities;
 using Nullean.Entities.AotSmoke;
+using Nullean.Entities.Diagnostics;
 using Nullean.Entities.Extensions.DependencyInjection;
 using Nullean.Entities.Reactive;
 
@@ -82,6 +85,23 @@ Expect(
 	files.Validate(new FileHolder(temp, fileSystem.FileInfo.New("/definitely/elsewhere/x.md"))).Count == 2,
 	"a missing file outside the root breaks both rules"
 );
+
+// Diagnostics: a rejected change is counted on the Nullean.Entities meter
+long rejections = 0;
+using (var meterListener = new MeterListener())
+{
+	meterListener.InstrumentPublished = (instrument, listener) =>
+	{
+		if (instrument.Meter.Name == ConstraintDiagnostics.MeterName && instrument.Name == ConstraintDiagnostics.RejectionsCounter)
+		{
+			listener.EnableMeasurementEvents(instrument);
+		}
+	};
+	meterListener.SetMeasurementEventCallback<long>((_, value, _, _) => rejections += value);
+	meterListener.Start();
+	_ = Account.Constraints.Apply(account, a => a with { Balance = -5m }).ReportTo(new ConstraintDiagnostics(NullLogger.Instance));
+}
+Expect(rejections == 1, "diagnostics counts one rejection");
 
 if (failures.Count > 0)
 {

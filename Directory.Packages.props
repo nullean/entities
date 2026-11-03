@@ -33,6 +33,11 @@
     <!-- Nullean.Argh 0.21.0: ArghValidation, which Nullean.Entities.Argh builds on. -->
     <PackageVersion Include="Nullean.Argh.Interfaces" Version="0.21.0" />
     <PackageVersion Include="Nullean.Argh" Version="0.21.0" />
+    <!-- Microsoft.Extensions.Logging.Abstractions 10.0.14: ILogger and the LoggerMessage source generator, all Nullean.Entities.Diagnostics needs (metrics are System.Diagnostics.Metrics, in the shared framework). -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
+    <!-- Test only: FakeLogger (Microsoft.Extensions.Diagnostics.Testing) and AddMetrics (Microsoft.Extensions.Diagnostics) for the Diagnostics tests. -->
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.11.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics" Version="10.0.14" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.0" />
     <!-- Bogus 35.6.5: realistic fake data generation. -->
     <PackageVersion Include="Bogus" Version="35.6.5" />

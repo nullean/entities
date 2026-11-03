@@ -390,6 +390,42 @@ public class TemporalOnlineTests
 	}
 
 	[Test]
+	public void VerdictChanged_raises_a_missed_deadline_once_from_the_timer_and_a_handler_can_read_the_monitor()
+	{
+		var time = new ManualTimeProvider();
+		using var monitor = new TemporalMonitor<Msg>(Rules, time);
+		var raised = new List<(VerdictChange Change, bool AnyViolated)>();
+		monitor.VerdictChanged += change => raised.Add((change, monitor.AnyViolated));
+		var confirmedAt = time.GetUtcNow();
+		monitor.Observe(new Msg.Confirmed(1));
+
+		time.Advance(TimeSpan.FromSeconds(59));
+		raised.Should().BeEmpty();
+		time.Advance(TimeSpan.FromSeconds(2));
+		time.Advance(TimeSpan.FromMinutes(5));
+
+		raised.Should().ContainSingle();
+		raised[0].Change.Rule.Should().Be("ConfirmedShips");
+		raised[0].Change.At.Should().Be(confirmedAt.AddSeconds(60));
+		raised[0].AnyViolated.Should().BeTrue();
+	}
+
+	[Test]
+	public void VerdictChanged_sees_the_same_changes_as_Changes_including_Complete()
+	{
+		var time = new ManualTimeProvider();
+		using var monitor = new TemporalMonitor<Msg>(Rules, time);
+		var raised = new List<string>();
+		monitor.VerdictChanged += change => raised.Add($"{change.Rule}:{change.Verdict.IsViolated}");
+
+		monitor.Observe(new Msg.Placed(1));
+		monitor.Observe(new Msg.Shipped(1));
+		monitor.Complete();
+
+		raised.Should().Equal("EveryPlacedShips:False");
+	}
+
+	[Test]
 	public void An_answer_in_time_cancels_the_timer()
 	{
 		var time = new ManualTimeProvider();
