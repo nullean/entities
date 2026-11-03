@@ -195,6 +195,7 @@ GenAuto.Of<Order>(AutoMode.Mixed, o => o.Use(Gen.Const(OrderStatus.Pending)).Add
 | `rules.Spec(...)` (`EntitySpec<T>`) | `Exhaustive`, `Sample`, `Mermaid`, `Faults`, `Conform` and `Commutes` as one-line tests |
 | `spec.Eventually(...)`, `spec.LeadsTo(...)`, `spec.Fair(...)` | Liveness over the closed state space, under weak fairness: every run reaches the goal, or the failure shows the stop or the loop that never does |
 | `SystemSpec.Of(nodes).Network(...).Spec(rules)` | Several nodes that talk by message over a network that reorders, duplicates or drops, with crashes: every interleaving explored, the rules proved in each |
+| `system.ConformAsync(Host.For(node, ...))`, `ConformExhaustiveAsync` | Real handlers driven by the model on a transport it controls, crash points included: state and what was sent compared after every step |
 
 ## Pitfalls and limits
 
