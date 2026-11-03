@@ -16,7 +16,7 @@
   /* tiny seeded generator: the walks are random-looking but repeatable */
   var rng = function (a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
 
-  /* ================= shrinking a failing action sequence (hero stage 5 and the services section) ================= */
+  /* ================= shrinking a failing action sequence (the tour's services section) ================= */
   var SEQ = [
     ['Move(9)', 'Move(8)', 'Move(3)', 'Move(5)', 'Move(2)', 'Move(1)'],
     ['Move(9)', 'Move(3)', 'Move(2)', 'Move(1)'],
@@ -58,7 +58,7 @@
   }
   var WAL_SUMMARY = 'Test failed: Conservation. Rule broken: money-is-conserved did not conserve its value, was 40 and became 39. Smallest failing case: Move(1). Replay with seed ' + SEED + '.';
 
-  /* ================= hero: one Order, seven stages ================= */
+  /* ================= tour walkthrough: one Order, seven stages ================= */
   var build = $('#build');
   if (build) {
     try { initBuild(build); } catch (err) { if (window.console) console.error(err); }
@@ -75,11 +75,11 @@
       'The same rules run on a mutable, async Wallet service.',
       'Every rule was reached. Hope has become evidence.'
     ];
-    var FILES = ['Order.cs', 'Line.cs', 'OrderConstraints.cs', 'OrderMachine.cs', 'OrderTests.cs', 'Wallet.cs', 'CI'];
+    var FILES = ['Order.cs', 'Line.cs', 'OrderConstraints.cs', 'OrderMachine.cs', 'OrderTests.cs', 'WalletRules.cs', 'CI'];
     var METER = [4, 16, 34, 52, 70, 86, 100];
     var WORDS = ['hope', 'a hunch', 'checked', 'specified', 'tested', 'stress-tested', 'evidence'];
-    var DWELL = [5200, 5600, 6800, 6800, 7600, 9500, 0];
-    var PLANTABLE = { 2: 1, 4: 1, 5: 1 };
+    var DWELL = [5200, 5600, 6800, 6800, 7600, 6000, 0];
+    var PLANTABLE = { 2: 1, 4: 1 };
 
     var stages = $$('.stg', build);
     var layers = $$('.ly', build);
@@ -176,7 +176,7 @@
       });
     }
 
-    /* ---- plant a bug: works at stages 2, 4 and 5 ---- */
+    /* ---- plant a bug: works at stages 2 and 4 (stage 5's Wallet is planted in the services section) ---- */
     function setPlanted(on, quiet) {
       planted = on;
       plantBtn.setAttribute('aria-pressed', String(on));
@@ -188,7 +188,7 @@
         conformTk.textContent = on ? '✕' : '✓';
         if (!quiet) announce(on ? 'Conform failed. The implementation allows Cancelled to Shipped. The diagram denies it.' : 'Bug removed. All five generated tests pass.');
       }
-      if (cur === 5) {
+      if (cur === 5 && wal) {
         wdot.style.background = on ? 'var(--fail)' : '';
         if (on) {
           wal.run().then(function (done) { if (done && !quiet) announce(WAL_SUMMARY); else if (done) announce(WAL_SUMMARY); });
@@ -224,13 +224,13 @@
       asks.forEach(function (li) { li.classList.toggle('is-ok', +li.getAttribute('data-a') <= cur); });
       var ok = !!PLANTABLE[cur];
       plantBtn.disabled = !ok;
-      plantBtn.title = ok ? '' : 'Works at stages 2, 4 and 5';
+      plantBtn.title = ok ? '' : 'Works at stages 2 and 4';
       fileEl.textContent = FILES[cur];
       diffEl.textContent = '+ stage ' + cur + ' added';
       var nl = $('.ly.is-new', codeEl);
       if (nl) codePre.scrollTop = Math.max(0, nl.offsetTop - 12);
       if (cur === 4) counters();
-      if (cur === 5) { wal.clear(); wdot.style.background = ''; }
+      if (cur === 5 && wal) { wal.clear(); wdot.style.background = ''; }
       if (cur === 3) { denyOut.textContent = ''; }
       if (how !== 'init') announce('Stage ' + cur + ' of ' + (N - 1) + ': ' + NAMES[cur] + '. ' + SUM[cur]);
       if (how === 'auto') autoDemo(cur);
@@ -243,7 +243,6 @@
       var at = function (ms, fn) { autoTimers.push(setTimeout(function () { if (playing) fn(); }, ms)); };
       if (s === 2) at(2600, function () { setPlanted(true); });
       if (s === 4) at(3800, function () { setPlanted(true); });
-      if (s === 5) at(1500, function () { setPlanted(true); });
     }
     function schedule() {
       clearTimeout(timer);
@@ -294,7 +293,7 @@
     if (!reduced()) seen(live, function () { if (!autoDone && !playing && cur === 0) { play(); } }, 0.45);
   }
 
-  /* ================= hero visual: the Order morphs from types to evidence ================= */
+  /* ================= tour figure: the Order morphs from types to evidence ================= */
   var morph = $('#morph');
   if (morph) {
     var MCAP = [
