@@ -5,9 +5,13 @@ description: How {{product}} differs from validation libraries, database constra
 
 # Why not something else
 
+This page compares {{product}} with the tools a .NET team already uses. If you know Clojure spec, model-based testing in another language, XState, TLA+, Stateright or Antithesis, [related work](prior-art.md) says what they share with {{product}}, what they do better, and what {{product}} adds.
+
 ## FluentValidation and DataAnnotations
 
 They validate one value, at one moment: is this request valid. {{product}} also validates that way (`Validate(value)`), and then goes where they cannot: a rule about a step (twice is once), a rule about two states (a version never goes back), a rule about a sequence (a deadline). Those rules are declared the same way and attacked by generated tests; a validator has nothing to say about them.
+
+You do not have to choose. With `Nullean.Entities.FluentValidation` a constraint set runs inside a FluentValidation pipeline, and an existing validator becomes a constraint that generated data can attack: see [FluentValidation](../integration/fluentvalidation.md). DataAnnotations are read by the source generator: see [DataAnnotations](../integration/data-annotations.md).
 
 ## Database constraints
 

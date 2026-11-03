@@ -59,6 +59,10 @@ toc:
       - file: test-frameworks.md
       - file: diagnostics.md
       - file: blazor.md
+      - file: mvvm.md
+      - file: reactiveui.md
+      - file: fluentvalidation.md
+      - file: system-commandline.md
       - file: data-annotations.md
       - file: autobogus.md
       - file: file-system.md
@@ -76,4 +80,5 @@ toc:
     children:
       - file: index.md
       - file: cscheck.md
+      - file: prior-art.md
   - file: known-limitations.md

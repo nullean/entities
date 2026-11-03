@@ -38,10 +38,19 @@
     <!-- Test only: FakeLogger (Microsoft.Extensions.Diagnostics.Testing) and AddMetrics (Microsoft.Extensions.Diagnostics) for the Diagnostics tests. -->
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.11.0" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics" Version="10.0.14" />
+    <!-- System.CommandLine 2.0.14: latest stable 2.0.x (3.0 is still a release candidate). Command.Validators and SymbolResult.AddError, which Nullean.Entities.SystemCommandLine builds on. -->
+    <PackageVersion Include="System.CommandLine" Version="2.0.14" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.0" />
     <!-- Microsoft.AspNetCore.Components.Forms 10.0.0: EditContext and ValidationMessageStore, which Nullean.Entities.Blazor builds on. The lowest 10.0 patch, like the
          Microsoft.Extensions.* packages above, so an app on any 10.0.x is not forced up; NuGet resolves the app's newer patch. -->
     <PackageVersion Include="Microsoft.AspNetCore.Components.Forms" Version="10.0.0" />
+    <!-- ReactiveUI.Validation 8.1.0 (on ReactiveUI 26.0.1): ValidationContext and IValidationComponent, which Nullean.Entities.ReactiveUI builds on. -->
+    <PackageVersion Include="ReactiveUI.Validation" Version="8.1.0" />
+    <!-- FluentValidation 12.2.0 (Apache-2.0, targets net8.0, no dependencies): what Nullean.Entities.FluentValidation bridges to. -->
+    <PackageVersion Include="FluentValidation" Version="12.2.0" />
+    <!-- EF Core 10.0.14, the latest stable: it targets net10.0 and serves the net11.0 build too (EF Core 11 is a release candidate only). The Sqlite provider is for the tests. -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
     <!-- Bogus 35.6.5: realistic fake data generation. -->
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <!-- Soenneker.Utils.AutoBogus: maintained AutoBogus fork for net9/10, Bogus >= 35.6.5. -->
@@ -62,6 +71,12 @@
     <PackageVersion Include="NUnit3TestAdapter" Version="6.3.1" />
     <PackageVersion Include="MSTest.TestFramework" Version="4.5.2" />
     <PackageVersion Include="MSTest.TestAdapter" Version="4.5.2" />
+    <!-- Nullean.Entities.ComponentModel tests only: CommunityToolkit.Mvvm 8.4.2 proves ConstraintErrors<T> composes with ObservableObject;
+         Avalonia 12.1.5 (Headless + Fluent theme) binds a real TextBox to a view model and reads DataValidationErrors. The package itself depends on neither. -->
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="Avalonia" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.5" />
   </ItemGroup>
 
   <ItemGroup>

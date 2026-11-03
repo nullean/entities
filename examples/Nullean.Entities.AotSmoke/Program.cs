@@ -1,3 +1,4 @@
+using System.CommandLine;
 using System.Diagnostics.Metrics;
 using System.Reactive.Subjects;
 using Microsoft.Extensions.DependencyInjection;
@@ -5,9 +6,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nullean.Entities;
 using Nullean.Entities.AotSmoke;
+using Nullean.Entities.ComponentModel;
 using Nullean.Entities.Diagnostics;
 using Nullean.Entities.Extensions.DependencyInjection;
 using Nullean.Entities.Reactive;
+using Nullean.Entities.SystemCommandLine;
 
 // Exercises the AOT-relevant surface of the core and Reactive packages. Exit code 0 means every check held.
 
@@ -39,6 +42,34 @@ try
 catch (OptionsValidationException)
 { rejected = true; }
 Expect(rejected, "options validation rejects a bad value");
+
+// INotifyDataErrorInfo for a view model: BCL only, so it survives NativeAOT
+var balance = 10m;
+var formErrors = new ConstraintErrors<Account>(Account.Constraints, () => new Account("A-2", balance));
+var errorsChanged = 0;
+formErrors.ErrorsChanged += (_, _) => errorsChanged++;
+balance = -1m;
+formErrors.Validate();
+Expect(formErrors.HasErrors && formErrors.Violations.Count == 1 && errorsChanged == 1, "view-model errors report a violation");
+balance = 5m;
+formErrors.Validate();
+Expect(!formErrors.HasErrors && errorsChanged == 2, "view-model errors clear when fixed");
+// System.CommandLine: the constraints guard the command's action, and a violation exits 1 naming the option
+var balanceOption = new Option<decimal>("--balance");
+var cli = new RootCommand { balanceOption };
+var cliRan = false;
+cli.SetAction(_ => cliRan = true);
+cli.ValidateConstraints(r => new AccountOptions { Balance = r.GetValue(balanceOption) }, AccountOptions.Rules);
+var cliError = new StringWriter();
+var cliCode = cli.Parse(["--balance", "-5"]).Invoke(new InvocationConfiguration { Output = TextWriter.Null, Error = cliError });
+Expect(
+	cliCode == 1 && !cliRan && cliError.ToString().StartsWith("--balance: must not be negative", StringComparison.Ordinal),
+	"a CLI violation names the option"
+);
+Expect(
+	cli.Parse(["--balance", "5"]).Invoke(new InvocationConfiguration { Output = TextWriter.Null, Error = TextWriter.Null }) == 0 && cliRan,
+	"a valid CLI command runs"
+);
 
 // Generated constraints, Apply and its Result
 var account = new Account("A-1", 100m);

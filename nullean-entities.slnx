@@ -13,6 +13,11 @@
   <Project Path="src/Nullean.Entities.Argh/Nullean.Entities.Argh.csproj" />
   <Project Path="src/Nullean.Entities.Diagnostics/Nullean.Entities.Diagnostics.csproj" />
   <Project Path="src/Nullean.Entities.Blazor/Nullean.Entities.Blazor.csproj" />
+  <Project Path="src/Nullean.Entities.ComponentModel/Nullean.Entities.ComponentModel.csproj" />
+  <Project Path="src/Nullean.Entities.ReactiveUI/Nullean.Entities.ReactiveUI.csproj" />
+  <Project Path="src/Nullean.Entities.FluentValidation/Nullean.Entities.FluentValidation.csproj" />
+  <Project Path="src/Nullean.Entities.EntityFrameworkCore/Nullean.Entities.EntityFrameworkCore.csproj" />
+  <Project Path="src/Nullean.Entities.SystemCommandLine/Nullean.Entities.SystemCommandLine.csproj" />
   <Project Path="tests/Nullean.Entities.Tests/Nullean.Entities.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.SourceGenerators.Tests/Nullean.Entities.SourceGenerators.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Reactive.Tests/Nullean.Entities.Reactive.Tests.csproj" />
@@ -34,6 +39,11 @@
   <Project Path="tests/Nullean.Entities.Argh.Tests/Nullean.Entities.Argh.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Diagnostics.Tests/Nullean.Entities.Diagnostics.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Blazor.Tests/Nullean.Entities.Blazor.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.ComponentModel.Tests/Nullean.Entities.ComponentModel.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.ReactiveUI.Tests/Nullean.Entities.ReactiveUI.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.FluentValidation.Tests/Nullean.Entities.FluentValidation.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.EntityFrameworkCore.Tests/Nullean.Entities.EntityFrameworkCore.Tests.csproj" />
+  <Project Path="tests/Nullean.Entities.SystemCommandLine.Tests/Nullean.Entities.SystemCommandLine.Tests.csproj" />
   <Project Path="examples/Nullean.Entities.AotSmoke/Nullean.Entities.AotSmoke.csproj" />
   <Project Path="examples/Nullean.Entities.Examples/Nullean.Entities.Examples.csproj" />
   <Project Path="examples/Nullean.Entities.Integration.Examples/Nullean.Entities.Integration.Examples.csproj" />

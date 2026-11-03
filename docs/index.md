@@ -1,9 +1,11 @@
 ---
 navigation_title: Home
-description: Types hold data. Nothing constrains it beyond its type. Nullean.Entities makes those rules first-class, and tests them on nine axes you have probably never considered.
+description: Executable specifications for .NET. Declare your domain's rules once; validate, generate, test, monitor and document from them.
 ---
 
 # Nullean.Entities
+
+**Executable specifications for .NET.** Declare your domain's rules once; validate, generate, test, monitor and document from them.
 
 **Types hold data. Nothing constrains it beyond its type.**
 

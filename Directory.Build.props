@@ -38,7 +38,7 @@
          tests/Nullean.Entities.AotSmoke publishes them NativeAOT). The CsCheck packages and the source
          generator are not: AutoGen, Bogus and AutoBogus rely on reflection. -->
     <IsAotCompatible>false</IsAotCompatible>
-    <IsAotCompatible Condition="'$(MSBuildProjectName)' == 'Nullean.Entities' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Reactive' Or '$(MSBuildProjectName)' == 'Nullean.Entities.FileSystem' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Extensions.DependencyInjection' Or '$(MSBuildProjectName)' == 'Nullean.Entities.AspNetCore' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Argh' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Diagnostics' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Blazor'">true</IsAotCompatible>
+    <IsAotCompatible Condition="'$(MSBuildProjectName)' == 'Nullean.Entities' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Reactive' Or '$(MSBuildProjectName)' == 'Nullean.Entities.FileSystem' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Extensions.DependencyInjection' Or '$(MSBuildProjectName)' == 'Nullean.Entities.AspNetCore' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Argh' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Diagnostics' Or '$(MSBuildProjectName)' == 'Nullean.Entities.Blazor' Or '$(MSBuildProjectName)' == 'Nullean.Entities.ComponentModel' Or '$(MSBuildProjectName)' == 'Nullean.Entities.SystemCommandLine'">true</IsAotCompatible>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)build/keys/keypair.snk</AssemblyOriginatorKeyFile>
     <Authors>Nullean and contributors</Authors>
