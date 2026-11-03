@@ -193,6 +193,7 @@ GenAuto.Of<Order>(AutoMode.Mixed, o => o.Use(Gen.Const(OrderStatus.Pending)).Add
 | `script.Metamorphic(factory, gen, path1, path2, equal)` | Two paths with two generated values, applied to fresh instances, must agree (confluence) |
 | `machine.Walks()`, `machine.RealizedWalks()` | Generated walks through a `StateMachine<TState>`, structural or with guards evaluated on drawn values |
 | `rules.Spec(...)` (`EntitySpec<T>`) | `Exhaustive`, `Sample`, `Mermaid`, `Faults`, `Conform` and `Commutes` as one-line tests |
+| `spec.Eventually(...)`, `spec.LeadsTo(...)`, `spec.Fair(...)` | Liveness over the closed state space, under weak fairness: every run reaches the goal, or the failure shows the stop or the loop that never does |
 
 ## Pitfalls and limits
 

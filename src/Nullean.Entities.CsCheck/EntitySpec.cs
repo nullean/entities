@@ -73,7 +73,7 @@ public static class ConstraintSetSpecExtensions
 	public static EntitySpec<T> Spec<T>(this IConstraintsFor<T> companion, T initial) => EntitySpec.For(companion.All, companion.Actions, initial);
 }
 
-public sealed class EntitySpec<T>
+public sealed partial class EntitySpec<T>
 {
 	private sealed record ActionDef(string Name, Type? ArgumentType, Func<T, object?, T> Apply, object[]? OwnDomain);
 
@@ -268,7 +268,8 @@ public sealed class EntitySpec<T>
 	/// counterexample, and — with <paramref name="requireCoverage"/> — also when a <c>When</c> guard or
 	/// an <c>Allow</c>ed transition is never exercised, since the constraint then proved nothing. With
 	/// several starting states, each is explored, a rule counts as exercised if any start exercised it, and the
-	/// largest report is returned.
+	/// largest report is returned. When <see cref="Eventually"/> or <see cref="LeadsTo"/> rules are declared, they are proved
+	/// afterwards, as <see cref="Liveness"/> does.
 	/// </summary>
 	public EntitySpecReport Exhaustive(
 		int maxStates = 100_000,
@@ -320,6 +321,14 @@ public sealed class EntitySpec<T>
 			throw new VacuousPropertyException(
 				$"Every constraint held, but never exercised: {string.Join(", ", unexercised)}.{Environment.NewLine}Add actions or domain values that reach them, or pass requireCoverage: false.{Environment.NewLine}{largest}"
 			);
+		}
+		// Liveness last: a run that breaks a safety rule has already failed, and a loop through an invalid state says nothing new.
+		if (HasLiveness)
+		{
+			foreach (var start in Starts())
+			{
+				CheckLiveness(start, maxStates, requireCoverage);
+			}
 		}
 		return largest!;
 	}
