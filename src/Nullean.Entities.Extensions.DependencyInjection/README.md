@@ -123,6 +123,6 @@ Validate by exact type, without reflection:
 
 - Web endpoints and ProblemDetails: https://www.nuget.org/packages/Nullean.Entities.AspNetCore
 - Command-line options: https://www.nuget.org/packages/Nullean.Entities.Argh
-- Integration recipes for ASP.NET Core, options, Marten, EF Core and MassTransit: https://entities.nullean.net/integration/
+- Options and DI on the docs site: https://entities.nullean.net/integration/options/, and recipes for ASP.NET Core, Marten, EF Core and MassTransit: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
 - Runnable example: https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Integration.Examples

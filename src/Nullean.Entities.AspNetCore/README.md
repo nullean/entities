@@ -111,7 +111,7 @@ MVC controllers:
 
 ## Next
 
-- Integration recipes: https://entities.nullean.net/integration/
+- This integration on the docs site: https://entities.nullean.net/integration/aspnetcore/, and every integration: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
 - Registering sets and validating options: https://www.nuget.org/packages/Nullean.Entities.Extensions.DependencyInjection
 - Command-line apps: https://www.nuget.org/packages/Nullean.Entities.Argh

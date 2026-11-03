@@ -102,6 +102,7 @@ Diagnostics: `NECG001` to `NECG007` are errors (not partial, not static, wrong t
 
 - [Nullean.Entities on NuGet](https://www.nuget.org/packages/Nullean.Entities): the package that carries this generator, with the full API.
 - [Getting started](https://entities.nullean.net/getting-started/)
+- [DataAnnotations](https://entities.nullean.net/integration/data-annotations/): the generated rules, and the test data that attacks their boundaries
 - [Known limitations](https://entities.nullean.net/known-limitations/)
 - Generator source: https://github.com/nullean/entities/tree/main/src/Nullean.Entities.SourceGenerators
 - License: MIT

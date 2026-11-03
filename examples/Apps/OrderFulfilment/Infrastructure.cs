@@ -18,7 +18,7 @@ public interface IEventPublisher
 	Task PublishAsync(OrderTransitioned transitioned, CancellationToken cancellationToken = default);
 }
 
-// In memory, so the app and its tests need no database. A real repository would also reload the aggregate and check it (see docs/integration.md).
+// In memory, so the app and its tests need no database. A real repository would also reload the aggregate and check it (see docs/integration/ef-core.md).
 public sealed class InMemoryOrderRepository : IOrderRepository
 {
 	private readonly ConcurrentDictionary<Guid, Order> _orders = new();

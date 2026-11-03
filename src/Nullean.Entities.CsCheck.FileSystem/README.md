@@ -95,5 +95,5 @@ where `valid` is one `Docset` whose files all satisfy the rules (for example, a 
 - Counter-examples and what is left to write: https://entities.nullean.net/guides/counter-examples/
 - Testing API reference: https://entities.nullean.net/reference/testing-api/
 - Generated data reference: https://entities.nullean.net/reference/generated-data/
-- Integration with real services: https://entities.nullean.net/integration/
+- File systems on the docs site: https://entities.nullean.net/integration/file-system/, and every integration: https://entities.nullean.net/integration/
 - A worked example: https://github.com/nullean/entities/tree/main/examples/Apps/DocsSiteBuild
