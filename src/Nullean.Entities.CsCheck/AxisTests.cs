@@ -64,22 +64,26 @@ public static class AxisTests
 	private static async Task<string> OperationsKeepInvariants<T>(ConstraintSet<T> rules, IReadOnlyList<AutoAction<T>> actions, Gen<T> valid, AxisRun settings)
 	{
 		var runs = Gen.OneOf([.. actions.Select(a => a.Draw(valid).Select(drawn => (drawn.Start, Action: a, drawn.Argument)))]);
-		await runs.SampleAsync(
-			async step =>
-			{
-				var next = await step.Action.ApplyAsync(step.Start, step.Argument).ConfigureAwait(false);
-				// a rule declared as a warning is one the type lets through and reports: only an error is a state an operation must never produce
-				var violations = ConstraintProperties.ViolationsOf(rules, step.Start, next, settings.Time).Where(v => v.Severity == Severity.Error).ToList();
-				if (violations.Count > 0)
-				{
-					throw StepBroke(step.Action.Name, step.Argument, step.Start, next, violations);
-				}
-			},
-			settings.WriteLine,
-			settings.EffectiveSeed,
-			settings.Samples,
-			print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
-		).ConfigureAwait(false);
+		await SampleCall.RunAsync(() =>
+				runs.SampleAsync(
+					async step =>
+					{
+						var next = await step.Action.ApplyAsync(step.Start, step.Argument).ConfigureAwait(false);
+						// a rule declared as a warning is one the type lets through and reports: only an error is a state an operation must never produce
+						var violations = ConstraintProperties
+							.ViolationsOf(rules, step.Start, next, settings.Time)
+							.Where(v => v.Severity == Severity.Error)
+							.ToList();
+						if (violations.Count > 0)
+						{
+							throw StepBroke(step.Action.Name, step.Argument, step.Start, next, violations);
+						}
+					},
+					settings.WriteLine,
+					settings.EffectiveSeed,
+					settings.Samples,
+					print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
+				)).ConfigureAwait(false);
 		return $"(and {string.Join(", ", actions.Select(a => a.Name))} kept them in {settings.Samples} runs)";
 	}
 
@@ -352,17 +356,18 @@ public static class AxisTests
 
 	// a check with nothing to await, run on CsCheck's async sampler so every axis shares one engine
 	private static Task SampleChecks<TValue>(Gen<TValue> gen, Action<TValue> check, AxisRun settings, Func<TValue, string> print) =>
-		gen.SampleAsync(
-			value =>
-			{
-				check(value);
-				return Task.CompletedTask;
-			},
-			settings.WriteLine,
-			settings.EffectiveSeed,
-			settings.Samples,
-			print: print
-		);
+		SampleCall.RunAsync(() =>
+				gen.SampleAsync(
+					value =>
+					{
+						check(value);
+						return Task.CompletedTask;
+					},
+					settings.WriteLine,
+					settings.EffectiveSeed,
+					settings.Samples,
+					print: print
+				));
 
 	// ── 03 and 04: a sequential rule is attacked by running actions ──────────────
 
@@ -393,27 +398,28 @@ public static class AxisTests
 		var moved = new long[rules.Count];
 		var starts = start ?? GenAuto.Of<T>(settings.Data, settings.Options).Valid(constraints, settings.Time);
 		var runs = Gen.OneOf([.. actions.Select(a => a.Draw(starts).Select(drawn => (drawn.Start, Action: a, drawn.Argument)))]);
-		await runs.SampleAsync(
-			async step =>
-			{
-				var next = await step.Action.ApplyAsync(step.Start, step.Argument).ConfigureAwait(false);
-				var violations = ConstraintProperties.ViolationsOf(checking, step.Start, next, settings.Time);
-				if (violations.Count > 0)
-				{
-					throw StepBroke(step.Action.Name, step.Argument, step.Start, next, violations);
-				}
-				for (var i = 0; i < probes.Length; i++)
-				{
-					var probe = probes[i](step.Start, next);
-					_ = Interlocked.Add(ref compared[i], probe.Compared);
-					_ = Interlocked.Add(ref moved[i], probe.Moved);
-				}
-			},
-			settings.WriteLine,
-			settings.EffectiveSeed,
-			settings.Samples,
-			print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
-		).ConfigureAwait(false);
+		await SampleCall.RunAsync(() =>
+				runs.SampleAsync(
+					async step =>
+					{
+						var next = await step.Action.ApplyAsync(step.Start, step.Argument).ConfigureAwait(false);
+						var violations = ConstraintProperties.ViolationsOf(checking, step.Start, next, settings.Time);
+						if (violations.Count > 0)
+						{
+							throw StepBroke(step.Action.Name, step.Argument, step.Start, next, violations);
+						}
+						for (var i = 0; i < probes.Length; i++)
+						{
+							var probe = probes[i](step.Start, next);
+							_ = Interlocked.Add(ref compared[i], probe.Compared);
+							_ = Interlocked.Add(ref moved[i], probe.Moved);
+						}
+					},
+					settings.WriteLine,
+					settings.EffectiveSeed,
+					settings.Samples,
+					print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
+				)).ConfigureAwait(false);
 
 		for (var i = 0; i < rules.Count; i++)
 		{
@@ -425,7 +431,7 @@ public static class AxisTests
 				throw NotExercised(
 					Name(rules[i]),
 					$"{why} in {settings.Samples} runs, so the rule held without being exercised.",
-					"draw the action's argument from the start value so it names something that is really there, for example .Action(\"Name\", apply, arguments: start => Gen.OneOfConst(start.Items)), or give starts the action changes."
+					"draw the action's argument from the start value so it names something that is really there, for example .Action(\"Name\", apply, arguments: start => Gen.OneOf(start.Items)), or give starts the action changes."
 				);
 			}
 		}

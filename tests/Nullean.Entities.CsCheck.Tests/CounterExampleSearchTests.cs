@@ -12,10 +12,10 @@ internal sealed record SearchShop(string Name, IReadOnlyList<string> Tags, strin
 public class CounterExampleSearchTests
 {
 	private static readonly Gen<SearchShop> SearchShops = Gen.Select(
-		Gen.OneOfConst("kibana", "beats", "apm"),
-		Gen.OneOfConst("a", "b", "c", "d").Array[2, 4].Select(tags => (IReadOnlyList<string>)tags.Distinct().ToArray()),
-		Gen.OneOfConst("k1", "k2", "k3"),
-		Gen.OneOfConst("o1", "o2"),
+		Gen.OneOf("kibana", "beats", "apm"),
+		Gen.OneOf("a", "b", "c", "d").Array[2, 4].Select(tags => (IReadOnlyList<string>)tags.Distinct().ToArray()),
+		Gen.OneOf("k1", "k2", "k3"),
+		Gen.OneOf("o1", "o2"),
 		(name, tags, key, owner) => new SearchShop(name, tags, key, $"/{key}", new SearchOwner(owner))
 	);
 
@@ -52,8 +52,8 @@ public class CounterExampleSearchTests
 	internal sealed record SearchDoc(bool IsDraft, string Slug, string Title, IReadOnlyDictionary<string, SearchOwner> Owners);
 
 	private static readonly Gen<SearchDoc> Docs = Gen.Select(
-		Gen.OneOfConst("a", "b", "c"),
-		Gen.OneOfConst("x", "y"),
+		Gen.OneOf("a", "b", "c"),
+		Gen.OneOf("x", "y"),
 		(slug, owner) => new SearchDoc(false, slug, "title", new Dictionary<string, SearchOwner> { [owner] = new SearchOwner(owner) })
 	);
 

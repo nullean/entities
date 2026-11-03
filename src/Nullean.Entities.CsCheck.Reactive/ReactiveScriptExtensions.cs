@@ -118,7 +118,8 @@ public static partial class ReactiveScriptExtensions
 		ReactiveConstraintSet<TEvent> constraints,
 		long iter = -1,
 		string? seed = null
-	) => BuildGen(script, factory).Sample(run => RunAndCheck(run, events, constraints), seed: seed, iter: iter, print: run => run.Print());
+	) =>
+		SampleCall.Run(() => BuildGen(script, factory).Sample(run => RunAndCheck(run, events, constraints), seed: seed, iter: iter, print: run => run.Print()));
 
 	/// <summary>
 	/// <see cref="SampleWith{TSut, TEvent}(Script{TSut}, Func{IScheduler, TSut}, Func{TSut, IObservable{TEvent}}, ReactiveConstraintSet{TEvent}, long, string)"/>
@@ -139,7 +140,9 @@ public static partial class ReactiveScriptExtensions
 	)
 	{
 		var tally = new CoverageTally<TEvent>(coverage);
-		BuildGen(script, factory).Sample(run => RunAndCheck(run, events, constraints, tally), seed: seed, iter: iter, print: run => run.Print());
+		SampleCall.Run(
+			() => BuildGen(script, factory).Sample(run => RunAndCheck(run, events, constraints, tally), seed: seed, iter: iter, print: run => run.Print())
+		);
 		if (seed is null)
 		{
 			tally.Verify(writeLine);

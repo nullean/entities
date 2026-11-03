@@ -51,20 +51,21 @@ public static class GenConstraintExtensions
 		long iter = -1,
 		Action<string>? writeLine = null
 	) =>
-		gen.Sample(
-			value =>
-			{
-				var violations = ConstraintProperties.SafeValidate(constraints, value, time);
-				if (violations.Count > 0)
-				{
-					throw new InvalidOperationException(
-						$"{ConstraintProperties.SafePrint(value)} violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
-					);
-				}
-			},
-			writeLine,
-			seed,
-			iter,
-			print: ConstraintProperties.SafePrint
-		);
+		SampleCall.Run(() =>
+				gen.Sample(
+					value =>
+					{
+						var violations = ConstraintProperties.SafeValidate(constraints, value, time);
+						if (violations.Count > 0)
+						{
+							throw new InvalidOperationException(
+								$"{ConstraintProperties.SafePrint(value)} violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
+							);
+						}
+					},
+					writeLine,
+					seed,
+					iter,
+					print: ConstraintProperties.SafePrint
+				));
 }

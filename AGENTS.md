@@ -160,10 +160,8 @@ code is real code.
 
 ## Signing
 
-CsCheck 4.9.1 is not strong-named. CS8002 (unsigned reference from signed assembly) is a warning,
-not an error by default, and `TreatWarningsAsErrors` in this repo does not escalate it because
-`IsAotCompatible=false` relaxes several warning categories. Verify on first build and document
-here if that changes.
+CsCheck is strong-named (public key token `0F2B8F68260A8866`, checked on 4.9.1 and 5.0.1), so a
+signed assembly referencing it raises no CS8002.
 
 ## Spike questions (answer before 1.0; answers go here)
 

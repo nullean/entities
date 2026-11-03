@@ -28,7 +28,7 @@ public static class ConstraintProperties
 		string? seed = null,
 		long iter = -1,
 		Action<string>? writeLine = null
-	) => (gen ?? GenAuto.Of<T>().Valid(constraints, time)).Sample(property, writeLine, seed, iter, print: SafePrint);
+	) => SampleCall.Run(() => (gen ?? GenAuto.Of<T>().Valid(constraints, time)).Sample(property, writeLine, seed, iter, print: SafePrint));
 
 	/// <inheritdoc cref="ForAll{T}(ConstraintSet{T}, Func{T, bool}, Gen{T}, TimeProvider, string, long, Action{string})"/>
 	public static void ForAll<T>(
@@ -39,7 +39,7 @@ public static class ConstraintProperties
 		string? seed = null,
 		long iter = -1,
 		Action<string>? writeLine = null
-	) => (gen ?? GenAuto.Of<T>().Valid(constraints, time)).Sample(property, writeLine, seed, iter, print: SafePrint);
+	) => SampleCall.Run(() => (gen ?? GenAuto.Of<T>().Valid(constraints, time)).Sample(property, writeLine, seed, iter, print: SafePrint));
 
 	/// <summary>
 	/// From a valid starting entity, any action with any generated argument leaves it satisfying the
@@ -70,23 +70,24 @@ public static class ConstraintProperties
 		var runs = Gen.OneOf([
 			.. actions.Select(a => Gen.Select(starts, AutoDefaults.ArgumentGen(a.ArgumentType, data), (s, x) => (Start: s, Action: a, Argument: x)))
 		]);
-		runs.Sample(
-			run =>
-			{
-				var next = run.Action.Apply(run.Start, run.Argument);
-				var violations = ViolationsOf(constraints, run.Start, next, time);
-				if (violations.Count > 0)
-				{
-					throw new InvalidOperationException(
-						$"{run.Action.Name}({run.Argument}) from {run.Start} gave {next}, which violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
-					);
-				}
-			},
-			writeLine,
-			seed,
-			iter,
-			print: run => $"{SafePrint(run.Start)} | {run.Action.Name}({SafePrint(run.Argument)})"
-		);
+		SampleCall.Run(() =>
+				runs.Sample(
+					run =>
+					{
+						var next = run.Action.Apply(run.Start, run.Argument);
+						var violations = ViolationsOf(constraints, run.Start, next, time);
+						if (violations.Count > 0)
+						{
+							throw new InvalidOperationException(
+								$"{run.Action.Name}({run.Argument}) from {run.Start} gave {next}, which violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
+							);
+						}
+					},
+					writeLine,
+					seed,
+					iter,
+					print: run => $"{SafePrint(run.Start)} | {run.Action.Name}({SafePrint(run.Argument)})"
+				));
 	}
 
 	/// <summary>

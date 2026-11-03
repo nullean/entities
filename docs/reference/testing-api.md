@@ -56,6 +56,8 @@ act.Should().Throw<CsCheckException>(); // the mutant is always caught and shrun
 
 ## Model-based: the domain record IS the model
 
+Without an `equal:` argument, CsCheck 5 compares the model with `Check.Equal`, which counts duplicates in bags.
+
 ```csharp
 genOrder.SampleModelBased(
     initial: _ => new Order(Guid.NewGuid(), OrderStatus.Pending, []),

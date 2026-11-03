@@ -100,7 +100,7 @@ public class CartTests
 	[Test]
 	public async Task Whatever_commands_arrive_the_cart_the_stream_adds_up_to_is_valid()
 	{
-		var command = Gen.OneOfConst(Commands().ToArray());
+		var command = Gen.OneOf(Commands().ToArray());
 
 		await command
 			.List[0, 25]

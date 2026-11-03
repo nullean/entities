@@ -24,7 +24,7 @@ namespace Nullean.Entities.Quickstart.Tests;
 public class PlainCsCheckTests
 {
 	private static readonly Gen<OrderLine> Lines = Gen.Select(
-		Gen.OneOfConst("apple", "pear", "fig"),
+		Gen.OneOf("apple", "pear", "fig"),
 		Gen.Int[1, 5],
 		Gen.Int[1, 20],
 		(sku, quantity, price) => new OrderLine(sku, quantity, price)
@@ -48,7 +48,7 @@ public class PlainCsCheckTests
 
 	[Test]
 	public void No_operation_lowers_the_version() =>
-		Gen.Select(Orders, Gen.OneOfConst(Operations)).Sample((order, operation) => operation(order).Version >= order.Version);
+		Gen.Select(Orders, Gen.OneOf(Operations)).Sample((order, operation) => operation(order).Version >= order.Version);
 
 	[Test]
 	public void The_total_is_never_negative() => Orders.Sample(o => o.Total >= 0);
@@ -84,7 +84,7 @@ namespace Nullean.Entities.Quickstart.Tests;
 public class QuickstartTests
 {
 	private static readonly Gen<OrderLine> Lines = Gen.Select(
-		Gen.OneOfConst("apple", "pear", "fig"),
+		Gen.OneOf("apple", "pear", "fig"),
 		Gen.Int[1, 5],
 		Gen.Int[1, 20],
 		(sku, quantity, price) => new OrderLine(sku, quantity, price)

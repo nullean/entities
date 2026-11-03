@@ -38,7 +38,7 @@ public static class AutoAction
 		{
 			return generated;
 		}
-		var own = Gen.OneOfConst([.. harvested.Select(h => (object?)h)]);
+		var own = Gen.OneOf([.. harvested.Select(h => (object?)h)]);
 		var changed = harvested
 			.Take(8)
 			.SelectMany(h => CounterExampleSearch.Perturbations(argumentType, h).Select(member => (Original: h, Changes: member)))
@@ -47,7 +47,7 @@ public static class AutoAction
 		if (changed.Length > 0)
 		{
 			// a member first, then a change to it: every member is as likely to be the one changed, however many edge values it has
-			options.Add((3, Gen.OneOfConst(changed).SelectMany(c => Gen.OneOfConst([.. c.Changes]).Select(change => change(c.Original)))));
+			options.Add((3, Gen.OneOf(changed).SelectMany(c => Gen.OneOf([.. c.Changes]).Select(change => change(c.Original)))));
 		}
 		return Gen.Frequency([.. options]);
 	}

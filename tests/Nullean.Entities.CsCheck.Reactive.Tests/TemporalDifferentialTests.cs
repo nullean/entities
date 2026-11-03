@@ -65,7 +65,7 @@ public class TemporalDifferentialTests
 	};
 
 	private static readonly Gen<(TimeSpan Delay, Ev2 Event)[]> Traces = Gen.Select(
-		Gen.OneOfConst(0, 1, 5, 10, 29, 30, 31, 60).Select(s => TimeSpan.FromSeconds(s)),
+		Gen.OneOf(0, 1, 5, 10, 29, 30, 31, 60).Select(s => TimeSpan.FromSeconds(s)),
 		Gen.Int[0, 2],
 		Gen.Int[0, 2],
 		(delay, kind, id) =>
