@@ -92,7 +92,7 @@ Know the limits:
   or `long` takes part in keys and foreign keys like the primitive does.
 - **Unions and `[Union]` types** (C# `union Shape(Circle, Square)`, or the polyfill of it) get every case, not the one a "most parameters" rule would pick.
 - **DataAnnotations** are respected: `[Range]`, `[StringLength]`, `[MaxLength]`, `[MinLength]`, `[Required]` and `[RegularExpression]` hold in `Plausible` data; `Mixed` and
-  `Adversarial` draw each rule's **boundary** (the smallest and largest valid value, and the one just outside) as an edge.
+  `Adversarial` draw each rule's **boundary** (the smallest and largest valid value, and the one just outside) as an edge. The same attributes become constraints: see [DataAnnotations](../integration/data-annotations.md).
 - **At the nesting limit** a non-nullable object is its smallest valid value (collections empty, nested objects built from their own smallest parts), not `null`; only a type that
   contains itself non-nullably ends in `null`. Elements of a `List<string?>` are sometimes `null`; elements of a `List<string>` never are.
 - **Foreign keys** are generated, not only valid ones:
@@ -140,9 +140,8 @@ Know the limits:
     `MaxDepth` when a rule is never violated. A rule about more than that cannot fail on values that never had it, which is a limit of the generator and not a tautology.
   - Not generated: references to something outside the generated value (a key into a database, a repository elsewhere). Duplicate ids and `Start`/`End` pairs are generated too.
 
-An AutoBogus-backed generator (plausible data only, drawn under Bogus's global lock) lives in the separate, optional
-[`Nullean.Entities.CsCheck.AutoBogus`](https://www.nuget.org/packages/Nullean.Entities.CsCheck.AutoBogus) package (`GenAutoBogus.Of<T>(configure)`), for teams that already
-configured `AutoFaker`. The measured case for the split is in [`docs/autobogus-decision.md`](https://github.com/nullean/entities/blob/main/docs/autobogus-decision.md).
+To mix realistic Bogus data into a generated value (an address, an IBAN) without losing its edge cases, or to keep an existing `AutoFaker` setup with the optional
+`Nullean.Entities.CsCheck.AutoBogus` package, see [Bogus and AutoBogus](../integration/autobogus.md).
 
 Your own Bogus rules still work and still compose:
 

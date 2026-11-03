@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Integration recipes that need nothing beyond the shared framework: ASP.NET Core (the Nullean.Entities.AspNetCore package) and a Marten-style
-       event-sourced aggregate. The EF Core and MassTransit recipes need those packages, so they are in docs/integration.md only. -->
+       event-sourced aggregate. The EF Core and MassTransit recipes need those packages, so they are in docs/integration/ef-core.md and masstransit.md only. -->
   <PropertyGroup>
     <RootNamespace>Nullean.Entities.Integration.Examples</RootNamespace>
   </PropertyGroup>

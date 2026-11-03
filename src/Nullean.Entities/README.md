@@ -192,7 +192,7 @@ The kind of rule decides the test: a state rule becomes an invariant test, `Idem
 - [The nine axes](https://entities.nullean.net/axes/): one page per kind of rule, each with the real failure it prints.
 - [Adopting it in an existing codebase](https://entities.nullean.net/guides/adopting/)
 - [Testing API reference](https://entities.nullean.net/reference/testing-api/) and [state machines](https://entities.nullean.net/reference/state-machines/)
-- [Integration with real services](https://entities.nullean.net/integration/) (ASP.NET Core, DI, options validation)
+- [Integration with real services](https://entities.nullean.net/integration/) (ASP.NET Core, DI, options validation, DataAnnotations, Marten, EF Core)
 - [Known limitations](https://entities.nullean.net/known-limitations/)
 - Source and examples: https://github.com/nullean/entities/tree/main/examples
 - Related packages: [Nullean.Entities.CsCheck](https://www.nuget.org/packages/Nullean.Entities.CsCheck), [Nullean.Entities.Reactive](https://www.nuget.org/packages/Nullean.Entities.Reactive), [Nullean.Entities.Extensions.DependencyInjection](https://www.nuget.org/packages/Nullean.Entities.Extensions.DependencyInjection), [Nullean.Entities.AspNetCore](https://www.nuget.org/packages/Nullean.Entities.AspNetCore)
@@ -737,7 +737,7 @@ Names are the kebab-case of `<Property><Attribute>` (`name-required`, `age-range
 Each attribute means what DataAnnotations says it means: null passes everything except `[Required]`, an empty string passes `[RegularExpression]`, and a pattern must match the whole string.
 The generated code is plain C# with no `Validator` call and no reflection, so it is trim and AOT safe. `[ConstraintIgnore]` on a property leaves its annotations out. Any other validation
 attribute (`[Phone]`, a custom one, `IValidatableObject`) is reported as an Info diagnostic, `NECG010`, not skipped silently; write those as a `Constraint<T>`. Cross-field rules, collections and
-sequential rules still need constraints: annotations cover one property at a time.
+sequential rules still need constraints: annotations cover one property at a time. The generator in `Nullean.Entities.CsCheck` reads the same attributes and draws each rule's boundary: see [DataAnnotations](https://entities.nullean.net/integration/data-annotations/).
 
 ### Members that must be set are required too
 
@@ -791,8 +791,8 @@ and `set.Without("rule-id")` each return a new set; a name that is not in the se
 A violation carries the rule (`ConstraintId`), a message, the `Evidence`, and, for the selector form of `Always`, the **member** it is about:
 `Constraints<Customer>.Always(c => c.Email, e => e.Contains('@'))` reports `Member = "Email"` (read from the selector's text, so there is no expression tree and
 it stays trim and AOT safe). That is what a validation response is keyed by. `ApplyOrThrow` and `Result.Unwrap` throw a `ConstraintViolationException` whose
-`Violations` are the list itself, not the messages joined into one string. [`docs/integration.md`](https://github.com/nullean/entities/blob/main/docs/integration.md)
-shows the ASP.NET Core `ValidationProblem` mapping.
+`Violations` are the list itself, not the messages joined into one string. [ASP.NET Core](https://entities.nullean.net/integration/aspnetcore/)
+shows the `ValidationProblem` mapping.
 
 A rule that two sets name differently keeps each name: `ConstraintSet.From` copies a rule that is already named. `Describe("...")` adds prose.
 

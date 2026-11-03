@@ -48,7 +48,20 @@ toc:
       - file: time.md
       - file: deeper.md
       - file: rollout.md
-  - file: integration.md
+      - file: real-models.md
+  - folder: integration
+    children:
+      - file: index.md
+      - file: aspnetcore.md
+      - file: options.md
+      - file: argh.md
+      - file: data-annotations.md
+      - file: autobogus.md
+      - file: file-system.md
+      - file: reactive.md
+      - file: marten.md
+      - file: ef-core.md
+      - file: masstransit.md
   - folder: reference
     children:
       - file: testing-api.md

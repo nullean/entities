@@ -122,5 +122,5 @@ Files<Docset>.DirectoriesExist(
 - The core package: [`Nullean.Entities`](https://www.nuget.org/packages/Nullean.Entities)
 - Getting started: https://entities.nullean.net/getting-started/
 - Adopting on an existing domain: https://entities.nullean.net/guides/adopting/
-- Integration with real services: https://entities.nullean.net/integration/
+- File systems on the docs site: https://entities.nullean.net/integration/file-system/, and every integration: https://entities.nullean.net/integration/
 - A runnable example (docs site build): https://github.com/nullean/entities/tree/main/examples/Apps/DocsSiteBuild

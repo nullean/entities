@@ -13,6 +13,6 @@ Tests: `tests/Nullean.Entities.Apps.Tests/EventSourcedCart`. `EntitySpec.EventSo
 Things worth noticing:
 
 - Because `Decide` and `Evolve` are pure, the whole model can be explored without a store, a service or a clock. That is the property to protect: keep I/O out of both.
-- Two layers refuse a bad command. `Decide` refuses what is *meaningless* (a fourth apple) by producing no events. The rules refuse what is *wrong* even if the decider has a bug. The second layer is what a Marten or EventStoreDB integration would run before append (see `docs/integration.md`).
+- Two layers refuse a bad command. `Decide` refuses what is *meaningless* (a fourth apple) by producing no events. The rules refuse what is *wrong* even if the decider has a bug. The second layer is what a Marten or EventStoreDB integration would run before append (see `docs/integration/marten.md`).
 - A refusal by the decider is not an error: the cart is unchanged and nothing is appended. A violation by the rules is a `Result.Fail`.
 - The rule `checked-out-is-final` is a **sequential** rule: it compares the cart before and after the events, which a plain validator on the new state cannot do.

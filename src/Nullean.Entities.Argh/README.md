@@ -89,7 +89,7 @@ The registration applies to every command that binds that type: `[AsParameters]`
 
 ## Next
 
-- Integration recipes: https://entities.nullean.net/integration/
+- This integration on the docs site: https://entities.nullean.net/integration/argh/, and every integration: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
 - Argh: https://github.com/nullean/argh
 - Web APIs: https://www.nuget.org/packages/Nullean.Entities.AspNetCore

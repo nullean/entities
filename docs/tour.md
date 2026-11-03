@@ -288,7 +288,7 @@ compile time. See [Nullean.Entities.CsCheck](src/Nullean.Entities.CsCheck/README
 
 - `Unique`, `References`, `Acyclic` and `NoChains` express the rules a real domain has over collections and graphs (duplicate ids, dangling references, include cycles, redirect chains).
 - DataAnnotations (`[Required]`, `[Range]`, `[StringLength]`, ...) on a `[Constraints]` type become generated constraints, so an annotated model is already a set you can test.
-- [`docs/integration.md`](docs/integration.md) shows where to call a set in ASP.NET Core, Marten-style event-sourced aggregates, EF Core and MassTransit.
+- [`docs/integration/`](docs/integration/index.md) has a page per integration: ASP.NET Core, options, Argh, DataAnnotations, Bogus, file systems, Rx, Marten, EF Core and MassTransit.
 - The core and Reactive packages are trim and AOT clean, and a NativeAOT build of both is part of the repository's own build (`./build.sh aot`).
 
 ## Type-state machines

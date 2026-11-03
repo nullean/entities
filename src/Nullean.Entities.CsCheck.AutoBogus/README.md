@@ -95,6 +95,7 @@ Choose this package when the `AutoFaker` configuration is worth keeping. The mea
 
 - The default generator and the constraint helpers: [`Nullean.Entities.CsCheck`](https://www.nuget.org/packages/Nullean.Entities.CsCheck)
 - Why this is optional, with measurements: https://github.com/nullean/entities/blob/main/docs/autobogus-decision.md
+- Mixing Bogus into `GenAuto` per type, without losing edge cases: https://entities.nullean.net/integration/autobogus/
 - Generated data reference: https://entities.nullean.net/reference/generated-data/
 - Testing API reference: https://entities.nullean.net/reference/testing-api/
 - Getting started: https://entities.nullean.net/getting-started/
