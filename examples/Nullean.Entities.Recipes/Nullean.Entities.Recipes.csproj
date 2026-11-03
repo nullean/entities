@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Recipes for frameworks this repository ships no package for: MediatR, Mediator (source-generated) and Wolverine pipelines, a gRPC server
+       interceptor and a HotChocolate GraphQL middleware. Compiled and exercised by tests/Nullean.Entities.Recipes.Tests; see docs/integration/. -->
+  <PropertyGroup>
+    <RootNamespace>Nullean.Entities.Recipes</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="Mediator.Abstractions" />
+    <PackageReference Include="Mediator.SourceGenerator" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers" />
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" />
+    <PackageReference Include="Grpc.AspNetCore" />
+    <PackageReference Include="Grpc.StatusProto" />
+    <PackageReference Include="HotChocolate.AspNetCore" />
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.Extensions.DependencyInjection/Nullean.Entities.Extensions.DependencyInjection.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <Protobuf Include="Grpc/signup.proto" GrpcServices="Both" />
+  </ItemGroup>
+</Project>
