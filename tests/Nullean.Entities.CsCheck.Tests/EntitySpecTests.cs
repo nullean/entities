@@ -167,6 +167,31 @@ public class EntitySpecTests
 	}
 
 	[Test]
+	public void ConformExhaustive_checks_every_transition_of_a_faithful_implementation()
+	{
+		var report = DoorSpec().ConformExhaustive(() => new DoorImpl(), (impl, step) => impl.Do(step.Action), (impl, expected) => impl.State == expected.State);
+
+		report.Closed.Should().BeTrue();
+		report.ConformedStates.Should().Be(3);
+		report.ConformedTransitions.Should().BeGreaterThanOrEqualTo(4);
+	}
+
+	[Test]
+	public void ConformExhaustive_reports_a_divergence_down_the_shortest_path()
+	{
+		var act = () =>
+			DoorSpec()
+				.ConformExhaustive(
+					() => new DoorImpl { LockIsBroken = true },
+					(impl, step) => impl.Do(step.Action),
+					(impl, expected) => impl.State == expected.State
+				);
+
+		// the broken lock is reached by the shortest path there is: Lock, straight from the start
+		act.Should().Throw<Exception>().Which.Message.Should().Contain("diverged from the specification at step 1").And.Contain("after Lock()");
+	}
+
+	[Test]
 	public void Sample_and_StepScoped_run_a_walk_with_a_rule_attached_to_one_action()
 	{
 		var scoped = ConstraintSet.From(("OpenOnlyFromClosed", Constraints<Door>.Transitions((p, n) => p.State == DoorState.Closed, "Open must start Closed")));
