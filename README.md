@@ -90,6 +90,7 @@ The packages are not published yet; until they are, reference them from a checko
 | `Nullean.Entities.FileSystem`, `.CsCheck.FileSystem` | *Optional.* Rules over files and generated file-system worlds. |
 | `Nullean.Entities.Extensions.DependencyInjection`, `.AspNetCore`, `.Argh`, `.Blazor` | *Optional.* Validate options, requests, command-line arguments and Blazor forms. |
 | `Nullean.Entities.Diagnostics` | *Optional.* Violations seen at runtime as logs, metrics and trace events (OpenTelemetry picks them up by name; no dependency on it). |
+| `Nullean.Entities.ComponentModel` | *Optional.* Violations through `INotifyDataErrorInfo` for MVVM view models (Avalonia, WPF, WinUI, MAUI). |
 | `Nullean.Entities.CsCheck.AutoBogus` | *Optional.* Real-world data from an AutoFaker. |
 
 ## Building from source
