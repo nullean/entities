@@ -42,6 +42,8 @@
     <!-- Microsoft.AspNetCore.Components.Forms 10.0.0: EditContext and ValidationMessageStore, which Nullean.Entities.Blazor builds on. The lowest 10.0 patch, like the
          Microsoft.Extensions.* packages above, so an app on any 10.0.x is not forced up; NuGet resolves the app's newer patch. -->
     <PackageVersion Include="Microsoft.AspNetCore.Components.Forms" Version="10.0.0" />
+    <!-- ReactiveUI.Validation 8.1.0 (on ReactiveUI 26.0.1): ValidationContext and IValidationComponent, which Nullean.Entities.ReactiveUI builds on. -->
+    <PackageVersion Include="ReactiveUI.Validation" Version="8.1.0" />
     <!-- Bogus 35.6.5: realistic fake data generation. -->
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <!-- Soenneker.Utils.AutoBogus: maintained AutoBogus fork for net9/10, Bogus >= 35.6.5. -->
