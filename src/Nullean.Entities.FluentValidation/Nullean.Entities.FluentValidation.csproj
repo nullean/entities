@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Bridges Nullean.Entities constraints and FluentValidation both ways: a constraint set as an IValidator&lt;T&gt; whose violations are ValidationFailures, and an existing validator as a named constraint that property tests can attack.</Description>
+    <PackageTags>constraints validation fluentvalidation</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+  </ItemGroup>
+</Project>

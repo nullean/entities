@@ -19,6 +19,7 @@ The library has no opinion about your framework: a constraint set is a value you
 | Blazor `EditForm` validation | Package `Nullean.Entities.Blazor` | [Blazor forms](blazor.md) |
 | MVVM view models (`INotifyDataErrorInfo`): Avalonia, WPF, WinUI, MAUI | Package `Nullean.Entities.ComponentModel` | [MVVM](mvvm.md) |
 | ReactiveUI view models (ReactiveUI.Validation) | Package `Nullean.Entities.ReactiveUI` | [ReactiveUI](reactiveui.md) |
+| FluentValidation: constraints as validators, validators as constraints | Package `Nullean.Entities.FluentValidation` | [FluentValidation](fluentvalidation.md) |
 | DataAnnotations (`[Required]`, `[Range]`, ...) | Built in: the source generator in `Nullean.Entities`, and `GenAuto` in `Nullean.Entities.CsCheck` | [DataAnnotations](data-annotations.md) |
 | Bogus and AutoBogus test data | `GenFakerExtensions.Faker<T>` is built into `Nullean.Entities.CsCheck`; package `Nullean.Entities.CsCheck.AutoBogus` | [Bogus and AutoBogus](autobogus.md) |
 | Models that hold files (`System.IO.Abstractions`) | Packages `Nullean.Entities.FileSystem` and `Nullean.Entities.CsCheck.FileSystem` | [File systems](file-system.md) |

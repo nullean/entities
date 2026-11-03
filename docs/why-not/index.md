@@ -9,6 +9,8 @@ description: How {{product}} differs from validation libraries, database constra
 
 They validate one value, at one moment: is this request valid. {{product}} also validates that way (`Validate(value)`), and then goes where they cannot: a rule about a step (twice is once), a rule about two states (a version never goes back), a rule about a sequence (a deadline). Those rules are declared the same way and attacked by generated tests; a validator has nothing to say about them.
 
+You do not have to choose. With `Nullean.Entities.FluentValidation` a constraint set runs inside a FluentValidation pipeline, and an existing validator becomes a constraint that generated data can attack: see [FluentValidation](../integration/fluentvalidation.md). DataAnnotations are read by the source generator: see [DataAnnotations](../integration/data-annotations.md).
+
 ## Database constraints
 
 `CHECK`, `UNIQUE` and foreign keys are about one row at a time. Rules about how a row changes, or about what happens in time, do not fit. They also live in the database, away from the type, and run too late for a service to reason about. Keep the ones that belong there; declare the rest next to the type.
