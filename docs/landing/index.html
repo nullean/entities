@@ -74,13 +74,39 @@
       </div>
       <div class="cta-row">
         <a class="btn primary" href="getting-started/">read the docs →</a>
-        <a class="btn ghost" href="#film">watch the film</a>
+        <a class="btn ghost" href="#hfilm" data-film-max>watch the film</a>
         <a class="btn ghost" href="tour/">take the tour</a>
         <a class="btn ghost" href="https://github.com/nullean/entities"><img class="icon" src="assets/github.svg" alt="">github ↗</a>
       </div>
     </div>
 
-    <div class="hero-code">
+    <!-- The film plays here muted, on a loop, the way reel's landing does; "full screen" restarts it with sound. It is
+         not in the repository: .github/workflows/docs.yml copies it from the "film" release into film/. Without JS,
+         or with reduced motion or Save-Data, it does not autoplay: the poster and the native controls show. -->
+    <div class="hero-film">
+      <div class="hfilm" id="hfilm">
+        <video id="hfv" poster="assets/film-poster.jpg" muted loop playsinline preload="none" controls width="1920" height="1080" aria-label="The Nullean.Entities film, five minutes">
+          <source src="film/entities.mp4" type="video/mp4">
+          <a href="https://github.com/nullean/entities/releases/tag/film">Download the film</a>
+        </video>
+        <div class="hfilm-ui js-only">
+          <button class="hf-btn" id="hf-sound" type="button" aria-pressed="false">unmute</button>
+          <button class="hf-btn hf-max" id="hf-max" type="button">⤢ full screen</button>
+        </div>
+      </div>
+      <p class="hfilm-note">the five-minute film · recorded with <a href="https://mpdreamz.github.io/reel/">reel</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ IN CODE ============ -->
+<section id="code" aria-labelledby="code-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">the whole idea, in code</p>
+      <h2 id="code-h">Three rules, named. <em>One line tests them.</em></h2>
+    </div>
+    <div class="code-pair">
       <div class="win">
         <div class="win-bar"><span class="file">OrderConstraints.cs</span><span class="right">three rules, named</span></div>
 <pre class="code" tabindex="0"><code><span class="t">[Constraints&lt;Order&gt;]</span>
@@ -104,25 +130,6 @@
 <span class="k">public</span> <span class="t">Task</span> The_good_order_passes_every_axis() =&gt;
     <span class="t">AutoTest</span>.For(OrderConstraints.Instance, Orders).RunAsync();</code></pre>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ THE FILM ============ -->
-<!-- The film is not in the repository: .github/workflows/docs.yml copies it from the "film" release into film/.
-     A local build has only the poster. -->
-<section id="film" aria-labelledby="f-h">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">the film · five minutes</p>
-      <h2 id="f-h">The whole idea, start to finish.</h2>
-      <p>Types, rules as metadata, what you can model, CsCheck underneath, the nine axes, a bug caught live, and the report an agent reads.</p>
-    </div>
-    <div class="film">
-      <video controls preload="none" playsinline poster="assets/film-poster.jpg" width="1920" height="1080">
-        <source src="film/entities.mp4" type="video/mp4">
-        <a href="https://github.com/nullean/entities/releases/tag/film">Download the film</a>
-      </video>
     </div>
   </div>
 </section>
