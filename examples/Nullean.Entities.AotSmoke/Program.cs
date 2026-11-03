@@ -1,3 +1,4 @@
+using System.CommandLine;
 using System.Diagnostics.Metrics;
 using System.Reactive.Subjects;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,6 +10,7 @@ using Nullean.Entities.ComponentModel;
 using Nullean.Entities.Diagnostics;
 using Nullean.Entities.Extensions.DependencyInjection;
 using Nullean.Entities.Reactive;
+using Nullean.Entities.SystemCommandLine;
 
 // Exercises the AOT-relevant surface of the core and Reactive packages. Exit code 0 means every check held.
 
@@ -52,6 +54,22 @@ Expect(formErrors.HasErrors && formErrors.Violations.Count == 1 && errorsChanged
 balance = 5m;
 formErrors.Validate();
 Expect(!formErrors.HasErrors && errorsChanged == 2, "view-model errors clear when fixed");
+// System.CommandLine: the constraints guard the command's action, and a violation exits 1 naming the option
+var balanceOption = new Option<decimal>("--balance");
+var cli = new RootCommand { balanceOption };
+var cliRan = false;
+cli.SetAction(_ => cliRan = true);
+cli.ValidateConstraints(r => new AccountOptions { Balance = r.GetValue(balanceOption) }, AccountOptions.Rules);
+var cliError = new StringWriter();
+var cliCode = cli.Parse(["--balance", "-5"]).Invoke(new InvocationConfiguration { Output = TextWriter.Null, Error = cliError });
+Expect(
+	cliCode == 1 && !cliRan && cliError.ToString().StartsWith("--balance: must not be negative", StringComparison.Ordinal),
+	"a CLI violation names the option"
+);
+Expect(
+	cli.Parse(["--balance", "5"]).Invoke(new InvocationConfiguration { Output = TextWriter.Null, Error = TextWriter.Null }) == 0 && cliRan,
+	"a valid CLI command runs"
+);
 
 // Generated constraints, Apply and its Result
 var account = new Account("A-1", 100m);

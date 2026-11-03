@@ -61,6 +61,7 @@ toc:
       - file: mvvm.md
       - file: reactiveui.md
       - file: fluentvalidation.md
+      - file: system-commandline.md
       - file: data-annotations.md
       - file: autobogus.md
       - file: file-system.md

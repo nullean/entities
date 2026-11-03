@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Validates the options a System.CommandLine command binds against Nullean.Entities constraints, reporting violations as parse errors that name the option.</Description>
+    <PackageTags>constraints validation cli system.commandline</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+  </ItemGroup>
+</Project>
