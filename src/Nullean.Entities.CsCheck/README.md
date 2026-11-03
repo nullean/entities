@@ -143,7 +143,7 @@ Smallest case found, after 5 shrinks. To run this case again: .Seed("0i1vmP3ChLc
 | API | Why you would use it |
 |---|---|
 | `AutoTest.For(rules, gen)`, `AutoTest.For(companion, gen)`, `AutoTest.For<T>(gen)` | Start from a `ConstraintSet<T>`, a `[Constraints]` companion, or a type that implements `IHaveConstraints<T>` |
-| `.RunAsync()`, `.ReportAsync()`, `.AsDataSource()`, `.Cases` | Throw on any failing axis, read the result, or give your framework one test per axis |
+| `.RunAsync()`, `.ReportAsync()`, `.AsDataSource()`, `.CaseNames` + `.Case(name)`, `.Cases` | Throw on any failing axis, read the result, or give your framework one test per axis (`AsDataSource()` for TUnit; `CaseNames` for xUnit, NUnit and MSTest, see the docs page "Test frameworks") |
 | `.InvariantAsync()`, `.IdempotencyAsync()`, `.MonotonicityAsync()`, `.ConservationAsync()`, `.ConfluenceAsync()`, `.VacancyAsync()` | Run one axis |
 | `.Action(name, apply)`, `.Action<TArg>(name, apply, arguments)` | Add an operation the type does not expose as a public method |
 | `.CounterExample(rule, breakIt)`, `.CounterExamples(...)`, `.CounterExampleReport()` | Show each rule can fire, and list which rules got a counter-example |

@@ -123,6 +123,18 @@ public sealed class EventAutoTest<TSut, TEvent>
 				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => CaseAsync(a)))
 		];
 
+	/// <summary>The cases as TUnit's <c>[MethodDataSource]</c>: a function per case, so each axis is its own test and a failing axis fails only that test.</summary>
+	public IEnumerable<Func<AxisCase>> AsDataSource() => AxisCases.AsDataSource(Cases);
+
+	/// <summary>
+	/// The name of each case, for xUnit's <c>[MemberData]</c> (over a <c>TheoryData&lt;string&gt;</c>), NUnit's <c>[TestCaseSource]</c> and MSTest's <c>[DynamicData]</c>:
+	/// the test passes the name to <see cref="Case"/>.
+	/// </summary>
+	public IReadOnlyList<string> CaseNames => AxisCases.Names(Cases);
+
+	/// <summary>The case named <paramref name="name"/> (one of <see cref="CaseNames"/>). Throws <see cref="ArgumentException"/> listing the names when there is none.</summary>
+	public AxisCase Case(string name) => AxisCases.Named(Cases, name);
+
 	private IEnumerable<(string Name, TemporalRule<TEvent> Rule)> Unclassified => _rules.Rules.Where(r => r.Rule.Axis == Axis.Unclassified);
 
 	private static Axis[] Axes { get; } = [Axis.Absence, Axis.Temporal, Axis.Liveness];

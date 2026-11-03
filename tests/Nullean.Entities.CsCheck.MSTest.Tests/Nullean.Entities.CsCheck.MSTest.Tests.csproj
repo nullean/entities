@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- MSTest's own Microsoft.Testing.Platform runner: an executable, so `dotnet run` runs it like the TUnit projects. -->
+    <OutputType>Exe</OutputType>
+    <EnableMSTestRunner>true</EnableMSTestRunner>
+    <RootNamespace>Nullean.Entities.TestFrameworks.MSTest</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MSTest.TestFramework" />
+    <PackageReference Include="MSTest.TestAdapter" />
+    <PackageReference Include="AwesomeAssertions" />
+    <ProjectReference Include="../../examples/Nullean.Entities.Quickstart/Nullean.Entities.Quickstart.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <Compile Include="../Shared/TestFrameworks/*.cs" LinkBase="Shared" />
+  </ItemGroup>
+</Project>

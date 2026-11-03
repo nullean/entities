@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- xUnit v3 test projects are executables on Microsoft.Testing.Platform, so `dotnet run` runs them like the TUnit projects. -->
+    <OutputType>Exe</OutputType>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <RootNamespace>Nullean.Entities.TestFrameworks.Xunit</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="AwesomeAssertions" />
+    <ProjectReference Include="../../examples/Nullean.Entities.Quickstart/Nullean.Entities.Quickstart.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
+    <ProjectReference Include="../../src/Nullean.Entities.SourceGenerators/Nullean.Entities.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <Compile Include="../Shared/TestFrameworks/*.cs" LinkBase="Shared" />
+  </ItemGroup>
+</Project>
