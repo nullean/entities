@@ -56,7 +56,7 @@ internal sealed class Fulfilment(TimeProvider time, TimeSpan shipsAfter, bool sh
 public class BugGalleryTests
 {
 	private static readonly Gen<OrderLine> Lines = Gen.Select(
-		Gen.OneOfConst("apple", "pear", "fig"),
+		Gen.OneOf("apple", "pear", "fig"),
 		Gen.Int[1, 5],
 		Gen.Int[1, 20],
 		(sku, quantity, price) => new OrderLine(sku, quantity, price)

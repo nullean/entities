@@ -17,7 +17,7 @@ dotnet add package Nullean.Entities
 dotnet add package Nullean.Entities.CsCheck   # tests only
 ```
 
-The packages target `net10.0` and `net11.0`. `Nullean.Entities.CsCheck` brings `CsCheck` 4.9.1 and `Bogus` 35.6.5 with it. The examples below use [TUnit](https://tunit.dev) for the test attributes, and any test framework works because every axis is also a plain `Task`.
+The packages target `net10.0` and `net11.0`. `Nullean.Entities.CsCheck` brings `CsCheck` 5.0.1 and `Bogus` 35.6.5 with it. The examples below use [TUnit](https://tunit.dev) for the test attributes, and any test framework works because every axis is also a plain `Task`.
 
 ## Get going
 

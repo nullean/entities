@@ -7,4 +7,8 @@
     <ProjectReference Include="../Nullean.Entities.CsCheck/Nullean.Entities.CsCheck.csproj" />
     <ProjectReference Include="../Nullean.Entities.Reactive/Nullean.Entities.Reactive.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Internal to each assembly: keeps CsCheck 4's exception message for the samples this package runs. -->
+    <Compile Include="../Nullean.Entities.CsCheck/SampleCall.cs" Link="SampleCall.cs" />
+  </ItemGroup>
 </Project>

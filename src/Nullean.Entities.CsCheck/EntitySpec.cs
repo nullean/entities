@@ -270,7 +270,7 @@ public sealed class EntitySpec<T>
 	/// several starting states, each is explored, a rule counts as exercised if any start exercised it, and the
 	/// largest report is returned.
 	/// </summary>
-	public SpecReport Exhaustive(
+	public EntitySpecReport Exhaustive(
 		int maxStates = 100_000,
 		int maxDepth = int.MaxValue,
 		bool requireCoverage = true,
@@ -278,13 +278,13 @@ public sealed class EntitySpec<T>
 		Action<string>? writeLine = null
 	)
 	{
-		SpecReport? largest = null;
+		EntitySpecReport? largest = null;
 		HashSet<string>? unexercised = null;
 		foreach (var start in Starts())
 		{
 			CheckStart(start);
 			var (spec, _) = Build(start, autoFaults: false);
-			var report = spec.Exhaustive(maxStates, maxDepth, writeLine: writeLine);
+			var report = EntitySpecReport.From(SampleCall.Run(() => spec.Exhaustive(writeLine, maxStates, maxDepth)));
 			if (requireClosed && !report.Closed)
 			{
 				throw new InvalidOperationException(
@@ -325,7 +325,7 @@ public sealed class EntitySpec<T>
 	}
 
 	/// <summary>Random walks with shrinking — for a state space too large to close.</summary>
-	public SpecReport Sample(
+	public EntitySpecReport Sample(
 		Action<string>? writeLine = null,
 		int minSteps = 1,
 		int maxSteps = 24,
@@ -335,11 +335,13 @@ public sealed class EntitySpec<T>
 		int threads = -1
 	)
 	{
-		SpecReport? last = null;
+		EntitySpecReport? last = null;
 		foreach (var start in Starts())
 		{
 			CheckStart(start);
-			last = Build(start, autoFaults: false).Spec.Sample(writeLine, minSteps, maxSteps, seed, iter, time, threads);
+			last = EntitySpecReport.From(
+				SampleCall.Run(() => Build(start, autoFaults: false).Spec.Sample(writeLine, minSteps, maxSteps, seed, iter, time, threads))
+			);
 		}
 		return last!;
 	}
@@ -382,7 +384,10 @@ public sealed class EntitySpec<T>
 		foreach (var start in Starts())
 		{
 			CheckStart(start);
-			last = Build(start, autoFaults: true).Spec.SampleFaults(writeLine, seed: seed, iter: iter, throwOnUncaught: throwOnUncaught ?? (_faults.Count > 0));
+			last = SampleCall.Run(
+				() =>
+					Build(start, autoFaults: true).Spec.SampleFaults(writeLine, seed: seed, iter: iter, throwOnUncaught: throwOnUncaught ?? (_faults.Count > 0))
+			);
 		}
 		return last!;
 	}
@@ -391,7 +396,7 @@ public sealed class EntitySpec<T>
 	/// Drives a real implementation with the same walks and, after every step, asks it whether it agrees
 	/// with the entity: <paramref name="apply"/> returns null when it does, otherwise a description of the divergence.
 	/// </summary>
-	public SpecReport Conform<TSut>(
+	public EntitySpecReport Conform<TSut>(
 		Func<TSut> create,
 		Func<TSut, EntityStep<T>, string?> apply,
 		Action<string>? writeLine = null,
@@ -403,11 +408,13 @@ public sealed class EntitySpec<T>
 		int threads = -1
 	)
 	{
-		SpecReport? last = null;
+		EntitySpecReport? last = null;
 		foreach (var start in Starts())
 		{
 			var (spec, domains) = Build(start, autoFaults: false);
-			last = spec.Conform(create, (sut, t) => apply(sut, ToStep(t, domains)), writeLine, minSteps, maxSteps, seed, iter, time, threads);
+			last = EntitySpecReport.From(
+				SampleCall.Run(() => spec.Conform(create, (sut, t) => apply(sut, ToStep(t, domains)), writeLine, minSteps, maxSteps, seed, iter, time, threads))
+			);
 		}
 		return last!;
 	}
@@ -416,7 +423,7 @@ public sealed class EntitySpec<T>
 	/// Shorthand for <see cref="Conform{TSut}(Func{TSut}, Func{TSut, EntityStep{T}, string}, Action{string}, int, int, string, long, int, int)"/>:
 	/// <paramref name="apply"/> performs the step on the implementation, then <paramref name="agrees"/> compares it to the entity's new state.
 	/// </summary>
-	public SpecReport Conform<TSut>(
+	public EntitySpecReport Conform<TSut>(
 		Func<TSut> create,
 		Action<TSut, EntityStep<T>> apply,
 		Func<TSut, T, bool> agrees,
@@ -443,12 +450,13 @@ public sealed class EntitySpec<T>
 		var (b, ib) = Find(second);
 		var (states, domains) = StatesAndDomains();
 		var gen = Gen.Select(states, ArgGen(domains[ia]), ArgGen(domains[ib]), (s, x, y) => (s, x, y));
-		gen.Sample(
-			t => Same(Run(Run(t.s, a, t.x), b, t.y), Run(Run(t.s, b, t.y), a, t.x)),
-			seed: seed,
-			iter: iter,
-			print: t => $"from {_print(t.s)}: {first}({t.x}) then {second}({t.y}) differs from the reverse order"
-		);
+		SampleCall.Run(() =>
+				gen.Sample(
+					t => Same(Run(Run(t.s, a, t.x), b, t.y), Run(Run(t.s, b, t.y), a, t.x)),
+					seed: seed,
+					iter: iter,
+					print: t => $"from {_print(t.s)}: {first}({t.x}) then {second}({t.y}) differs from the reverse order"
+				));
 	}
 
 	/// <summary>Applying the action twice (same argument) gives the same entity as once, from every reachable state.</summary>
@@ -457,12 +465,13 @@ public sealed class EntitySpec<T>
 		var (a, ia) = Find(action);
 		var (states, domains) = StatesAndDomains();
 		var gen = Gen.Select(states, ArgGen(domains[ia]), (s, x) => (s, x));
-		gen.Sample(
-			t => Same(Run(Run(t.s, a, t.x), a, t.x), Run(t.s, a, t.x)),
-			seed: seed,
-			iter: iter,
-			print: t => $"from {_print(t.s)}: {action}({t.x}) is not idempotent"
-		);
+		SampleCall.Run(() =>
+				gen.Sample(
+					t => Same(Run(Run(t.s, a, t.x), a, t.x), Run(t.s, a, t.x)),
+					seed: seed,
+					iter: iter,
+					print: t => $"from {_print(t.s)}: {action}({t.x}) is not idempotent"
+				));
 	}
 
 	/// <summary>
@@ -483,22 +492,23 @@ public sealed class EntitySpec<T>
 		{
 			CheckStart(start);
 			var (spec, domains) = Build(start, autoFaults: false);
-			spec.GenTrace(minSteps, maxSteps)
-				.Sample(
-					trace =>
-					{
-						var problem = check([.. trace.Steps.Select(t => ToStep(t, domains))]);
-						if (problem is not null)
-						{
-							throw new InvalidOperationException(problem);
-						}
-					},
-					seed: seed,
-					iter: iter,
-					time: time,
-					threads: threads,
-					print: trace => trace.ToString(v => _print(v.Value))
-				);
+			SampleCall.Run(() =>
+					spec.GenTrace(minSteps, maxSteps)
+						.Sample(
+							trace =>
+							{
+								var problem = check([.. trace.Steps.Select(t => ToStep(t, domains))]);
+								if (problem is not null)
+								{
+									throw new InvalidOperationException(problem);
+								}
+							},
+							seed: seed,
+							iter: iter,
+							time: time,
+							threads: threads,
+							print: trace => trace.ToString(v => _print(v.Value))
+						));
 		}
 	}
 
@@ -529,7 +539,7 @@ public sealed class EntitySpec<T>
 			: (_actions[index], index);
 	}
 
-	private static Gen<object?> ArgGen(object[]? domain) => domain is null ? Gen.Const(() => (object?)null) : Gen.OneOfConst(domain).Select(o => (object?)o);
+	private static Gen<object?> ArgGen(object[]? domain) => domain is null ? Gen.Const(() => (object?)null) : Gen.OneOf(domain).Select(o => (object?)o);
 
 	private (Gen<T> States, object[]?[] Domains) StatesAndDomains(int maxSteps = 12)
 	{

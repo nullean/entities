@@ -55,7 +55,7 @@ public class StockServiceTests
 	[Test]
 	public async Task Whatever_operations_arrive_the_stock_stays_valid()
 	{
-		var operation = Gen.Select(Gen.Int[0, 3], Gen.OneOfConst(Skus), Gen.Int[-2, 12]);
+		var operation = Gen.Select(Gen.Int[0, 3], Gen.OneOf(Skus), Gen.Int[-2, 12]);
 
 		await operation
 			.List[0, 40]

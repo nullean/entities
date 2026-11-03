@@ -28,7 +28,10 @@ public static partial class ScriptExtensions
 		ConstraintSet<TState> rules,
 		long iter = -1,
 		string? seed = null
-	) => BuildTimedGen(script, factory).SampleAsync(run => CheckStatesAsync(run, observe, rules), seed: seed, iter: iter, print: run => run.Print());
+	) =>
+		SampleCall.RunAsync(
+			() => BuildTimedGen(script, factory).SampleAsync(run => CheckStatesAsync(run, observe, rules), seed: seed, iter: iter, print: run => run.Print())
+		);
 
 	private static async Task CheckStatesAsync<TSut, TState>(TimedRun<TSut> run, Func<TSut, TState> observe, ConstraintSet<TState> rules)
 	{
@@ -99,14 +102,15 @@ public static class StateMachineServiceExtensions
 			);
 		}
 
-		await Gen.OneOfConst(triggers)
-			.Array[minLength, maxLength]
-			.SampleAsync(
-				sequence => ConformAsync(machine, factory, observe, drive, sequence),
-				seed: seed,
-				iter: iter,
-				print: sequence => string.Join(" -> ", sequence)
-			)
+		await SampleCall.RunAsync(() =>
+					Gen.OneOf(triggers)
+						.Array[minLength, maxLength]
+						.SampleAsync(
+							sequence => ConformAsync(machine, factory, observe, drive, sequence),
+							seed: seed,
+							iter: iter,
+							print: sequence => string.Join(" -> ", sequence)
+						))
 			.ConfigureAwait(false);
 	}
 
@@ -160,9 +164,15 @@ public static class StateMachineServiceExtensions
 	{
 		StateMachineSpecExtensions.RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(create()));
 		var byTrigger = bindings.ToDictionary(b => b.Trigger, b => b.Apply);
-		await Gen.OneOfConst([.. machine.Triggers])
-			.Array[1, 15]
-			.SampleAsync(walk => WalkAsync(machine, create, stateOf, byTrigger, walk), writeLine, iter: iter, print: walk => string.Join(" -> ", walk))
+		await SampleCall.RunAsync(() =>
+					Gen.OneOf([.. machine.Triggers])
+						.Array[1, 15]
+						.SampleAsync(
+							walk => WalkAsync(machine, create, stateOf, byTrigger, walk),
+							writeLine,
+							iter: iter,
+							print: walk => string.Join(" -> ", walk)
+						))
 			.ConfigureAwait(false);
 	}
 

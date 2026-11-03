@@ -93,7 +93,11 @@ public static partial class ScriptExtensions
 		TemporalRuleSet<TEvent> rules,
 		long iter = -1,
 		string? seed = null
-	) => BuildTimedGen(script, factory).SampleAsync(run => CheckTimedRunAsync(run, log, rules, null), seed: seed, iter: iter, print: run => run.Print());
+	) =>
+		SampleCall.RunAsync(
+			() =>
+				BuildTimedGen(script, factory).SampleAsync(run => CheckTimedRunAsync(run, log, rules, null), seed: seed, iter: iter, print: run => run.Print())
+		);
 
 	/// <summary>
 	/// The same, refusing to pass vacuously: every <see cref="Coverage{TEvent}.Expect"/>ed event must have been recorded in enough runs, otherwise
@@ -111,8 +115,9 @@ public static partial class ScriptExtensions
 	)
 	{
 		var tally = new CoverageTally<TEvent>(coverage);
-		await BuildTimedGen(script, factory)
-			.SampleAsync(run => CheckTimedRunAsync(run, log, rules, tally), seed: seed, iter: iter, print: run => run.Print())
+		await SampleCall.RunAsync(() =>
+					BuildTimedGen(script, factory)
+						.SampleAsync(run => CheckTimedRunAsync(run, log, rules, tally), seed: seed, iter: iter, print: run => run.Print()))
 			.ConfigureAwait(false);
 		if (seed is null)
 		{

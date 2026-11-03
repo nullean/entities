@@ -172,8 +172,9 @@ public sealed class EventAutoTest<TSut, TEvent>
 		// rules no axis can aim at are still checked for violations by the all-rules run, they just have no trigger to judge vacuity by
 		var set = TemporalRuleSet<TEvent>.From([.. picked, .. axis is null ? Unclassified : []]);
 		var seed = _seed ?? AxisRun.DefaultSeed;
-		await BuildTimedGen(picked)
-			.SampleAsync(run => CheckAsync(run, set, picked, tally), seed: seed, iter: _samples, print: run => run.Print())
+		await SampleCall.RunAsync(() =>
+					BuildTimedGen(picked)
+						.SampleAsync(run => CheckAsync(run, set, picked, tally), seed: seed, iter: _samples, print: run => run.Print()))
 			.ConfigureAwait(false);
 		var vacuous = Vacuous(picked, tally);
 		return vacuous.Count > 0
@@ -199,7 +200,7 @@ public sealed class EventAutoTest<TSut, TEvent>
 			delays.Add(window + Epsilon);
 			delays.Add(window > Epsilon ? window - Epsilon : TimeSpan.Zero);
 		}
-		return Gen.OneOfConst([.. delays.Distinct()]);
+		return Gen.OneOf([.. delays.Distinct()]);
 	}
 
 	private async Task CheckAsync(TimedRun<TSut> run, TemporalRuleSet<TEvent> set, List<(string Name, TemporalRule<TEvent> Rule)> picked, RuleTally tally)

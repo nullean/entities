@@ -154,7 +154,7 @@ public static class StateMachineSpecExtensions
 	/// A trigger the machine declares but the entity cannot perform fails first, naming it: that is the machine finding a state the entity
 	/// can never reach. Timeouts are explored by <c>Spec()</c> but not conformance-tested (they need a clock).
 	/// </summary>
-	public static SpecReport ConformTo<TState, TTrigger, TEntity>(
+	public static EntitySpecReport ConformTo<TState, TTrigger, TEntity>(
 		this StateMachine<TState, TTrigger> machine,
 		TEntity initial,
 		Func<TEntity, TState> stateOf,
@@ -247,7 +247,7 @@ public static class StateMachineSpecExtensions
 	}
 
 	/// <summary><see cref="ConformTo{TState, TTrigger, TEntity}"/> for a class that mutates in place: a fresh entity per walk from <paramref name="create"/>.</summary>
-	public static SpecReport ConformToMutable<TState, TTrigger, TEntity>(
+	public static EntitySpecReport ConformToMutable<TState, TTrigger, TEntity>(
 		this StateMachine<TState, TTrigger> machine,
 		Func<TEntity> create,
 		Func<TEntity, TState> stateOf,
@@ -522,7 +522,7 @@ public sealed class EventSourcedSpec<TState, TCommand, TEvent>
 	/// stops at a bound would call them violated for no reason; they are rejected, and belong in <see cref="SampleEvents"/>.
 	/// Events are told apart by <c>ToString()</c>, so use records (or override it).
 	/// </remarks>
-	public SpecReport Exhaustive(
+	public EntitySpecReport Exhaustive(
 		TemporalRuleSet<TEvent> rules,
 		TimeSpan? stepInterval = null,
 		int maxStates = 100_000,
