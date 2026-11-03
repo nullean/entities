@@ -818,6 +818,8 @@ order.Ship();
 var violations = constraints.Check(before, order);
 ```
 
+For EF Core, [Nullean.Entities.EntityFrameworkCore](https://www.nuget.org/packages/Nullean.Entities.EntityFrameworkCore) does this on `SaveChanges`, with EF's original values as the before.
+
 ## Trim and AOT
 
 `Nullean.Entities` and `Nullean.Entities.Reactive` build with the trim and AOT analyzers on (`IsAotCompatible`), and `./build.sh aot` publishes a small app that uses the generated

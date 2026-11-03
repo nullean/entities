@@ -50,7 +50,8 @@ return SignUp.Constraints.Apply(current, change).ToHttpResult();
 ```
 
 `Applied` and `Noop` answer 200 and `Failure` answers 400. Warnings and hints of an applied change ride along in the 200 body as `{ "value": ..., "notices": [...] }`.
-`exception.ToProblem()` returns the same 400 as an `IResult`, for code that catches the exception itself.
+`exception.ToProblem()` returns the same 400 as an `IResult`, for code that catches the exception itself. The handler also answers the exception that
+[EF Core](ef-core.md)'s `UseConstraints()` throws from `SaveChanges`, so an entity changed in place gets the same 400.
 
 ## MVC controllers
 
