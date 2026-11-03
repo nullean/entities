@@ -25,12 +25,12 @@ The library has no opinion about your framework: a constraint set is a value you
 | Models that hold files (`System.IO.Abstractions`) | Packages `Nullean.Entities.FileSystem` and `Nullean.Entities.CsCheck.FileSystem` | [File systems](file-system.md) |
 | System.Reactive event streams | Packages `Nullean.Entities.Reactive` and `Nullean.Entities.CsCheck.Reactive` | [System.Reactive](reactive.md) |
 | Marten and event sourcing | Recipe, compiled in `examples/` | [Marten](marten.md) |
-| EF Core | Recipe, not compiled here | [EF Core](ef-core.md) |
+| EF Core: check entities on `SaveChanges` | Package `Nullean.Entities.EntityFrameworkCore` | [EF Core](ef-core.md) |
 | MassTransit sagas and consumers | Recipe, not compiled here | [MassTransit](masstransit.md) |
 
 Which parts are tested: the **library side** of every recipe is tested in `tests/Nullean.Entities.Examples.Tests/Integration`, and the ASP.NET Core and Marten-style
-recipes compile and run as `examples/Nullean.Entities.Integration.Examples`. The **EF Core and MassTransit** snippets use those packages' APIs, but this repository does not
-reference those packages, so they are **not compiled here**: treat them as the shape, and check the signatures against the version you use.
+recipes compile and run as `examples/Nullean.Entities.Integration.Examples`. The **MassTransit** snippets use that package's APIs, but this repository does not
+reference it, so they are **not compiled here**: treat them as the shape, and check the signatures against the version you use.
 
 ## What to put where
 
@@ -50,6 +50,7 @@ Rules over two aggregates, rules on the declared or the resolved layer, and seve
 `Nullean.Entities.Argh`, `Nullean.Entities.Diagnostics` and `Nullean.Entities.ComponentModel` use no reflection and are trim and NativeAOT clean. `Nullean.Entities.Blazor` uses no reflection and builds with the trim and AOT analyzers on. The first four, `Nullean.Entities.Diagnostics` and `Nullean.Entities.ComponentModel`, are published NativeAOT in this repository's CI (`./build.sh aot`).
 The `Nullean.Entities.CsCheck` packages are for tests only and are not AOT-compatible.
 `Nullean.Entities.ReactiveUI` uses no reflection itself, but ReactiveUI.Validation is not trim or AOT clean (`ValidationContext` and `BindValidation` require unreferenced and dynamic code), so neither is an app that uses it.
+`Nullean.Entities.EntityFrameworkCore` is not marked AOT compatible because EF Core's NativeAOT support is experimental.
 
 ## Complete, runnable versions
 

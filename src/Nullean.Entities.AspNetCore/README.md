@@ -115,4 +115,5 @@ MVC controllers:
 - Getting started with constraints: https://entities.nullean.net/getting-started/
 - Registering sets and validating options: https://www.nuget.org/packages/Nullean.Entities.Extensions.DependencyInjection
 - Command-line apps: https://www.nuget.org/packages/Nullean.Entities.Argh
+- EF Core entities checked on `SaveChanges` (its exception becomes the same 400): https://www.nuget.org/packages/Nullean.Entities.EntityFrameworkCore
 - Runnable example: https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Integration.Examples/AspNet
