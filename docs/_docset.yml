@@ -59,6 +59,7 @@ toc:
       - file: diagnostics.md
       - file: blazor.md
       - file: mvvm.md
+      - file: reactiveui.md
       - file: data-annotations.md
       - file: autobogus.md
       - file: file-system.md

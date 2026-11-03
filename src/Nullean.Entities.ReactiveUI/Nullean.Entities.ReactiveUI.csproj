@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Turns a Nullean.Entities constraint set into ReactiveUI.Validation rules on a view model, so BindValidation shows each violation on the property it names.</Description>
+    <PackageTags>constraints validation reactiveui mvvm</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ReactiveUI.Validation" />
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+  </ItemGroup>
+</Project>
