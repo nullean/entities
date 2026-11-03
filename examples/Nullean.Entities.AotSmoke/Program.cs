@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nullean.Entities;
 using Nullean.Entities.AotSmoke;
+using Nullean.Entities.ComponentModel;
 using Nullean.Entities.Diagnostics;
 using Nullean.Entities.Extensions.DependencyInjection;
 using Nullean.Entities.Reactive;
@@ -39,6 +40,18 @@ try
 catch (OptionsValidationException)
 { rejected = true; }
 Expect(rejected, "options validation rejects a bad value");
+
+// INotifyDataErrorInfo for a view model: BCL only, so it survives NativeAOT
+var balance = 10m;
+var formErrors = new ConstraintErrors<Account>(Account.Constraints, () => new Account("A-2", balance));
+var errorsChanged = 0;
+formErrors.ErrorsChanged += (_, _) => errorsChanged++;
+balance = -1m;
+formErrors.Validate();
+Expect(formErrors.HasErrors && formErrors.Violations.Count == 1 && errorsChanged == 1, "view-model errors report a violation");
+balance = 5m;
+formErrors.Validate();
+Expect(!formErrors.HasErrors && errorsChanged == 2, "view-model errors clear when fixed");
 
 // Generated constraints, Apply and its Result
 var account = new Account("A-1", 100m);

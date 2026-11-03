@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Surfaces Nullean.Entities constraint violations through INotifyDataErrorInfo, so Avalonia, WPF, WinUI and MAUI bindings show them next to the field. No UI-framework dependency.</Description>
+    <PackageTags>constraints validation mvvm inotifydataerrorinfo avalonia wpf winui maui</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Nullean.Entities/Nullean.Entities.csproj" />
+  </ItemGroup>
+</Project>
