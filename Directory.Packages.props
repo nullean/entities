@@ -44,6 +44,8 @@
     <PackageVersion Include="Microsoft.AspNetCore.Components.Forms" Version="10.0.0" />
     <!-- ReactiveUI.Validation 8.1.0 (on ReactiveUI 26.0.1): ValidationContext and IValidationComponent, which Nullean.Entities.ReactiveUI builds on. -->
     <PackageVersion Include="ReactiveUI.Validation" Version="8.1.0" />
+    <!-- FluentValidation 12.2.0 (Apache-2.0, targets net8.0, no dependencies): what Nullean.Entities.FluentValidation bridges to. -->
+    <PackageVersion Include="FluentValidation" Version="12.2.0" />
     <!-- Bogus 35.6.5: realistic fake data generation. -->
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <!-- Soenneker.Utils.AutoBogus: maintained AutoBogus fork for net9/10, Bogus >= 35.6.5. -->

@@ -92,6 +92,7 @@ The packages are not published yet; until they are, reference them from a checko
 | `Nullean.Entities.Diagnostics` | *Optional.* Violations seen at runtime as logs, metrics and trace events (OpenTelemetry picks them up by name; no dependency on it). |
 | `Nullean.Entities.ComponentModel` | *Optional.* Violations through `INotifyDataErrorInfo` for MVVM view models (Avalonia, WPF, WinUI, MAUI). |
 | `Nullean.Entities.ReactiveUI` | *Optional.* Show violations on a ReactiveUI view model through ReactiveUI.Validation. |
+| `Nullean.Entities.FluentValidation` | *Optional.* Run constraints inside FluentValidation pipelines, and attack existing FluentValidation validators with generated data. |
 | `Nullean.Entities.CsCheck.AutoBogus` | *Optional.* Real-world data from an AutoFaker. |
 
 ## Building from source

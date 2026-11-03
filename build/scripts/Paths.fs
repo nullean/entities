@@ -38,6 +38,7 @@ let mapProjectToNuget =
       "Nullean.Entities.Blazor"
       "Nullean.Entities.ComponentModel"
       "Nullean.Entities.ReactiveUI"
+      "Nullean.Entities.FluentValidation"
       "Nullean.Entities.CsCheck"
       "Nullean.Entities.CsCheck.Reactive"
       "Nullean.Entities.CsCheck.FileSystem"
@@ -79,6 +80,7 @@ let TestProjects =
       "tests/Nullean.Entities.Blazor.Tests"
       "tests/Nullean.Entities.ComponentModel.Tests"
       "tests/Nullean.Entities.ReactiveUI.Tests"
+      "tests/Nullean.Entities.FluentValidation.Tests"
       "tests/Nullean.Entities.Examples.Tests"
       "tests/Nullean.Entities.Quickstart.Tests"
       // the same AutoTest one-liner in xUnit v3, NUnit and MSTest: each lists one test per axis and fails only the broken one
