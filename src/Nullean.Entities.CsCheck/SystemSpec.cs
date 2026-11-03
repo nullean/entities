@@ -54,6 +54,69 @@ public sealed record Network(bool Ordered, bool Duplicates, bool Drops)
 	public static Network Lossy { get; } = new(false, true, true);
 }
 
+/// <summary>
+/// A place inside a handler where the node may crash: <c>CrashPoint.On&lt;OrderPlaced&gt;("after-gateway", partial: ...)</c>. <c>partial</c> is what the
+/// handler had done by then (its state, and what it had already sent, a call to an external service included); the node then restarts from
+/// <c>durable</c> of that state, and the message stays in flight. With no <c>partial</c>, nothing had happened: the handler is atomic at that point.
+/// </summary>
+public sealed class CrashPoint
+{
+	private CrashPoint(string name, Type message, Func<object, object, Send, object>? partial, Func<object, object, bool>? reaches)
+	{
+		Name = name;
+		Message = message;
+		Partial = partial;
+		Reaches = reaches;
+	}
+
+	/// <summary>The point's name, as the host's fakes call it (<see cref="CrashPoints.At"/>).</summary>
+	public string Name { get; }
+
+	internal Type Message { get; }
+
+	internal Func<object, object, Send, object>? Partial { get; }
+
+	internal Func<object, object, bool>? Reaches { get; }
+
+	/// <summary>A crash point in the handler for <typeparamref name="TMessage"/>, with nothing done by then.</summary>
+	public static CrashPoint On<TMessage>(string name) => new(name, typeof(TMessage), null, null);
+
+	/// <summary>
+	/// A crash point in the handler for <typeparamref name="TMessage"/>; <paramref name="partial"/> is what the handler had done by then.
+	/// <paramref name="reaches"/> says from which states the handler gets there at all (a handler that returns early on a duplicate never reaches a point
+	/// after the check); without it, every delivery reaches it.
+	/// </summary>
+	public static CrashPoint On<TMessage, TState>(
+		string name,
+		Func<TState, TMessage, Send, TState> partial,
+		Func<TState, TMessage, bool>? reaches = null
+	) where TState : notnull =>
+		new(
+			name,
+			typeof(TMessage),
+			(state, message, send) => partial((TState)state, (TMessage)message, send),
+			reaches is null ? null : (state, message) => reaches((TState)state, (TMessage)message)
+		);
+
+	/// <summary>A crash point in the handler for <typeparamref name="TMessage"/>, reached from the states <paramref name="reaches"/> says, with nothing done by then.</summary>
+	public static CrashPoint On<TMessage, TState>(string name, Func<TState, TMessage, bool> reaches) where TState : notnull =>
+		new(name, typeof(TMessage), null, (state, message) => reaches((TState)state, (TMessage)message));
+}
+
+/// <summary>What one action of a <see cref="SystemSpec"/> does, so a conformance run can do the same to a real host.</summary>
+internal abstract record SystemStep
+{
+	public sealed record ClientCall(INodeDefinition Node, ClientDefinition Client) : SystemStep;
+
+	public sealed record Deliver : SystemStep;
+
+	public sealed record Network : SystemStep;
+
+	public sealed record Crash(INodeDefinition Node) : SystemStep;
+
+	public sealed record CrashAt(INodeDefinition Node, CrashPoint Point) : SystemStep;
+}
+
 internal interface INodeDefinition : INode
 {
 	object Initial { get; }
@@ -224,10 +287,11 @@ internal sealed class KeyOrder : IComparer<object?>
 /// A system of nodes that talk by message: <c>SystemSpec.Of(orders, billing).Network(Network.AtLeastOnce).Spec(rules).Exhaustive()</c>. See the
 /// file header for the actions it explores.
 /// </summary>
-public sealed class SystemSpec
+public sealed partial class SystemSpec
 {
 	private readonly List<INodeDefinition> _nodes;
 	private readonly Dictionary<string, Func<object, object>> _durable = [];
+	private readonly Dictionary<string, CrashPoint[]> _crashPoints = [];
 	private Network _network = global::Nullean.Entities.CsCheck.Network.Reliable;
 	private int _maxInFlight = 4;
 	private int _maxDuplicates = 1;
@@ -260,11 +324,13 @@ public sealed class SystemSpec
 
 	/// <summary>
 	/// <paramref name="node"/> may crash and restart, coming back as <paramref name="durable"/> of the state it crashed in (what it had committed;
-	/// <c>s => s</c> when everything is). Messages in flight to it stay in flight: the broker still has them.
+	/// <c>s => s</c> when everything is). Messages in flight to it stay in flight: the broker still has them. A crash happens between two deliveries;
+	/// <paramref name="during"/> adds crashes inside a handler, at named points, each with what the handler had done by then.
 	/// </summary>
-	public SystemSpec Crashes<TState>(Node<TState> node, Func<TState, TState> durable) where TState : notnull
+	public SystemSpec Crashes<TState>(Node<TState> node, Func<TState, TState> durable, params CrashPoint[] during) where TState : notnull
 	{
 		_durable[node.Name] = state => durable((TState)state);
+		_crashPoints[node.Name] = during;
 		return this;
 	}
 
@@ -312,7 +378,9 @@ public sealed class SystemSpec
 	/// The system as an <see cref="EntitySpec{T}"/> over <see cref="SystemState"/>, checking <paramref name="rules"/> in every reachable state and step.
 	/// Add <c>Eventually</c> or <c>LeadsTo</c> to it for liveness; delivery is already declared fair.
 	/// </summary>
-	public EntitySpec<SystemState> Spec(ConstraintSet<SystemState>? rules = null)
+	public EntitySpec<SystemState> Spec(ConstraintSet<SystemState>? rules = null) => Build(rules).Spec;
+
+	internal (EntitySpec<SystemState> Spec, SystemModel Model) Build(ConstraintSet<SystemState>? rules)
 	{
 		var model = new SystemModel(_nodes, _network, _symmetric);
 		var initial = new SystemState(model, [.. _nodes.Select(n => n.Initial)], [], 0, [.. _nodes.Select(_ => 0)], null);
@@ -327,28 +395,41 @@ public sealed class SystemSpec
 				if (c.Domain is null)
 				{
 					spec.Action(name, s => model.Client(s, n, c, null));
+					model.Steps[name] = new SystemStep.ClientCall(n, c);
 				}
 				else
 				{
 					spec.Action(name, c.Domain, (s, arg) => model.Client(s, n, c, arg));
+					model.Steps[name] = new SystemStep.ClientCall(n, c);
 				}
 			}
 		}
 
 		var slots = Enumerable.Range(0, _maxInFlight).ToArray();
 		spec.Action("Deliver", slots, model.Deliver);
+		model.Steps["Deliver"] = new SystemStep.Deliver();
 		if (_network.Duplicates)
 		{
 			spec.Action("Duplicate", slots, (s, slot) => s.Duplicates >= _maxDuplicates ? s : model.Duplicate(s, slot));
+			model.Steps["Duplicate"] = new SystemStep.Network();
 		}
 		if (_network.Drops)
 		{
 			spec.Action("Drop", slots, model.Drop);
+			model.Steps["Drop"] = new SystemStep.Network();
 		}
 		foreach (var (nodeName, durable) in _durable)
 		{
 			var node = _nodes.Single(n => n.Name == nodeName);
-			spec.Action($"Crash({nodeName})", s => s.CrashesOf(node) >= _maxCrashes ? s : model.Crash(s, node, durable));
+			var maxCrashes = _maxCrashes;
+			spec.Action($"Crash({nodeName})", s => s.CrashesOf(node) >= maxCrashes ? s : model.Crash(s, node, durable));
+			model.Steps[$"Crash({nodeName})"] = new SystemStep.Crash(node);
+			foreach (var point in _crashPoints[nodeName])
+			{
+				var name = $"Crash({nodeName}) at {point.Name}";
+				spec.Action(name, slots, (s, slot) => s.CrashesOf(node) >= maxCrashes ? s : model.CrashAt(s, node, point, durable, slot));
+				model.Steps[name] = new SystemStep.CrashAt(node, point);
+			}
 		}
 
 		// A message that stays deliverable is eventually delivered; a slot is a position, so the fair choice is the message in it.
@@ -363,11 +444,12 @@ public sealed class SystemSpec
 		var limit = _collections;
 		var maxInFlight = _maxInFlight;
 		var boundary = _boundary;
-		return spec
+		spec
 			.Key(s => s.Key)
 			.Print(s => s.ToString())
 			.Limit(int.MaxValue)
 			.Boundary(s => s.InFlight.Count <= maxInFlight && s.Nodes.All(n => StructuralKey.LargestCollection(n) <= limit) && (boundary?.Invoke(s) ?? true));
+		return (spec, model);
 	}
 
 	private static IEnumerable<TId[]> Permutations<TId>(TId[] items)
@@ -403,6 +485,9 @@ internal sealed class SystemModel
 	}
 
 	public List<INodeDefinition> Nodes { get; }
+
+	/// <summary>What each action name does, for conformance.</summary>
+	public Dictionary<string, SystemStep> Steps { get; } = [];
 
 	public Network Network { get; }
 
@@ -493,6 +578,34 @@ internal sealed class SystemModel
 			state.Duplicates,
 			state.Crashes.SetItem(i, state.Crashes[i] + 1),
 			$"crash {node.Name}"
+		);
+	}
+
+	/// <summary>The deliverable messages a crash point applies to: to <paramref name="node"/>, of the point's message type.</summary>
+	public IReadOnlyList<Envelope> CrashTargets(SystemState state, INode node, CrashPoint point) =>
+		[
+			.. Deliverable(state)
+				.Where(e => e.To == node.Name && point.Message.IsInstanceOfType(e.Message) && (point.Reaches?.Invoke(state.StateOf(node), e.Message) ?? true))
+		];
+
+	public SystemState CrashAt(SystemState state, INodeDefinition node, CrashPoint point, Func<object, object> durable, int slot)
+	{
+		var targets = CrashTargets(state, node, point);
+		if (slot >= targets.Count)
+		{
+			return state;
+		}
+		var envelope = targets[slot];
+		var i = IndexOf(node);
+		var sent = new List<Envelope>();
+		var partial = point.Partial?.Invoke(state.Nodes[i], envelope.Message, Sender(node, sent)) ?? state.Nodes[i];
+		return new SystemState(
+			this,
+			state.Nodes.SetItem(i, durable(partial)),
+			[.. state.InFlight, .. sent],
+			state.Duplicates,
+			state.Crashes.SetItem(i, state.Crashes[i] + 1),
+			$"crash {node.Name} at {point.Name} handling {envelope}"
 		);
 	}
 

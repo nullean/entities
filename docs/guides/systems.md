@@ -93,7 +93,18 @@ SystemSpec.Of(orders, billing)
 
 `Crashes(node, durable)` adds `Crash(node)`: the node comes back as `durable` of the state it crashed in. Messages in flight to it stay in flight, because the broker still has them. Above, billing kept its dedupe record only in memory. A crash forgets it, the redelivery is charged again, and the proof fails with `crash billing` in the trace. With `durable: b => b` (everything committed) it holds.
 
-A crash happens between two deliveries, so a handler is atomic in the model. Whether the real handler is atomic too is a question about the code, not the design. [Conformance](#the-real-code) answers it.
+A plain crash happens between two deliveries, so the handler is atomic. A real handler often is not: it calls a payment gateway, then commits. If it crashes in between, the charge has left and the commit has not. Name that point, and say what the handler had done by then:
+
+```csharp
+.Crashes(billing, durable: b => b,
+    CrashPoint.On<OrderPlaced, LedgerState>("after-gateway",
+        partial: (b, m, send) => { send(gateway, new Charge(m.OrderId, m.OrderId)); return b; },
+        reaches: (b, m) => !b.Seen.Contains(m.OrderId)))
+```
+
+`Crash(billing) at after-gateway` then runs the handler up to that point (`partial`, including what it sent) and restarts the node from `durable` of the result. The message stays in flight, so the broker redelivers it. `reaches` says from which states the handler gets that far: one that returns early on a duplicate never does.
+
+With the gateway as a node of its own, the model finds the double charge: the charge has left, the redelivery charges again. A gateway that deduplicates on an idempotency key makes the proof pass. On an at-least-once network it finds a shorter one too, with no crash at all: the charge itself delivered twice.
 
 ## Every placed order is paid
 
@@ -161,4 +172,45 @@ Orders 1 and 2 behave the same way, so exploring a state and the same state with
 
 ## The real code
 
-The model proves the design. Whether the real handlers match it is a separate question, answered by driving them on a transport the model controls. That is the next step. Until then, model a handler that is not atomic as two handlers with a state between them, and `Crashes` will find the gap.
+The model proves the design. Conformance checks that the code you ship behaves like it. The model decides what happens next, and the same thing is done to a real host built around the node's real handler. After every step the host must agree with the model on two things:
+
+- **its state:** what `stateOf` projects from it, such as committed rows;
+- **what it sent:** what it published, and the calls it made out.
+
+```csharp
+var host = Host.For(billing,
+    create:  () => new BillingHost(new BillingDatabase()),   // in-memory storage, fake gateway and publisher
+    deliver: (h, message) => h.Handle(message),              // call the consumer, as the broker would
+    stateOf: h => h.State(),                                 // committed rows, as the model's LedgerState
+    sent:    h => h.Drain(),                                 // what it published and charged since the last call
+    crash:   (h, point) => h.Crashes.Arm(point),
+    restart: h => h.Restart());                              // a new host over the same database
+
+await SystemSpec.Of(orders, billing, gateway)
+    .Network(Network.AtLeastOnce)
+    .Crashes(billing, b => b, afterGateway)
+    .ConformExhaustiveAsync(host);
+```
+
+The host's fakes call `crashes.At("after-gateway")` where the real crash point is. Here that is right after the fake gateway records the charge. A run arms the point before a delivery the model crashes in, and reaching it throws `SimulatedCrashException`. The host is then restarted, and what it had sent before it died stays sent. Nodes without a host (orders and the gateway here) stay in the model.
+
+A handler that forgets the idempotency key fails on its first delivery:
+
+```text
+Conformance failed.
+
+Step          2: deliver orders → billing: OrderPlaced { OrderId = 1 }
+Diverged      billing sent [Charge { OrderId = 1, IdempotencyKey = null }, Charged { OrderId = 1 }], the model sends [Charge { OrderId = 1, IdempotencyKey = 1 }, Charged { OrderId = 1 }]
+```
+
+Conformance also reports three other kinds of mismatch:
+
+| What the code does | What the report says |
+|---|---|
+| Commits before calling the gateway | after the crash, `billing holds LedgerState { Seen = [1] }, the model says LedgerState { Seen = [] }` |
+| Sends the charge before the crash point, while the model calls the handler atomic | `billing sent [Charge ...], the model sends []`. The handler is not atomic, so give the crash point a `partial`. |
+| Never reaches the crash point | `the model crashes billing at 'after-gateway' ..., but the code never reached that point` |
+
+`ConformAsync(host)` runs sampled walks instead, shrunk by CsCheck and replayable with the seed. `ConformExhaustiveAsync(host)` checks every transition of the model down a shortest path, so it needs the state space to close. A step that changes nothing in the model is not a transition, so only the sampled run checks those.
+
+A host must be deterministic, as for [services](services.md): in-memory storage, fakes for what it calls out to, and time from a `TimeProvider`.
