@@ -810,3 +810,7 @@ footer { border-top: 1px solid var(--line-tint-soft); padding-block: var(--space
 /* ---------- phones: 16px gutters; the nine-axes question cell sits in the text column, not the number column ---------- */
 @media (max-width: 480px) { .wrap { padding-inline: 16px; } }
 @media (max-width: 720px) { .qtable tr.q > td:nth-child(3) { grid-column: 2; } }
+
+/* the film: a 16:9 frame in the landing's window style; the poster shows until play */
+.film { margin-top: var(--space-5); border: 1px solid var(--line-tint-soft); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-terminal); background: #08090b; }
+.film video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #08090b; }
