@@ -40,9 +40,33 @@ var spec = OrderConstraints.Instance
 | `spec.Conform(() => new Repo(), (r, step) => r.Apply(step), (r, expected) => r.Get() == expected)` | Same walks drive a real implementation and the entity; compared after every step. |
 | `spec.ConformExhaustive(() => new Repo(), (r, step) => r.Apply(step), (r, expected) => r.Get() == expected)` | The same comparison on every transition of the reachable space, each reached by a shortest path, so a divergence is reported with the fewest steps. Needs a space that closes, as `Exhaustive()` does; `clone:` steps a copy instead of replaying the path. |
 | `spec.Commutes("A", "B")` / `spec.Idempotent("A")` | Laws, from every reachable state and for every argument. |
+| `spec.Linearizable(() => new Account(), (a, action, arg) => ..., (a, model) => a.Balance == model.Balance)` | A shared implementation under concurrent calls: the actions run on several threads at once, and some one-at-a-time order of them on the entity must end where the implementation did. Sampled, shrunk, with a seed. |
 | `spec.States()` | A `Gen<T>` of entities reached by running actions: valid by construction, shrinks to the shortest action sequence. |
 | `.StepScoped("AddLine", set)` | A rule that holds for one action only. |
 | `.Eventually(id, goal)` / `.LeadsTo(id, from, to)` with `.Fair(...)` | Liveness: every run reaches the goal (from every state, or once `from` holds), under weak fairness for the actions you name. `Exhaustive()` proves these after the safety rules; `spec.Liveness()` proves only these. |
+
+### Linearizability: one at a time, even when it is not
+
+A service shared between requests is called from many threads at once. It is linearizable when every concurrent run ends as if the calls had happened one after another, in some order. A read-modify-write without a lock is not linearizable: two deposits read the same balance, and one of them is lost.
+
+```csharp
+ConstraintSet.From<Account>()
+    .Spec(new Account(0))
+    .Action("Deposit", [1, 5], (a, amount) => a.Deposit(amount))
+    .Action("Withdraw", [1, 5], (a, amount) => a.Withdraw(amount))
+    .Linearizable<ISharedAccount>(
+        () => new LockedAccount(),
+        (account, action, amount) => /* call account.Deposit or account.Withdraw by name */,
+        (account, model) => account.Balance == model.Balance);
+```
+
+CsCheck's `SampleParallel` does the work:
+
+1. It runs a few of the spec's actions one after another.
+2. It runs a few more at once, on separate threads.
+3. It tries every order of the parallel ones on the entity. At least one order must end where the implementation did.
+
+A failure is shrunk to the fewest operations and carries a seed. Only the final state is compared, not what each call returned. A race that needs more threads than `maxParallel`, or timing the sample never hits, can still pass, so a pass is evidence, not a proof.
 
 ### Liveness: something good eventually happens
 

@@ -55,4 +55,6 @@
   <Project Path="tests/Nullean.Entities.CsCheck.MSTest.Tests/Nullean.Entities.CsCheck.MSTest.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Examples.Tests/Nullean.Entities.Examples.Tests.csproj" />
   <Project Path="tests/Nullean.Entities.Apps.Tests/Nullean.Entities.Apps.Tests.csproj" />
+  <Project Path="examples/Nullean.Entities.Recipes/Nullean.Entities.Recipes.csproj" />
+  <Project Path="tests/Nullean.Entities.Recipes.Tests/Nullean.Entities.Recipes.Tests.csproj" />
 </Solution>

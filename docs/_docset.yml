@@ -70,6 +70,9 @@ toc:
       - file: marten.md
       - file: ef-core.md
       - file: masstransit.md
+      - file: mediators.md
+      - file: grpc.md
+      - file: graphql.md
   - folder: reference
     children:
       - file: testing-api.md
