@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option csharp_namespace = "Nullean.Entities.Recipes.Grpc";
+
+package recipes;
+
+service SignUps {
+  rpc Register (SignUpRequest) returns (SignUpReply);
+}
+
+message SignUpRequest {
+  string email = 1;
+  int32 age = 2;
+}
+
+message SignUpReply {
+  string id = 1;
+}

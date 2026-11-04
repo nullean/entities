@@ -28,9 +28,13 @@ The library has no opinion about your framework: a constraint set is a value you
 | Marten and event sourcing | Recipe, compiled in `examples/` | [Marten](marten.md) |
 | EF Core: check entities on `SaveChanges` | Package `Nullean.Entities.EntityFrameworkCore` | [EF Core](ef-core.md) |
 | MassTransit sagas and consumers | Recipe, not compiled here | [MassTransit](masstransit.md) |
+| MediatR, Mediator (source-generated) and Wolverine pipelines | Recipe, compiled in `examples/` | [Mediator pipelines](mediators.md) |
+| gRPC services (`Grpc.AspNetCore`) | Recipe, compiled in `examples/` | [gRPC](grpc.md) |
+| HotChocolate GraphQL input objects | Recipe, compiled in `examples/` | [GraphQL](graphql.md) |
 
 Which parts are tested: the **library side** of every recipe is tested in `tests/Nullean.Entities.Examples.Tests/Integration`, and the ASP.NET Core and Marten-style
-recipes compile and run as `examples/Nullean.Entities.Integration.Examples`. The **MassTransit** snippets use that package's APIs, but this repository does not
+recipes compile and run as `examples/Nullean.Entities.Integration.Examples`. The mediator, gRPC and GraphQL recipes compile as `examples/Nullean.Entities.Recipes` and
+run against the real frameworks in `tests/Nullean.Entities.Recipes.Tests`. The **MassTransit** snippets use that package's APIs, but this repository does not
 reference it, so they are **not compiled here**: treat them as the shape, and check the signatures against the version you use.
 
 ## What to put where
