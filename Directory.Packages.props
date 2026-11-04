@@ -51,6 +51,16 @@
     <!-- EF Core 10.0.14, the latest stable: it targets net10.0 and serves the net11.0 build too (EF Core 11 is a release candidate only). The Sqlite provider is for the tests. -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
+    <!-- examples/Nullean.Entities.Recipes: mediator, gRPC and GraphQL recipes, compiled and tested; nothing packed depends on these. -->
+    <PackageVersion Include="MediatR" Version="14.2.0" />
+    <PackageVersion Include="Mediator.Abstractions" Version="3.0.2" />
+    <PackageVersion Include="Mediator.SourceGenerator" Version="3.0.2" />
+    <PackageVersion Include="WolverineFx" Version="6.61.0" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.61.0" />
+    <PackageVersion Include="Grpc.AspNetCore" Version="2.85.0" />
+    <PackageVersion Include="Grpc.StatusProto" Version="2.85.0" />
+    <PackageVersion Include="Grpc.Net.Client" Version="2.85.0" />
+    <PackageVersion Include="HotChocolate.AspNetCore" Version="16.7.3" />
     <!-- Bogus 35.6.5: realistic fake data generation. -->
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <!-- Soenneker.Utils.AutoBogus: maintained AutoBogus fork for net9/10, Bogus >= 35.6.5. -->

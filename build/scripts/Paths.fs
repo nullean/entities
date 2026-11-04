@@ -91,4 +91,5 @@ let TestProjects =
       "tests/Nullean.Entities.CsCheck.Xunit.Tests"
       "tests/Nullean.Entities.CsCheck.NUnit.Tests"
       "tests/Nullean.Entities.CsCheck.MSTest.Tests"
-      "tests/Nullean.Entities.Apps.Tests" ]
+      "tests/Nullean.Entities.Apps.Tests"
+      "tests/Nullean.Entities.Recipes.Tests" ]
