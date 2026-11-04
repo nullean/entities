@@ -75,7 +75,7 @@ newer SDK can always build older TFMs but the reverse does not hold for an unrel
 problem to silence.
 
 C# 11's discriminated unions (`readonly union Name(Case1, Case2, ...);`) only parse under
-`LangVersion=preview` in the installed `11.0.100-preview.7` SDK — `LangVersion=latest` resolves to
+`LangVersion=preview` in the .NET 11 SDK pinned in `global.json` (a release candidate) — `LangVersion=latest` resolves to
 the stable C# version that ships with it and rejects `union` outright with CS1001. `Directory.Build.props`
 sets `LangVersion=preview` conditionally, scoped to `'$(TargetFramework)' == 'net11.0'` only, so
 net10.0 stays on `latest` and does not silently pick up other preview syntax never exercised
