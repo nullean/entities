@@ -24,7 +24,7 @@ Each section below names what the project shares with {{product}}, what it does 
 Model-based testing generates sequences of commands, runs them against a model and the real system, and compares the two after each step. Erlang's [PropEr `statem`](https://proper-testing.github.io/tutorials/PropEr_testing_of_generic_servers.html), Hypothesis's [`RuleBasedStateMachine`](https://hypothesis.readthedocs.io/en/latest/stateful.html), fast-check's [model-based testing](https://fast-check.dev/docs/advanced/model-based-testing/) and Rust's [proptest state machines](https://proptest-rs.github.io/proptest/proptest/state-machine.html) all work this way. So does CsCheck, which {{product}} is built on.
 
 - **Shared:** generated command sequences with preconditions, invariants checked after every step, and shrinking to the smallest failing sequence. `Script<TSut>`, `Spec(...).Sample()` and `Conform` are this pattern.
-- **They do better:** fast-check's `scheduledModelRun` controls when async commands complete, to find race conditions. PropEr has parallel command testing.
+- **They do better:** fast-check's `scheduledModelRun` controls when async commands complete, to find race conditions. {{product}}'s `Linearizable` runs operations on real threads instead, and does not schedule them.
 - **{{product}} adds:** you do not write the model or the commands. An `EntitySpec` turns the entity's rules and its generated `Actions` into the walks, and `Conform` drives your implementation down the same walks. The vacancy check fails a test whose inputs never reached a rule.
 
 ## Model-driven state machines: XState
@@ -44,15 +44,26 @@ Model checkers explore every reachable state of a model. They prove a property h
 - [Alloy](https://alloytools.org/) checks relational models: keys, references, acyclic structures.
 - [Stateright](https://github.com/stateright/stateright) is "a model checker for implementing distributed systems" in Rust. You write the system as Stateright actors, check `always`, `sometimes` and `eventually` properties, then run the same actors on a real network.
 
-**Shared:** invariants over every reachable state (`Deeper()`'s exhaustive check), shortest counterexamples, liveness (`Eventually<T>`), and relational rules (`Unique`, `References`, `Acyclic`).
+**Shared:**
 
-**They do better:** this is where {{product}} has the largest gap.
+- invariants over every reachable state, with shortest counterexamples;
+- liveness under weak fairness ([`Eventually` and `LeadsTo`](../reference/state-machines.md#liveness-something-good-eventually-happens));
+- several nodes talking over networks that reorder, duplicate or drop, with crashes and symmetry reduction ([`SystemSpec`](../guides/systems.md));
+- linearizability of a shared implementation ([`Linearizable`](../reference/state-machines.md#linearizability-one-at-a-time-even-when-it-is-not));
+- relational rules (`Unique`, `References`, `Acyclic`).
 
-- Concurrency. They explore every interleaving of messages between many nodes, over networks that drop, duplicate or reorder. {{product}} explores sequences of operations on one entity.
-- Scale. Symmetry reduction and dedicated checkers handle state spaces {{product}}'s exhaustive walk cannot.
-- Tooling. Stateright has an explorer UI for stepping through the state space, plus linearizability and sequential-consistency testers.
+**They do better:**
 
-**{{product}} adds:** no separate model and no rewrite. TLA+, Quint and P model the system in another language, and Stateright asks you to write it as Stateright actors. {{product}} checks the types and services you already ship. `Conform`, `ConformToMutable` and `ConformToServiceAsync` drive a real implementation against the model. The same rules also validate at runtime, which no model checker does.
+- Scale. Dedicated checkers with compact state storage, partial-order reduction and parallel search handle state spaces {{product}}'s exhaustive walk cannot. Its symmetry reduction is opt-in and written by hand.
+- Liveness under symmetry. {{product}} refuses to check liveness on a symmetry-reduced graph.
+- Tooling. Stateright has an explorer UI for stepping through the state space, and a sequential-consistency tester. TLA+ has TLC, Apalache and a proof system.
+
+**{{product}} adds:** no separate model and no rewrite. TLA+, Quint and P model the system in another language, and Stateright asks you to write it as Stateright actors. {{product}} models with the C# types you already have, then checks the code you already ship against that model:
+
+- `Conform` and `ConformToServiceAsync` drive one service.
+- [`SystemSpec.ConformAsync`](../guides/systems.md#the-real-code) drives real message handlers on a transport the model controls. Crash points inside a handler are included, so a non-atomic handler shows up as a divergence.
+
+The same rules also validate at runtime, which no model checker does.
 
 ## Runtime verification and assertion SDKs: Antithesis
 
