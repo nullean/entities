@@ -34,6 +34,14 @@ public sealed partial class EntitySpec<T>
 	private readonly List<LivenessRule> _liveness = [];
 	private readonly Dictionary<string, Func<T, object?, object?>?> _fair = [];
 	private bool _allFair;
+	private string? _noLiveness;
+
+	/// <summary>Liveness cannot be judged on this spec (its key merges states a fair run must tell apart); <see cref="Liveness"/> fails with <paramref name="reason"/>.</summary>
+	internal EntitySpec<T> WithoutLiveness(string reason)
+	{
+		_noLiveness = reason;
+		return this;
+	}
 
 	/// <summary>
 	/// From every reachable state, every run reaches a state where <paramref name="goal"/> holds: it cannot stop short of it, or loop forever
@@ -115,6 +123,10 @@ public sealed partial class EntitySpec<T>
 
 	private LivenessReport CheckLiveness(T start, int maxStates, bool requireCoverage)
 	{
+		if (_noLiveness is not null)
+		{
+			throw new NotSupportedException($"Liveness cannot be checked on this spec: {_noLiveness}");
+		}
 		var graph = ExploreGraph(start, maxStates);
 		foreach (var rule in _liveness)
 		{
