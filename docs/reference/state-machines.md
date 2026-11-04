@@ -80,7 +80,7 @@ EntitySpec
     .Liveness();
 ```
 
-A run breaks the rule in one of two ways. It stops in a state no action changes, short of the goal, or it loops forever without reaching it. Either way the failure gives the path from the start, then the stop or the loop:
+A run breaks the rule in one of two ways. It stops in a state no action changes, short of the goal, or it loops forever without reaching it. A run never stops while some action can still change the state: something that can happen, and is the only thing left to do, does happen. Fairness is only about loops. Either way the failure gives the path from the start, then the stop or the loop:
 
 ```text
 Liveness failed.
