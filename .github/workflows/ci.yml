@@ -1,6 +1,6 @@
 name: CI
 
-# Pull requests and pushes to main build, test, pack and validate. A tag (X.Y.Z or X.Y.Z-pre.N) also publishes the ten packages to nuget.org
+# Pull requests and pushes to main build, test, pack and validate. A tag (X.Y.Z or X.Y.Z-pre.N) also publishes every package to nuget.org
 # and creates the GitHub release. See RELEASING.md.
 on:
   pull_request:
@@ -35,7 +35,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      # build, every test project on every target framework, then pack and validate the ten packages
+      # build, every test project on every target framework, then pack and validate every package
       - name: Build, test, pack
         run: ./build.sh pack
 
