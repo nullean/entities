@@ -8,14 +8,14 @@ Packages are versioned from git tags by [MinVer](https://github.com/adamralph/mi
 |---|---|
 | Pull request | Build, test, pack and validate. Nothing is published. |
 | Push to `main` | The same. Nothing is published: there is no canary feed (GitHub Packages was refused by the organisation's billing limit, and a tag is the only way a package reaches nuget.org). |
-| Push of a tag `X.Y.Z` or `X.Y.Z-pre.N` | The same, then the public API changes are written, the ten packages are pushed to nuget.org, and the draft GitHub release is published for the tag with the API changes added to it. |
+| Push of a tag `X.Y.Z` or `X.Y.Z-pre.N` | The same, then the public API changes are written, every package is pushed to nuget.org, and the draft GitHub release is published for the tag with the API changes added to it. |
 
 The release notes are drafted by [release-drafter](https://github.com/release-drafter/release-drafter) (`.github/release-drafter.yml`, `.github/workflows/release-drafter.yml`): every merge to `main` updates a draft release from the pull requests merged since the last release, grouped by label.
 
 ## Cutting a release
 
 1. Give each pull request one category label so it lands in the notes: `breaking`, `feature` or `enhancement`, `bug` or `fix`, `documentation`, `chore` or `dependencies`, `automation` or `ci`. `changelog:skip` leaves a pull request out. The labels also pick the next version in the draft (`breaking` is major, `feature`/`enhancement` minor, anything else patch); the tag you push is what decides the version, so read the draft and tag accordingly.
-2. Rehearse: `./build.sh release` on a clean `main`. It checks the working copy is clean, runs the tests on every target framework, packs, validates every package (version, strong-name key, all ten present), and writes `breaking-changes-<package>.md` (the public API changes since the previous nuget.org release) to `.artifacts/build-output`.
+2. Rehearse: `./build.sh release` on a clean `main`. It checks the working copy is clean, runs the tests on every target framework, packs, validates every package (version, strong-name key, every package in `build/scripts/Paths.fs` present), and writes `breaking-changes-<package>.md` (the public API changes since the previous nuget.org release) to `.artifacts/build-output`.
 3. Tag and push: `git tag X.Y.Z && git push origin X.Y.Z`. For a first run of the pipeline, tag a prerelease (`0.1.0-preview.1`) before `0.1.0`: a version published to nuget.org can be unlisted but not deleted.
 
 ## Targets
@@ -23,7 +23,7 @@ The release notes are drafted by [release-drafter](https://github.com/release-dr
 | Target | Does |
 |---|---|
 | `test` | build, then every test project on every target framework |
-| `pack` | test, then pack and validate the ten packages into `.artifacts/build-output` |
+| `pack` | test, then pack and validate every package into `.artifacts/build-output` |
 | `release` | clean-checkout check, `pack`, public API changes |
 
 Add `-s true` to run one target without its dependencies (CI runs each step on its own), and `-c false` to skip the clean-checkout check.
