@@ -138,7 +138,7 @@ public sealed partial class EntitySpec<T>
 
 	// ── The graph ─────────────────────────────────────────────────────────────
 
-	private sealed record Edge(int To, string Label, (string Action, object? Identity)? FairChoice);
+	private sealed record Edge(int To, string Label, (string Action, object? Identity)? FairChoice, EntityStep<T> Step);
 
 	private sealed class Graph
 	{
@@ -149,6 +149,9 @@ public sealed partial class EntitySpec<T>
 		public List<int> Parent { get; } = [];
 
 		public List<string?> ParentLabel { get; } = [];
+
+		/// <summary>The step that first reached each state (null for the start): following them back gives a shortest path.</summary>
+		public List<EntityStep<T>?> ParentStep { get; } = [];
 
 		/// <summary>Not expanded: outside the boundary or the collection limit. Nothing is known about where it goes.</summary>
 		public HashSet<int> Frontier { get; } = [];
@@ -178,7 +181,7 @@ public sealed partial class EntitySpec<T>
 		var graph = new Graph();
 		var index = new Dictionary<Keyed<T>, int>();
 
-		int Add(T state, int parent, string? label)
+		int Add(T state, int parent, string? label, EntityStep<T>? step)
 		{
 			var keyed = Wrap(state);
 			if (index.TryGetValue(keyed, out var existing))
@@ -199,10 +202,11 @@ public sealed partial class EntitySpec<T>
 			graph.Enabled.Add([]);
 			graph.Parent.Add(parent);
 			graph.ParentLabel.Add(label);
+			graph.ParentStep.Add(step);
 			return id;
 		}
 
-		Add(start, -1, null);
+		Add(start, -1, null, null);
 		for (var current = 0; current < graph.States.Count; current++)
 		{
 			var state = graph.States[current];
@@ -226,8 +230,15 @@ public sealed partial class EntitySpec<T>
 					choice = (def.Name, identity);
 					graph.Enabled[current].Add(choice.Value);
 				}
-				var to = Add(next, current, label);
-				graph.Edges[current].Add(new Edge(to, label, choice));
+				var step = new EntityStep<T>(
+					def.Name,
+					argIndex < 0 ? "" : Convert.ToString(argument, CultureInfo.InvariantCulture) ?? "null",
+					argument,
+					state,
+					next
+				);
+				var to = Add(next, current, label, step);
+				graph.Edges[current].Add(new Edge(to, label, choice, step));
 			}
 		}
 		return graph;
