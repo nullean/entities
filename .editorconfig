@@ -9,7 +9,6 @@ insert_final_newline = true
 
 [*.{fs,fsx,cs}]
 max_line_length = 160
-csharp_keep_existing_linebreaks = true
 
 [*.{fs,fsx}]
 indent_style = space
@@ -94,7 +93,7 @@ csharp_style_expression_bodied_properties = true:suggestion
 csharp_style_expression_bodied_accessors = true:suggestion
 csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
 csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
-csharp_prefer_braces = when_multiline:suggestion
+csharp_prefer_braces = false:suggestion
 csharp_using_directive_placement = outside_namespace:error
 
 # --- Formatting (IDE0055) -------------------------------------------------
@@ -162,3 +161,9 @@ dotnet_diagnostic.IDE0032.severity = none
 [tests/**/*.cs]
 dotnet_diagnostic.IDE0058.severity = none
 dotnet_diagnostic.IDE0022.severity = none
+
+# --- repo-specific overrides -----------------------------------------------
+
+# The reel's code screens are fragments shown on screen, not compilable C#: never format them.
+[reels/code/**.cs]
+generated_code = true

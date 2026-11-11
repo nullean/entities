@@ -175,12 +175,10 @@ public static partial class Constraints<T>
 	}
 
 	/// <summary>Violated when more than one of the named members is set: two ways of saying the same thing (<c>to</c> next to <c>many</c>, an old key next to its replacement).</summary>
-	public static Constraint<T> AtMostOne(params (string Name, Func<T, bool> IsSet)[] members) =>
-		MemberGroup(members, set => set <= 1, "at most one of");
+	public static Constraint<T> AtMostOne(params (string Name, Func<T, bool> IsSet)[] members) => MemberGroup(members, set => set <= 1, "at most one of");
 
 	/// <summary>Violated unless exactly one of the named members is set: a choice that must be made, and made once.</summary>
-	public static Constraint<T> ExactlyOne(params (string Name, Func<T, bool> IsSet)[] members) =>
-		MemberGroup(members, set => set == 1, "exactly one of");
+	public static Constraint<T> ExactlyOne(params (string Name, Func<T, bool> IsSet)[] members) => MemberGroup(members, set => set == 1, "exactly one of");
 
 	/// <summary>Violated when some but not all of the named members are set: values that only mean something together (a user and its password, a start and an end).</summary>
 	public static Constraint<T> AllOrNone(params (string Name, Func<T, bool> IsSet)[] members) =>
@@ -315,9 +313,7 @@ public static partial class Constraints<T>
 						{
 							Member = member,
 							Evidence = (outer, inner)
-						}.At(
-							at?.Invoke(sorted[j].Item)
-						)
+						}.At(at?.Invoke(sorted[j].Item))
 					);
 				}
 			}
@@ -369,13 +365,11 @@ public static partial class Constraints<T>
 			ConstraintKind.PointInTime,
 			(_, next) =>
 				[
-					.. items(next)
-						.SelectMany(
-							item =>
-								check(next, item)
-									.Select(v => (v.Member is null ? v with { Member = member } : v) with { Evidence = v.Evidence ?? item })
-									.Select(v => v.Line is null ? v.At(at?.Invoke(item)) : v)
-						),
+					.. items(next).SelectMany(
+						item => check(next, item)
+							.Select(v => (v.Member is null ? v with { Member = member } : v) with { Evidence = v.Evidence ?? item })
+							.Select(v => v.Line is null ? v.At(at?.Invoke(item)) : v)
+					),
 				]
 		);
 	}
@@ -423,10 +417,9 @@ public static partial class Constraints<T>
 				.. items(next)
 					.Where(i => !seen.Contains(key(i)))
 					.Select(
-						i =>
-							new Violation(describe?.Invoke(i) ?? message ?? $"'{key(i)}' is never used.") { Member = member, Evidence = key(i) }.At(
-								at?.Invoke(i)
-							)
+						i => new Violation(describe?.Invoke(i) ?? message ?? $"'{key(i)}' is never used.") { Member = member, Evidence = key(i) }.At(
+							at?.Invoke(i)
+						)
 					),
 			];
 		});
@@ -457,18 +450,11 @@ public static partial class Constraints<T>
 						.Select(g => (g.Key, Values: g.Select(value).Distinct(valueComparer).ToList()))
 						.Where(g => g.Values.Count > 1)
 						.Select(
-							g =>
-								new Violation(
-									describe?.Invoke(
-										g.Key,
-										g.Values
-									) ?? message ?? $"'{g.Key}' has {g.Values.Count} different values: {string.Join(", ", g.Values)}."
-								)
-
-								{
-									Member = member,
-									Evidence = g.Key
-								}
+							g => new Violation(
+								describe?.Invoke(g.Key, g.Values) ?? message ??
+									$"'{g.Key}' has {g.Values.Count} different values: {string.Join(", ", g.Values)}."
+							)
+							{ Member = member, Evidence = g.Key }
 						),
 				]
 		);
@@ -517,10 +503,8 @@ public static partial class Constraints<T>
 		return new(ConstraintKind.PointInTime, (_, next) =>
 		{
 			var text = raw(next);
-			return text is null || (Enum.TryParse<TEnum>(text.Trim(), ignoreCase, out var parsed) && !int.TryParse(
-				text.Trim(),
-				out var number
-			) && Enum.IsDefined(parsed))
+			return text is null ||
+				(Enum.TryParse<TEnum>(text.Trim(), ignoreCase, out var parsed) && !int.TryParse(text.Trim(), out var number) && Enum.IsDefined(parsed))
 				? []
 				: [new Violation(message ?? $"'{text}' is not one of {string.Join(", ", Enum.GetNames<TEnum>())}.") { Member = member, Evidence = text }];
 		});
@@ -552,13 +536,7 @@ public static partial class Constraints<T>
 	/// <paramref name="part"/> may be at most <paramref name="max"/> of <paramref name="whole"/> (a delete plan that removes at most 20% of the remote files). A whole of zero passes:
 	/// there is nothing to take a share of.
 	/// </summary>
-	public static Constraint<T> RatioAtMost(
-		Func<T, double> part,
-		Func<T, double> whole,
-		double max,
-		string? message = null,
-		string? member = null
-	) =>
+	public static Constraint<T> RatioAtMost(Func<T, double> part, Func<T, double> whole, double max, string? message = null, string? member = null) =>
 		new(ConstraintKind.PointInTime, (_, next) =>
 		{
 			var w = whole(next);
@@ -570,10 +548,7 @@ public static partial class Constraints<T>
 
 	/// <summary><c>NoneOf</c> where each member carries its own message (the advice for an obsolete key: what to use instead).</summary>
 	public static Constraint<T> NoneOf(params (string Name, Func<T, bool> IsSet, string Message)[] members) =>
-		new(
-			ConstraintKind.PointInTime,
-			(_, next) => [.. members.Where(m => m.IsSet(next)).Select(m => new Violation(m.Message) { Member = m.Name })]
-		);
+		new(ConstraintKind.PointInTime, (_, next) => [.. members.Where(m => m.IsSet(next)).Select(m => new Violation(m.Message) { Member = m.Name })]);
 
 	/// <summary><see cref="Monotonic{TValue}"/> for every item of a collection, matched by key across the change: each entry's timestamp or counter may only move one way. Items that are new or gone are not compared.</summary>
 	public static Constraint<T> MonotonicPerKey<TItem, TKey, TValue>(
@@ -595,25 +570,16 @@ public static partial class Constraints<T>
 					.Where(i => before.ContainsKey(key(i)))
 					.Select(i => (Key: key(i), Before: before[key(i)], After: value(i)))
 					.Where(
-						r =>
-							direction == MonotonicDirection.NonDecreasing
-								? Comparer<TValue>.Default.Compare(r.After, r.Before) < 0
-								: Comparer<TValue>.Default.Compare(r.After, r.Before) > 0
+						r => direction == MonotonicDirection.NonDecreasing
+							? Comparer<TValue>.Default.Compare(r.After, r.Before) < 0
+							: Comparer<TValue>.Default.Compare(r.After, r.Before) > 0
 					)
 					.Select(
-						r =>
-							new Violation(
-								describe?.Invoke(
-									r.Key,
-									r.Before,
-									r.After
-								) ?? message ?? $"'{r.Key}' moved from {r.Before} to {r.After}, but may only be {direction}."
-							)
-
-							{
-								Member = member,
-								Evidence = (r.Before, r.After)
-							}
+						r => new Violation(
+							describe?.Invoke(r.Key, r.Before, r.After) ?? message ??
+								$"'{r.Key}' moved from {r.Before} to {r.After}, but may only be {direction}."
+						)
+						{ Member = member, Evidence = (r.Before, r.After) }
 					),
 			];
 		}).WithShape(new MonotonicShape<T>(
@@ -626,10 +592,7 @@ public static partial class Constraints<T>
 			},
 			PerKey: true
 		)
-
-		{
-			Factory = nameof(MonotonicPerKey)
-		});
+		{ Factory = nameof(MonotonicPerKey) });
 	}
 
 	/// <summary>
@@ -679,10 +642,7 @@ public static partial class Constraints<T>
 			},
 			(a, b) => equal.Equals(result(a), result(b))
 		)
-
-		{
-			Factory = nameof(OrderIndependent)
-		});
+		{ Factory = nameof(OrderIndependent) });
 	}
 }
 #pragma warning restore CA1000
@@ -708,8 +668,7 @@ public sealed partial class ConstraintSet<T>
 	}
 
 	/// <summary>The same set with every warning raised to an error (hints and errors are left as they are): a strict mode for a release build.</summary>
-	public ConstraintSet<T> Strict() =>
-		new([.. _constraints.Select(c => c.Copy().Escalate())]);
+	public ConstraintSet<T> Strict() => new([.. _constraints.Select(c => c.Copy().Escalate())]);
 
 	/// <summary>The same set without these rules, named by handle (the property a constraint class declares) rather than by string: a deliberate suppression that survives a rename. A rule that is not in the set throws.</summary>
 	public ConstraintSet<T> Without(params Constraint<T>[] rules) =>

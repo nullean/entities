@@ -46,7 +46,8 @@ public class ConstraintValidatorTests
 	[Test]
 	public void A_nested_member_path_is_kept() =>
 		Single(CustomerRules.All.ToValidator().Validate(CustomerRules.Valid with { Address = new Address("1 Main St", "") }), "city-known")
-			.PropertyName.Should()
+			.PropertyName
+			.Should()
 			.Be("Address.City");
 
 	[Test]

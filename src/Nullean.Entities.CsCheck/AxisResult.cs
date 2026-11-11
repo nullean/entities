@@ -39,8 +39,7 @@ public abstract record AxisResult(Axis Axis)
 	}
 
 	/// <summary>Throws when this result is a failure; passes the other results through. For a test that calls <c>AutoTest.RunAsync()</c> and wants one assertion.</summary>
-	public AxisResult ThrowIfFailed() =>
-		this is Failed failed ? throw new InvalidOperationException(failed.ToString()) : this;
+	public AxisResult ThrowIfFailed() => this is Failed failed ? throw new InvalidOperationException(failed.ToString()) : this;
 }
 
 /// <summary>

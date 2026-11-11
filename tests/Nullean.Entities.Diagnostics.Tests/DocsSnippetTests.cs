@@ -43,10 +43,11 @@ public class DocsSnippetTests
 		time.Advance(TimeSpan.FromMinutes(2));
 
 		result.IsFail.Should().BeTrue();
-		logs.GetSnapshot().Select(r => r.Id.Id).Should().Equal(
-			ConstraintDiagnosticsEvents.ConstraintViolated,
-			ConstraintDiagnosticsEvents.TemporalRuleViolated
-		);
+		logs
+			.GetSnapshot()
+			.Select(r => r.Id.Id)
+			.Should()
+			.Equal(ConstraintDiagnosticsEvents.ConstraintViolated, ConstraintDiagnosticsEvents.TemporalRuleViolated);
 	}
 
 	[Test]

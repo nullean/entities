@@ -41,8 +41,26 @@ internal sealed class FileWorld
 {
 	private static readonly string[] Words =
 	[
-		"intro", "guide", "setup", "release", "reference", "overview", "install", "config", "usage", "notes",
-		"upgrade", "faq", "glossary", "tutorial", "limits", "security", "api", "cli", "index", "changes",
+		"intro",
+		"guide",
+		"setup",
+		"release",
+		"reference",
+		"overview",
+		"install",
+		"config",
+		"usage",
+		"notes",
+		"upgrade",
+		"faq",
+		"glossary",
+		"tutorial",
+		"limits",
+		"security",
+		"api",
+		"cli",
+		"index",
+		"changes",
 	];
 
 	private static readonly string[] Folders = ["", "guide", "guide/images", "reference"];
@@ -52,7 +70,8 @@ internal sealed class FileWorld
 
 	private readonly StrongBox<int> _counter;
 
-	public FileWorld() : this(new MockFileSystem(), 0) { }
+	public FileWorld() : this(new MockFileSystem(), 0)
+	{ }
 
 	/// <summary>A world over a file system a baseline value already has; names start high so they cannot replace the baseline's own files.</summary>
 	public FileWorld(MockFileSystem fileSystem, int firstName = 10_000)

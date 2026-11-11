@@ -74,8 +74,11 @@ public class AutoRelationsTests
 	}
 
 	private static void MountsDeclared(AutoOptions o) =>
-		o.Reference<Rel.Mount, Rel.Repo, string, Uri>(m => m.Source, r => r.Name, name => new Uri($"https://repo.example/{Uri.EscapeDataString(name)}"))
-			.KeyedBy<Rel.Assembly, string, Rel.Repo>(a => a.Repositories, r => r.Name);
+		o.Reference<Rel.Mount, Rel.Repo, string, Uri>(
+			m => m.Source,
+			r => r.Name,
+			name => new Uri($"https://repo.example/{Uri.EscapeDataString(name)}")
+		).KeyedBy<Rel.Assembly, string, Rel.Repo>(a => a.Repositories, r => r.Name);
 
 	[Test]
 	public void A_uri_built_from_a_repository_name_and_a_dictionary_keyed_by_that_name_agree_in_plausible_data()
@@ -185,7 +188,12 @@ public class AutoRelationsTests
 	[Test]
 	public void Large_gives_realistic_trees_a_few_dozen_nodes_not_two_and_never_an_explosion()
 	{
-		var defaults = Draw<Rel.Toc>(AutoMode.Plausible, _ => { }, 200).Select(t => Flat(t.Nodes).Count()).ToList();
+		var defaults = Draw<Rel.Toc>(
+			AutoMode.Plausible,
+			_ =>
+			{ },
+			200
+		).Select(t => Flat(t.Nodes).Count()).ToList();
 		var large = Draw<Rel.Toc>(AutoMode.Plausible, o => o.Large(), 200).Select(t => Flat(t.Nodes).Count()).ToList();
 
 		large.Average().Should().BeGreaterThan(defaults.Average() * 3, "a larger tree");

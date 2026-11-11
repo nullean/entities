@@ -63,18 +63,19 @@ public sealed partial class EntitySpec<T>
 		}
 
 		var initial = Gen.Const(() => (create(), new EntityHolder<T>(start)));
-		SampleCall.Run(() =>
-				initial.SampleParallel(
-					operations,
-					(sut, model) => agrees(sut, model.Entity),
-					seed: seed,
-					maxSequentialOperations: maxSequential,
-					maxParallelOperations: maxParallel,
-					iter: iter,
-					time: time,
-					threads: threads,
-					printModel: model => _print(model.Entity),
-					writeLine: writeLine
-				));
+		SampleCall.Run(
+			() => initial.SampleParallel(
+				operations,
+				(sut, model) => agrees(sut, model.Entity),
+				seed: seed,
+				maxSequentialOperations: maxSequential,
+				maxParallelOperations: maxParallel,
+				iter: iter,
+				time: time,
+				threads: threads,
+				printModel: model => _print(model.Entity),
+				writeLine: writeLine
+			)
+		);
 	}
 }

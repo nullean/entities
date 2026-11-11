@@ -15,14 +15,18 @@ public class PlainCsCheckTests
 
 	private static readonly Gen<Order> Pending = Lines.Array[0, 3].Select(lines => lines.Aggregate(Order.New(), (order, line) => order.AddLine(line)));
 
-	private static readonly Gen<Order> Orders = Gen.Select(Pending, Gen.Int[0, 3], (order, step) =>
+	private static readonly Gen<Order> Orders = Gen.Select(
+		Pending,
+		Gen.Int[0, 3],
+		(order, step) =>
 			step switch
 			{
 				1 => order.Confirm(),
 				2 => order.Confirm().Ship(),
 				3 => order.Cancel(),
 				_ => order
-			});
+			}
+	);
 
 	private static readonly Func<Order, Order>[] Operations = [o => o.Confirm(), o => o.Ship(), o => o.Cancel()];
 

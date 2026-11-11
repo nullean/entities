@@ -23,7 +23,9 @@ public abstract record OrderEvent
 public static class OrderRules
 {
 	public static readonly TemporalRuleSet<OrderEvent> All = TemporalRuleSet<OrderEvent>.From(
-		("ShipsWithinAMinute",
-		Temporal<OrderEvent>.After<OrderEvent.Confirmed>().Then<OrderEvent.Shipped>((c, s) => c.Id == s.Id).Within(TimeSpan.FromMinutes(1)))
+		("ShipsWithinAMinute", Temporal<OrderEvent>
+			.After<OrderEvent.Confirmed>()
+			.Then<OrderEvent.Shipped>((c, s) => c.Id == s.Id)
+			.Within(TimeSpan.FromMinutes(1)))
 	);
 }

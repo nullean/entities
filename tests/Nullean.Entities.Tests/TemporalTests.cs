@@ -227,13 +227,16 @@ public class TemporalMonitorTests
 
 	// ── Liveness ─────────────────────────────────────────────────────────────
 
-	private static readonly TemporalRule<Msg> EveryPlacedShips = Temporal<Msg>.Eventually<Msg.Shipped>(e =>
+	private static readonly TemporalRule<Msg> EveryPlacedShips = Temporal<Msg>.Eventually<Msg.Shipped>(
+		e =>
 			e switch
 			{
 				Msg.Placed p => p.Id,
 				Msg.Shipped s => s.Id,
 				_ => -1,
-			}, e => e is Msg.Placed);
+			},
+		e => e is Msg.Placed
+	);
 
 	[Test]
 	public void Eventually_is_undecided_until_the_stream_ends()
@@ -499,8 +502,7 @@ public class TemporalOnlineTests
 		var act = async () =>
 		{
 			await foreach (var _ in Source().MonitorAsync(Rules, new ManualTimeProvider()))
-			{
-			}
+			{ }
 		};
 
 		(await act.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Be("source broke");
@@ -547,12 +549,16 @@ public class AsyncApplyTests
 		using var cts = new CancellationTokenSource();
 		await cts.CancelAsync();
 
-		var act = async () =>
-			await Rules.ApplyAsync(new Item(1), async (i, ct) =>
-			{
-				await Task.Delay(TimeSpan.FromSeconds(30), ct);
-				return i;
-			}, cancellationToken: cts.Token);
+		var act =
+			async () => await Rules.ApplyAsync(
+				new Item(1),
+				async (i, ct) =>
+				{
+					await Task.Delay(TimeSpan.FromSeconds(30), ct);
+					return i;
+				},
+				cancellationToken: cts.Token
+			);
 
 		await act.Should().ThrowAsync<OperationCanceledException>();
 	}

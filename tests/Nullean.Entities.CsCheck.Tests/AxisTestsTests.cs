@@ -142,8 +142,7 @@ public class AxisTestsTests
 		var monotonic = Set(("value-grows", Constraints<AxisTally>.Monotonic(t => t.Value, MonotonicDirection.NonDecreasing)));
 		var other = Set(("idempotent", Constraints<AxisTally>.Idempotent(t => t)));
 
-		(await monotonic
-			.MonotonicityAsync(new EntityActions<AxisTally>(), NonNegative))
+		(await monotonic.MonotonicityAsync(new EntityActions<AxisTally>(), NonNegative))
 			.Should()
 			.BeOfType<AxisResult.Skipped>()
 			.Which

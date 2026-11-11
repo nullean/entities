@@ -57,12 +57,13 @@ public static class ConstraintDiagnosticsExtensions
 		ArgumentNullException.ThrowIfNull(services);
 		var options = new ConstraintDiagnosticsOptions();
 		configure?.Invoke(options);
-		services.TryAddSingleton(sp =>
-				new ConstraintDiagnostics(
-					sp.GetService<ILoggerFactory>()?.CreateLogger(ConstraintDiagnostics.LoggerCategory) ?? NullLogger.Instance,
-					sp.GetService<IMeterFactory>(),
-					options
-				));
+		services.TryAddSingleton(
+			sp => new ConstraintDiagnostics(
+				sp.GetService<ILoggerFactory>()?.CreateLogger(ConstraintDiagnostics.LoggerCategory) ?? NullLogger.Instance,
+				sp.GetService<IMeterFactory>(),
+				options
+			)
+		);
 		return services;
 	}
 }

@@ -111,7 +111,9 @@ internal sealed class AutoBuilder(AutoOptions options)
 					Build(keyType, "key", false, depth + 1),
 					Build(valueType, "value", false, depth + 1),
 					options,
-					AtLeastOne(valueType), PendingTargets(valueType), depth
+					AtLeastOne(valueType),
+					PendingTargets(valueType),
+					depth
 				);
 		}
 		if (TryCollection(type, out var elementType))
@@ -152,7 +154,8 @@ internal sealed class AutoBuilder(AutoOptions options)
 	private static Type[] SubtypesOf(Type type) =>
 		Subtypes.GetOrAdd(type, t =>
 		{
-			var declared = t.GetCustomAttributes(false)
+			var declared = t
+				.GetCustomAttributes(false)
 				.Where(a => a.GetType().Name == "JsonDerivedTypeAttribute")
 				.Select(a => a.GetType().GetProperty("DerivedType")?.GetValue(a) as Type)
 				.Where(d => d is not null && !d.IsAbstract && !d.IsInterface)
@@ -173,11 +176,8 @@ internal sealed class AutoBuilder(AutoOptions options)
 			}
 			return [
 				.. all.Where(
-					c =>
-						c is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false } && c != t && t.IsAssignableFrom(c) && !c.IsDefined(
-							typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute),
-							false
-						)
+					c => c is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false } && c != t && t.IsAssignableFrom(c) &&
+						!c.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false)
 				).OrderBy(c => c.FullName, StringComparer.Ordinal)
 			];
 		});
@@ -214,8 +214,9 @@ internal sealed class AutoBuilder(AutoOptions options)
 	// constructor per case type. Each draw picks a case and builds it, so every case is reached, not the one a "most parameters" rule would choose.
 
 	internal static bool IsUnion(Type type) =>
-		type.GetCustomAttributes(false).Any(a => a.GetType().FullName == "System.Runtime.CompilerServices.UnionAttribute")
-		|| type.GetInterfaces().Any(i => i.FullName == "System.Runtime.CompilerServices.IUnion");
+		type.GetCustomAttributes(false).Any(a => a.GetType().FullName == "System.Runtime.CompilerServices.UnionAttribute") || type.GetInterfaces().Any(
+			i => i.FullName == "System.Runtime.CompilerServices.IUnion"
+		);
 
 	private bool TryUnion(Type type, int depth, out Gen<object?> gen)
 	{
@@ -281,11 +282,10 @@ internal sealed class AutoBuilder(AutoOptions options)
 	}
 
 	private static bool IsObject(Type type) =>
-		!type.IsEnum && !type.IsPrimitive && type != typeof(string) && type != typeof(decimal) && type != typeof(Guid) && type != typeof(DateTime) && type != typeof(DateTimeOffset)
-		&& type != typeof(DateOnly) && type != typeof(TimeOnly) && type != typeof(TimeSpan) && type != typeof(Uri) && !ExtraLeaves.Handles(
-			type
-		) && Nullable.GetUnderlyingType(type) is null
-		&& !type.IsArray && !TryCollection(type, out _) && !TryDictionary(type, out _, out _);
+		!type.IsEnum && !type.IsPrimitive && type != typeof(string) && type != typeof(decimal) && type != typeof(Guid) && type != typeof(DateTime) && type !=
+			typeof(DateTimeOffset) && type != typeof(DateOnly) && type != typeof(TimeOnly) && type != typeof(TimeSpan) && type != typeof(Uri) &&
+			!ExtraLeaves.Handles(type) && Nullable.GetUnderlyingType(type) is null && !type.IsArray && !TryCollection(type, out _) &&
+			!TryDictionary(type, out _, out _);
 
 	// ── Leaves ───────────────────────────────────────────────────────────────
 
@@ -306,16 +306,23 @@ internal sealed class AutoBuilder(AutoOptions options)
 			}
 			strings.AddRange(options.ExtraStringEdges);
 			object?[] edges = [.. strings];
-			gen = Leaf(pcg =>
-			{
-				var i = pcg.Next((uint)words.Length);
-				return (words[i], i);
-			}, edges);
+			gen = Leaf(
+				pcg =>
+				{
+					var i = pcg.Next((uint)words.Length);
+					return (words[i], i);
+				},
+				edges
+			);
 			return true;
 		}
 		if (type == typeof(bool))
 		{
-			gen = new FuncGen(pcg => { var b = pcg.Next(2) == 1; return (b, b ? 1UL : 0UL); });
+			gen = new FuncGen(pcg =>
+			{
+				var b = pcg.Next(2) == 1;
+				return (b, b ? 1UL : 0UL);
+			});
 			return true;
 		}
 		if (type == typeof(char))
@@ -327,7 +334,14 @@ internal sealed class AutoBuilder(AutoOptions options)
 				chars.AddRange(['\0', (char)0xD800]);
 			}
 			var edges = Boxed(chars);
-			gen = Leaf(pcg => { var c = (char)('a' + pcg.Next(26)); return (c, (ulong)(c - 'a')); }, edges);
+			gen = Leaf(
+				pcg =>
+				{
+					var c = (char)('a' + pcg.Next(26));
+					return (c, (ulong)(c - 'a'));
+				},
+				edges
+			);
 			return true;
 		}
 		var result = IntegerLeaf(type) ?? FloatLeaf(type) ?? TimeLeaf(type);
@@ -350,7 +364,11 @@ internal sealed class AutoBuilder(AutoOptions options)
 		{
 			var words = Corpus.For("word");
 			gen = Leaf(
-				pcg => { var i = pcg.Next((uint)words.Length); return (new Uri($"https://example.com/{words[i]}"), i); },
+				pcg =>
+				{
+					var i = pcg.Next((uint)words.Length);
+					return (new Uri($"https://example.com/{words[i]}"), i);
+				},
 				[.. EdgeCatalog.Uris.Select(u => Uri.TryCreate(u, UriKind.RelativeOrAbsolute, out var uri) ? (object?)uri : null).Where(u => u is not null)]
 			);
 			return true;
@@ -374,25 +392,49 @@ internal sealed class AutoBuilder(AutoOptions options)
 								: type == typeof(ulong) ? Integer<ulong>() : type == typeof(ushort) ? Integer<ushort>() : null;
 
 	private Gen<object?> Integer<T>() where T : IBinaryInteger<T>, IMinMaxValue<T> =>
-		Leaf(pcg =>
-		{
-			var v = pcg.Next(5) == 0 ? pcg.Next(100_001) : pcg.Next(101);
-			return (T.CreateSaturating(v), v);
-		}, Boxed(EdgeCatalog.Integers<T>()));
+		Leaf(
+			pcg =>
+			{
+				var v = pcg.Next(5) == 0 ? pcg.Next(100_001) : pcg.Next(101);
+				return (T.CreateSaturating(v), v);
+			},
+			Boxed(EdgeCatalog.Integers<T>())
+		);
 
 	private Gen<object?>? FloatLeaf(Type type)
 	{
 		if (type == typeof(double))
 		{
-			return Leaf(pcg => { var v = pcg.Next(100_001); return (v / 100.0, v); }, Boxed(EdgeCatalog.Doubles));
+			return Leaf(
+				pcg =>
+				{
+					var v = pcg.Next(100_001);
+					return (v / 100.0, v);
+				},
+				Boxed(EdgeCatalog.Doubles)
+			);
 		}
 		if (type == typeof(float))
 		{
-			return Leaf(pcg => { var v = pcg.Next(100_001); return (v / 100f, v); }, Boxed(EdgeCatalog.Doubles.Select(d => (float)d).Distinct()));
+			return Leaf(
+				pcg =>
+				{
+					var v = pcg.Next(100_001);
+					return (v / 100f, v);
+				},
+				Boxed(EdgeCatalog.Doubles.Select(d => (float)d).Distinct())
+			);
 		}
 		if (type == typeof(decimal))
 		{
-			return Leaf(pcg => { var v = pcg.Next(100_000) + 1; return (v / 100m, v); }, Boxed(EdgeCatalog.Decimals));
+			return Leaf(
+				pcg =>
+				{
+					var v = pcg.Next(100_000) + 1;
+					return (v / 100m, v);
+				},
+				Boxed(EdgeCatalog.Decimals)
+			);
 		}
 		return null;
 	}
@@ -402,26 +444,58 @@ internal sealed class AutoBuilder(AutoOptions options)
 		var baseDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 		if (type == typeof(DateTime))
 		{
-			return Leaf(pcg => { var d = pcg.Next(730); return (baseDate.AddDays(d).AddMinutes(pcg.Next(1440)), d); }, Boxed(EdgeCatalog.DateTimes));
+			return Leaf(
+				pcg =>
+				{
+					var d = pcg.Next(730);
+					return (baseDate.AddDays(d).AddMinutes(pcg.Next(1440)), d);
+				},
+				Boxed(EdgeCatalog.DateTimes)
+			);
 		}
 		if (type == typeof(DateTimeOffset))
 		{
 			return Leaf(
-				pcg => { var d = pcg.Next(730); return (new DateTimeOffset(baseDate.AddDays(d).AddMinutes(pcg.Next(1440)), TimeSpan.Zero), d); },
+				pcg =>
+				{
+					var d = pcg.Next(730);
+					return (new DateTimeOffset(baseDate.AddDays(d).AddMinutes(pcg.Next(1440)), TimeSpan.Zero), d);
+				},
 				Boxed(EdgeCatalog.DateTimeOffsets)
 			);
 		}
 		if (type == typeof(DateOnly))
 		{
-			return Leaf(pcg => { var d = pcg.Next(730); return (DateOnly.FromDateTime(baseDate.AddDays(d)), d); }, Boxed(EdgeCatalog.DateOnlys));
+			return Leaf(
+				pcg =>
+				{
+					var d = pcg.Next(730);
+					return (DateOnly.FromDateTime(baseDate.AddDays(d)), d);
+				},
+				Boxed(EdgeCatalog.DateOnlys)
+			);
 		}
 		if (type == typeof(TimeOnly))
 		{
-			return Leaf(pcg => { var m = pcg.Next(1440); return (new TimeOnly(0, 0).AddMinutes(m), m); }, Boxed(EdgeCatalog.TimeOnlys));
+			return Leaf(
+				pcg =>
+				{
+					var m = pcg.Next(1440);
+					return (new TimeOnly(0, 0).AddMinutes(m), m);
+				},
+				Boxed(EdgeCatalog.TimeOnlys)
+			);
 		}
 		if (type == typeof(TimeSpan))
 		{
-			return Leaf(pcg => { var s = pcg.Next(86_400); return (TimeSpan.FromSeconds(s), s); }, Boxed(EdgeCatalog.TimeSpans));
+			return Leaf(
+				pcg =>
+				{
+					var s = pcg.Next(86_400);
+					return (TimeSpan.FromSeconds(s), s);
+				},
+				Boxed(EdgeCatalog.TimeSpans)
+			);
 		}
 		return null;
 	}
@@ -434,16 +508,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 		var undefined = new List<object?>();
 		var numbers = defined.Select(v => Convert.ToDecimal(v, CultureInfo.InvariantCulture)).ToArray();
 		var all = numbers.Length == 0 ? 0m : numbers.Max();
-		foreach (var candidate in new[]
-		{
-			0m,
-			-1m,
-			all + 1m,
-			numbers.Length == 0 ? 1m : numbers.Min() - 1m,
-			int.MaxValue,
-			byte.MaxValue + 1m,
-			(all * 2m) + 1m
-		})
+		foreach (var candidate in new[] { 0m, -1m, all + 1m, numbers.Length == 0 ? 1m : numbers.Min() - 1m, int.MaxValue, byte.MaxValue + 1m, (all * 2m) + 1m })
 		{
 			try
 			{
@@ -496,14 +561,9 @@ internal sealed class AutoBuilder(AutoOptions options)
 		}
 		var definition = type.GetGenericTypeDefinition();
 		if (
-			definition == DictionaryDefinition
-			|| definition == IDictionaryDefinition
-			|| definition == IReadOnlyDictionaryDefinition
-			|| definition == ImmutableDictionaryDefinition
-			|| definition == IImmutableDictionaryDefinition
-			|| definition == FrozenDictionaryDefinition
-			|| definition == ReadOnlyDictionaryDefinition
-			|| definition == SortedDictionaryDefinition
+			definition == DictionaryDefinition || definition == IDictionaryDefinition || definition == IReadOnlyDictionaryDefinition || definition ==
+				ImmutableDictionaryDefinition || definition == IImmutableDictionaryDefinition || definition == FrozenDictionaryDefinition || definition ==
+				ReadOnlyDictionaryDefinition || definition == SortedDictionaryDefinition
 		)
 		{
 			var args = type.GetGenericArguments();
@@ -612,12 +672,11 @@ internal sealed class AutoBuilder(AutoOptions options)
 		if (definition == FrozenDictionaryDefinition)
 		{
 			var freeze = typeof(FrozenDictionary).GetMethods().First(
-				m =>
-					m.Name == "ToFrozenDictionary" && m.GetGenericArguments().Length == 2 && m.GetParameters().Length == 2 && m
-						.GetParameters()[0]
-						.ParameterType
-						.GetGenericArguments()[0]
-						.IsGenericType
+				m => m.Name == "ToFrozenDictionary" && m.GetGenericArguments().Length == 2 && m.GetParameters().Length == 2 && m
+					.GetParameters()[0]
+					.ParameterType
+					.GetGenericArguments()[0]
+					.IsGenericType
 			);
 			return freeze.MakeGenericMethod(key, value).Invoke(null, [dictionary, null])!;
 		}
@@ -641,7 +700,9 @@ internal sealed class AutoBuilder(AutoOptions options)
 
 	// A record's [Range] sits on its constructor parameter unless it is written [property: Range], so look at both.
 	private static IEnumerable<Attribute> ParameterAttributes(Type type, ParameterInfo parameter) =>
-		parameter.GetCustomAttributes(true).OfType<Attribute>()
+		parameter
+			.GetCustomAttributes(true)
+			.OfType<Attribute>()
 			.Concat(
 				parameter.Name is null
 					? []
@@ -663,13 +724,11 @@ internal sealed class AutoBuilder(AutoOptions options)
 	private static readonly string[] FactoryNames = ["From", "Create", "Of", "New", "Parse", "FromString", "FromValue"];
 
 	private static MethodInfo? Factory(Type type) =>
-		type.GetMethods(BindingFlags.Public | BindingFlags.Static)
+		type
+			.GetMethods(BindingFlags.Public | BindingFlags.Static)
 			.Where(
-				m =>
-					m.ReturnType == type && Array.IndexOf(
-						FactoryNames,
-						m.Name
-					) >= 0 && !m.IsGenericMethodDefinition && m.GetParameters().Length > 0 && m.GetParameters().All(p => !p.ParameterType.IsByRef)
+				m => m.ReturnType == type && Array.IndexOf(FactoryNames, m.Name) >= 0 && !m.IsGenericMethodDefinition && m.GetParameters().Length >
+					0 && m.GetParameters().All(p => !p.ParameterType.IsByRef)
 			)
 			.OrderByDescending(m => m.GetParameters().Length)
 			.ThenBy(m => Array.IndexOf(FactoryNames, m.Name))
@@ -690,8 +749,9 @@ internal sealed class AutoBuilder(AutoOptions options)
 			constructors = [.. type.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance).Where(c => c.IsAssembly || c.IsFamilyOrAssembly)];
 		}
 		// [JsonConstructor] says which constructor is the real one; otherwise the one with the most parameters (a record's primary constructor).
-		MethodBase? ctor = constructors.FirstOrDefault(c => c.GetCustomAttributes(false).Any(a => a.GetType().Name == "JsonConstructorAttribute"))
-		?? constructors.OrderByDescending(c => c.GetParameters().Length).FirstOrDefault();
+		MethodBase? ctor = constructors.FirstOrDefault(
+			c => c.GetCustomAttributes(false).Any(a => a.GetType().Name == "JsonConstructorAttribute")
+		) ?? constructors.OrderByDescending(c => c.GetParameters().Length).FirstOrDefault();
 		var usable = ctor is ConstructorInfo { } found && (found.GetParameters().Length > 0 || !type.IsValueType);
 		if (!usable && Factory(type) is { } factory)
 		{
@@ -723,10 +783,7 @@ internal sealed class AutoBuilder(AutoOptions options)
 		var setters = new List<PropertyInfo>();
 		foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
 		{
-			if (!prop.CanWrite || SetterOf(prop) is null || prop.GetIndexParameters().Length > 0 || names.Contains(
-					prop.Name,
-					StringComparer.OrdinalIgnoreCase
-				))
+			if (!prop.CanWrite || SetterOf(prop) is null || prop.GetIndexParameters().Length > 0 || names.Contains(prop.Name, StringComparer.OrdinalIgnoreCase))
 			{
 				continue;
 			}
@@ -762,9 +819,8 @@ internal sealed class AutoBuilder(AutoOptions options)
 
 	// A public setter, or an internal one (`{ get; internal init; }`): reflection reaches it, and the test assembly that asks for the generator is the one the domain lets build its types.
 	internal static MethodInfo? SetterOf(PropertyInfo property) =>
-		(property.GetMethod is null || property.GetMethod.IsPublic) && property.GetSetMethod(
-			true
-		) is { } setter && (setter.IsPublic || setter.IsAssembly || setter.IsFamilyOrAssembly) ? setter : null;
+		(property.GetMethod is null || property.GetMethod.IsPublic) && property.GetSetMethod(true) is { } setter &&
+			(setter.IsPublic || setter.IsAssembly || setter.IsFamilyOrAssembly) ? setter : null;
 
 	private readonly Dictionary<RelationDecl, Gen<object?>> _relationKeyGens = [];
 
@@ -784,10 +840,10 @@ internal sealed class AutoBuilder(AutoOptions options)
 
 		foreach (var decl in options.Relations)
 		{
-			if (decl.To == type && decl.Kind is RelationKind.Reference or RelationKind.ReferenceList && IndexOf(
-					names,
-					decl.ToKeyMember
-				) is var keyIndex and >= 0)
+			if (
+				decl.To == type && decl.Kind is RelationKind.Reference or RelationKind.ReferenceList &&
+				IndexOf(names, decl.ToKeyMember) is var keyIndex and >= 0
+			)
 			{
 				gens[keyIndex] = new RelationKeyGen(decl, gens[keyIndex]);
 				relationKeys.Add(decl);
@@ -833,16 +889,7 @@ internal sealed class ObjectPlan
 	private readonly Gen<object?>[] _gens;
 	private readonly (int Low, int High)[] _relations;
 
-	public ObjectPlan(
-		Type type,
-		MethodBase? ctor,
-		int ctorCount,
-		PropertyInfo[] setters,
-		Gen<object?>[] gens,
-		string[] names,
-		Type[] types,
-		bool[] nullable
-	)
+	public ObjectPlan(Type type, MethodBase? ctor, int ctorCount, PropertyInfo[] setters, Gen<object?>[] gens, string[] names, Type[] types, bool[] nullable)
 	{
 		Names = names;
 		Nullable = nullable;
@@ -853,15 +900,7 @@ internal sealed class ObjectPlan
 		_setters = setters;
 		_gens = gens;
 		_relations = FindRelations(names, types);
-		Identity =
-		[
-			.. Enumerable.Range(0, names.Length).Where(
-				i =>
-					EdgeCatalog.LooksLikeIdentity(
-						names[i]
-					) && IsKeyType(types[i])
-			)
-		];
+		Identity = [.. Enumerable.Range(0, names.Length).Where(i => EdgeCatalog.LooksLikeIdentity(names[i]) && IsKeyType(types[i]))];
 		Pk = FindPrimaryKey(type, names, types);
 		Fks = Pk is { } pk
 			? [
@@ -874,12 +913,10 @@ internal sealed class ObjectPlan
 		FksMany = Pk is { } key
 			? [
 				.. Enumerable.Range(0, names.Length).Where(
-					i =>
-						i != key
-						&& names[i].Length > 3
-						&& names[i].EndsWith("ids", StringComparison.OrdinalIgnoreCase)
-						&& AutoBuilder.TryCollection(types[i], out var element)
-						&& BaseType(element) == BaseType(types[key])
+					i => i != key && names[i].Length > 3 && names[i].EndsWith("ids", StringComparison.OrdinalIgnoreCase) && AutoBuilder.TryCollection(
+						types[i],
+						out var element
+					) && BaseType(element) == BaseType(types[key])
 				)
 			]
 			: [];
@@ -933,9 +970,11 @@ internal sealed class ObjectPlan
 						continue;
 					}
 
-					if (bPlan.Names[k].Equals(aGen.ElementType.Name + "Id", StringComparison.OrdinalIgnoreCase) && BaseType(bPlan.Types[k]) == BaseType(
+					if (
+						bPlan.Names[k].Equals(aGen.ElementType.Name + "Id", StringComparison.OrdinalIgnoreCase) && BaseType(bPlan.Types[k]) == BaseType(
 							aPlan.Types[pk]
-						))
+						)
+					)
 					{
 						found.Add(new CrossReference(a, b, pk, k, aPlan, bPlan, bGen.Target, bGen.ElementType));
 					}
@@ -1095,7 +1134,8 @@ internal sealed class ObjectPlan
 	}
 
 	private static bool IsComparable(Type t) =>
-		(t.IsPrimitive && t != typeof(bool) && t != typeof(char)) || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(DateTimeOffset) || t == typeof(DateOnly) || t == typeof(TimeOnly) || t == typeof(TimeSpan);
+		(t.IsPrimitive && t != typeof(bool) && t != typeof(char)) || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(DateTimeOffset) || t ==
+			typeof(DateOnly) || t == typeof(TimeOnly) || t == typeof(TimeSpan);
 
 	public object?[] DrawArgs(PCG pcg, AutoOptions options, out Size size, Size? min = null)
 	{

@@ -33,9 +33,9 @@ public class MoneyTests
 
 	[Test]
 	public void Bogus_generated_amounts_in_a_currency_satisfy_the_constraints() =>
-		GenFakerExtensions
-			.Faker<Money>(faker => faker.CustomInstantiator(f => new Money(f.Finance.Amount(0.01m, 1_000_000m), f.Finance.Currency().Code)))
-			.ShouldSatisfy(MoneySet, iter: 200);
+		GenFakerExtensions.Faker<Money>(
+			faker => faker.CustomInstantiator(f => new Money(f.Finance.Amount(0.01m, 1_000_000m), f.Finance.Currency().Code))
+		).ShouldSatisfy(MoneySet, iter: 200);
 
 	// No hand-made generator: the default one mixes in negative amounts and blank currencies on its own.
 	[Test]

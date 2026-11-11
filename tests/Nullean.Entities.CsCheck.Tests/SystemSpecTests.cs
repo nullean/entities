@@ -24,17 +24,15 @@ internal sealed class OutboxShop
 
 	public OutboxShop(bool deduplicate = true, int[]? orderIds = null)
 	{
-		Orders
-			.Client("Place", orderIds ?? [1], (o, id, send) =>
+		Orders.Client("Place", orderIds ?? [1], (o, id, send) =>
+		{
+			if (o.Placed.Contains(id))
 			{
-				if (o.Placed.Contains(id))
-				{
-					return o;
-				}
-				send(Billing, new OrderPlaced(id));
-				return o with { Placed = o.Placed.Add(id) };
-			})
-			.Handles<Charged>((o, m, _) => o with { Paid = o.Paid.Add(m.OrderId) });
+				return o;
+			}
+			send(Billing, new OrderPlaced(id));
+			return o with { Placed = o.Placed.Add(id) };
+		}).Handles<Charged>((o, m, _) => o with { Paid = o.Paid.Add(m.OrderId) });
 
 		Billing.Handles<OrderPlaced>((b, m, send) =>
 		{
@@ -130,8 +128,8 @@ public class SystemSpecTests
 	{
 		var shop = new OutboxShop();
 
-		var act = () =>
-			shop
+		var act =
+			() => shop
 				.System()
 				.Network(Network.Lossy)
 				.Spec(shop.Rules)
@@ -151,13 +149,15 @@ public class SystemSpecTests
 			s
 				.With(shop.Orders, o => new OrdersState([.. o.Placed.Select(map)], [.. o.Paid.Select(map)]))
 				.With(shop.Billing, b => new BillingState([.. b.Seen.Select(map)], [.. b.Charges.Select(map)]))
-				.WithMessages(m =>
+				.WithMessages(
+					m =>
 						m switch
 						{
 							OrderPlaced p => new OrderPlaced(map(p.OrderId)),
 							Charged c => new Charged(map(c.OrderId)),
 							_ => m
-						});
+						}
+				);
 
 		var plain = new OutboxShop(orderIds: [1, 2]);
 		var full = plain.System().Bound(inFlight: 3).Spec(plain.Rules).Exhaustive();
@@ -177,8 +177,8 @@ public class SystemSpecTests
 	{
 		var shop = new OutboxShop(orderIds: [1, 2]);
 
-		var act = () =>
-			shop
+		var act =
+			() => shop
 				.System()
 				.Symmetric([1, 2], (s, _) => s)
 				.Spec(shop.Rules)

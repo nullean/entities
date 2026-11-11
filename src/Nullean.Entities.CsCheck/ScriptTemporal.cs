@@ -45,13 +45,11 @@ public static partial class ScriptExtensions
 		}
 		var stepGen = Gen.OneOf(script.Steps.ToArray());
 		var opGen = Gen.Select(delays ?? script.Delay, stepGen, (delay, step) => (delay, step));
-		return opGen
-			.Array[script.MinLength, script.MaxLength]
-			.Select(ops =>
-			{
-				var time = new ManualTimeProvider();
-				return new TimedRun<TSut>(factory(time), time, ops);
-			});
+		return opGen.Array[script.MinLength, script.MaxLength].Select(ops =>
+		{
+			var time = new ManualTimeProvider();
+			return new TimedRun<TSut>(factory(time), time, ops);
+		});
 	}
 
 	private static async Task CheckTimedRunAsync<TSut, TEvent>(
@@ -95,8 +93,12 @@ public static partial class ScriptExtensions
 		string? seed = null
 	) =>
 		SampleCall.RunAsync(
-			() =>
-				BuildTimedGen(script, factory).SampleAsync(run => CheckTimedRunAsync(run, log, rules, null), seed: seed, iter: iter, print: run => run.Print())
+			() => BuildTimedGen(script, factory).SampleAsync(
+				run => CheckTimedRunAsync(run, log, rules, null),
+				seed: seed,
+				iter: iter,
+				print: run => run.Print()
+			)
 		);
 
 	/// <summary>
@@ -115,10 +117,14 @@ public static partial class ScriptExtensions
 	)
 	{
 		var tally = new CoverageTally<TEvent>(coverage);
-		await SampleCall.RunAsync(() =>
-					BuildTimedGen(script, factory)
-						.SampleAsync(run => CheckTimedRunAsync(run, log, rules, tally), seed: seed, iter: iter, print: run => run.Print()))
-			.ConfigureAwait(false);
+		await SampleCall.RunAsync(
+			() => BuildTimedGen(script, factory).SampleAsync(
+				run => CheckTimedRunAsync(run, log, rules, tally),
+				seed: seed,
+				iter: iter,
+				print: run => run.Print()
+			)
+		).ConfigureAwait(false);
 		if (seed is null)
 		{
 			tally.Verify(writeLine);

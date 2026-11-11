@@ -27,8 +27,7 @@ public class DocsBuilderShapesTests
 	);
 
 	private static readonly ConstraintSet<(Navigation, Assembly)> MountRules = ConstraintSet.From(
-		("MountSchemeIsARepository",
-		Constraints<(Navigation Navigation, Assembly Assembly)>.References<SiteMount, string>(
+		("MountSchemeIsARepository", Constraints<(Navigation Navigation, Assembly Assembly)>.References<SiteMount, string>(
 			p => p.Navigation.Mounts,
 			m => [m.Source.Scheme],
 			p => p.Assembly.Repositories.Keys
@@ -58,9 +57,7 @@ public class DocsBuilderShapesTests
 	[Test]
 	public void Rules_for_two_aggregates_are_one_pair_set_that_keeps_each_rules_name()
 	{
-		var catalog = ConstraintSet.From(
-			("ProductsAreNamed", Constraints<ProductCatalog>.Always(c => c.Ids, ids => ids.All(i => i.Length > 0)))
-		);
+		var catalog = ConstraintSet.From(("ProductsAreNamed", Constraints<ProductCatalog>.Always(c => c.Ids, ids => ids.All(i => i.Length > 0))));
 		var pair = ConstraintSet.Pair(catalog, ConstraintSet.From(("RepoRule", Constraints<Repo>.Always(r => r.Name.Length > 0))));
 
 		pair.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo(["ProductsAreNamed", "RepoRule"]);

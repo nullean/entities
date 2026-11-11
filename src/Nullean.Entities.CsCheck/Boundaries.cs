@@ -84,9 +84,10 @@ public static class ConstraintBoundaries
 		configure?.Invoke(autoOptions);
 		var builder = new AutoBuilder(autoOptions);
 		var plan = builder.Plan(typeof(T), 0);
-		var args = plan.ReadArgs(baseline!) ?? throw new InvalidOperationException(
-			$"{typeof(T).Name} has constructor or settable members that are not readable properties, so single values cannot be swapped."
-		);
+		var args = plan.ReadArgs(baseline!) ??
+			throw new InvalidOperationException(
+				$"{typeof(T).Name} has constructor or settable members that are not readable properties, so single values cannot be swapped."
+			);
 
 		for (var i = 0; i < args.Length; i++)
 		{
@@ -162,19 +163,19 @@ public static class ConstraintBoundaries
 		var sb = new StringBuilder();
 		foreach (var c in s)
 		{
-			sb.Append(char.IsControl(c) || (c != ' ' && char.GetUnicodeCategory(
-					c
-				) is UnicodeCategory.Format or UnicodeCategory.SpaceSeparator or UnicodeCategory.Surrogate)
+			sb.Append(
+				char.IsControl(c) ||
+					(c != ' ' && char.GetUnicodeCategory(c) is UnicodeCategory.Format or UnicodeCategory.SpaceSeparator or UnicodeCategory.Surrogate)
 					? string.Create(CultureInfo.InvariantCulture, $"\\u{(int)c:X4}")
-					: c.ToString());
+					: c.ToString()
+			);
 		}
 		return sb.ToString();
 	}
 
 	private static bool IsInvisibleOrControl(char c) =>
-		char.IsControl(c) || char.IsSurrogate(c) || char.GetUnicodeCategory(
-			c
-		) is UnicodeCategory.Format or UnicodeCategory.PrivateUse or UnicodeCategory.OtherNotAssigned;
+		char.IsControl(c) || char.IsSurrogate(c) ||
+			char.GetUnicodeCategory(c) is UnicodeCategory.Format or UnicodeCategory.PrivateUse or UnicodeCategory.OtherNotAssigned;
 
 	/// <summary>Values nobody means to store: blank or control-laden strings, NaN/infinity, negatives, extremes, undefined enums, empty ids.</summary>
 	private static bool LooksHostile(object? value) => value switch

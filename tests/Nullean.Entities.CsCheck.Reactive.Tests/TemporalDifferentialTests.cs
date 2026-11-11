@@ -32,28 +32,39 @@ public class TemporalDifferentialTests
 		("Never", () => Rx.Never<Ev2.A, Ev2.B>((a, b) => a.Id == b.Id), () => Temporal<Ev2>.Never<Ev2.A, Ev2.B>((a, b) => a.Id == b.Id)),
 		("NeverTwice", () => Rx.NeverTwice<Ev2.A>(a => a.Id), () => Temporal<Ev2>.NeverTwice<Ev2.A>(a => a.Id)),
 		("Transitions", () => Rx.Transitions((p, n) => !(p is Ev2.A && n is Ev2.C)), () => Temporal<Ev2>.Transitions((p, n) => !(p is Ev2.A && n is Ev2.C))),
-		("TransitionsByType",
-		() => Rx.Transitions((typeof(Ev2.A), typeof(Ev2.B)), (typeof(Ev2.B), typeof(Ev2.C)), (typeof(Ev2.C), typeof(Ev2.A))),
-		() => Temporal<Ev2>.Transitions((typeof(Ev2.A), typeof(Ev2.B)), (typeof(Ev2.B), typeof(Ev2.C)), (typeof(Ev2.C), typeof(Ev2.A)))),
-		("When", () => Rx.When(e => e is Ev2.A).Requires(e => e is Ev2.A { Id: not 1 }), () =>
-			Temporal<Ev2>.When(e => e is Ev2.A).Requires(e => e is Ev2.A { Id: not 1 })),
-		("AfterWithin",
-		() => Rx.After<Ev2.A>().Then<Ev2.B>((a, b) => a.Id == b.Id).Within(Window),
-		() => Temporal<Ev2>.After<Ev2.A>().Then<Ev2.B>((a, b) => a.Id == b.Id).Within(Window)),
-		("AfterWithinEitherOf",
-		() => Rx.After<Ev2.A>().Then<Ev2.B, Ev2.C>((a, b) => a.Id == b.Id, null).Within(Window),
-		() => Temporal<Ev2>.After<Ev2.A>().Then<Ev2.B, Ev2.C>((a, b) => a.Id == b.Id, null).Within(Window)),
-		("AfterWithinUnlessInterrupted",
-		() => Rx.After<Ev2.A>().Then<Ev2.B>().Within(Window).UnlessInterruptedBy<Ev2.C>(),
-		() => Temporal<Ev2>.After<Ev2.A>().Then<Ev2.B>().Within(Window).UnlessInterruptedBy<Ev2.C>()),
-		("AfterWithinRequired", () => Rx.After<Ev2.B>().Then<Ev2.C>().Within(Window).Required(), () =>
-			Temporal<Ev2>.After<Ev2.B>().Then<Ev2.C>().Within(Window).Required()),
-		("AfterUntil",
-		() => Rx.AfterUntil(e => e is Ev2.C, (t, e) => e is Ev2.A a && t is Ev2.C c && a.Id == c.Id, Window, e => e is Ev2.B { Id: 2 }),
-		() => Temporal<Ev2>.AfterUntil(e => e is Ev2.C, (t, e) => e is Ev2.A a && t is Ev2.C c && a.Id == c.Id, Window, e => e is Ev2.B { Id: 2 })),
-		("Eventually",
-		() => Rx.Eventually<Ev2.B>(e => IdOf(e), e => e is Ev2.A),
-		() => Temporal<Ev2>.Eventually<Ev2.B>(e => IdOf(e), e => e is Ev2.A)),
+		("TransitionsByType", () => Rx.Transitions(
+			(typeof(Ev2.A), typeof(Ev2.B)),
+			(typeof(Ev2.B), typeof(Ev2.C)),
+			(typeof(Ev2.C), typeof(Ev2.A))
+		), () => Temporal<Ev2>.Transitions((typeof(Ev2.A), typeof(Ev2.B)), (typeof(Ev2.B), typeof(Ev2.C)), (typeof(Ev2.C), typeof(Ev2.A)))),
+		("When", () => Rx.When(e => e is Ev2.A).Requires(e => e is Ev2.A { Id: not 1 }), () => Temporal<Ev2>.When(e => e is Ev2.A).Requires(
+			e => e is Ev2.A { Id: not 1 }
+		)),
+		("AfterWithin", () => Rx.After<Ev2.A>().Then<Ev2.B>((a, b) => a.Id == b.Id).Within(Window), () => Temporal<Ev2>
+			.After<Ev2.A>()
+			.Then<Ev2.B>((a, b) => a.Id == b.Id)
+			.Within(Window)),
+		("AfterWithinEitherOf", () => Rx.After<Ev2.A>().Then<Ev2.B, Ev2.C>((a, b) => a.Id == b.Id, null).Within(Window), () => Temporal<Ev2>
+			.After<Ev2.A>()
+			.Then<Ev2.B, Ev2.C>((a, b) => a.Id == b.Id, null)
+			.Within(Window)),
+		("AfterWithinUnlessInterrupted", () => Rx.After<Ev2.A>().Then<Ev2.B>().Within(Window).UnlessInterruptedBy<Ev2.C>(), () => Temporal<Ev2>
+			.After<Ev2.A>()
+			.Then<Ev2.B>()
+			.Within(Window)
+			.UnlessInterruptedBy<Ev2.C>()),
+		("AfterWithinRequired", () => Rx.After<Ev2.B>().Then<Ev2.C>().Within(Window).Required(), () => Temporal<Ev2>
+			.After<Ev2.B>()
+			.Then<Ev2.C>()
+			.Within(Window)
+			.Required()),
+		("AfterUntil", () => Rx.AfterUntil(
+			e => e is Ev2.C,
+			(t, e) => e is Ev2.A a && t is Ev2.C c && a.Id == c.Id,
+			Window,
+			e => e is Ev2.B { Id: 2 }
+		), () => Temporal<Ev2>.AfterUntil(e => e is Ev2.C, (t, e) => e is Ev2.A a && t is Ev2.C c && a.Id == c.Id, Window, e => e is Ev2.B { Id: 2 })),
+		("Eventually", () => Rx.Eventually<Ev2.B>(e => IdOf(e), e => e is Ev2.A), () => Temporal<Ev2>.Eventually<Ev2.B>(e => IdOf(e), e => e is Ev2.A)),
 	];
 
 	private static object IdOf(Ev2 e) => e switch
@@ -117,11 +128,8 @@ public class TemporalDifferentialTests
 					return rx == pure;
 				},
 				iter: 400,
-				print: trace =>
-					$"{name}: " + string.Join(
-						", ",
-						trace.Select(t => $"+{t.Delay.TotalSeconds}s {t.Event}")
-					) + $"  =>  Rx {Run(trace, reactive, core).Reactive} vs core {Run(trace, reactive, core).Core}"
+				print: trace => $"{name}: " + string.Join(", ", trace.Select(t => $"+{t.Delay.TotalSeconds}s {t.Event}")) +
+					$"  =>  Rx {Run(trace, reactive, core).Reactive} vs core {Run(trace, reactive, core).Core}"
 			);
 		}
 	}

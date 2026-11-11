@@ -28,24 +28,22 @@ public sealed record Order(Guid Id, Email Customer, OrderState State, string? Pa
 public static class OrderLifecycle
 {
 	public static readonly StateMachine<OrderState> Machine = StateMachine<OrderState>.Define(
-		m =>
-			m
-				.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>(_ => new OrderState.Placed(0)))
-				.State<OrderState.Placed>(
-					s =>
-						s
-							.On("AddLine").To<OrderState.Placed>(p => p with { Lines = p.Lines + 1 })
-							.On("Confirm").To<OrderState.Confirmed>(_ => new OrderState.Confirmed(), when: p => p.Lines > 0)
-							.On("Cancel").To<OrderState.Cancelled>(_ => new OrderState.Cancelled())
-				)
-				.State<OrderState.Confirmed>(
-					s =>
-						s
-							.On("Ship").To<OrderState.Shipped>(_ => new OrderState.Shipped())
-							.On("Cancel").To<OrderState.Cancelled>(_ => new OrderState.Cancelled())
-				)
-				.Terminal<OrderState.Shipped>()
-				.Terminal<OrderState.Cancelled>()
+		m => m
+			.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>(_ => new OrderState.Placed(0)))
+			.State<OrderState.Placed>(
+				s => s
+					.On("AddLine")
+					.To<OrderState.Placed>(p => p with { Lines = p.Lines + 1 })
+					.On("Confirm")
+					.To<OrderState.Confirmed>(_ => new OrderState.Confirmed(), when: p => p.Lines > 0)
+					.On("Cancel")
+					.To<OrderState.Cancelled>(_ => new OrderState.Cancelled())
+			)
+			.State<OrderState.Confirmed>(
+				s => s.On("Ship").To<OrderState.Shipped>(_ => new OrderState.Shipped()).On("Cancel").To<OrderState.Cancelled>(_ => new OrderState.Cancelled())
+			)
+			.Terminal<OrderState.Shipped>()
+			.Terminal<OrderState.Cancelled>()
 	);
 
 	/// <summary>The machine bound to the aggregate that holds the state: fire a trigger on an <see cref="Order"/> and get an <see cref="Order"/> back.</summary>

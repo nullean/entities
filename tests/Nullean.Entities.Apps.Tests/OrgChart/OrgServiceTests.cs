@@ -89,45 +89,43 @@ public class OrgServiceTests
 	{
 		var edit = Gen.Select(Gen.Int[0, 2], Gen.Int[0, 14], Gen.Int[0, 14]);
 
-		await edit
-			.List[0, 40]
-			.SampleAsync(
-				async edits =>
+		await edit.List[0, 40].SampleAsync(
+			async edits =>
+			{
+				var repository = new InMemoryOrgRepository();
+				var service = new OrgService(repository);
+				await service.FoundAsync("Head");
+
+				foreach (var (kind, a, b) in edits)
 				{
-					var repository = new InMemoryOrgRepository();
-					var service = new OrgService(repository);
-					await service.FoundAsync("Head");
-
-					foreach (var (kind, a, b) in edits)
+					var before = (await repository.LoadAsync()).Count;
+					var result = kind switch
 					{
-						var before = (await repository.LoadAsync()).Count;
-						var result = kind switch
+						0 => service.HireAsync($"P{a}", a),
+						1 => service.MoveAsync(a, b),
+						_ => service.TerminateAsync(a),
+					};
+					var after = (await repository.LoadAsync()).Count;
+					if ((await result).IsOk)
+					{
+						after.Should().Be(kind switch
 						{
-							0 => service.HireAsync($"P{a}", a),
-							1 => service.MoveAsync(a, b),
-							_ => service.TerminateAsync(a),
-						};
-						var after = (await repository.LoadAsync()).Count;
-						if ((await result).IsOk)
-						{
-							after.Should().Be(kind switch
-							{
-								0 => before + 1,
-								1 => before,
-								_ => before - 1
-							});
-						}
-						else
-						{
-							after.Should().Be(before);
-						}
+							0 => before + 1,
+							1 => before,
+							_ => before - 1
+						});
 					}
+					else
+					{
+						after.Should().Be(before);
+					}
+				}
 
-					OrgRules.All.Validate(await repository.LoadAsync()).Where(v => v.Severity == Severity.Error).Should().BeEmpty();
-				},
-				iter: 300,
-				print: edits => string.Join(", ", edits)
-			);
+				OrgRules.All.Validate(await repository.LoadAsync()).Where(v => v.Severity == Severity.Error).Should().BeEmpty();
+			},
+			iter: 300,
+			print: edits => string.Join(", ", edits)
+		);
 	}
 
 	// The default generator stops about one level of people down; the chain-of-command rule is about six, so ask for deeper trees or it can never be seen to fail.
@@ -144,10 +142,7 @@ public class OrgServiceTests
 		OrgRules
 			.All
 			.Probe(
-				Gen.OneOf(
-					GenAuto.Of<Org>(AutoMode.Mixed, o => o.Identity<OrgUnit, int>(u => u.Id)),
-					GenAuto.Of<Org>(AutoMode.Adversarial, Deep)
-				),
+				Gen.OneOf(GenAuto.Of<Org>(AutoMode.Mixed, o => o.Identity<OrgUnit, int>(u => u.Id)), GenAuto.Of<Org>(AutoMode.Adversarial, Deep)),
 				samples: 3000
 			)
 			.NeverViolated

@@ -127,7 +127,11 @@ public class ConstraintValidationTests
 	{
 		var vm = Valid();
 		var passes = 0;
-		using var rules = vm.ValidateConstraints(SignUp.Constraints, v => { passes++; return v.ToSignUp(); });
+		using var rules = vm.ValidateConstraints(SignUp.Constraints, v =>
+		{
+			passes++;
+			return v.ToSignUp();
+		});
 		vm.Email = "x";
 		vm.Age = 1;
 		passes = 0;

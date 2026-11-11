@@ -118,8 +118,7 @@ public sealed class SaveChangesTests : IDisposable
 
 		var act = async () => await db.SaveChangesAsync();
 
-		(await act.Should().ThrowAsync<ConstraintViolationException>()).Which.Violations.Should()
-			.ContainSingle(v => v.ConstraintId == "version-only-grows");
+		(await act.Should().ThrowAsync<ConstraintViolationException>()).Which.Violations.Should().ContainSingle(v => v.ConstraintId == "version-only-grows");
 	}
 
 	[Test]

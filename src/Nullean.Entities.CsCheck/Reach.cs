@@ -64,10 +64,8 @@ internal sealed class ReachMeter
 		}
 
 		// Types the framework owns hold nothing the model chose (a DateTime's ticks, an IFileInfo's handle), except a dictionary's pairs.
-		var owned = type.Namespace is { } ns && ns.StartsWith("System", StringComparison.Ordinal) && !type.Name.StartsWith(
-			"KeyValuePair",
-			StringComparison.Ordinal
-		);
+		var owned = type.Namespace is { } ns && ns.StartsWith("System", StringComparison.Ordinal) &&
+			!type.Name.StartsWith("KeyValuePair", StringComparison.Ordinal);
 		if (owned)
 		{
 			return;

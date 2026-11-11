@@ -288,7 +288,8 @@ internal class ConstraintComponent : IValidationComponent
 	{
 		public static readonly NoSubscription Instance = new();
 
-		public void Dispose() { }
+		public void Dispose()
+		{ }
 	}
 }
 

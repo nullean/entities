@@ -40,8 +40,10 @@ internal static class CounterExampleSearch
 			{
 				foreach (var item in items.Cast<object?>().Take(50))
 				{
-					if (item is not null && item.GetType() is
-						{ IsGenericType: true } kv && kv.GetGenericTypeDefinition() == typeof(KeyValuePair<string, string>).GetGenericTypeDefinition())
+					if (
+						item is not null &&
+						item.GetType() is { IsGenericType: true } kv && kv.GetGenericTypeDefinition() == typeof(KeyValuePair<string, string>).GetGenericTypeDefinition()
+					)
 					{
 						Walk(kv.GetProperty("Value")!.GetValue(item), depth + 1);
 					}
@@ -362,11 +364,10 @@ internal static class CounterExampleSearch
 			{
 				var (dictType, keyType1, valueType1) = (plan.Types[i], keyType, valueType);
 				yield return new Step(
-					v =>
-						Rebuild(
-							v,
-							a => With(a, index, AutoBuilder.MaterializeDictionary(dictType, keyType1, valueType1, [.. DictionaryPairs(a[index]).Skip(1)]))
-						),
+					v => Rebuild(
+						v,
+						a => With(a, index, AutoBuilder.MaterializeDictionary(dictType, keyType1, valueType1, [.. DictionaryPairs(a[index]).Skip(1)]))
+					),
 					$"{At(path, name)}: without its first entry",
 					weight + 2
 				);
@@ -391,7 +392,12 @@ internal static class CounterExampleSearch
 				}
 				var (a0, b0, na, nb) = (i, j, plan.Names[i], plan.Names[j]);
 				yield return new Step(
-					v => Rebuild(v, a => { var swapped = (object?[])a.Clone(); (swapped[a0], swapped[b0]) = (swapped[b0], swapped[a0]); return swapped; }),
+					v => Rebuild(v, a =>
+					{
+						var swapped = (object?[])a.Clone();
+						(swapped[a0], swapped[b0]) = (swapped[b0], swapped[a0]);
+						return swapped;
+					}),
 					$"{At(path, na)} and {At(path, nb)} swapped",
 					weight + 3
 				);

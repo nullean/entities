@@ -104,10 +104,7 @@ public class ValidatableObjectGeneratorTests
 	public void A_type_that_already_implements_IValidatableObject_is_NECG011_and_gets_no_second_one()
 	{
 		var run = GeneratorTestHost.Run(
-			Source(
-				"(ValidatableObject = true)",
-				": IValidatableObject"
-			).Replace(
+			Source("(ValidatableObject = true)", ": IValidatableObject").Replace(
 				"public static readonly",
 				"public System.Collections.Generic.IEnumerable<ValidationResult> Validate(ValidationContext c) => [];\n\tpublic static readonly",
 				StringComparison.Ordinal

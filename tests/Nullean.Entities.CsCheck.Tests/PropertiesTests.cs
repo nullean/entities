@@ -11,8 +11,7 @@ public class ConstraintPropertiesTests
 	);
 
 	[Test]
-	public void ForAll_runs_the_property_over_values_that_satisfy_the_constraints() =>
-		NotLocked.ForAll(d => d.State != DoorState.Locked, iter: 100);
+	public void ForAll_runs_the_property_over_values_that_satisfy_the_constraints() => NotLocked.ForAll(d => d.State != DoorState.Locked, iter: 100);
 
 	[Test]
 	public void ForAll_reports_a_failing_property_with_a_replayable_seed()

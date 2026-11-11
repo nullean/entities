@@ -165,10 +165,12 @@ public class DocsPlatformTests
 		NavigationInAssemblyConstraints
 			.All
 			.Probe(
-				Both<NavigationInAssembly>(o =>
-						o
-							.Reference<Mount, Repository, string, Uri>(m => m.Source, r => r.Name, MountUri.Make)
-							.KeyedBy<Assembly, string, Repository>(a => a.Repositories, r => r.Name))
+				Both<NavigationInAssembly>(
+					o => o.Reference<Mount, Repository, string, Uri>(m => m.Source, r => r.Name, MountUri.Make).KeyedBy<Assembly, string, Repository>(
+						a => a.Repositories,
+						r => r.Name
+					)
+				)
 			)
 			.NeverViolated
 			.Should()

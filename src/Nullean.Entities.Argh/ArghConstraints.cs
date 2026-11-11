@@ -12,8 +12,7 @@ public static class ArghConstraints
 	public static void Register<T>() where T : class, IHaveConstraints<T> => Register(T.Constraints);
 
 	/// <summary>Registers a constraint set for <typeparamref name="T"/>. Errors fail the command; warnings and hints are printed to stderr and do not.</summary>
-	public static void Register<T>(ConstraintSet<T> constraints) where T : class =>
-		ArghValidation.Register<T>(value => Validate(constraints, value));
+	public static void Register<T>(ConstraintSet<T> constraints) where T : class => ArghValidation.Register<T>(value => Validate(constraints, value));
 
 	private static List<ArghValidationError> Validate<T>(ConstraintSet<T> constraints, T value)
 	{

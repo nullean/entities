@@ -77,7 +77,5 @@ public sealed class CartService(IEventStore store, Func<Cart, CartCommand, IEnum
 public static class CartServices
 {
 	public static IServiceCollection AddEventSourcedCart(this IServiceCollection services) =>
-		services
-			.AddSingleton<IEventStore, InMemoryEventStore>()
-			.AddSingleton(sp => new CartService(sp.GetRequiredService<IEventStore>()));
+		services.AddSingleton<IEventStore, InMemoryEventStore>().AddSingleton(sp => new CartService(sp.GetRequiredService<IEventStore>()));
 }

@@ -36,9 +36,9 @@ internal static partial class DoorConstraints
 		.Allow(DoorState.Closed, DoorState.Locked)
 		.Allow(DoorState.Locked, DoorState.Closed);
 
-	public static readonly Constraint<Door> LockedDoorsAreNotOpen = Constraints<Door>
-		.When(d => d.State == DoorState.Locked)
-		.Requires(d => d.State != DoorState.Open);
+	public static readonly Constraint<Door> LockedDoorsAreNotOpen = Constraints<Door>.When(d => d.State == DoorState.Locked).Requires(
+		d => d.State != DoorState.Open
+	);
 }
 
 public class EntitySpecTests
@@ -152,10 +152,10 @@ public class EntitySpecTests
 	[Test]
 	public void Conform_passes_for_a_faithful_implementation_and_catches_a_divergent_one()
 	{
-		var faithful = () =>
-			DoorSpec().Conform(() => new DoorImpl(), (impl, step) => impl.Do(step.Action), (impl, expected) => impl.State == expected.State, iter: 50);
-		var divergent = () =>
-			DoorSpec().Conform(
+		var faithful =
+			() => DoorSpec().Conform(() => new DoorImpl(), (impl, step) => impl.Do(step.Action), (impl, expected) => impl.State == expected.State, iter: 50);
+		var divergent =
+			() => DoorSpec().Conform(
 				() => new DoorImpl { LockIsBroken = true },
 				(impl, step) => impl.Do(step.Action),
 				(impl, expected) => impl.State == expected.State,
@@ -179,13 +179,12 @@ public class EntitySpecTests
 	[Test]
 	public void ConformExhaustive_reports_a_divergence_down_the_shortest_path()
 	{
-		var act = () =>
-			DoorSpec()
-				.ConformExhaustive(
-					() => new DoorImpl { LockIsBroken = true },
-					(impl, step) => impl.Do(step.Action),
-					(impl, expected) => impl.State == expected.State
-				);
+		var act =
+			() => DoorSpec().ConformExhaustive(
+				() => new DoorImpl { LockIsBroken = true },
+				(impl, step) => impl.Do(step.Action),
+				(impl, expected) => impl.State == expected.State
+			);
 
 		// the broken lock is reached by the shortest path there is: Lock, straight from the start
 		act.Should().Throw<Exception>().Which.Message.Should().Contain("diverged from the specification at step 1").And.Contain("after Lock()");

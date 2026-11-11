@@ -53,8 +53,8 @@ internal static class AutoAnnotations
 	}
 
 	private static bool IsNumeric(Type t) =>
-		t == typeof(int) || t == typeof(long) || t == typeof(short) || t == typeof(byte) || t == typeof(sbyte) || t == typeof(uint) || t == typeof(ulong)
-		|| t == typeof(ushort) || t == typeof(double) || t == typeof(float) || t == typeof(decimal);
+		t == typeof(int) || t == typeof(long) || t == typeof(short) || t == typeof(byte) || t == typeof(sbyte) || t == typeof(uint) || t ==
+			typeof(ulong) || t == typeof(ushort) || t == typeof(double) || t == typeof(float) || t == typeof(decimal);
 
 	private static AnnotationRule? Range(Type type, RangeAttribute range)
 	{
@@ -118,8 +118,7 @@ internal static class AutoAnnotations
 			[.. new[] { min - 1, max + 1 }.Where(n => n is >= 0 and <= 10_001).Select(n => (object?)new string('a', n))]
 		);
 
-	private static AnnotationRule Required() =>
-		new(v => !string.IsNullOrWhiteSpace((string)v), _ => "value", ["a"], ["", " ", "\t"]);
+	private static AnnotationRule Required() => new(v => !string.IsNullOrWhiteSpace((string)v), _ => "value", ["a"], ["", " ", "\t"]);
 
 	private static AnnotationRule? Pattern(string pattern)
 	{

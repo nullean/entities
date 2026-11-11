@@ -23,8 +23,7 @@ public sealed record Org(OrgUnit? Head)
 	public Org Hire(int id, string name, int managerId) => Under(managerId, new OrgUnit(id, name, []));
 
 	/// <summary>Moves a person, and everyone who reports to them, under another manager. Wrong targets lose the person, which is what a rule must catch.</summary>
-	public Org Move(int id, int newManagerId) =>
-		People.FirstOrDefault(p => p.Id == id) is { } moving ? Without(id).Under(newManagerId, moving) : this;
+	public Org Move(int id, int newManagerId) => People.FirstOrDefault(p => p.Id == id) is { } moving ? Without(id).Under(newManagerId, moving) : this;
 
 	/// <summary>Removes one person; their reports go to their manager. Nobody can take the place of the head, so removing the head with reports orphans them.</summary>
 	public Org Terminate(int id)
@@ -66,10 +65,11 @@ public static class OrgRules
 	public static readonly ConstraintSet<Org> All = ConstraintSet.From(
 		("one-person-one-place", Constraints<Org>.Unique(o => o.People, p => p.Id, message: "A person appears more than once in the hierarchy")),
 		("everyone-has-a-name", Constraints<Org>.Always(o => o.People.All(p => !string.IsNullOrWhiteSpace(p.Name)), "Everyone needs a name")),
-		("span-of-control",
-		Constraints<Org>.Always(o => o.People.All(p => p.Reports.Count <= MaxReports), $"Nobody has more than {MaxReports} direct reports")),
-		("chain-of-command",
-		Constraints<Org>.Always(
+		("span-of-control", Constraints<Org>.Always(
+			o => o.People.All(p => p.Reports.Count <= MaxReports),
+			$"Nobody has more than {MaxReports} direct reports"
+		)),
+		("chain-of-command", Constraints<Org>.Always(
 			o => o.Head is null || Tree.FlattenWithAncestors([o.Head], u => u.Reports).All(n => n.Ancestors.Count < MaxLevels),
 			$"The chain of command is at most {MaxLevels} levels deep"
 		))

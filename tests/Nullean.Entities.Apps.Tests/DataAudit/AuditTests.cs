@@ -87,8 +87,9 @@ public class AuditTests
 	[Test]
 	public void Row_rules_hold_for_generated_clean_rows()
 	{
-		var row = Gen.Select(Gen.Long[1, 1_000_000], Gen.Int[0, 50_000], Gen.Int[0, 10_000_000].Select(cents => cents / 100m))
-			.Select((id, n, limit) => new CustomerRow(id, $"user{n}@example.com", "NL", limit, FakeTable.Now.AddDays(-1), null));
+		var row = Gen.Select(Gen.Long[1, 1_000_000], Gen.Int[0, 50_000], Gen.Int[0, 10_000_000].Select(cents => cents / 100m)).Select(
+			(id, n, limit) => new CustomerRow(id, $"user{n}@example.com", "NL", limit, FakeTable.Now.AddDays(-1), null)
+		);
 
 		row.Sample(r => RowRules.All.Validate(r, Clock).Should().BeEmpty(), iter: 200);
 	}

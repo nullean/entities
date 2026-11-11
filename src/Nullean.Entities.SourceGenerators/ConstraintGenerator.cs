@@ -411,13 +411,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			? ($" : global::Nullean.Entities.IHaveConstraints<{type.Name}{TypeParameters(type)}>"
 			// The type may list the interface itself (so other generators, which cannot see this one's output, know about it); then only Validate is added.
 			+ (validatableObject && !Lists(type, ValidatableObjectInterface) ? ", global::System.ComponentModel.DataAnnotations.IValidatableObject" : ""), null)
-			: (string.Empty, NestedTypeConstraints(
-				type,
-				"global::Nullean.Entities.IConstraintsFor",
-				typeArgDisplay,
-				propertyType,
-				actions.Source is not null
-			));
+			: (string.Empty, NestedTypeConstraints(type, "global::Nullean.Entities.IConstraintsFor", typeArgDisplay, propertyType, actions.Source is not null));
 
 		return Emit(
 			type,
@@ -448,9 +442,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	// Whether the type, or a base type, already has a Validate for IValidatableObject. Listing the interface without implementing it is not: that is the
 	// way to make it visible to another generator (Microsoft.Extensions.Validation's), and this generator then writes the method.
 	private static bool ImplementsValidate(INamedTypeSymbol type) =>
-		type.AllInterfaces.FirstOrDefault(i => i.ToDisplayString() == ValidatableObjectInterface) is { } validatable
-		&& validatable.GetMembers("Validate").FirstOrDefault() is { } validate
-		&& type.FindImplementationForInterfaceMember(validate) is not null;
+		type.AllInterfaces.FirstOrDefault(i => i.ToDisplayString() == ValidatableObjectInterface) is { } validatable &&
+			validatable.GetMembers("Validate").FirstOrDefault() is { } validate && type.FindImplementationForInterfaceMember(validate) is not null;
 
 	// IValidatableObject.Validate over the type's own set: every error violation becomes a ValidationResult keyed by its member. The rules generated from
 	// DataAnnotations attributes are skipped, because the attributes themselves are validated by the same caller: reporting them here too would report
@@ -464,19 +457,13 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			.Select(e => Annotations.Quote(global::Nullean.Entities.ConstraintName.Of(e.Name)))
 			.ToList();
 		var skip = skipped.Count == 0 ? "" : $" || violation.ConstraintId is {string.Join(" or ", skipped)}";
-		return $"global::System.Collections.Generic.IEnumerable<{Da}.ValidationResult> {Da}.IValidatableObject.Validate({Da}.ValidationContext validationContext)\n"
-		+ "    {\n"
-		+ $"        var results = new global::System.Collections.Generic.List<{Da}.ValidationResult>();\n"
-		+ $"        foreach (var violation in {type.Name}{TypeParameters(type)}.Constraints.Validate(this, validationContext.GetService(typeof(global::System.TimeProvider)) as global::System.TimeProvider))\n"
-		+ "        {\n"
-		+ $"            if (violation.Severity != global::Nullean.Entities.Severity.Error{skip})\n"
-		+ "            {\n"
-		+ "                continue;\n"
-		+ "            }\n"
-		+ $"            results.Add(violation.Member is {{ }} member ? new {Da}.ValidationResult(violation.Message, new[] {{ member }}) : new {Da}.ValidationResult(violation.Message));\n"
-		+ "        }\n"
-		+ "        return results;\n"
-		+ "    }";
+		return $"global::System.Collections.Generic.IEnumerable<{Da}.ValidationResult> {Da}.IValidatableObject.Validate({Da}.ValidationContext validationContext)\n" +
+			"    {\n" + $"        var results = new global::System.Collections.Generic.List<{Da}.ValidationResult>();\n" +
+			$"        foreach (var violation in {type.Name}{TypeParameters(type)}.Constraints.Validate(this, validationContext.GetService(typeof(global::System.TimeProvider)) as global::System.TimeProvider))\n" +
+			"        {\n" + $"            if (violation.Severity != global::Nullean.Entities.Severity.Error{skip})\n" + "            {\n" +
+			"                continue;\n" + "            }\n" +
+			$"            results.Add(violation.Member is {{ }} member ? new {Da}.ValidationResult(violation.Message, new[] {{ member }}) : new {Da}.ValidationResult(violation.Message));\n" +
+			"        }\n" + "        return results;\n" + "    }";
 	}
 
 	// What the generator found when it looked at T's methods for actions: the source of the Actions property (null when there are none), and the info
@@ -511,13 +498,10 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		var declined = ImmutableArray.CreateBuilder<Diagnostic>();
 		foreach (var method in typeArgument.GetMembers().OfType<IMethodSymbol>())
 		{
-			if (method.MethodKind != MethodKind.Ordinary
-				|| method.IsStatic
-				|| method.IsImplicitlyDeclared
-				|| method.IsGenericMethod
-				|| method.DeclaredAccessibility != Accessibility.Public
-				|| method.Parameters.Length > 1
-				|| method.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnoreAttributeMetadataName))
+			if (
+				method.MethodKind != MethodKind.Ordinary || method.IsStatic || method.IsImplicitlyDeclared || method.IsGenericMethod || method.DeclaredAccessibility != Accessibility.Public || method.Parameters.Length >
+					1 || method.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnoreAttributeMetadataName)
+			)
 			{
 				continue;
 			}
@@ -570,9 +554,11 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		{
 			return returned is { IsReferenceType: true, NullableAnnotation: NullableAnnotation.Annotated } ? ActionRead.Member(" ?? x") : ActionRead.Direct;
 		}
-		if (method.ReturnType.SpecialType == SpecialType.System_Boolean && method.Parameters.Any(
+		if (
+			method.ReturnType.SpecialType == SpecialType.System_Boolean && method.Parameters.Any(
 				p => p.RefKind == RefKind.Out && SymbolEqualityComparer.Default.Equals(p.Type, entity)
-			))
+			)
+		)
 		{
 			return ActionRead.Declined("it is a Try-method that hands the value back through an out parameter, so it has no value to return");
 		}
@@ -651,8 +637,10 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 				{
 					continue;
 				}
-				var isNullableValue = memberType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
-				&& SymbolEqualityComparer.Default.Equals(nullable.TypeArguments[0], entity);
+				var isNullableValue = memberType is INamedTypeSymbol
+				{
+					OriginalDefinition.SpecialType: SpecialType.System_Nullable_T
+				} nullable && SymbolEqualityComparer.Default.Equals(nullable.TypeArguments[0], entity);
 				if (isNullableValue)
 				{
 					found.Add((member.Name, $".{member.Name} ?? x"));
@@ -704,14 +692,14 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		bool hasActions = false
 	) =>
 		$"public readonly struct TypeConstraints : {interfaceName}<{typeArgDisplay}>\n" + $"    {{\n" +
-		$"        public static readonly TypeConstraints Instance = default;\n" + $"\n" +
-		$"        public {propertyType} All => {type.Name}{TypeParameters(type)}.All;\n"
+			$"        public static readonly TypeConstraints Instance = default;\n" + $"\n" +
+			$"        public {propertyType} All => {type.Name}{TypeParameters(type)}.All;\n"
 		// The entity's mutations travel with the instance, so a test project that only sees
 		// `OrderConstraints.Instance` (not the partial class itself) can still enumerate them.
-		+ (hasActions
-			? $"\n        public global::Nullean.Entities.EntityActions<{typeArgDisplay}>? Actions => {type.Name}{TypeParameters(type)}.Actions;\n"
-			: "")
-		+ $"    }}";
+		+
+			(hasActions
+				? $"\n        public global::Nullean.Entities.EntityActions<{typeArgDisplay}>? Actions => {type.Name}{TypeParameters(type)}.Actions;\n"
+				: "") + $"    }}";
 
 	private static string Emit(
 		INamedTypeSymbol type,

@@ -10,7 +10,7 @@ public static class MediatorSetup
 			options.Namespace = "Nullean.Entities.Recipes.Mediator.Generated";
 			// curb formats an open generic as `<, >`, which IDE0055 then rejects
 #pragma warning disable IDE0055
-			options.PipelineBehaviors = [typeof(ConstraintBehavior<, >)];
+			options.PipelineBehaviors = [typeof(ConstraintBehavior<,>)];
 #pragma warning restore IDE0055
 		});
 }

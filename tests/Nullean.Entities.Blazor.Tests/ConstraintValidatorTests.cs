@@ -106,10 +106,8 @@ public class ConstraintValidatorTests
 		using var ctx = new BunitContext();
 		var model = new SignUp { Name = "Ada", Email = "ada@nullean.net" };
 		var editContext = new EditContext(model);
-		ctx.Render<CascadingValue<EditContext>>(p =>
-				p
-					.Add(c => c.Value, editContext)
-					.AddChildContent<ConstraintValidator<SignUp>>(v => v.Add(c => c.Constraints, SignUp.Constraints))
+		ctx.Render<CascadingValue<EditContext>>(
+			p => p.Add(c => c.Value, editContext).AddChildContent<ConstraintValidator<SignUp>>(v => v.Add(c => c.Constraints, SignUp.Constraints))
 		);
 
 		(await Validate(editContext)).Should().BeFalse();

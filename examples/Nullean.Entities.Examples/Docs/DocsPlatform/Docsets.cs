@@ -24,56 +24,51 @@ public sealed record TocIncludes(IReadOnlyList<TocFile> Files);
 public static partial class DocsetConstraints
 {
 	/// <summary>D74: a file listed twice anywhere in the tree (the first wins today, silently).</summary>
-	public static readonly Constraint<Docset> NoFileIsListedTwice = Constraints<Docset>
-		.Unique(d => Tree.Flatten(d.Toc, n => n.Children), n => n.Path)
-		.Describe("D74");
+	public static readonly Constraint<Docset> NoFileIsListedTwice = Constraints<Docset>.Unique(d => Tree.Flatten(d.Toc, n => n.Children), n => n.Path).Describe(
+		"D74"
+	);
 
 	/// <summary>The textual `..` check: an entry may not climb out of its folder.</summary>
-	public static readonly Constraint<Docset> FilesStayInTheirFolder = Constraints<Docset>
-		.Always(
-			d => Tree.Flatten(d.Toc, n => n.Children),
-			nodes => nodes.All(n => !n.Path.Contains("..", StringComparison.Ordinal)),
-			"A toc entry may not contain '..'."
-		)
-		.Describe("file-stays-in-folder");
+	public static readonly Constraint<Docset> FilesStayInTheirFolder = Constraints<Docset>.Always(
+		d => Tree.Flatten(d.Toc, n => n.Children),
+		nodes => nodes.All(n => !n.Path.Contains("..", StringComparison.Ordinal)),
+		"A toc entry may not contain '..'."
+	).Describe("file-stays-in-folder");
 }
 
 [Constraints]
 public static partial class DocsetInCatalogConstraints
 {
 	/// <summary>D22: a docset's product ids exist in the catalog. The resolver silently drops unknown ones today.</summary>
-	public static readonly Constraint<DocsetInCatalog> ProductsExist = Constraints<DocsetInCatalog>
-		.References<string, string>(p => p.Docset.Products, id => [id], p => p.Catalog.Products.Select(x => x.Id))
-		.Describe("I2/D22");
+	public static readonly Constraint<DocsetInCatalog> ProductsExist = Constraints<DocsetInCatalog>.References<string, string>(
+		p => p.Docset.Products,
+		id => [id],
+		p => p.Catalog.Products.Select(x => x.Id)
+	).Describe("I2/D22");
 }
 
 [Constraints]
 public static partial class DocsetInCodexConstraints
 {
 	/// <summary>D29/P55: a docset's codex group is a group the codex declares. Only passed through today, never checked.</summary>
-	public static readonly Constraint<DocsetInCodex> CodexGroupExists = Constraints<DocsetInCodex>
-		.Check(p =>
-				p.Docset.CodexGroup is null || p.Codex.Groups.Any(g => g.Id == p.Docset.CodexGroup)
-					? []
-					: [
-						new Violation($"The codex group '{p.Docset.CodexGroup}' is not declared.")
-						{
-							Member = "Docset.CodexGroup",
-							Evidence = p.Docset.CodexGroup
-						}
-					])
-		.Describe("D29");
+	public static readonly Constraint<DocsetInCodex> CodexGroupExists = Constraints<DocsetInCodex>.Check(
+		p => p.Docset.CodexGroup is null || p.Codex.Groups.Any(g => g.Id == p.Docset.CodexGroup)
+			? []
+			: [new Violation($"The codex group '{p.Docset.CodexGroup}' is not declared.") { Member = "Docset.CodexGroup", Evidence = p.Docset.CodexGroup }]
+	).Describe("D29");
 }
 
 [Constraints]
 public static partial class TocIncludesConstraints
 {
 	/// <summary>D69: toc.yml files do not include each other in a loop. The developer docs claim this is caught; the loader catches it while expanding, the domain never sees it.</summary>
-	public static readonly Constraint<TocIncludes> IncludesAreAcyclic = Constraints<TocIncludes>
-		.Acyclic(t => t.Files, f => f.Path, f => f.Includes)
-		.Describe("D69");
+	public static readonly Constraint<TocIncludes> IncludesAreAcyclic = Constraints<TocIncludes>.Acyclic(t => t.Files, f => f.Path, f => f.Includes).Describe(
+		"D69"
+	);
 
-	public static readonly Constraint<TocIncludes> IncludesExist = Constraints<TocIncludes>
-		.References<TocFile, string>(t => t.Files, f => f.Includes, t => t.Files.Select(x => x.Path))
-		.Describe("An include names a toc.yml that exists.");
+	public static readonly Constraint<TocIncludes> IncludesExist = Constraints<TocIncludes>.References<TocFile, string>(
+		t => t.Files,
+		f => f.Includes,
+		t => t.Files.Select(x => x.Path)
+	).Describe("An include names a toc.yml that exists.");
 }

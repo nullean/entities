@@ -12,11 +12,15 @@ namespace Nullean.Entities.Apps.Tests.EventSourcedCart;
 public class CartTests
 {
 	private static IReadOnlyList<CartCommand> Commands() =>
-		global::Nullean.Entities.CsCheck.Commands.Of<CartCommand>(
-			global::Nullean.Entities.CsCheck.Commands.Over(q => new CartCommand.AddItem("apple", q), 1, 2),
-			global::Nullean.Entities.CsCheck.Commands.Over(q => new CartCommand.AddItem("pear", q), 1, 3),
-			[new CartCommand.RemoveItem("apple"), new CartCommand.RemoveItem("pear"), new CartCommand.Checkout()]
-		);
+		global::Nullean
+			.Entities
+			.CsCheck
+			.Commands
+			.Of<CartCommand>(
+				global::Nullean.Entities.CsCheck.Commands.Over(q => new CartCommand.AddItem("apple", q), 1, 2),
+				global::Nullean.Entities.CsCheck.Commands.Over(q => new CartCommand.AddItem("pear", q), 1, 3),
+				[new CartCommand.RemoveItem("apple"), new CartCommand.RemoveItem("pear"), new CartCommand.Checkout()]
+			);
 
 	private static EventSourcedSpec<Cart, CartCommand, CartEvent> Spec(Func<Cart, CartCommand, IEnumerable<CartEvent>> decide) =>
 		EntitySpec.EventSourced(Cart.Empty, decide, CartLogic.Evolve, Commands(), CartRules.All);
@@ -102,21 +106,19 @@ public class CartTests
 	{
 		var command = Gen.OneOf(Commands().ToArray());
 
-		await command
-			.List[0, 25]
-			.SampleAsync(
-				async commands =>
+		await command.List[0, 25].SampleAsync(
+			async commands =>
+			{
+				var service = new CartService(new InMemoryEventStore());
+				var id = Guid.NewGuid();
+				foreach (var c in commands)
 				{
-					var service = new CartService(new InMemoryEventStore());
-					var id = Guid.NewGuid();
-					foreach (var c in commands)
-					{
-						await service.HandleAsync(id, c);
-					}
+					await service.HandleAsync(id, c);
+				}
 
-					CartRules.All.Validate(await service.GetAsync(id)).Where(v => v.Severity == Severity.Error).Should().BeEmpty();
-				},
-				iter: 300
-			);
+				CartRules.All.Validate(await service.GetAsync(id)).Where(v => v.Severity == Severity.Error).Should().BeEmpty();
+			},
+			iter: 300
+		);
 	}
 }

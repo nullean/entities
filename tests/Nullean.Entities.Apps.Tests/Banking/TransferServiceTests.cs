@@ -97,31 +97,29 @@ public class TransferServiceTests
 	{
 		var transfer = Gen.Select(Gen.Int[0, 2], Gen.Int[0, 2], Gen.Int[1, 150_000].Select(cents => cents / 100m));
 
-		await transfer
-			.List[0, 40]
-			.SampleAsync(
-				async transfers =>
+		await transfer.List[0, 40].SampleAsync(
+			async transfers =>
+			{
+				var bank = new Bank();
+				foreach (var (from, to, amount) in transfers)
 				{
-					var bank = new Bank();
-					foreach (var (from, to, amount) in transfers)
-					{
-						await bank.Transfer(from, to, amount);
-					}
+					await bank.Transfer(from, to, amount);
+				}
 
-					bank.Total.Should().Be(3_000m);
-					bank.Accounts.Snapshot.Should().OnlyContain(a => a.Balance >= -a.OverdraftLimit);
-				},
-				iter: 300
-			);
+				bank.Total.Should().Be(3_000m);
+				bank.Accounts.Snapshot.Should().OnlyContain(a => a.Balance >= -a.OverdraftLimit);
+			},
+			iter: 300
+		);
 	}
 
 	[Test]
 	public async Task The_total_is_conserved_after_every_single_step()
 	{
 		// The same property, stated as a rule on the state the service exposes, lifted onto the service, and checked after each of up to 6 generated transfers.
-		var rules = ConstraintSet
-			.From(("money-is-conserved", Constraints<decimal>.Conserves(total => total, "Money was created or destroyed")))
-			.Map<Bank>(bank => bank.Total);
+		var rules = ConstraintSet.From(("money-is-conserved", Constraints<decimal>.Conserves(total => total, "Money was created or destroyed"))).Map<Bank>(
+			bank => bank.Total
+		);
 		var transfer = Gen.Select(Gen.Int[0, 2], Gen.Int[0, 2], Gen.Int[1, 150_000].Select(cents => cents / 100m));
 
 		var result = await AutoTest

@@ -58,17 +58,23 @@ public static partial class ProductConstraints
 public static partial class CatalogConstraints
 {
 	/// <summary>G87: product ids are unique, case-insensitively (they become keys and URLs).</summary>
-	public static readonly Constraint<Catalog> ProductIdsAreUnique = Constraints<Catalog>
-		.Unique(c => c.Products, p => p.Id, StringComparer.OrdinalIgnoreCase)
-		.Describe("G87: duplicate product keys that differ only by case collide.");
+	public static readonly Constraint<Catalog> ProductIdsAreUnique = Constraints<Catalog>.Unique(
+		c => c.Products,
+		p => p.Id,
+		StringComparer.OrdinalIgnoreCase
+	).Describe("G87: duplicate product keys that differ only by case collide.");
 
 	/// <summary>V1, G80: a product's versioning system exists in the catalog. (The loader silently dropped unknown ones today: D22.)</summary>
-	public static readonly Constraint<Catalog> VersioningSystemsExist = Constraints<Catalog>
-		.References<Product, string>(c => c.Products, p => [p.VersioningSystemId], c => c.VersioningSystems.Select(v => v.Id))
-		.Describe("V1/G80: every product names a versioning system that exists.");
+	public static readonly Constraint<Catalog> VersioningSystemsExist = Constraints<Catalog>.References<Product, string>(
+		c => c.Products,
+		p => [p.VersioningSystemId],
+		c => c.VersioningSystems.Select(v => v.Id)
+	).Describe("V1/G80: every product names a versioning system that exists.");
 
 	/// <summary>G89: a versioning system's base is not after its current version. Docs-builder only reports a hint today.</summary>
-	public static readonly Constraint<Catalog> BaseIsNotAfterCurrent = Constraints<Catalog>
-		.Always(c => c.VersioningSystems, systems => systems.All(v => v.Base <= v.Current), "A versioning system's base must not be after its current version.")
-		.Describe("G89");
+	public static readonly Constraint<Catalog> BaseIsNotAfterCurrent = Constraints<Catalog>.Always(
+		c => c.VersioningSystems,
+		systems => systems.All(v => v.Base <= v.Current),
+		"A versioning system's base must not be after its current version."
+	).Describe("G89");
 }

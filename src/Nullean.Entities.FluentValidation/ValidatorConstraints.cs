@@ -9,7 +9,7 @@ public static class ValidatorConstraints
 	// A static extension block on a static class has an unnamed receiver; curb writes it "(Constraints<T> )" and IDE0055 wants "(Constraints<T>)", so the
 	// line is left to curb.
 #pragma warning disable IDE0055
-	extension<T>(Constraints<T> )
+	extension<T>(Constraints<T>)
 #pragma warning restore IDE0055
 	{
 		/// <summary>

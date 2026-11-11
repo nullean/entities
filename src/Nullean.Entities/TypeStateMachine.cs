@@ -190,9 +190,8 @@ public sealed class StateMachine<TState>
 			return Reject(
 				state,
 				trigger,
-				$"'{trigger}' is not a transition out of {fromType.Name}" + (permitted.Count > 0
-					? $" (permitted: {string.Join(", ", permitted)})"
-					: " (it has none)")
+				$"'{trigger}' is not a transition out of {fromType.Name}" +
+					(permitted.Count > 0 ? $" (permitted: {string.Join(", ", permitted)})" : " (it has none)")
 			);
 		}
 
@@ -310,7 +309,7 @@ public sealed class StateMachine<TState>
 			throw new StateMachineDefinitionException(
 				"NESM001",
 				$"StateMachine<{typeof(TState).Name}> does not mention {string.Join(", ", missing.Select(m => m.Name))} — " +
-				"every case needs an Initial<T>, State<T> or Terminal<T> declaration."
+					"every case needs an Initial<T>, State<T> or Terminal<T> declaration."
 			);
 		}
 	}
@@ -339,7 +338,7 @@ public sealed class StateMachine<TState>
 			throw new StateMachineDefinitionException(
 				"NESM002",
 				$"StateMachine<{typeof(TState).Name}> cannot reach {string.Join(", ", unreachable.Select(s => s.Name))} from {initial.Name} — " +
-				"no declared edge leads there."
+					"no declared edge leads there."
 			);
 		}
 	}
@@ -354,7 +353,7 @@ public sealed class StateMachine<TState>
 			throw new StateMachineDefinitionException(
 				"NESM003",
 				$"StateMachine<{typeof(TState).Name}> has no outgoing transition from {string.Join(", ", deadEnds.Select(s => s.Name))} — " +
-				"mark it Terminal<T>() if that is intentional, or add a transition out of it."
+					"mark it Terminal<T>() if that is intentional, or add a transition out of it."
 			);
 		}
 	}
@@ -490,7 +489,7 @@ internal static class StateMachineRuntime
 		}
 
 		var constructor = stateType.GetConstructor([caseType]) ??
-		throw new InvalidOperationException($"{stateType.Name} has no single-parameter constructor accepting {caseType.Name}.");
+			throw new InvalidOperationException($"{stateType.Name} has no single-parameter constructor accepting {caseType.Name}.");
 		return (TState)constructor.Invoke([caseInstance]);
 	}
 }

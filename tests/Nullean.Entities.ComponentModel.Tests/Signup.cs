@@ -14,9 +14,7 @@ public sealed partial record Signup(string Name, string Email, int Age)
 	);
 
 	[Constraint]
-	public static readonly Constraint<Signup> Adult = Constraints<Signup>.Check(
-		s => s.Age >= 18 ? [] : [Violation.Error(nameof(Age), "Must be 18 or older")]
-	);
+	public static readonly Constraint<Signup> Adult = Constraints<Signup>.Check(s => s.Age >= 18 ? [] : [Violation.Error(nameof(Age), "Must be 18 or older")]);
 
 	// Not about one member: an entity-level error.
 	[Constraint]

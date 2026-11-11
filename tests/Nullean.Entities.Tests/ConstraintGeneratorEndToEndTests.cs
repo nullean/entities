@@ -40,19 +40,22 @@ internal sealed record RejectedProduct(string Name);
 internal static partial class DocsetRules
 {
 	// The rule's evidence is the offending text itself.
-	public static Constraint<Docset, string> CrossLinkWellFormed { get; } =
-		Constraints<Docset>.Each(d => d.CrossLinks, link => link.Contains("://") ? null : $"'{link}' has no registry").Describe("Cross links name a registry.");
+	public static Constraint<Docset, string> CrossLinkWellFormed { get; } = Constraints<Docset>.Each(
+		d => d.CrossLinks,
+		link => link.Contains("://") ? null : $"'{link}' has no registry"
+	).Describe("Cross links name a registry.");
 
 	// A warning never rejects anything.
-	public static Constraint<Docset, string> ProductsLowerCase { get; } =
-		Constraints<Docset>.Each(d => d.Products, p => p == p.ToLowerInvariant() ? null : $"'{p}' is not lower case").WithSeverity(Severity.Warning);
+	public static Constraint<Docset, string> ProductsLowerCase { get; } = Constraints<Docset>.Each(
+		d => d.Products,
+		p => p == p.ToLowerInvariant() ? null : $"'{p}' is not lower case"
+	).WithSeverity(Severity.Warning);
 
 	// The evidence is a record the rule builds, not the item.
-	public static Constraint<Docset, RejectedProduct> ProductKnown { get; } =
-		Constraints<Docset>.EachCheck<string, RejectedProduct>(
-			d => d.Products,
-			(_, p) => p.StartsWith('x') ? [new Violation($"unknown product {p}") { Evidence = new RejectedProduct(p) }] : []
-		);
+	public static Constraint<Docset, RejectedProduct> ProductKnown { get; } = Constraints<Docset>.EachCheck<string, RejectedProduct>(
+		d => d.Products,
+		(_, p) => p.StartsWith('x') ? [new Violation($"unknown product {p}") { Evidence = new RejectedProduct(p) }] : []
+	);
 }
 
 public class TypedEvidenceTests

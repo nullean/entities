@@ -92,8 +92,8 @@ public class ScriptTemporalTests
 		// the rule is satisfied in every run, but nobody ever confirmed order 99, so a check about it proved nothing
 		var coverage = new Coverage<DeskEvent>().Expect("Order 99 confirmed", e => e is DeskEvent.Confirmed { Id: 99 });
 
-		var act = async () =>
-			await ConfirmSteps().SampleWithAsync(time => new OrderDesk(time, shipsPromptly: true), desk => desk.Log, Rules, coverage, iter: 50);
+		var act =
+			async () => await ConfirmSteps().SampleWithAsync(time => new OrderDesk(time, shipsPromptly: true), desk => desk.Log, Rules, coverage, iter: 50);
 
 		(await act.Should().ThrowAsync<VacuousPropertyException>()).Which.Message.Should().Contain("\"Order 99 confirmed\" never occurred");
 	}
@@ -103,8 +103,8 @@ public class ScriptTemporalTests
 	{
 		var coverage = new Coverage<DeskEvent>().Expect("Shipped", e => e is DeskEvent.Shipped, minPercentOfRuns: 50);
 
-		var act = async () =>
-			await ConfirmSteps().SampleWithAsync(time => new OrderDesk(time, shipsPromptly: true), desk => desk.Log, Rules, coverage, iter: 100);
+		var act =
+			async () => await ConfirmSteps().SampleWithAsync(time => new OrderDesk(time, shipsPromptly: true), desk => desk.Log, Rules, coverage, iter: 100);
 
 		await act.Should().NotThrowAsync();
 	}

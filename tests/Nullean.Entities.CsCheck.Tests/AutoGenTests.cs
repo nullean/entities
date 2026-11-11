@@ -49,8 +49,7 @@ public class AutoGenTests
 		Enumerable.Range(0, count).Select(i => gen.Generate(new PCG(stream, (ulong)i + 1), null, out _));
 
 	[Test]
-	public void The_same_seed_gives_the_same_value() =>
-		Draw(GenAuto.Of<Item>(), 200).Should().Equal(Draw(GenAuto.Of<Item>(), 200));
+	public void The_same_seed_gives_the_same_value() => Draw(GenAuto.Of<Item>(), 200).Should().Equal(Draw(GenAuto.Of<Item>(), 200));
 
 	[Test]
 	public void Plausible_values_contain_no_edge_cases()
@@ -143,18 +142,16 @@ public class AutoGenTests
 
 		ledgers.Should().Contain(l => l.Accounts.Count >= 2 && l.Accounts[0].Id == l.Accounts[1].Id);
 		ledgers.Should().Contain(
-			l =>
-				l.Accounts.Count >= 2 && l.Accounts[0].Id != l.Accounts[1].Id && string.Equals(
-					l.Accounts[0].Id,
-					l.Accounts[1].Id,
-					StringComparison.OrdinalIgnoreCase
-				)
+			l => l.Accounts.Count >= 2 && l.Accounts[0].Id != l.Accounts[1].Id && string.Equals(
+				l.Accounts[0].Id,
+				l.Accounts[1].Id,
+				StringComparison.OrdinalIgnoreCase
+			)
 		);
 	}
 
 	[Test]
-	public void Recursive_types_stop_at_the_depth_limit() =>
-		Draw(GenAuto.Of<Node>(), 200).Should().OnlyContain(n => Depth(n) <= 5);
+	public void Recursive_types_stop_at_the_depth_limit() => Draw(GenAuto.Of<Node>(), 200).Should().OnlyContain(n => Depth(n) <= 5);
 
 	private static int Depth(Node n) => 1 + (n.Children.Count == 0 ? 0 : n.Children.Max(Depth));
 

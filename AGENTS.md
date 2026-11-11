@@ -13,9 +13,10 @@ and test project also targets. The everyday tasks have the same names as in ever
 mise run build     # clean + compile
 mise run test      # build + run the example apps + every test project on every target framework
 mise run pack      # build, pack the NuGet packages and validate them
-mise run ci        # what CI's build job runs: test, then pack and validate every package
+mise run ci        # what CI's build job runs: test, pack and validate every package, then curb check
 mise run docs      # build the docs-builder site, apply the landing page, serve it
-mise run check     # workflow security checks (zizmor)
+mise run format    # format the repository with curb
+mise run check     # formatting drift (curb) and workflow security checks (zizmor)
 mise run clean     # delete build output
 mise run release   # show the release draft; `mise run release publish` releases
 ```

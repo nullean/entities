@@ -75,14 +75,18 @@ public class AutoTestTests
 	{
 		var report = await Sound().RunAsync();
 
-		report.Results.Select(r => (r.Axis, r.GetType().Name)).Should().Equal(
-			(Axis.Invariant, nameof(AxisResult.Passed)),
-			(Axis.Idempotency, nameof(AxisResult.Passed)),
-			(Axis.Monotonicity, nameof(AxisResult.Passed)),
-			(Axis.Conservation, nameof(AxisResult.Passed)),
-			(Axis.Confluence, nameof(AxisResult.NotApplicable)),
-			(Axis.Vacancy, nameof(AxisResult.Passed))
-		);
+		report
+			.Results
+			.Select(r => (r.Axis, r.GetType().Name))
+			.Should()
+			.Equal(
+				(Axis.Invariant, nameof(AxisResult.Passed)),
+				(Axis.Idempotency, nameof(AxisResult.Passed)),
+				(Axis.Monotonicity, nameof(AxisResult.Passed)),
+				(Axis.Conservation, nameof(AxisResult.Passed)),
+				(Axis.Confluence, nameof(AxisResult.NotApplicable)),
+				(Axis.Vacancy, nameof(AxisResult.Passed))
+			);
 		report.ToString().Should().Contain("Confluence: not applicable");
 	}
 

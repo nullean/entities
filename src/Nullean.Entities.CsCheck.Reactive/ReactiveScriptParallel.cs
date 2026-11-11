@@ -49,15 +49,16 @@ public static partial class ReactiveScriptExtensions
 		});
 		var operation = Gen.OneOf([.. script.Steps]).Operation<ParallelRun<TSut, TEvent>>(step => step.Name, (run, step) => step.RequireSync()(run.Sut));
 
-		SampleCall.Run(() =>
-				initial.SampleParallel(
-					[operation],
-					equal: (a, b) => a.Violated == b.Violated,
-					seed: seed,
-					maxSequentialOperations: maxSequentialOperations,
-					maxParallelOperations: maxParallelOperations,
-					iter: iter,
-					print: run => run.Violated ? "constraints violated" : "constraints held"
-				));
+		SampleCall.Run(
+			() => initial.SampleParallel(
+				[operation],
+				equal: (a, b) => a.Violated == b.Violated,
+				seed: seed,
+				maxSequentialOperations: maxSequentialOperations,
+				maxParallelOperations: maxParallelOperations,
+				iter: iter,
+				print: run => run.Violated ? "constraints violated" : "constraints held"
+			)
+		);
 	}
 }

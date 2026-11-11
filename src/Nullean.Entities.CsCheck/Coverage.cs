@@ -94,7 +94,7 @@ public sealed class CoverageTally<TEvent>(Coverage<TEvent> coverage)
 		{
 			throw new VacuousPropertyException(
 				$"The sample passed vacuously: {string.Join("; ", failures)}.{Environment.NewLine}{table}" +
-				"Widen the script (more steps, a longer Length, different Delays) or fix the generator so these events are reachable."
+					"Widen the script (more steps, a longer Length, different Delays) or fix the generator so these events are reachable."
 			);
 		}
 	}

@@ -46,7 +46,6 @@ Expect(fine.IsOk && (await repository.LoadAsync()).Count == 6, "moving Ken under
 
 Section("Limits the shape must respect");
 for (var i = 0; i < 7; i++) // Edsger already has Ken: eight reports in all
-
 {
 	await org.HireAsync($"Report {i}", managerId: 3);
 }

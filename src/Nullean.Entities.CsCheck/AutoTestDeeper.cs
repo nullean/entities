@@ -77,19 +77,17 @@ public sealed partial class AutoTest<T>
 		};
 		cases.AddRange(
 			_commutes.Select(
-				c =>
-					new AxisCase(
-						Axis.Confluence,
-						$"Applying {c.First} then {c.Second} gives what {c.Second} then {c.First} gives, from every reachable state.",
-						"The result depends on the order the operations are called in.",
-						() =>
-							WithLaw(Axis.Confluence, $"Commutes({c.First}, {c.Second})", () =>
-							{
-								BuildSpec().Commutes(c.First, c.Second, seed: _settings.EffectiveSeed);
-								return new AxisResult.Passed(Axis.Confluence, [$"{c.First} and {c.Second} commute"], _settings.Samples);
-							}),
-						$"Commutes({c.First}, {c.Second})"
-					)
+				c => new AxisCase(
+					Axis.Confluence,
+					$"Applying {c.First} then {c.Second} gives what {c.Second} then {c.First} gives, from every reachable state.",
+					"The result depends on the order the operations are called in.",
+					() => WithLaw(Axis.Confluence, $"Commutes({c.First}, {c.Second})", () =>
+					{
+						BuildSpec().Commutes(c.First, c.Second, seed: _settings.EffectiveSeed);
+						return new AxisResult.Passed(Axis.Confluence, [$"{c.First} and {c.Second} commute"], _settings.Samples);
+					}),
+					$"Commutes({c.First}, {c.Second})"
+				)
 			)
 		);
 		return cases;

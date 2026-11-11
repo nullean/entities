@@ -18,9 +18,9 @@
       "rollForward": false
     },
     "curb-cli": {
-      "version": "0.7.3",
+      "version": "0.14.0",
       "commands": ["curb"],
-      "rollForward": true
+      "rollForward": false
     },
     "husky": {
       "version": "0.9.1",

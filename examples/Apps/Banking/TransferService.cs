@@ -29,8 +29,7 @@ public sealed class InMemoryAccountRepository(IEnumerable<Account>? initial = nu
 		return Task.CompletedTask;
 	}
 
-	public Task<IReadOnlyList<Account>> AllAsync(CancellationToken cancellationToken = default) =>
-		Task.FromResult(Snapshot);
+	public Task<IReadOnlyList<Account>> AllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Snapshot);
 }
 
 public interface ITransferService
@@ -94,7 +93,5 @@ public sealed class TransferService(IAccountRepository accounts) : ITransferServ
 public static class BankingServices
 {
 	public static IServiceCollection AddBanking(this IServiceCollection services) =>
-		services
-			.AddSingleton<IAccountRepository, InMemoryAccountRepository>()
-			.AddSingleton<ITransferService, TransferService>();
+		services.AddSingleton<IAccountRepository, InMemoryAccountRepository>().AddSingleton<ITransferService, TransferService>();
 }

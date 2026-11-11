@@ -26,20 +26,18 @@ public class LivenessTests
 			.Eventually("job-finishes", j => j.Done);
 
 	private static EntitySpec<RequestState> Requests() =>
-		EntitySpec
-			.FromReducer(
-				RequestState.Pending,
-				(s, c) =>
-					(s, c) switch
-					{
-						(RequestState.Pending, "Complete") => RequestState.Done,
-						(RequestState.Pending, "Retry") => RequestState.Retrying,
-						(RequestState.Retrying, "Back") => RequestState.Pending,
-						_ => s
-					},
-				["Complete", "Retry", "Back"]
-			)
-			.Eventually("request-completes", s => s == RequestState.Done);
+		EntitySpec.FromReducer(
+			RequestState.Pending,
+			(s, c) =>
+				(s, c) switch
+				{
+					(RequestState.Pending, "Complete") => RequestState.Done,
+					(RequestState.Pending, "Retry") => RequestState.Retrying,
+					(RequestState.Retrying, "Back") => RequestState.Pending,
+					_ => s
+				},
+			["Complete", "Retry", "Back"]
+		).Eventually("request-completes", s => s == RequestState.Done);
 
 	[Test]
 	public void Without_fairness_a_loop_that_avoids_the_goal_fails()
@@ -142,12 +140,11 @@ public class LivenessTests
 				.Action(
 					"Deliver",
 					[0, 1],
-					(bag, slot) =>
-						slot >= bag.InFlight.Length
-							? bag
-							: bag.InFlight[slot] == 'a'
-								? bag with { InFlight = new string([.. bag.InFlight.Reverse()]) }
-								: bag with { InFlight = bag.InFlight.Replace("b", "", StringComparison.Ordinal), GotB = true }
+					(bag, slot) => slot >= bag.InFlight.Length
+						? bag
+						: bag.InFlight[slot] == 'a'
+							? bag with { InFlight = new string([.. bag.InFlight.Reverse()]) }
+							: bag with { InFlight = bag.InFlight.Replace("b", "", StringComparison.Ordinal), GotB = true }
 				)
 				.Eventually("b-is-delivered", bag => bag.GotB);
 

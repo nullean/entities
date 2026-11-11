@@ -108,8 +108,7 @@ public class FilesTests
 	{
 		var fs = World();
 		var set = ConstraintSet.From(
-			("EntriesExist",
-			Files<Toc>.Exist(
+			("EntriesExist", Files<Toc>.Exist(
 				t => t.Entries,
 				(t, e) => t.FileSystem.FileInfo.New(t.FileSystem.Path.Join("/docs", e.Path)),
 				describe: e => $"Entry '{e.Path}' does not exist on disk.",
@@ -131,8 +130,7 @@ public class FilesTests
 	{
 		var fs = World();
 		var set = ConstraintSet.From(
-			("FoldersExist",
-			Files<Toc>.DirectoriesExist(
+			("FoldersExist", Files<Toc>.DirectoriesExist(
 				t => t.Entries,
 				(t, e) => t.FileSystem.DirectoryInfo.New(t.FileSystem.Path.Join("/docs", e.Path)),
 				e => $"No folder {e.Path}"
@@ -197,8 +195,7 @@ public class FilesTests
 		set.Validate(Make(fs, "/docs/Readme.md", "/docs/Readme.md", "/docs/a.md")).Should().BeEmpty();
 
 		var ofItems = ConstraintSet.From(
-			("NoCaseTwins",
-			Files<Toc>.UniqueIgnoringCase(
+			("NoCaseTwins", Files<Toc>.UniqueIgnoringCase(
 				t => t.Entries,
 				(t, e) => t.FileSystem.FileInfo.New(t.FileSystem.Path.Join("/docs", e.Path)),
 				(e, other) => $"{e.Path} collides with {other}",

@@ -41,7 +41,8 @@ public class RoomBookingTests
 
 	[Test]
 	public void ShouldSatisfy_calendars_of_non_overlapping_hour_slots_are_valid() =>
-		Gen.Int[0, 20]
+		Gen
+			.Int[0, 20]
 			.List[1, 10]
 			.Select(
 				starts => new BookingCalendar("Room", [.. starts.Distinct().OrderBy(x => x).Select(h => new Booking(Guid.NewGuid(), "Room", Slot(h, h + 1)))])

@@ -56,7 +56,5 @@ public sealed class StockService(IStockRepository repository)
 public static class InventoryServices
 {
 	public static IServiceCollection AddInventory(this IServiceCollection services) =>
-		services
-			.AddSingleton<IStockRepository, InMemoryStockRepository>()
-			.AddSingleton<StockService>();
+		services.AddSingleton<IStockRepository, InMemoryStockRepository>().AddSingleton<StockService>();
 }

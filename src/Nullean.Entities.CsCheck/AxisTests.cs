@@ -27,8 +27,7 @@ public static class AxisTests
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
 		AxisRun? run = null,
 		IReadOnlyList<AutoAction<T>>? actions = null
-	) =>
-		AxisReport.GuardAsync(Axis.Invariant, () => InvariantCore(constraints, valid, counterExamples, run, actions));
+	) => AxisReport.GuardAsync(Axis.Invariant, () => InvariantCore(constraints, valid, counterExamples, run, actions));
 
 	private static async Task<AxisResult> InvariantCore<T>(
 		this ConstraintSet<T> constraints,
@@ -64,26 +63,27 @@ public static class AxisTests
 	private static async Task<string> OperationsKeepInvariants<T>(ConstraintSet<T> rules, IReadOnlyList<AutoAction<T>> actions, Gen<T> valid, AxisRun settings)
 	{
 		var runs = Gen.OneOf([.. actions.Select(a => a.Draw(valid).Select(drawn => (drawn.Start, Action: a, drawn.Argument)))]);
-		await SampleCall.RunAsync(() =>
-				runs.SampleAsync(
-					async step =>
+		await SampleCall.RunAsync(
+			() => runs.SampleAsync(
+				async step =>
+				{
+					var next = await step.Action.ApplyAsync(step.Start, step.Argument).ConfigureAwait(false);
+					// a rule declared as a warning is one the type lets through and reports: only an error is a state an operation must never produce
+					var violations = ConstraintProperties
+						.ViolationsOf(rules, step.Start, next, settings.Time)
+						.Where(v => v.Severity == Severity.Error)
+						.ToList();
+					if (violations.Count > 0)
 					{
-						var next = await step.Action.ApplyAsync(step.Start, step.Argument).ConfigureAwait(false);
-						// a rule declared as a warning is one the type lets through and reports: only an error is a state an operation must never produce
-						var violations = ConstraintProperties
-							.ViolationsOf(rules, step.Start, next, settings.Time)
-							.Where(v => v.Severity == Severity.Error)
-							.ToList();
-						if (violations.Count > 0)
-						{
-							throw StepBroke(step.Action.Name, step.Argument, step.Start, next, violations);
-						}
-					},
-					settings.WriteLine,
-					settings.EffectiveSeed,
-					settings.Samples,
-					print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
-				)).ConfigureAwait(false);
+						throw StepBroke(step.Action.Name, step.Argument, step.Start, next, violations);
+					}
+				},
+				settings.WriteLine,
+				settings.EffectiveSeed,
+				settings.Samples,
+				print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
+			)
+		).ConfigureAwait(false);
 		return $"(and {string.Join(", ", actions.Select(a => a.Name))} kept them in {settings.Samples} runs)";
 	}
 
@@ -169,8 +169,7 @@ public static class AxisTests
 		EntityActions<T> actions,
 		Gen<T>? start = null,
 		AxisRun? run = null
-	) =>
-		MonotonicityAsync(constraints, ToAutoActions(actions, run), start, run);
+	) => MonotonicityAsync(constraints, ToAutoActions(actions, run), start, run);
 
 	/// <inheritdoc cref="MonotonicityAsync{T}(ConstraintSet{T}, EntityActions{T}, Gen{T}, AxisRun)"/>
 	public static Task<AxisResult> MonotonicityAsync<T>(
@@ -178,8 +177,7 @@ public static class AxisTests
 		IReadOnlyList<AutoAction<T>> actions,
 		Gen<T>? start = null,
 		AxisRun? run = null
-	) =>
-		AxisReport.GuardAsync(Axis.Monotonicity, () => Sequential(constraints, Axis.Monotonicity, actions, start, run ?? new AxisRun()));
+	) => AxisReport.GuardAsync(Axis.Monotonicity, () => Sequential(constraints, Axis.Monotonicity, actions, start, run ?? new AxisRun()));
 
 	/// <summary>
 	/// Axis 04. From a valid start, every action leaves each <c>Conserves</c> rule holding. Vacuous when no action ever changed the value at all.
@@ -189,8 +187,7 @@ public static class AxisTests
 		EntityActions<T> actions,
 		Gen<T>? start = null,
 		AxisRun? run = null
-	) =>
-		ConservationAsync(constraints, ToAutoActions(actions, run), start, run);
+	) => ConservationAsync(constraints, ToAutoActions(actions, run), start, run);
 
 	/// <inheritdoc cref="ConservationAsync{T}(ConstraintSet{T}, EntityActions{T}, Gen{T}, AxisRun)"/>
 	public static Task<AxisResult> ConservationAsync<T>(
@@ -198,8 +195,7 @@ public static class AxisTests
 		IReadOnlyList<AutoAction<T>> actions,
 		Gen<T>? start = null,
 		AxisRun? run = null
-	) =>
-		AxisReport.GuardAsync(Axis.Conservation, () => Sequential(constraints, Axis.Conservation, actions, start, run ?? new AxisRun()));
+	) => AxisReport.GuardAsync(Axis.Conservation, () => Sequential(constraints, Axis.Conservation, actions, start, run ?? new AxisRun()));
 
 	/// <summary>
 	/// Axis 08. Each <c>OrderIndependent</c> rule: listing the value's items in a random order does not change the result. Orderings shrink toward the original
@@ -274,8 +270,7 @@ public static class AxisTests
 		Gen<T> valid,
 		IReadOnlyDictionary<string, Func<T, T>>? counterExamples = null,
 		AxisRun? run = null
-	) =>
-		AxisReport.GuardAsync(Axis.Vacancy, () => VacancyCore(constraints, valid, counterExamples, run));
+	) => AxisReport.GuardAsync(Axis.Vacancy, () => VacancyCore(constraints, valid, counterExamples, run));
 
 	private static async Task<AxisResult> VacancyCore<T>(
 		this ConstraintSet<T> constraints,
@@ -356,18 +351,19 @@ public static class AxisTests
 
 	// a check with nothing to await, run on CsCheck's async sampler so every axis shares one engine
 	private static Task SampleChecks<TValue>(Gen<TValue> gen, Action<TValue> check, AxisRun settings, Func<TValue, string> print) =>
-		SampleCall.RunAsync(() =>
-				gen.SampleAsync(
-					value =>
-					{
-						check(value);
-						return Task.CompletedTask;
-					},
-					settings.WriteLine,
-					settings.EffectiveSeed,
-					settings.Samples,
-					print: print
-				));
+		SampleCall.RunAsync(
+			() => gen.SampleAsync(
+				value =>
+				{
+					check(value);
+					return Task.CompletedTask;
+				},
+				settings.WriteLine,
+				settings.EffectiveSeed,
+				settings.Samples,
+				print: print
+			)
+		);
 
 	// ── 03 and 04: a sequential rule is attacked by running actions ──────────────
 
@@ -398,28 +394,29 @@ public static class AxisTests
 		var moved = new long[rules.Count];
 		var starts = start ?? GenAuto.Of<T>(settings.Data, settings.Options).Valid(constraints, settings.Time);
 		var runs = Gen.OneOf([.. actions.Select(a => a.Draw(starts).Select(drawn => (drawn.Start, Action: a, drawn.Argument)))]);
-		await SampleCall.RunAsync(() =>
-				runs.SampleAsync(
-					async step =>
+		await SampleCall.RunAsync(
+			() => runs.SampleAsync(
+				async step =>
+				{
+					var next = await step.Action.ApplyAsync(step.Start, step.Argument).ConfigureAwait(false);
+					var violations = ConstraintProperties.ViolationsOf(checking, step.Start, next, settings.Time);
+					if (violations.Count > 0)
 					{
-						var next = await step.Action.ApplyAsync(step.Start, step.Argument).ConfigureAwait(false);
-						var violations = ConstraintProperties.ViolationsOf(checking, step.Start, next, settings.Time);
-						if (violations.Count > 0)
-						{
-							throw StepBroke(step.Action.Name, step.Argument, step.Start, next, violations);
-						}
-						for (var i = 0; i < probes.Length; i++)
-						{
-							var probe = probes[i](step.Start, next);
-							_ = Interlocked.Add(ref compared[i], probe.Compared);
-							_ = Interlocked.Add(ref moved[i], probe.Moved);
-						}
-					},
-					settings.WriteLine,
-					settings.EffectiveSeed,
-					settings.Samples,
-					print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
-				)).ConfigureAwait(false);
+						throw StepBroke(step.Action.Name, step.Argument, step.Start, next, violations);
+					}
+					for (var i = 0; i < probes.Length; i++)
+					{
+						var probe = probes[i](step.Start, next);
+						_ = Interlocked.Add(ref compared[i], probe.Compared);
+						_ = Interlocked.Add(ref moved[i], probe.Moved);
+					}
+				},
+				settings.WriteLine,
+				settings.EffectiveSeed,
+				settings.Samples,
+				print: step => $"{Print(step.Start)} | {Call(step.Action.Name, step.Argument)}"
+			)
+		).ConfigureAwait(false);
 
 		for (var i = 0; i < rules.Count; i++)
 		{

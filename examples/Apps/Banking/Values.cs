@@ -42,8 +42,9 @@ public sealed record Iban
 	private static string Normalize(string? value) => (value ?? "").Replace(" ", "", StringComparison.Ordinal).ToUpperInvariant();
 
 	private static bool HasShape(string v) =>
-		v.Length is >= 15 and <= 34 && char.IsAsciiLetterUpper(v[0]) && char.IsAsciiLetterUpper(v[1]) && char.IsAsciiDigit(v[2]) && char.IsAsciiDigit(v[3])
-		&& v.All(char.IsAsciiLetterOrDigit);
+		v.Length is >= 15 and <= 34 && char.IsAsciiLetterUpper(v[0]) && char.IsAsciiLetterUpper(v[1]) && char.IsAsciiDigit(v[2]) && char.IsAsciiDigit(
+			v[3]
+		) && v.All(char.IsAsciiLetterOrDigit);
 
 	// ISO 13616: move the first four characters to the end, read letters as 10..35, and the number must leave 1 when divided by 97.
 	private static bool ChecksumHolds(string v)

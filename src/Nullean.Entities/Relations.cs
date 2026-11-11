@@ -112,10 +112,7 @@ public static class Relation
 		_ = rule.WithShape(new RelationShape<TRoot>(
 			new RelationInfo(RelationKind.Identity, typeof(TItem), MemberOf(keyText, out var problem), null, null, typeof(TKey), problem)
 		)
-
-		{
-			Factory = nameof(Unique)
-		});
+		{ Factory = nameof(Unique) });
 		return rule;
 	}
 

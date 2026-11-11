@@ -102,16 +102,17 @@ public static class StateMachineServiceExtensions
 			);
 		}
 
-		await SampleCall.RunAsync(() =>
-					Gen.OneOf(triggers)
-						.Array[minLength, maxLength]
-						.SampleAsync(
-							sequence => ConformAsync(machine, factory, observe, drive, sequence),
-							seed: seed,
-							iter: iter,
-							print: sequence => string.Join(" -> ", sequence)
-						))
-			.ConfigureAwait(false);
+		await SampleCall.RunAsync(
+			() => Gen
+				.OneOf(triggers)
+				.Array[minLength, maxLength]
+				.SampleAsync(
+					sequence => ConformAsync(machine, factory, observe, drive, sequence),
+					seed: seed,
+					iter: iter,
+					print: sequence => string.Join(" -> ", sequence)
+				)
+		).ConfigureAwait(false);
 	}
 
 	private static async Task ConformAsync<TSut, TState>(
@@ -164,16 +165,12 @@ public static class StateMachineServiceExtensions
 	{
 		StateMachineSpecExtensions.RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(create()));
 		var byTrigger = bindings.ToDictionary(b => b.Trigger, b => b.Apply);
-		await SampleCall.RunAsync(() =>
-					Gen.OneOf([.. machine.Triggers])
-						.Array[1, 15]
-						.SampleAsync(
-							walk => WalkAsync(machine, create, stateOf, byTrigger, walk),
-							writeLine,
-							iter: iter,
-							print: walk => string.Join(" -> ", walk)
-						))
-			.ConfigureAwait(false);
+		await SampleCall.RunAsync(
+			() => Gen
+				.OneOf([.. machine.Triggers])
+				.Array[1, 15]
+				.SampleAsync(walk => WalkAsync(machine, create, stateOf, byTrigger, walk), writeLine, iter: iter, print: walk => string.Join(" -> ", walk))
+		).ConfigureAwait(false);
 	}
 
 	private static async Task WalkAsync<TState, TTrigger, TSut>(
@@ -195,7 +192,7 @@ public static class StateMachineServiceExtensions
 			{
 				throw new InvalidOperationException(
 					$"after {trigger} in {model} the machine says the service moves to {expected}, but it is in {actual}" +
-					(expected.Equals(model) ? " (the trigger is refused, so it stays in " + model + ")" : "")
+						(expected.Equals(model) ? " (the trigger is refused, so it stays in " + model + ")" : "")
 				);
 			}
 			model = expected;

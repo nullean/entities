@@ -56,7 +56,8 @@ internal sealed partial class AxisFailure : InvalidOperationException
 		}
 		var fields = match
 			.Groups["fields"]
-			.Value.Split(FieldSeparator, StringSplitOptions.RemoveEmptyEntries)
+			.Value
+			.Split(FieldSeparator, StringSplitOptions.RemoveEmptyEntries)
 			.Select(f => f.Split(LabelSeparator, 2))
 			.Select(parts => (parts[0], parts.Length > 1 ? parts[1] : ""))
 			.ToList();
@@ -127,7 +128,8 @@ internal static partial class AxisReport
 			var shrinks = ShrinkPattern().Match(found.Text) is { Success: true } s
 				? int.Parse(s.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture)
 				: 0;
-			sb.AppendLine()
+			sb
+				.AppendLine()
 				.Append(
 					shrinks == 0
 						? "This is the smallest case: nothing smaller failed."

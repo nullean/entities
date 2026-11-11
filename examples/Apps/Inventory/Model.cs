@@ -72,8 +72,7 @@ public static class StockRules
 		CatalogRules.All.Map<StockState>(s => s.Catalog, prefix: "Catalog."),
 		WarehouseRules.All.Map<StockState>(s => s.Warehouse, prefix: "Warehouse."),
 		ConstraintSet.From(
-			("stocked-skus-are-in-the-catalogue",
-			Constraints<StockState>.References<StockLevel, string>(
+			("stocked-skus-are-in-the-catalogue", Constraints<StockState>.References<StockLevel, string>(
 				s => s.Warehouse.Levels,
 				l => [l.Sku],
 				s => s.Catalog.Products.Select(p => p.Sku),

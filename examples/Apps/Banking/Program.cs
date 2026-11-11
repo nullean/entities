@@ -64,10 +64,7 @@ await Open("FR14 2004 1010 0505 0001 3M02 606", Euro, 5_000m, overdraft: 0m);
 var before = (await accounts.AllAsync()).Sum(a => a.Balance);
 var parties = new[] { Ada, Grace, "FR1420041010050500013M02606" };
 var random = new Random(7);
-var transfers = Enumerable
-	.Range(0, 200)
-	.Select(_ => bank.TransferAsync(parties[random.Next(3)], parties[random.Next(3)], random.Next(1, 400), Euro))
-	.ToArray();
+var transfers = Enumerable.Range(0, 200).Select(_ => bank.TransferAsync(parties[random.Next(3)], parties[random.Next(3)], random.Next(1, 400), Euro)).ToArray();
 await Task.WhenAll(transfers);
 var accepted = transfers.Count(t => t.Result.IsOk);
 var after = (await accounts.AllAsync()).Sum(a => a.Balance);

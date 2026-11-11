@@ -195,7 +195,9 @@ internal static class Annotations
 							)
 						);
 					}
-					if (depth < MaxNestedDepth && IsStored(member) && HeldType(member.Type) is { } inner && shape == Shape.Single && inner.Shape == Shape.Single)
+					if (
+						depth < MaxNestedDepth && IsStored(member) && HeldType(member.Type) is { } inner && shape == Shape.Single && inner.Shape == Shape.Single
+					)
 					{
 						// a nested object inside a nested object: reachable through the same null-safe path
 						Walk(
@@ -282,8 +284,8 @@ internal static class Annotations
 			return false;
 		}
 		var ns = type.ContainingNamespace?.ToDisplayString() ?? "";
-		return ns != "System" && !ns.StartsWith("System.", StringComparison.Ordinal) && !ns.StartsWith("Microsoft.", StringComparison.Ordinal)
-		&& !IsCollection(type);
+		return ns != "System" && !ns.StartsWith("System.", StringComparison.Ordinal) && !ns.StartsWith("Microsoft.", StringComparison.Ordinal) &&
+			!IsCollection(type);
 	}
 
 	// A non-nullable reference member that must be set: declared `required`, or a get-only auto property (only a constructor can set it).
@@ -307,10 +309,8 @@ internal static class Annotations
 			return false;
 		}
 		var accessors = syntax.AccessorList.Accessors;
-		return accessors.Count == 1
-		&& accessors[0].IsKind(SyntaxKind.GetAccessorDeclaration)
-		&& accessors[0].Body is null
-		&& accessors[0].ExpressionBody is null;
+		return accessors.Count == 1 && accessors[0].IsKind(SyntaxKind.GetAccessorDeclaration) && accessors[0].Body is null &&
+			accessors[0].ExpressionBody is null;
 	}
 
 	private sealed record Built(string Suffix, string Predicate, string Message);
@@ -363,8 +363,7 @@ internal static class Annotations
 	private static string? Named(AttributeData a, string name) =>
 		a.NamedArguments.Where(n => n.Key == name).Select(n => n.Value.Value as string).FirstOrDefault();
 
-	private static bool NamedBool(AttributeData a, string name) =>
-		a.NamedArguments.Any(n => n.Key == name && n.Value.Value is true);
+	private static bool NamedBool(AttributeData a, string name) => a.NamedArguments.Any(n => n.Key == name && n.Value.Value is true);
 
 	private static string Message(AttributeData a, string property, string fallback)
 	{
@@ -398,9 +397,11 @@ internal static class Annotations
 	{
 		var (underlying, nullable) = Underlying(p.Type);
 		var floating = underlying.SpecialType is SpecialType.System_Double or SpecialType.System_Single;
-		var integral = underlying.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Int16 or SpecialType.System_Byte
-		or SpecialType.System_SByte or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_Decimal;
-		if ((!floating && !integral) || a.ConstructorArguments.Length != 2 || a.ConstructorArguments[0].Value is null || a.ConstructorArguments[1].Value is null)
+		var integral =
+			underlying.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Int16 or SpecialType.System_Byte or SpecialType.System_SByte or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_Decimal;
+		if (
+			(!floating && !integral) || a.ConstructorArguments.Length != 2 || a.ConstructorArguments[0].Value is null || a.ConstructorArguments[1].Value is null
+		)
 		{
 			return null;
 		}

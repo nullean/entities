@@ -584,8 +584,9 @@ internal sealed class SystemModel
 	/// <summary>The deliverable messages a crash point applies to: to <paramref name="node"/>, of the point's message type.</summary>
 	public IReadOnlyList<Envelope> CrashTargets(SystemState state, INode node, CrashPoint point) =>
 		[
-			.. Deliverable(state)
-				.Where(e => e.To == node.Name && point.Message.IsInstanceOfType(e.Message) && (point.Reaches?.Invoke(state.StateOf(node), e.Message) ?? true))
+			.. Deliverable(state).Where(
+				e => e.To == node.Name && point.Message.IsInstanceOfType(e.Message) && (point.Reaches?.Invoke(state.StateOf(node), e.Message) ?? true)
+			)
 		];
 
 	public SystemState CrashAt(SystemState state, INodeDefinition node, CrashPoint point, Func<object, object> durable, int slot)

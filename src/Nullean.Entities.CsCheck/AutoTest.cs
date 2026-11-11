@@ -65,12 +65,12 @@ internal static class AxisCases
 	public static IReadOnlyList<string> Names(IReadOnlyList<AxisCase> cases) => [.. cases.Select(c => c.ToString())];
 
 	public static AxisCase Named(IReadOnlyList<AxisCase> cases, string name) =>
-		cases.FirstOrDefault(c => c.ToString() == name)
-		?? throw new ArgumentException(
-			$"No case is named '{name}'. The cases are: {string.Join(", ", cases.Select(c => c.ToString()))}. A name comes from CaseNames, "
-			+ "so this one was made from an auto-test configured differently, or a rule on that axis was removed since the tests were discovered.",
-			nameof(name)
-		);
+		cases.FirstOrDefault(c => c.ToString() == name) ??
+			throw new ArgumentException(
+				$"No case is named '{name}'. The cases are: {string.Join(", ", cases.Select(c => c.ToString()))}. A name comes from CaseNames, " +
+					"so this one was made from an auto-test configured differently, or a rule on that axis was removed since the tests were discovered.",
+				nameof(name)
+			);
 }
 
 /// <summary>What every axis did for one type: a result per axis, and the rules no axis can attack because nothing declares their shape.</summary>
@@ -295,13 +295,12 @@ public sealed partial class AutoTest<T>
 		var found = CounterExampleSearch.Find(_constraints, bases, wanted, _settings.Time, _settings.Options);
 		return new CounterExampleReport([
 			.. given.Select(
-				n =>
-					new CounterExampleLine(
-						n,
-						CounterExampleKind.Given,
-						found.TryGetValue(n, out var also) ? also.Description : null,
-						found.TryGetValue(n, out var overlap) ? overlap.Overlaps : []
-					)
+				n => new CounterExampleLine(
+					n,
+					CounterExampleKind.Given,
+					found.TryGetValue(n, out var also) ? also.Description : null,
+					found.TryGetValue(n, out var overlap) ? overlap.Overlaps : []
+				)
 			),
 			.. wanted
 				.Except(given)
@@ -343,8 +342,9 @@ public sealed partial class AutoTest<T>
 	/// </summary>
 	public IReadOnlyList<AxisCase> Cases =>
 		[
-			.. Axes.Where(a => IsDeclared(a) || _required.Contains(a))
-				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => RunCaseAsync(a))),
+			.. Axes.Where(a => IsDeclared(a) || _required.Contains(a)).Select(
+				a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => RunCaseAsync(a))
+			),
 			.. DeeperCases()
 		];
 
@@ -447,12 +447,14 @@ public sealed record CounterExampleReport(IReadOnlyList<CounterExampleLine> Line
 	public override string ToString() =>
 		string.Join(
 			"\n",
-			Lines.Select(l =>
+			Lines.Select(
+				l =>
 					l.Kind switch
 					{
 						CounterExampleKind.Given => $"{l.Rule}: given",
 						CounterExampleKind.Found => $"{l.Rule}: found ({l.Description}){OverlapNote(l)}",
 						_ => $"{l.Rule}: NONE FOUND, write one"
-					})
+					}
+			)
 		);
 }

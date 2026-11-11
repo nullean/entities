@@ -48,8 +48,8 @@ public class DeclaredMachineExamples
 	[Test]
 	public void A_ticket_cannot_do_what_the_machine_says_so_AwaitingCustomer_is_unreachable_in_practice()
 	{
-		var act = () =>
-			SupportTicketMachine.Machine.ConformTo(
+		var act =
+			() => SupportTicketMachine.Machine.ConformTo(
 				Open(),
 				t => t.Status,
 				bindings: [
@@ -74,8 +74,8 @@ public class DeclaredMachineExamples
 			.Permit("Reopen", TicketStatus.Resolved, TicketStatus.InProgress)
 			.Build();
 
-		var act = () =>
-			implemented.ConformTo(
+		var act =
+			() => implemented.ConformTo(
 				Open(),
 				t => t.Status,
 				iter: 200,

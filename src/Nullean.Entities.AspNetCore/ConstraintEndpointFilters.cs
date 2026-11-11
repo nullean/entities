@@ -30,8 +30,10 @@ public sealed class RegisteredConstraintFilter : IEndpointFilter
 			Dictionary<string, string[]>? errors = null;
 			foreach (var argument in context.Arguments)
 			{
-				if (argument is not null && registry.TryValidate(argument, out var violations) && ViolationErrors.ToDictionary(violations) is
-					{ Count: > 0 } found)
+				if (
+					argument is not null && registry.TryValidate(argument, out var violations) &&
+					ViolationErrors.ToDictionary(violations) is { Count: > 0 } found
+				)
 				{
 					errors ??= [];
 					foreach (var (key, messages) in found)

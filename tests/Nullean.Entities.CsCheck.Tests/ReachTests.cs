@@ -59,11 +59,15 @@ public class ReachTests
 			.Should()
 			.BeLessThan(12, "the default MaxDepth never produced a tree six levels of branches deep, which is why the rule was never violated");
 
-		var deeper = rules.Probe(GenAuto.Of<Branch>(AutoMode.Adversarial, o =>
-		{
-			o.MaxDepth = 16;
-			o.MaxCollection = 10;
-		}), samples: 600, throwOnContradiction: false);
+		var deeper = rules.Probe(
+			GenAuto.Of<Branch>(AutoMode.Adversarial, o =>
+			{
+				o.MaxDepth = 16;
+				o.MaxCollection = 10;
+			}),
+			samples: 600,
+			throwOnContradiction: false
+		);
 
 		deeper.NeverViolated.Should().BeEmpty("with deeper trees the same rule can be seen to fail");
 		deeper.Reach!.Depth.Should().BeGreaterThan(report.Reach.Depth);

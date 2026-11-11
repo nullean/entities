@@ -70,24 +70,25 @@ public static class ConstraintProperties
 		var runs = Gen.OneOf([
 			.. actions.Select(a => Gen.Select(starts, AutoDefaults.ArgumentGen(a.ArgumentType, data), (s, x) => (Start: s, Action: a, Argument: x)))
 		]);
-		SampleCall.Run(() =>
-				runs.Sample(
-					run =>
+		SampleCall.Run(
+			() => runs.Sample(
+				run =>
+				{
+					var next = run.Action.Apply(run.Start, run.Argument);
+					var violations = ViolationsOf(constraints, run.Start, next, time);
+					if (violations.Count > 0)
 					{
-						var next = run.Action.Apply(run.Start, run.Argument);
-						var violations = ViolationsOf(constraints, run.Start, next, time);
-						if (violations.Count > 0)
-						{
-							throw new InvalidOperationException(
-								$"{run.Action.Name}({run.Argument}) from {run.Start} gave {next}, which violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
-							);
-						}
-					},
-					writeLine,
-					seed,
-					iter,
-					print: run => $"{SafePrint(run.Start)} | {run.Action.Name}({SafePrint(run.Argument)})"
-				));
+						throw new InvalidOperationException(
+							$"{run.Action.Name}({run.Argument}) from {run.Start} gave {next}, which violates: {string.Join("; ", violations.Select(v => $"{v.ConstraintId}: {v.Message}"))}"
+						);
+					}
+				},
+				writeLine,
+				seed,
+				iter,
+				print: run => $"{SafePrint(run.Start)} | {run.Action.Name}({SafePrint(run.Argument)})"
+			)
+		);
 	}
 
 	/// <summary>

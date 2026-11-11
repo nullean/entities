@@ -21,6 +21,5 @@ public static class ConstraintDbContextOptionsBuilderExtensions
 	public static DbContextOptionsBuilder<TContext> UseConstraints<TContext>(
 		this DbContextOptionsBuilder<TContext> optionsBuilder,
 		Action<EntityConstraints> configure
-	) where TContext : DbContext =>
-		(DbContextOptionsBuilder<TContext>)UseConstraints((DbContextOptionsBuilder)optionsBuilder, configure);
+	) where TContext : DbContext => (DbContextOptionsBuilder<TContext>)UseConstraints((DbContextOptionsBuilder)optionsBuilder, configure);
 }

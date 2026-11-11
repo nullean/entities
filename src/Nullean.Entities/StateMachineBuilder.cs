@@ -22,7 +22,8 @@ public sealed class StateMachineBuilder<TState>
 	private readonly List<StateMachineEdge<TState>> _edges = [];
 	private Type? _initial;
 
-	internal StateMachineBuilder() { }
+	internal StateMachineBuilder()
+	{ }
 
 	internal IReadOnlyDictionary<Type, StateRole> States => _states;
 	internal IReadOnlyList<StateMachineEdge<TState>> Edges => _edges;

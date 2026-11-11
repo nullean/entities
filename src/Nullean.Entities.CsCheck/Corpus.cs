@@ -84,8 +84,7 @@ internal static class Corpus
 			_ when n.Contains("title", StringComparison.Ordinal) || n.Contains("description", StringComparison.Ordinal) || n.Contains(
 				"message",
 				StringComparison.Ordinal
-			)
-			|| n.Contains("comment", StringComparison.Ordinal) || n.Contains("body", StringComparison.Ordinal) || n.Contains(
+			) || n.Contains("comment", StringComparison.Ordinal) || n.Contains("body", StringComparison.Ordinal) || n.Contains(
 				"text",
 				StringComparison.Ordinal
 			) => lists.Sentences,

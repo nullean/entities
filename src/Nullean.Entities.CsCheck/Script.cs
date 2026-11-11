@@ -30,9 +30,10 @@ public readonly record struct ScriptStep<TSut>(string Name, Action<TSut>? Act, F
 
 	/// <summary>The synchronous action, for a terminal that cannot await (the Rx scheduler ones). An asynchronous step is a clear error there.</summary>
 	public Action<TSut> RequireSync() =>
-		Act ?? throw new NotSupportedException(
-			$"Step '{Name}' is asynchronous. The Rx scheduler terminals run synchronous steps only: use the TimeProvider terminals (SampleWithAsync, SampleStateAsync, EventAutoTest)."
-		);
+		Act ??
+			throw new NotSupportedException(
+				$"Step '{Name}' is asynchronous. The Rx scheduler terminals run synchronous steps only: use the TimeProvider terminals (SampleWithAsync, SampleStateAsync, EventAutoTest)."
+			);
 }
 
 public sealed class Script<TSut>
@@ -42,7 +43,8 @@ public sealed class Script<TSut>
 	private int _minLength;
 	private int _maxLength = 10;
 
-	internal Script() { }
+	internal Script()
+	{ }
 
 	// What a terminal reads to build the actual Gen<T>: public so a terminal in another package (Nullean.Entities.CsCheck.Reactive, or your own) can be written.
 	/// <summary>The steps declared so far, as generators of a named action.</summary>

@@ -459,7 +459,8 @@ public sealed class WhenRule<TEvent>
 
 public sealed class AfterTrigger<TEvent, TTrigger> where TTrigger : TEvent
 {
-	internal AfterTrigger() { }
+	internal AfterTrigger()
+	{ }
 
 	public ThenNext<TEvent, TTrigger> Then<TNext>(Func<TTrigger, TNext, bool>? matches = null) where TNext : TEvent =>
 		new((t, e) => e is TNext n && (matches is null || matches(t, n)));
@@ -467,8 +468,7 @@ public sealed class AfterTrigger<TEvent, TTrigger> where TTrigger : TEvent
 	public ThenNext<TEvent, TTrigger> Then<TNext1, TNext2>(
 		Func<TTrigger, TNext1, bool>? m1 = null,
 		Func<TTrigger, TNext2, bool>? m2 = null
-	) where TNext1 : TEvent where TNext2 : TEvent =>
-		new((t, e) => (e is TNext1 a && (m1 is null || m1(t, a))) || (e is TNext2 b && (m2 is null || m2(t, b))));
+	) where TNext1 : TEvent where TNext2 : TEvent => new((t, e) => (e is TNext1 a && (m1 is null || m1(t, a))) || (e is TNext2 b && (m2 is null || m2(t, b))));
 }
 
 public sealed class ThenNext<TEvent, TTrigger> where TTrigger : TEvent
@@ -503,15 +503,14 @@ public sealed class WithinWindow<TEvent, TTrigger> where TTrigger : TEvent
 
 	private TemporalRule<TEvent> Build(Func<TEvent, bool>? isInterrupt, bool required) =>
 		new(
-			() =>
-				new Temporal<TEvent>.AfterMonitor(
-					e => e is TTrigger,
-					(t, e) => _isNext((TTrigger)(object)t!, e),
-					_window,
-					isInterrupt,
-					required,
-					typeof(TTrigger).Name
-				),
+			() => new Temporal<TEvent>.AfterMonitor(
+				e => e is TTrigger,
+				(t, e) => _isNext((TTrigger)(object)t!, e),
+				_window,
+				isInterrupt,
+				required,
+				typeof(TTrigger).Name
+			),
 			new(Axis.Temporal, "After", e => e is TTrigger, Window: _window)
 		);
 }
@@ -532,7 +531,8 @@ public sealed class TraceReport(IReadOnlyList<(string Name, Verdict Verdict)> re
 	public override string ToString() =>
 		string.Join(
 			Environment.NewLine,
-			Results.Select(r =>
+			Results.Select(
+				r =>
 					r.Verdict switch
 					{
 						{ IsViolated: true } v => $"VIOLATED {r.Name} at {v.ViolationAt:O}: {v.ViolationEvidence}",

@@ -53,7 +53,11 @@ public static class Audit
 		Console.WriteLine("--- what generated changelog configurations contain (400 per mode)");
 		foreach (var mode in new[] { AutoMode.Plausible, AutoMode.Mixed, AutoMode.Adversarial })
 		{
-			var gen = GenAuto.Of<ChangelogConfigurationInCatalog>(mode, o => { o.UseFileSystem(); o.MaxDepth = Depth; });
+			var gen = GenAuto.Of<ChangelogConfigurationInCatalog>(mode, o =>
+			{
+				o.UseFileSystem();
+				o.MaxDepth = Depth;
+			});
 			var values = Enumerable.Range(0, Samples).Select(i => gen.Generate(new PCG(11u, (ulong)i + 1), null, out _)).ToList();
 			var pivot = values.Count(v => v.Configuration.Pivot is not null);
 			var types = values.Count(v => v.Configuration.Pivot?.Types is { Count: > 0 });

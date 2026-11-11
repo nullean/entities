@@ -126,10 +126,7 @@ public class LawsTests
 	// ── Laws over a generated valid source ──
 
 	private static Gen<Stocked> ValidStocked =>
-		GenAuto.Of<Stocked>(
-			AutoMode.Plausible,
-			o => o.Use(Gen.Select(Gen.Int[1, 50], Gen.Int[0, 20], (q, r) => new Stocked("SKU-" + q, q + r, r)))
-		);
+		GenAuto.Of<Stocked>(AutoMode.Plausible, o => o.Use(Gen.Select(Gen.Int[1, 50], Gen.Int[0, 20], (q, r) => new Stocked("SKU-" + q, q + r, r))));
 
 	[Test]
 	public void Generated_valid_values_pass_the_laws_with_a_counter_example_derived_from_each()

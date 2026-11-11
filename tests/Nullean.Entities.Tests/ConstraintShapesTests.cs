@@ -80,9 +80,7 @@ public class ConstraintShapesTests
 	[Test]
 	public void References_reports_every_dangling_reference()
 	{
-		var set = ConstraintSet.From(
-			("MountsExist", Constraints<Site>.References<string, string>(s => s.Mounted, m => [m], s => s.Pages.Select(p => p.Url)))
-		);
+		var set = ConstraintSet.From(("MountsExist", Constraints<Site>.References<string, string>(s => s.Mounted, m => [m], s => s.Pages.Select(p => p.Url))));
 
 		var violations = set.Validate(new Site([new("/a")], ["/a", "/ghost", "/other"]));
 

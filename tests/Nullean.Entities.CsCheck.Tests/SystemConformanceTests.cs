@@ -97,17 +97,15 @@ internal sealed class PaymentSystem
 
 	public PaymentSystem(bool gatewayDeduplicates = true)
 	{
-		Orders
-			.Client("Place", [1], (o, id, send) =>
+		Orders.Client("Place", [1], (o, id, send) =>
+		{
+			if (o.Placed.Contains(id))
 			{
-				if (o.Placed.Contains(id))
-				{
-					return o;
-				}
-				send(Billing, new OrderPlaced(id));
-				return o with { Placed = o.Placed.Add(id) };
-			})
-			.Handles<Charged>((o, m, _) => o with { Paid = o.Paid.Add(m.OrderId) });
+				return o;
+			}
+			send(Billing, new OrderPlaced(id));
+			return o with { Placed = o.Placed.Add(id) };
+		}).Handles<Charged>((o, m, _) => o with { Paid = o.Paid.Add(m.OrderId) });
 
 		Billing.Handles<OrderPlaced>((b, m, send) =>
 		{
@@ -121,10 +119,9 @@ internal sealed class PaymentSystem
 		});
 
 		Gateway.Handles<Charge>(
-			(g, c, _) =>
-				gatewayDeduplicates && c.IdempotencyKey is { } key && g.Keys.Contains(key)
-					? g
-					: g with { Charges = g.Charges.Add(c.OrderId), Keys = c.IdempotencyKey is { } k ? g.Keys.Add(k) : g.Keys }
+			(g, c, _) => gatewayDeduplicates && c.IdempotencyKey is { } key && g.Keys.Contains(key)
+				? g
+				: g with { Charges = g.Charges.Add(c.OrderId), Keys = c.IdempotencyKey is { } k ? g.Keys.Add(k) : g.Keys }
 		);
 	}
 
@@ -154,15 +151,19 @@ internal sealed class PaymentSystem
 		SystemSpec.Of(Orders, Billing, Gateway).Network(network).Crashes(Billing, b => b, during);
 
 	public HostBinding Host(BillingHost.Bug bug = BillingHost.Bug.None) =>
-		Nullean.Entities.CsCheck.Host.For(
-			Billing,
-			create: () => new BillingHost(new BillingDatabase(), bug),
-			deliver: (h, m) => h.Handle(m),
-			stateOf: h => h.State(),
-			sent: h => h.Drain(),
-			crash: (h, point) => h.Crashes.Arm(point),
-			restart: h => h.Restart()
-		);
+		Nullean
+			.Entities
+			.CsCheck
+			.Host
+			.For(
+				Billing,
+				create: () => new BillingHost(new BillingDatabase(), bug),
+				deliver: (h, m) => h.Handle(m),
+				stateOf: h => h.State(),
+				sent: h => h.Drain(),
+				crash: (h, point) => h.Crashes.Arm(point),
+				restart: h => h.Restart()
+			);
 }
 
 public class SystemConformanceTests

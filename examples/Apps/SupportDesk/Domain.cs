@@ -69,8 +69,7 @@ public static class SlaRules
 	public static readonly TimeSpan P1Window = TimeSpan.FromHours(1);
 
 	public static readonly TemporalRuleSet<TicketEvent> All = TemporalRuleSet<TicketEvent>.From(
-		("p1-acknowledged-within-1h",
-		Temporal<TicketEvent>.AfterUntil(
+		("p1-acknowledged-within-1h", Temporal<TicketEvent>.AfterUntil(
 			e => e is TicketEvent.Opened { Priority: Priority.P1 },
 			(opened, next) => next is TicketEvent.Acknowledged && next.TicketId == opened.TicketId,
 			P1Window

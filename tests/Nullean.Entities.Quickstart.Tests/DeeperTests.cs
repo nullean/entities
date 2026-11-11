@@ -11,12 +11,9 @@ public class DeeperTests
 	private static readonly Gen<Order> Orders = Gen.Const(Order.New());
 
 	private static AutoTest<Order> Auto() =>
-		AutoTest
-			.For(OrderConstraints.Instance, Orders)
-			.Deeper(
-				spec =>
-					spec.Domain(new OrderLine("apple", 1, 5)).Boundary(o => o.Lines.Count < 2 && o.Version < 6).Key(o => (o.Status, o.Lines.Count, o.Version))
-			);
+		AutoTest.For(OrderConstraints.Instance, Orders).Deeper(
+			spec => spec.Domain(new OrderLine("apple", 1, 5)).Boundary(o => o.Lines.Count < 2 && o.Version < 6).Key(o => (o.Status, o.Lines.Count, o.Version))
+		);
 
 	[Test]
 	public void Deeper_adds_one_case_each_next_to_the_axes()

@@ -63,7 +63,5 @@ public sealed class OrgService(IOrgRepository repository)
 public static class OrgChartServices
 {
 	public static IServiceCollection AddOrgChart(this IServiceCollection services) =>
-		services
-			.AddSingleton<IOrgRepository, InMemoryOrgRepository>()
-			.AddSingleton<OrgService>();
+		services.AddSingleton<IOrgRepository, InMemoryOrgRepository>().AddSingleton<OrgService>();
 }

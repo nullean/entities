@@ -53,24 +53,26 @@ internal sealed class ServiceOrders(TimeProvider clock, bool shipsUnconfirmed = 
 public class ServiceTestingTests
 {
 	private static readonly StateMachine<ServiceOrderState> Lifecycle = StateMachine<ServiceOrderState>.Define(
-		m =>
-			m
-				.Initial<ServiceOrderState.Draft>(s => s.On("Place").To<ServiceOrderState.Placed>(_ => new ServiceOrderState.Placed(0)))
-				.State<ServiceOrderState.Placed>(
-					s =>
-						s
-							.On("AddLine").To<ServiceOrderState.Placed>(p => p with { Lines = p.Lines + 1 })
-							.On("Confirm").To<ServiceOrderState.Confirmed>(_ => new ServiceOrderState.Confirmed(), when: p => p.Lines > 0)
-							.On("Cancel").To<ServiceOrderState.Cancelled>(_ => new ServiceOrderState.Cancelled())
-				)
-				.State<ServiceOrderState.Confirmed>(
-					s =>
-						s
-							.On("Ship").To<ServiceOrderState.Shipped>(_ => new ServiceOrderState.Shipped())
-							.On("Cancel").To<ServiceOrderState.Cancelled>(_ => new ServiceOrderState.Cancelled())
-				)
-				.Terminal<ServiceOrderState.Shipped>()
-				.Terminal<ServiceOrderState.Cancelled>()
+		m => m
+			.Initial<ServiceOrderState.Draft>(s => s.On("Place").To<ServiceOrderState.Placed>(_ => new ServiceOrderState.Placed(0)))
+			.State<ServiceOrderState.Placed>(
+				s => s
+					.On("AddLine")
+					.To<ServiceOrderState.Placed>(p => p with { Lines = p.Lines + 1 })
+					.On("Confirm")
+					.To<ServiceOrderState.Confirmed>(_ => new ServiceOrderState.Confirmed(), when: p => p.Lines > 0)
+					.On("Cancel")
+					.To<ServiceOrderState.Cancelled>(_ => new ServiceOrderState.Cancelled())
+			)
+			.State<ServiceOrderState.Confirmed>(
+				s => s
+					.On("Ship")
+					.To<ServiceOrderState.Shipped>(_ => new ServiceOrderState.Shipped())
+					.On("Cancel")
+					.To<ServiceOrderState.Cancelled>(_ => new ServiceOrderState.Cancelled())
+			)
+			.Terminal<ServiceOrderState.Shipped>()
+			.Terminal<ServiceOrderState.Cancelled>()
 	);
 
 	private static Task Drive(ServiceOrders service, string trigger) => trigger switch
@@ -111,8 +113,8 @@ public class ServiceTestingTests
 	public async Task A_service_that_does_not_follow_the_machine_in_the_other_direction_is_caught_too()
 	{
 		// Confirm is wired to nothing: the machine allows it, the service never moves.
-		var act = () =>
-			Lifecycle.ConformsToAsync(
+		var act =
+			() => Lifecycle.ConformsToAsync(
 				clock => new ServiceOrders(clock),
 				s => s.State,
 				(s, trigger) => trigger == "Confirm" ? Task.CompletedTask : Drive(s, trigger),
@@ -135,8 +137,14 @@ public class ServiceTestingTests
 	{
 		var rules = ConstraintSet.From(("lifecycle", Lifecycle.AsConstraint()));
 
-		var act = async () =>
-			await ScriptFor().SampleStateAsync(clock => new ServiceOrders(clock, shipsUnconfirmed: true), s => s.State, rules, seed: "0N0XIzNsQ0O2", iter: 500);
+		var act =
+			async () => await ScriptFor().SampleStateAsync(
+				clock => new ServiceOrders(clock, shipsUnconfirmed: true),
+				s => s.State,
+				rules,
+				seed: "0N0XIzNsQ0O2",
+				iter: 500
+			);
 
 		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("lifecycle").And.Contain("Placed");
 	}

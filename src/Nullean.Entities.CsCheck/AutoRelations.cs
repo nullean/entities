@@ -536,9 +536,11 @@ public sealed partial class AutoOptions
 						KeyType = info.KeyType
 					}
 			};
-			if (!Relations.Any(
+			if (
+				!Relations.Any(
 					r => r.Kind == decl.Kind && r.From == decl.From && r.FromMember == decl.FromMember && r.To == decl.To && r.ToKeyMember == decl.ToKeyMember
-				))
+				)
+			)
 			{
 				Relations.Add(decl);
 			}

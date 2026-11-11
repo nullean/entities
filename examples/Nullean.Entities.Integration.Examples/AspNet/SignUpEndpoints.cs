@@ -18,8 +18,7 @@ public sealed partial record SignUp(string Email, int Age)
 
 public static class SignUpEndpoints
 {
-	public static IServiceCollection AddSignUp(this IServiceCollection services) =>
-		services.AddConstraints<SignUp>().AddConstraintProblemDetails();
+	public static IServiceCollection AddSignUp(this IServiceCollection services) => services.AddConstraints<SignUp>().AddConstraintProblemDetails();
 
 	public static void MapSignUp(this WebApplication app)
 	{
