@@ -6,6 +6,21 @@ layer over `IObservable<T>` (`Nullean.Entities.Reactive`), and a property-test d
 
 ## Build and test
 
+`mise install` provides the toolchain: the .NET 11 SDK pinned in `global.json`, plus the net10.0 runtime every package
+and test project also targets. The everyday tasks have the same names as in every nullean repository:
+
+```sh
+mise run build     # clean + compile
+mise run test      # build + run the example apps + every test project on every target framework
+mise run pack      # build, pack the NuGet packages and validate them
+mise run ci        # what CI's build job runs: test, then pack and validate every package
+mise run docs      # build the docs-builder site, apply the landing page, serve it
+mise run check     # workflow security checks (zizmor)
+mise run clean     # delete build output
+```
+
+`./build.sh` runs the same targets, and the ones without a task (`aot`, `apps`, `release`):
+
 ```sh
 ./build.sh build   # clean + compile
 ./build.sh test    # build + run every test project (see Layout for the list)
@@ -69,10 +84,8 @@ consuming project's TFM) by clearing the inherited `TargetFrameworks` and settin
 `TargetFramework` explicitly; clearing it first matters, since a non-empty inherited
 `TargetFrameworks` wins over a project-local `TargetFramework` otherwise.
 
-`global.json` pins the .NET 11 preview SDK (`allowPrerelease: true`) rather than .NET 10, because a
-newer SDK can always build older TFMs but the reverse does not hold for an unreleased one. Expect
-`NETSDK1057` ("you are using a preview version of .NET") on every build — that is expected, not a
-problem to silence.
+`global.json` pins the .NET 11 SDK (11.0.100) rather than .NET 10, because a newer SDK can always
+build older TFMs but the reverse does not hold.
 
 C# 11's discriminated unions (`readonly union Name(Case1, Case2, ...);`) only parse under
 `LangVersion=preview` in the .NET 11 SDK pinned in `global.json` (a release candidate) — `LangVersion=latest` resolves to

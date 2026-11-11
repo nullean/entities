@@ -24,20 +24,23 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - run: git fetch --prune --tags
         shell: bash
 
-      - uses: actions/setup-dotnet@v5
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          global-json-file: global.json
+          cache: false # this workflow publishes what these jobs build; never restore a cache a PR could have written
+        env:
+          MISE_JOBS: "1" # dotnet versions share one DOTNET_ROOT; installing them in parallel races
 
       # build, every test project on every target framework, then pack and validate every package
       - name: Build, test, pack
-        run: ./build.sh pack
+        run: mise run ci
 
   # The core and Reactive packages claim to be trim and AOT clean: publish the smoke app NativeAOT on each OS and run it.
   aot:
@@ -49,13 +52,16 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v5
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          global-json-file: global.json
+          cache: false # this workflow publishes what these jobs build; never restore a cache a PR could have written
+        env:
+          MISE_JOBS: "1" # dotnet versions share one DOTNET_ROOT; installing them in parallel races
 
       - name: Publish and run the AOT smoke app
         run: dotnet run --project build/scripts -- aot
@@ -73,16 +79,19 @@ jobs:
       id-token: write   # NuGet trusted publishing: exchange the workflow's OIDC token for a short-lived key
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - run: git fetch --prune --tags
         shell: bash
 
-      - uses: actions/setup-dotnet@v5
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          global-json-file: global.json
+          cache: false # a release never restores a cache PR builds could have written
+        env:
+          MISE_JOBS: "1" # dotnet versions share one DOTNET_ROOT; installing them in parallel races
 
       # the build job tested this commit; pack it again here (MinVer gives the same version) and check the packages before anything is pushed
       - name: Build, pack and validate
@@ -99,12 +108,14 @@ jobs:
       # login sits right before the push. NUGET_USER is the nuget.org profile name, set at the org level.
       - name: Log in to nuget.org (trusted publishing)
         id: nuget-login
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         with:
           user: ${{ secrets.NUGET_USER }}
 
       - name: Publish to nuget.org
-        run: dotnet nuget push '.artifacts/build-output/*.nupkg' -k ${{ steps.nuget-login.outputs.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push '.artifacts/build-output/*.nupkg' -k "$NUGET_API_KEY" -s https://api.nuget.org/v3/index.json --skip-duplicate
 
       # last, so a release is announced only once its packages are out; a failed run can be re-run (--skip-duplicate). The notes are the draft release-drafter
       # kept from the merged pull requests; publishing it for this tag makes it the release.
@@ -138,6 +149,12 @@ jobs:
           done
           gh release edit "$TAG" --notes-file release-body.md
 
+  # Static analysis of these workflows (nullean/.github).
+  zizmor:
+    uses: nullean/.github/.github/workflows/zizmor.yml@09af1fa16762b8ae42d899d45430a4267df5300c # v1.2.0
+    permissions:
+      contents: read
+
   # Builds the documentation as the docs workflow deploys it (design-system layout, theme, landing page), so a pull
   # request that breaks the docs build or scripts/docs-finish.sh fails here rather than on main.
   docs:
@@ -145,11 +162,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # The design-system layout is behind a feature flag, read from the environment only.
       - name: Build documentation
-        uses: elastic/docs-builder@main
+        uses: elastic/docs-builder@036a375759d876e2df67955ebec0382cd6b09249 # v1
         env:
           FEATURE_NAVIGATION_PREVIEW: true
 
