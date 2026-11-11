@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.CsCheck.FileSystem.svg)](https://www.nuget.org/packages/Nullean.Entities.CsCheck.FileSystem)
-
 **Test your file rules against missing, symlinked, hidden and out-of-root files without writing a file system by hand.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.CsCheck.FileSystem?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.CsCheck.FileSystem)
 
 `IFileSystem`, `IFileInfo` and `IDirectoryInfo` have no constructor, and what matters is what is on the disk, so a generator cannot build them by shape. This package teaches the `GenAuto` generator of [`Nullean.Entities.CsCheck`](https://www.nuget.org/packages/Nullean.Entities.CsCheck) to build them: `UseFileSystem()` gives each generated value its own `MockFileSystem`. It is the test-side partner of [`Nullean.Entities.FileSystem`](https://www.nuget.org/packages/Nullean.Entities.FileSystem), and it is optional. It uses reflection through AutoGen, so it is for test projects and is not trim or AOT clean. It targets `net10.0` and `net11.0`.
 
@@ -16,7 +16,7 @@ dotnet add package Nullean.Entities.CsCheck.FileSystem
 
 It brings `Nullean.Entities.CsCheck`, `Nullean.Entities.FileSystem` and `System.IO.Abstractions.TestingHelpers`. Put it in a test project.
 
-## Get going
+## Quick start
 
 Declare the file rules once, generate worlds, and ask which rules a generated world can break:
 
@@ -88,7 +88,7 @@ where `valid` is one `Docset` whose files all satisfy the rules (for example, a 
 - Rules whose counter-examples need a structure the generator cannot draw (for example a specific folder name your rule looks for) still need one written by hand.
 - It reaches the file-system members through AutoGen's reflection; do not reference it from an AOT-published app.
 
-## Next
+## Learn more
 
 - The rules being tested: [`Nullean.Entities.FileSystem`](https://www.nuget.org/packages/Nullean.Entities.FileSystem)
 - The generator and `AutoTest`: [`Nullean.Entities.CsCheck`](https://www.nuget.org/packages/Nullean.Entities.CsCheck)
@@ -97,3 +97,4 @@ where `valid` is one `Docset` whose files all satisfy the rules (for example, a 
 - Generated data reference: https://entities.nullean.net/reference/generated-data/
 - File systems on the docs site: https://entities.nullean.net/integration/file-system/, and every integration: https://entities.nullean.net/integration/
 - A worked example: https://github.com/nullean/entities/tree/main/examples/Apps/DocsSiteBuild
+- Source and issues: https://github.com/nullean/entities

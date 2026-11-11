@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.svg)](https://www.nuget.org/packages/Nullean.Entities)
-
 **Write each rule of your domain type once, and have every code path, every caller and every test hold to it.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities)
 
 A guard clause protects one call site. A second path into the same operation needs a second copy of the guard, and a forgotten copy fails nothing at compile time: the rule silently stops applying.
 `Nullean.Entities` makes a rule a named value (`Constraint<T>`), gathers the rules of a type into a `ConstraintSet<T>`, and checks them when you validate a value, when you apply a change, and when you build a value.
@@ -25,7 +25,7 @@ To have the rules tested for you, add the test-side package to a test project:
 dotnet add package Nullean.Entities.CsCheck
 ```
 
-## Get going
+## Quick start
 
 Declare the rules of an order once, next to the type. `[Constraints]` collects every static `Constraint<Order>` field of the class into `OrderConstraints.All`, so a rule you add later cannot be forgotten.
 
@@ -186,7 +186,7 @@ The kind of rule decides the test: a state rule becomes an invariant test, `Idem
 - `Nullean.Entities.CsCheck` builds generated data by reflection: use it in tests, not in a published app.
 - `Eventually` and `Required()` temporal rules are decided only when the run finishes, so they are for a bounded run.
 
-## Next
+## Learn more
 
 - [Getting started](https://entities.nullean.net/getting-started/): the Quickstart in five minutes, including how to read the first red test.
 - [The nine axes](https://entities.nullean.net/axes/): one page per kind of rule, each with the real failure it prints.
@@ -197,6 +197,8 @@ The kind of rule decides the test: a state rule becomes an invariant test, `Idem
 - Source and examples: https://github.com/nullean/entities/tree/main/examples
 - Related packages: [Nullean.Entities.CsCheck](https://www.nuget.org/packages/Nullean.Entities.CsCheck), [Nullean.Entities.Reactive](https://www.nuget.org/packages/Nullean.Entities.Reactive), [Nullean.Entities.Extensions.DependencyInjection](https://www.nuget.org/packages/Nullean.Entities.Extensions.DependencyInjection), [Nullean.Entities.AspNetCore](https://www.nuget.org/packages/Nullean.Entities.AspNetCore)
 - License: MIT
+- Source and issues: https://github.com/nullean/entities
+
 
 ## Reference
 
@@ -631,7 +633,7 @@ There are two ways to declare a machine. [State machines as data](#state-machine
 `StateMachine<TState>` declares the graph once and validates it eagerly at startup:
 
 ```csharp
-private abstract record OrderState
+public abstract record OrderState
 {
     public sealed record Draft : OrderState;
     public sealed record Placed(int Lines) : OrderState;

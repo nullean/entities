@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.Argh.svg)](https://www.nuget.org/packages/Nullean.Entities.Argh)
-
 **A bad flag value stops your command with a clear `Error: --flag: message` and exit code 2, using the same rules your domain already has.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.Argh?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.Argh)
 
 Without this package, a command-line tool either checks its option object by hand at the top of every handler or lets a bad value reach the code that uses it. This package validates the option objects a [Nullean.Argh](https://github.com/nullean/argh) command receives against `Nullean.Entities` constraints, and reports a violation like any other bad value Argh finds.
 
@@ -20,7 +20,7 @@ dotnet add package Nullean.Entities
 dotnet add package Nullean.Entities.Argh
 ```
 
-## Get going
+## Quick start
 
 Register the constraints for the option type once at startup, before `RunAsync`. The registration lives in a module initializer here because Argh's generated parser runs the validator for every command that binds the type; this is the shape the package's own tests use.
 
@@ -87,7 +87,7 @@ The registration applies to every command that binds that type: `[AsParameters]`
 - Constraints are synchronous and pure: do not check that a file exists or a host answers here. Use Argh's `[Existing]` and similar checks for the file system.
 - Needs Nullean.Argh 0.21 (`ArghValidation`); other versions are untested.
 
-## Next
+## Learn more
 
 - This integration on the docs site: https://entities.nullean.net/integration/argh/, and every integration: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
@@ -95,3 +95,4 @@ The registration applies to every command that binds that type: `[AsParameters]`
 - Web APIs: https://www.nuget.org/packages/Nullean.Entities.AspNetCore
 - Options validation and registration: https://www.nuget.org/packages/Nullean.Entities.Extensions.DependencyInjection
 - Tests for the package: https://github.com/nullean/entities/tree/main/tests/Nullean.Entities.Argh.Tests
+- Source and issues: https://github.com/nullean/entities

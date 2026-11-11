@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.ReactiveUI.svg)](https://www.nuget.org/packages/Nullean.Entities.ReactiveUI)
-
 **Your form shows "must contain @" next to the email field, using the rules your domain type already has, with the `BindValidation` calls you already write.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.ReactiveUI?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.ReactiveUI)
 
 Without this package, a ReactiveUI view model repeats its domain's rules as `this.ValidationRule(...)` calls, one per property, and they drift apart. This package checks the
 domain type's `Nullean.Entities` constraint set on every property change of the view model and reports the violations on its ReactiveUI.Validation `ValidationContext`.
@@ -22,7 +22,7 @@ dotnet add package Nullean.Entities
 dotnet add package Nullean.Entities.ReactiveUI
 ```
 
-## Get going
+## Quick start
 
 The rules live on the domain type. A violation names its member; a rule about the whole value has none:
 
@@ -108,10 +108,11 @@ shows exactly what the server would reject.
   and dynamic code.
 - Tested with ReactiveUI 26.0.1 and ReactiveUI.Validation 8.1.0; other versions are untested.
 
-## Next
+## Learn more
 
 - This integration on the docs site: https://entities.nullean.net/integration/reactiveui/, and every integration: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
 - ReactiveUI.Validation: https://github.com/reactiveui/ReactiveUI.Validation
 - Rules over event streams (a different package): https://www.nuget.org/packages/Nullean.Entities.Reactive
 - Tests for the package: https://github.com/nullean/entities/tree/main/tests/Nullean.Entities.ReactiveUI.Tests
+- Source and issues: https://github.com/nullean/entities

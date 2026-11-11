@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.Reactive.svg)](https://www.nuget.org/packages/Nullean.Entities.Reactive)
-
 **Find out the moment an event stream breaks a rule about order, gaps or completion, such as a cancelled order that ships or a ticket nobody answered in an hour.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.Reactive?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.Reactive)
 
 A point-in-time check sees one value. It cannot answer "was `Shipped` ever emitted after `Cancelled`?" or "did every placed order eventually ship?", because those are rules about a sequence. This package lifts named constraints onto an `IObservable<TEvent>`: you attach a set of rules to the stream and read a verdict per rule, `Pending`, `Holds` or `Violated`, as events arrive.
 
@@ -18,7 +18,7 @@ dotnet add package Nullean.Entities.Reactive
 
 The package targets `net10.0` and `net11.0` and depends on `Nullean.Entities` and `System.Reactive` 7.0.0. To run these rules inside generated tests, add [`Nullean.Entities.CsCheck.Reactive`](https://www.nuget.org/packages/Nullean.Entities.CsCheck.Reactive) as well.
 
-## Get going
+## Quick start
 
 Declare the events, name a rule, attach it to a stream, and push events. This is a complete program (a `Subject<T>` stands in for your service's event stream).
 
@@ -255,7 +255,7 @@ Constraints<OrderEventUnion>.Never(
 - **Shared subscription.** A set subscribes once and fans out, so a cold source observable is subscribed one time per `Attach`, not one time per rule.
 - `Transitions((Type, Type)[])` matches by `IsAssignableFrom` on the runtime types of the events.
 
-## Next
+## Learn more
 
 - Docs: [Rx and observable streams](https://entities.nullean.net/reference/rx/), [temporal rules](https://entities.nullean.net/axes/06-temporal/) and [liveness](https://entities.nullean.net/axes/07-liveness/)
 - Source examples: [order, retry, search box, commerce and traffic](https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Reactive.Examples)
@@ -264,3 +264,4 @@ Constraints<OrderEventUnion>.Never(
 - [Nullean.Entities.CsCheck](https://www.nuget.org/packages/Nullean.Entities.CsCheck): the rest of the generated tests
 - Source and full documentation: https://github.com/nullean/entities and https://entities.nullean.net/
 - License: MIT
+- Source and issues: https://github.com/nullean/entities

@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.EntityFrameworkCore.svg)](https://www.nuget.org/packages/Nullean.Entities.EntityFrameworkCore)
-
 **An entity that breaks its rules never reaches the database: `SaveChanges` throws first, and a status that moves backwards is caught too, because the before is the row EF loaded.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.EntityFrameworkCore?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.EntityFrameworkCore)
 
 Without this package, an EF entity is changed in place, so `Apply` cannot see a "before", and each service has to remember to check the entity before saving. This package adds a `SaveChangesInterceptor`: on every `SaveChanges` and `SaveChangesAsync` it validates added entities and checks modified ones from EF's original values to their current state, and throws one `ConstraintViolationException` for every offending entity before anything is written.
 
@@ -19,7 +19,7 @@ dotnet add package Nullean.Entities
 dotnet add package Nullean.Entities.EntityFrameworkCore
 ```
 
-## Get going
+## Quick start
 
 Declare the rules on the entity class and register them where you configure the context:
 
@@ -87,9 +87,10 @@ The value: the rule is written once, on the entity, and every code path that sav
 - Sets are registered on the interceptor, not read from `IConstraintRegistry`: that registry validates an `object` but cannot run the before-and-after check a modified entity needs.
 - Not marked trim or AOT compatible. The package itself builds without trim warnings, but EF Core's NativeAOT support is experimental.
 
-## Next
+## Learn more
 
 - This integration on the docs site: https://entities.nullean.net/integration/ef-core/, and every integration: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
 - Web APIs: https://www.nuget.org/packages/Nullean.Entities.AspNetCore
 - Tests for the package: https://github.com/nullean/entities/tree/main/tests/Nullean.Entities.EntityFrameworkCore.Tests
+- Source and issues: https://github.com/nullean/entities

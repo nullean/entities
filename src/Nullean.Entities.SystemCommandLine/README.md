@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.SystemCommandLine.svg)](https://www.nuget.org/packages/Nullean.Entities.SystemCommandLine)
-
 **A bad option value stops your System.CommandLine command with `--port: must be between 1 and 65535` and exit code 1, like any parse error, using the rules your domain already has.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.SystemCommandLine?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.SystemCommandLine)
 
 System.CommandLine 2.0 parses and converts each option, but it has no options-object binding: the action reads the values and builds its own object. Without this package that object is checked by hand at the top of every action, or not at all. This package checks it against `Nullean.Entities` constraints right before the action runs, and reports a violation the way System.CommandLine reports its own errors.
 
@@ -20,7 +20,7 @@ dotnet add package Nullean.Entities
 dotnet add package Nullean.Entities.SystemCommandLine
 ```
 
-## Get going
+## Quick start
 
 Write the binding once, as a function from the parse result to your options type. Use it in the action, and give it to `ValidateConstraints` after `SetAction`:
 
@@ -93,7 +93,7 @@ Which option an error names comes from `Violation.Member`: the member in kebab-c
 - Constraints are synchronous and pure: do not check that a file exists or a host answers here. Use System.CommandLine's `AcceptExistingOnly()` and similar argument validators for that.
 - Tested with System.CommandLine 2.0.14. 3.0 is a release candidate at the time of writing and is untested.
 
-## Next
+## Learn more
 
 - This integration on the docs site: https://entities.nullean.net/integration/system-commandline/, and every integration: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
@@ -101,3 +101,4 @@ Which option an error names comes from `Violation.Member`: the member in kebab-c
 - Nullean.Argh command lines: https://www.nuget.org/packages/Nullean.Entities.Argh
 - Web APIs: https://www.nuget.org/packages/Nullean.Entities.AspNetCore
 - Tests for the package: https://github.com/nullean/entities/tree/main/tests/Nullean.Entities.SystemCommandLine.Tests
+- Source and issues: https://github.com/nullean/entities

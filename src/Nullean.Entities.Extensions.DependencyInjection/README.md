@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.Extensions.DependencyInjection.svg)](https://www.nuget.org/packages/Nullean.Entities.Extensions.DependencyInjection)
-
 **Declare a constraint set once, and your app refuses to start with bad configuration instead of failing on the first request.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.Extensions.DependencyInjection?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.Extensions.DependencyInjection)
 
 Without this package, every framework hook that needs a rule (an options validator, an endpoint filter, a command-line parser) either reflects over types or gets the rule wired by hand. This package registers your `ConstraintSet<T>` values in `Microsoft.Extensions.DependencyInjection`, adds a type-erased `IConstraintRegistry` that validates an object it only holds as `object`, and plugs constraints into `IOptions<T>` validation.
 
@@ -21,7 +21,7 @@ dotnet add package Nullean.Entities.Extensions.DependencyInjection
 
 Install this package when you want to validate `IOptions<T>` or register constraints in a service collection. Install `Nullean.Entities.AspNetCore` for web endpoints and `Nullean.Entities.Argh` for CLI options; the ASP.NET Core package already depends on this one.
 
-## Get going
+## Quick start
 
 Fail startup when configuration breaks a rule. This is a complete top-level program.
 
@@ -119,10 +119,11 @@ Validate by exact type, without reflection:
 - Constraints are synchronous and pure. A rule that needs a database (is this email taken) does not belong here.
 - `ValidateConstraints` for options reports errors only; a warning-level rule never blocks startup.
 
-## Next
+## Learn more
 
 - Web endpoints and ProblemDetails: https://www.nuget.org/packages/Nullean.Entities.AspNetCore
 - Command-line options: https://www.nuget.org/packages/Nullean.Entities.Argh
 - Options and DI on the docs site: https://entities.nullean.net/integration/options/, and the other integrations (ASP.NET Core, Marten, EF Core, MassTransit): https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
 - Runnable example: https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Integration.Examples
+- Source and issues: https://github.com/nullean/entities

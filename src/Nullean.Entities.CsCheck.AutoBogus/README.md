@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.CsCheck.AutoBogus.svg)](https://www.nuget.org/packages/Nullean.Entities.CsCheck.AutoBogus)
-
 **Keep your existing `AutoFaker` setup (binders, per-type overrides, skip rules) and still get reproducible, shrinkable property-test data.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.CsCheck.AutoBogus?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.CsCheck.AutoBogus)
 
 `GenAuto.Of<T>()` in [`Nullean.Entities.CsCheck`](https://www.nuget.org/packages/Nullean.Entities.CsCheck) builds any type itself: lock-free, shrinkable, plausible values mixed with edge cases (blank and hostile strings, NaN, negatives, undefined enums, `Start == End`). This package is the alternative for a team that already configures [`AutoFaker`](https://github.com/soenneker/soenneker.utils.autobogus), or that wants strictly plausible Bogus data. `GenAutoBogus.Of<T>()` returns a CsCheck `Gen<T>` backed by `AutoFaker`, with every draw routed through CsCheck's `PCG`.
 
@@ -18,7 +18,7 @@ dotnet add package Nullean.Entities.CsCheck.AutoBogus
 
 It brings `Nullean.Entities.CsCheck` and `Soenneker.Utils.AutoBogus`. Put it in a test project.
 
-## Get going
+## Quick start
 
 Draw values and check a property. A failing property reports a seed, and the value shrinks:
 
@@ -91,7 +91,7 @@ Choose this package when the `AutoFaker` configuration is worth keeping. The mea
 - `configure` runs once per thread, not once per sample: keep it pure.
 - Output depends on the installed Bogus dataset version, so a Bogus update can change what a seed produces.
 
-## Next
+## Learn more
 
 - The default generator and the constraint helpers: [`Nullean.Entities.CsCheck`](https://www.nuget.org/packages/Nullean.Entities.CsCheck)
 - Why this is optional, with measurements: https://github.com/nullean/entities/blob/main/docs/autobogus-decision.md
@@ -99,3 +99,4 @@ Choose this package when the `AutoFaker` configuration is worth keeping. The mea
 - Generated data reference: https://entities.nullean.net/reference/generated-data/
 - Testing API reference: https://entities.nullean.net/reference/testing-api/
 - Getting started: https://entities.nullean.net/getting-started/
+- Source and issues: https://github.com/nullean/entities
