@@ -6,7 +6,7 @@
   <ItemGroup>
     <GlobalPackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
     <!-- Formats every C# project on `dotnet build` (Debug: rewrite, Release: check-and-fail). -->
-    <GlobalPackageReference Include="curb" Version="0.7.3" PrivateAssets="All" />
+    <GlobalPackageReference Include="curb" Version="0.14.0" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
