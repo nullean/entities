@@ -98,7 +98,7 @@ The packages are not published yet; until they are, reference them from a checko
 
 ## Building from source
 
-Requires the .NET 11 preview SDK (pinned in `global.json`); every project multi-targets `net10.0;net11.0`.
+Requires the .NET 11 SDK (pinned in `global.json`; `mise install` provides it); every project multi-targets `net10.0;net11.0`.
 
 ```sh
 ./build.sh build

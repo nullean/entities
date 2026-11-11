@@ -438,8 +438,8 @@ dotnet add package Nullean.Entities.CsCheck.Reactive
 
 ## Building from source
 
-Requires the .NET 11 preview SDK (pinned in `global.json`) — every project multi-targets
-`net10.0;net11.0`. Expect an `NETSDK1057` preview-SDK notice on every build; that is expected.
+Requires the .NET 11 SDK (pinned in `global.json`; `mise install` provides it) — every project multi-targets
+`net10.0;net11.0`.
 
 ```sh
 git clone https://github.com/nullean/entities.git nullean-entities
