@@ -76,7 +76,7 @@ let ensureTool () =
         | v -> sprintf "https://github.com/elastic/docs-builder/releases/download/%s/%s" v archive
 
     printfn "docs-builder not cached, downloading %s" url
-    Directory.CreateDirectory(Path.GetDirectoryName toolPath) |> ignore
+    Directory.CreateDirectory(nonNull (Path.GetDirectoryName toolPath)) |> ignore
 
     let zip = Path.Combine(Path.GetTempPath(), archive)
     use client = new HttpClient()
@@ -212,7 +212,7 @@ let private handle (root: string) (context: HttpListenerContext) =
         try
             let raw = Uri.UnescapeDataString(match context.Request.Url with | null -> "/" | u -> u.AbsolutePath)
 
-            let relative =
+            let relative: string | null =
                 if PathPrefix = "" then
                     raw.TrimStart('/')
                 else
@@ -229,7 +229,9 @@ let private handle (root: string) (context: HttpListenerContext) =
                     else
                         raw.Substring(mount.Length).TrimStart('/')
 
-            if relative <> null then
+            match relative with
+            | null -> ()
+            | relative ->
                 let candidate = Path.GetFullPath(Path.Combine(root, relative))
 
                 // Never serve anything outside the output directory, whatever the request asks for.

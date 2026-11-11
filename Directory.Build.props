@@ -44,15 +44,19 @@
     <Authors>Nullean and contributors</Authors>
     <Copyright>Nullean</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/nullean/entities</PackageProjectUrl>
+    <PackageProjectUrl>https://entities.nullean.net</PackageProjectUrl>
+    <PackageReleaseNotes>https://github.com/nullean/entities/releases</PackageReleaseNotes>
     <RepositoryUrl>https://github.com/nullean/entities</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <PackageIcon>nuget-icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- Symbols travel inside the dll (no separate snupkg to publish). SourceLink itself is built into the SDK; EmbedUntrackedSources adds what it cannot reach:
          files generated at build time (the [Constraints] companions, GeneratedRegex) are not in git, so their text is embedded and a debugger can step into them. -->
     <DebugType>embedded</DebugType>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- Checks each package's target frameworks expose compatible APIs. Add PackageValidationBaselineVersion (the last release) to also fail on unlabelled API breaks. -->
+    <EnablePackageValidation>true</EnablePackageValidation>
   </PropertyGroup>
 
   <!-- A CI build records repository-relative paths, so a package built on a runner does not carry its checkout path. -->
@@ -60,13 +64,15 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
-  <!-- PackageIcon/PackageReadmeFile above only name the files; NuGet still needs them added to the
+  <!-- PackageIcon/PackageReadmeFile above only name the files; NuGet still needs them (and the skill) added to the
        package explicitly. Unlike curb (one product, one README repeated into every package), each
        package here is independently installable and covers a genuinely different surface, so each
        gets its own README.md living next to its .csproj — package-specific, not the repo-wide one. -->
   <ItemGroup Condition="$(MSBuildProjectDirectory.Replace('\','/').Contains('/src/'))">
     <None Include="$(MSBuildProjectDirectory)/README.md" Pack="true" PackagePath="README.md" />
     <None Include="$(MSBuildThisFileDirectory)nuget-icon.png" Pack="true" PackagePath="nuget-icon.png" />
+    <!-- The package's agent skill (https://devblogs.microsoft.com/dotnet/delivering-skills-in-nuget-packages/): skills/<name>/SKILL.md, written from the code. -->
+    <None Include="$(MSBuildProjectDirectory)/skills/**/*" Pack="true" PackagePath="skills/" Visible="false" />
   </ItemGroup>
 
   <!-- tests/ projects -->
