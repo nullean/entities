@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.CsCheck.Reactive.svg)](https://www.nuget.org/packages/Nullean.Entities.CsCheck.Reactive)
-
 **Find the missed deadline and the out-of-order event in a service built on `IObservable<T>`, without waiting for real time: CsCheck generates the calls and the delays, and hands you the shortest failing sequence and a seed that replays it.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.CsCheck.Reactive?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.CsCheck.Reactive)
 
 A service that emits events on Rx timers is hard to test. A 48-hour deadline cannot be waited out, and the interleavings that break a rule are the ones you did not write. This package runs a generated `Script<TSut>` against your service on a virtual Rx clock (a `HistoricalScheduler` that the generated delays advance), and checks a set of [`Nullean.Entities.Reactive`](https://www.nuget.org/packages/Nullean.Entities.Reactive) rules against the events it emitted.
 
@@ -18,7 +18,7 @@ dotnet add package Nullean.Entities.CsCheck.Reactive   # tests only
 
 The package targets `net10.0` and `net11.0`. It brings `Nullean.Entities.CsCheck`, `Nullean.Entities.Reactive` and `System.Reactive` 7.0.0 with it.
 
-## Get going
+## Quick start
 
 A shipment service confirms an order and ships it later. The rule says it ships within 60 seconds. The service has a bug: it ships after 90. The service takes an Rx `IScheduler` and uses it for every delay, which is what lets the test control time.
 
@@ -113,7 +113,7 @@ script.SampleWith(scheduler => new Shipments(scheduler), s => s.Events, shipsWit
 - **`RunWith` reports the final failure only.** It emits `ConstraintResolved` for the shrunk failing case (replayed from the seed), not for every iteration.
 - **Name clash.** In a test namespace nested under `Nullean.Entities`, the synchronous `Constraints<T>` is found first. Use `using static Nullean.Entities.Reactive.Constraints<TEvent>;` with an alias as in the Reactive package.
 
-## Next
+## Learn more
 
 - Docs: [Rx and observable streams](https://entities.nullean.net/reference/rx/) and [time and deadlines](https://entities.nullean.net/guides/time/), for the `TimeProvider` route that needs no Rx
 - Source examples: [order state and retry examples](https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Reactive.Examples)
@@ -121,3 +121,4 @@ script.SampleWith(scheduler => new Shipments(scheduler), s => s.Events, shipsWit
 - [Nullean.Entities.CsCheck](https://www.nuget.org/packages/Nullean.Entities.CsCheck): the generators, `AutoTest` and the no-Rx terminals
 - [Source](https://github.com/nullean/entities) and [documentation](https://entities.nullean.net/)
 - License: MIT
+- Source and issues: https://github.com/nullean/entities

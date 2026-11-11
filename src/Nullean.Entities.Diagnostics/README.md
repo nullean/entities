@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.Diagnostics.svg)](https://www.nuget.org/packages/Nullean.Entities.Diagnostics)
-
 **Every rejected change and every missed deadline shows up in your logs, metrics and traces, under names OpenTelemetry subscribes to, without an OpenTelemetry dependency.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.Diagnostics?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.Diagnostics)
 
 Without this package, a violation your service sees at runtime is a `Result.Fail` someone has to remember to log, and a deadline a `TemporalMonitor` reaches on its timer is seen by nobody. This package reports both through the platform's own abstractions: structured `ILogger` records with stable event ids, counters on a `System.Diagnostics.Metrics` meter named `Nullean.Entities`, and an event on the current `Activity`.
 
@@ -19,7 +19,7 @@ dotnet add package Nullean.Entities
 dotnet add package Nullean.Entities.Diagnostics
 ```
 
-## Get going
+## Quick start
 
 Register it once, and pass outcomes through `ReportTo`. It returns what it was given, so it chains.
 
@@ -72,9 +72,10 @@ builder.Services.AddOpenTelemetry()
 - The monitor reports on the thread that caused the change, the `TimeProvider`'s timer for a deadline.
 - `MonitoredConstraintSet<TEvent>` in `Nullean.Entities.Reactive` is not hooked.
 
-## Next
+## Learn more
 
 - This integration on the docs site: https://entities.nullean.net/integration/diagnostics/, and every integration: https://entities.nullean.net/integration/
 - Time and temporal rules: https://entities.nullean.net/guides/time/
 - Options validation and registration: https://www.nuget.org/packages/Nullean.Entities.Extensions.DependencyInjection
 - Tests for the package: https://github.com/nullean/entities/tree/main/tests/Nullean.Entities.Diagnostics.Tests
+- Source and issues: https://github.com/nullean/entities

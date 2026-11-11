@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.AspNetCore.svg)](https://www.nuget.org/packages/Nullean.Entities.AspNetCore)
-
 **Your domain rules answer bad requests with a standard 400 `ValidationProblem`, and you do not write the mapping.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.AspNetCore?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.AspNetCore)
 
 Without this package, a rule that lives on your domain type is checked in each handler, and each handler turns the failures into a response its own way. This package validates the request body before the handler runs, turns a thrown `ConstraintViolationException` into the same response, and maps `Result<T>` and `ApplyOutcome<T>` to 200 or 400. Errors are keyed by `Violation.Member`, so a client can attach each message to a form field.
 
@@ -19,7 +19,7 @@ dotnet add package Nullean.Entities
 dotnet add package Nullean.Entities.AspNetCore
 ```
 
-## Get going
+## Quick start
 
 A complete minimal API (`Microsoft.NET.Sdk.Web`). `SignUp` declares its rules next to the type; `AddConstraints` registers them.
 
@@ -109,7 +109,7 @@ MVC controllers:
 - The key of an error is `Violation.Member`, or the rule's id when the rule is not about one member.
 - Requires the `Microsoft.AspNetCore.App` framework reference, so it is not for class libraries without it.
 
-## Next
+## Learn more
 
 - This integration on the docs site: https://entities.nullean.net/integration/aspnetcore/, and every integration: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
@@ -117,3 +117,4 @@ MVC controllers:
 - Command-line apps: https://www.nuget.org/packages/Nullean.Entities.Argh
 - EF Core entities checked on `SaveChanges` (its exception becomes the same 400): https://www.nuget.org/packages/Nullean.Entities.EntityFrameworkCore
 - Runnable example: https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Integration.Examples/AspNet
+- Source and issues: https://github.com/nullean/entities

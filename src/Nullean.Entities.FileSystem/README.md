@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.FileSystem.svg)](https://www.nuget.org/packages/Nullean.Entities.FileSystem)
-
 **Catch the missing image, the `../../secret.png` path and the symlink that escapes your content folder with named rules, before they reach a build or a server.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.FileSystem?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.FileSystem)
 
 A model that holds `IFileInfo` and `IDirectoryInfo` usually checks its files in scattered `if (!file.Exists)` calls, and the path tricks (`..`, symlinks, hidden folders, a sibling folder that shares a prefix) get missed. This package states those checks as `Constraint<T>` values, one named rule per concern, built on [`Nullean.Entities`](https://www.nuget.org/packages/Nullean.Entities). Each rule reports every offending path with its full path as evidence, and reads the file system the path came from, so a test on a `MockFileSystem` checks the code that runs against the disk.
 
@@ -18,7 +18,7 @@ dotnet add package Nullean.Entities.FileSystem
 dotnet add package System.IO.Abstractions.TestingHelpers
 ```
 
-## Get going
+## Quick start
 
 Declare the rules for a model that holds files, then validate a value. This example runs against a `MockFileSystem`; pass `new System.IO.Abstractions.FileSystem()` to run it on the disk.
 
@@ -116,7 +116,7 @@ Files<Docset>.DirectoriesExist(
 - `MaxSize` and `NotEmpty` skip a missing file; pair them with `Exist`.
 - Symlink behaviour depends on what the `IFileSystem` implementation reports (`MockFileSystem` supports `CreateSymbolicLink`).
 
-## Next
+## Learn more
 
 - Generate counter-examples for these rules: [`Nullean.Entities.CsCheck.FileSystem`](https://www.nuget.org/packages/Nullean.Entities.CsCheck.FileSystem)
 - The core package: [`Nullean.Entities`](https://www.nuget.org/packages/Nullean.Entities)
@@ -124,3 +124,4 @@ Files<Docset>.DirectoriesExist(
 - Adopting on an existing domain: https://entities.nullean.net/guides/adopting/
 - File systems on the docs site: https://entities.nullean.net/integration/file-system/, and every integration: https://entities.nullean.net/integration/
 - A runnable example (docs site build): https://github.com/nullean/entities/tree/main/examples/Apps/DocsSiteBuild
+- Source and issues: https://github.com/nullean/entities

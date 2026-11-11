@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.FluentValidation.svg)](https://www.nuget.org/packages/Nullean.Entities.FluentValidation)
-
 **Keep your FluentValidation pipeline: your constraints run inside it as validators, and your validators run as constraints that generated data can attack.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.FluentValidation?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.FluentValidation)
 
 Without this package, a team with FluentValidation validators and `Nullean.Entities` constraints keeps two sets of rules apart: the HTTP or MediatR pipeline only sees the validators, and the
 property tests only see the constraints. This package bridges [FluentValidation](https://fluentvalidation.net/) both ways.
@@ -21,7 +21,7 @@ dotnet add package Nullean.Entities
 dotnet add package Nullean.Entities.FluentValidation
 ```
 
-## Get going
+## Quick start
 
 Constraints inside FluentValidation: register the set as a validator, or add it to one you have.
 
@@ -70,10 +70,11 @@ GenAuto.Of<Customer>().ShouldSatisfy(rules);                    // throws with t
 - One validator is one constraint: `Probe` counts the validator, not each `RuleFor`. FluentValidation's `ErrorCode` is not kept on the way in.
 - Not trim or NativeAOT clean (FluentValidation compiles expressions). Other FluentValidation versions than 12.2.0 are untested.
 
-## Next
+## Learn more
 
 - This integration on the docs site: https://entities.nullean.net/integration/fluentvalidation/, and every integration: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
 - FluentValidation: https://fluentvalidation.net/
 - Property tests over constraints: https://www.nuget.org/packages/Nullean.Entities.CsCheck
 - Tests for the package: https://github.com/nullean/entities/tree/main/tests/Nullean.Entities.FluentValidation.Tests
+- Source and issues: https://github.com/nullean/entities

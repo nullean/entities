@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.ComponentModel.svg)](https://www.nuget.org/packages/Nullean.Entities.ComponentModel)
-
 **The rules your domain already has show up next to the field in your MVVM form, through `INotifyDataErrorInfo`.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.ComponentModel?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.ComponentModel)
 
 Without this package, a desktop or mobile form repeats its validation in the view model, or in attributes, and drifts from the rules the domain enforces. This package runs
 your `Nullean.Entities` constraint set from the view model and reports each violation under the property it is about, through `System.ComponentModel.INotifyDataErrorInfo`:
@@ -22,7 +22,7 @@ dotnet add package Nullean.Entities
 dotnet add package Nullean.Entities.ComponentModel
 ```
 
-## Get going
+## Quick start
 
 The domain value is immutable and declares its rules:
 
@@ -91,9 +91,10 @@ complete view model.
 - Tested against Avalonia 12.1.5 (headless, a real `TextBox` binding) and CommunityToolkit.Mvvm 8.4.2. WPF is not tested here. WinUI 3 and MAUI's stock controls do not draw
   `INotifyDataErrorInfo` errors themselves; call `GetErrors` from your own view.
 
-## Next
+## Learn more
 
 - This integration on the docs site: https://entities.nullean.net/integration/mvvm/, and every integration: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
 - Web APIs: https://www.nuget.org/packages/Nullean.Entities.AspNetCore
 - Tests for the package: https://github.com/nullean/entities/tree/main/tests/Nullean.Entities.ComponentModel.Tests
+- Source and issues: https://github.com/nullean/entities

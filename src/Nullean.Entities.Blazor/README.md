@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.Blazor.svg)](https://www.nuget.org/packages/Nullean.Entities.Blazor)
-
 **A Blazor form shows your domain rules under the right field, as the user types, with one line in the `EditForm`.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.Blazor?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.Blazor)
 
 Without this package, a Blazor form either repeats the domain's rules as DataAnnotations attributes or checks the model by hand in the submit handler and has no way to put the message under a field.
 This package adds `<ConstraintValidator>`, which checks an `EditForm`'s model against a `Nullean.Entities` constraint set and writes the violations into the form's validation state, so
@@ -22,7 +22,7 @@ dotnet add package Nullean.Entities
 dotnet add package Nullean.Entities.Blazor
 ```
 
-## Get going
+## Quick start
 
 A form model with its rules on it:
 
@@ -88,9 +88,10 @@ The value: the rule is written once, on the type, and the same set guards your A
 - Constraints are synchronous and pure. Checks that need a server belong in the submit handler.
 - If the model already implements `IValidatableObject` over its constraints, Blazor's own `<DataAnnotationsValidator />` reports them too; do not use both for the same rules, or each message shows twice.
 
-## Next
+## Learn more
 
 - This integration on the docs site, including when to use `DataAnnotationsValidator` instead: https://entities.nullean.net/integration/blazor/, and every integration: https://entities.nullean.net/integration/
 - Getting started with constraints: https://entities.nullean.net/getting-started/
 - Web APIs: https://www.nuget.org/packages/Nullean.Entities.AspNetCore
 - Tests for the package: https://github.com/nullean/entities/tree/main/tests/Nullean.Entities.Blazor.Tests
+- Source and issues: https://github.com/nullean/entities

@@ -2,9 +2,9 @@
 
 ![Nullean.Entities](https://raw.githubusercontent.com/nullean/entities/main/docs/images/png/entities-social-card.png)
 
-[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.CsCheck.svg)](https://www.nuget.org/packages/Nullean.Entities.CsCheck)
-
 **Declare the rules of your domain type once, and get tests you did not write: a retry that double-charges, a version that goes backwards and a deadline nobody met are each caught by a named test with the smallest failing case and a seed that replays it.**
+
+[![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.CsCheck?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.CsCheck)
 
 Without this package you write a generator for every type and a property for every rule, and the tests cover the rules you thought of. With it, `GenAuto` builds data from the shape of the type (with hostile values such as blank strings, `NaN`, undefined enums and duplicate ids mixed in), and the shape of each rule you declare picks the test, on nine axes (invariant, idempotency, monotonicity, conservation, absence, temporal, liveness, confluence, vacancy). A test that never reached its rule fails as vacuous instead of passing.
 
@@ -19,7 +19,7 @@ dotnet add package Nullean.Entities.CsCheck   # tests only
 
 The packages target `net10.0` and `net11.0`. `Nullean.Entities.CsCheck` brings `CsCheck` 5.0.1 and `Bogus` 35.6.5 with it. The examples below use [TUnit](https://tunit.dev) for the test attributes, and any test framework works because every axis is also a plain `Task`.
 
-## Get going
+## Quick start
 
 An order, two rules about it, and one bug. `Nullean.Entities` supplies `[Constraints]` and `Constraint<T>`.
 
@@ -210,7 +210,7 @@ GenAuto.Of<Order>(AutoMode.Mixed, o => o.Use(Gen.Const(OrderStatus.Pending)).Add
 - **Rx steps are synchronous.** `Nullean.Entities.CsCheck.Reactive` runs on a scheduler, and a `StepAsync` step there is rejected with a pointer to the `TimeProvider` terminals.
 - **Bogus takes a process-wide lock per draw.** `GenAuto.Of<T>` avoids Bogus at runtime for that reason. `Faker<T>` rules you write run one faker per thread.
 
-## Next
+## Learn more
 
 - [Getting started](https://entities.nullean.net/getting-started/): five minutes, one order, one red test
 - [Why](https://entities.nullean.net/why/) and [concepts in plain words](https://entities.nullean.net/concepts/)
@@ -220,3 +220,4 @@ GenAuto.Of<Order>(AutoMode.Mixed, o => o.Use(Gen.Const(OrderStatus.Pending)).Add
 - [Quickstart example](https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Quickstart) and [source](https://github.com/nullean/entities)
 - Related packages: [Nullean.Entities](https://www.nuget.org/packages/Nullean.Entities), [Nullean.Entities.Reactive](https://www.nuget.org/packages/Nullean.Entities.Reactive), [Nullean.Entities.CsCheck.Reactive](https://www.nuget.org/packages/Nullean.Entities.CsCheck.Reactive)
 - License: MIT
+- Source and issues: https://github.com/nullean/entities
