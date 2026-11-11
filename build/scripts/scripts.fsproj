@@ -5,22 +5,20 @@
          net10.0;net11.0 set at the repo root (which must be cleared explicitly here, or the
          SDK treats the inherited multi-targeting list as authoritative over this TargetFramework). -->
     <TargetFrameworks></TargetFrameworks>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
+    <!-- Nullean.Make.Fs reads the target descriptions from the /// comments in Program.fs -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Nullable>enable</Nullable>
     <RollForward>LatestMinor</RollForward>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Paths.fs" />
-    <Compile Include="CommandLine.fs" />
     <Compile Include="Documentation.fs" />
-    <Compile Include="Targets.fs" />
+    <Compile Include="Versions.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Core" />
-    <PackageReference Include="Argu" />
-    <PackageReference Include="Bullseye" />
-    <PackageReference Include="Proc" />
-    <PackageReference Include="Fake.Tools.Git" />
+    <PackageReference Include="Nullean.Make.Fs" />
   </ItemGroup>
 </Project>

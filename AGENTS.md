@@ -33,7 +33,10 @@ not what `mise run release` does):
 ./build.sh release # pristine checkout check + pack + public API changes: a rehearsal, it publishes nothing (see RELEASING.md)
 ```
 
-The build script is `build/scripts/Program.fs` → `Targets.fs`. It wraps `dotnet build` / `dotnet run`.
+The build script is `build/scripts/Program.fs` ([Nullean.Make.Fs](https://www.nuget.org/packages/Nullean.Make.Fs), net11.0):
+one `Target` DU, and every target body is its commands as Proc.Fs `sh $"…"` lines; values come from `text`/`lines`
+inside `shell { }` (`Versions.fs`). Do not call the C# `ProcNet` API from the build. `./build.sh --help` lists the
+targets; `-s` runs one without what it `requires`.
 Test projects are TUnit and are run with `dotnet run`, one project at a time (`Paths.TestProjects`).
 
 ## Releasing
@@ -84,7 +87,7 @@ and `mise run release` for the current draft.
 | `examples/Apps/*` | Eight console apps (OrderFulfilment, Banking, SupportDesk, EventSourcedCart, Inventory, DataAudit, OrgChart, DocsSiteBuild), each an Exe with a narrated `Program.cs` that exits non-zero when a scenario stops behaving, a service wired through `Microsoft.Extensions.DependencyInjection` (the libraries do not depend on it), and a README of what to copy. `examples/Apps/Shared/Narrator.cs` is linked into each. New app: add the folder, a `ProjectReference` in `tests/Nullean.Entities.Apps.Tests`, the slnx entry and `Paths.Apps`. |
 | `tests/Nullean.Entities.Apps.Tests` | Tests the apps' services the way a user would: by example, against the declared machine (`ConformsTo`), by the rules on the state they expose (`SampleState`), as properties, and with `Probe`/`Laws` on generated data. |
 | `docs/first-use-review.md` | A review of the library from six points of view (newcomer, DDD expert, DBA, functional programmer, property-test expert, verification student): what each expected, what was built, what is open. |
-| `build/scripts` | F# Bullseye build runner. |
+| `build/scripts` | F# build runner (Nullean.Make.Fs, commands in Proc.Fs). |
 | `build/keys` | Nullean strong-name key — never regenerate, it breaks strong-naming. |
 
 ## Multi-targeting: net10.0 and net11.0
