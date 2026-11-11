@@ -152,26 +152,21 @@ public sealed partial class SystemSpec
 		var (spec, model) = Build(null);
 		Validate(model, hosts);
 		var walks = 0;
-		await SampleCall
-			.RunAsync(
-				() =>
-					spec
-						.Walks(minSteps, maxSteps)
-						.SampleAsync(
-							async steps =>
-							{
-								Interlocked.Increment(ref walks);
-								if (await RunAsync(spec, model, hosts, steps).ConfigureAwait(false) is { } problem)
-								{
-									throw new InvalidOperationException(problem);
-								}
-							},
-							seed: seed,
-							iter: iter,
-							print: steps => string.Join(" → ", steps.Select(s => s.After.Last ?? s.Action))
-						)
+		await SampleCall.RunAsync(
+			() => spec.Walks(minSteps, maxSteps).SampleAsync(
+				async steps =>
+				{
+					Interlocked.Increment(ref walks);
+					if (await RunAsync(spec, model, hosts, steps).ConfigureAwait(false) is { } problem)
+					{
+						throw new InvalidOperationException(problem);
+					}
+				},
+				seed: seed,
+				iter: iter,
+				print: steps => string.Join(" → ", steps.Select(s => s.After.Last ?? s.Action))
 			)
-			.ConfigureAwait(false);
+		).ConfigureAwait(false);
 		return new SystemConformanceReport(walks, "walks");
 	}
 
@@ -203,8 +198,8 @@ public sealed partial class SystemSpec
 	{
 		foreach (var host in hosts)
 		{
-			var node = model.Nodes.FirstOrDefault(n => n.Name == host.Node.Name)
-			?? throw new InvalidOperationException($"The host for '{host.Node.Name}' plays a node this system does not have.");
+			var node = model.Nodes.FirstOrDefault(n => n.Name == host.Node.Name) ??
+				throw new InvalidOperationException($"The host for '{host.Node.Name}' plays a node this system does not have.");
 			if (node.Clients.Count > 0 && host.Client is null)
 			{
 				throw new InvalidOperationException(

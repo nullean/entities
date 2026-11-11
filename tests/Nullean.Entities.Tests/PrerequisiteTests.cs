@@ -13,13 +13,12 @@ public class PrerequisiteTests
 		.AsPrerequisite();
 
 	// reads Title without a check: it was written for a value that has one
-	private static readonly Constraint<Page> TitleShort = Constraints<Page>
-		.Always(p => p.Title!.Length < 20, "The Title must be shorter than 20 characters.")
-		.Named("title-short");
+	private static readonly Constraint<Page> TitleShort = Constraints<Page>.Always(
+		p => p.Title!.Length < 20,
+		"The Title must be shorter than 20 characters."
+	).Named("title-short");
 
-	private static readonly Constraint<Page> LevelPositive = Constraints<Page>
-		.Always(p => p.Level > 0, "The Level must be positive.")
-		.Named("level-positive");
+	private static readonly Constraint<Page> LevelPositive = Constraints<Page>.Always(p => p.Level > 0, "The Level must be positive.").Named("level-positive");
 
 	private static readonly ConstraintSet<Page> Rules = ConstraintSet.From(
 		("title-required", TitleRequired),

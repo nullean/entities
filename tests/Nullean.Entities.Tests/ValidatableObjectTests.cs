@@ -40,14 +40,7 @@ public sealed partial class Registration
 public class ValidatableObjectTests
 {
 	private static Registration Valid() =>
-		new()
-		{
-			Name = "Ada",
-			Age = 36,
-			Email = "ada@example.com",
-			From = new DateOnly(2026, 1, 1),
-			To = new DateOnly(2026, 1, 2),
-		};
+		new() { Name = "Ada", Age = 36, Email = "ada@example.com", From = new DateOnly(2026, 1, 1), To = new DateOnly(2026, 1, 2), };
 
 	private static (bool Valid, List<ValidationResult> Results) TryValidate(object instance, IServiceProvider? services = null)
 	{

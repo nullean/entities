@@ -18,10 +18,12 @@ public sealed class ConstraintActionFilter(IConstraintRegistry registry) : IAsyn
 				context.ModelState.AddViolations(violations, name);
 			}
 		}
-		if (!context.ModelState.IsValid && context.Controller is ControllerBase controller && controller
+		if (
+			!context.ModelState.IsValid && context.Controller is ControllerBase controller && controller
 				.GetType()
 				.GetCustomAttributes(typeof(ApiControllerAttribute), true)
-				.Length > 0)
+				.Length > 0
+		)
 		{
 			context.Result = controller.ValidationProblem(context.ModelState);
 			return Task.CompletedTask;

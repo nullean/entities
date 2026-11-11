@@ -33,12 +33,15 @@ public class ConstraintDiagnosticsTests
 		violations.Should().ContainSingle();
 		violations[0].Meter.Should().Be(ConstraintDiagnostics.MeterName);
 		violations[0].Value.Should().Be(1);
-		violations[0].Tags.Should().BeEquivalentTo(new Dictionary<string, object?>
-		{
-			[ConstraintDiagnostics.RuleTag] = "never-negative",
-			[ConstraintDiagnostics.SeverityTag] = "error",
-			[ConstraintDiagnostics.TypeTag] = "Account",
-		});
+		violations[0]
+			.Tags
+			.Should()
+			.BeEquivalentTo(new Dictionary<string, object?>
+			{
+				[ConstraintDiagnostics.RuleTag] = "never-negative",
+				[ConstraintDiagnostics.SeverityTag] = "error",
+				[ConstraintDiagnostics.TypeTag] = "Account",
+			});
 		var rejections = measurements.Of(ConstraintDiagnostics.RejectionsCounter);
 		rejections.Should().ContainSingle();
 		rejections[0].Tags.Should().BeEquivalentTo(new Dictionary<string, object?> { [ConstraintDiagnostics.TypeTag] = "Account" });
@@ -61,7 +64,9 @@ public class ConstraintDiagnosticsTests
 		var shown = new FakeLogger();
 
 		Account.Constraints.ApplyDetailed(Opened, a => a with { Balance = -5 }).ReportTo(new ConstraintDiagnostics(hidden, new TestMeterFactory()));
-		Account.Constraints.ApplyDetailed(Opened, a => a with { Balance = -5 })
+		Account
+			.Constraints
+			.ApplyDetailed(Opened, a => a with { Balance = -5 })
 			.ReportTo(new ConstraintDiagnostics(shown, new TestMeterFactory(), new ConstraintDiagnosticsOptions { IncludeEvidence = true }));
 
 		var withoutEvidence = hidden.LatestRecord;
@@ -83,8 +88,7 @@ public class ConstraintDiagnosticsTests
 
 		outcome.IsApplied.Should().BeTrue();
 		measurements.Of(ConstraintDiagnostics.RejectionsCounter).Should().BeEmpty();
-		measurements.Of(ConstraintDiagnostics.ViolationsCounter).Should().ContainSingle()
-			.Which.Tags[ConstraintDiagnostics.SeverityTag].Should().Be("warning");
+		measurements.Of(ConstraintDiagnostics.ViolationsCounter).Should().ContainSingle().Which.Tags[ConstraintDiagnostics.SeverityTag].Should().Be("warning");
 		logger.LatestRecord.Level.Should().Be(LogLevel.Information);
 	}
 
@@ -121,11 +125,7 @@ public class ConstraintDiagnosticsTests
 	public void A_violation_is_an_event_on_the_current_activity()
 	{
 		using var source = new ActivitySource("Nullean.Entities.Diagnostics.Tests." + Guid.NewGuid());
-		using var listener = new ActivityListener
-		{
-			ShouldListenTo = s => s == source,
-			Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
-		};
+		using var listener = new ActivityListener { ShouldListenTo = s => s == source, Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded, };
 		ActivitySource.AddActivityListener(listener);
 		var diagnostics = new ConstraintDiagnostics(new FakeLogger(), new TestMeterFactory());
 
@@ -134,11 +134,14 @@ public class ConstraintDiagnosticsTests
 
 		var recorded = activity.Events.Should().ContainSingle().Subject;
 		recorded.Name.Should().Be(ConstraintDiagnostics.ActivityEventName);
-		recorded.Tags.Should().Contain([
-			new(ConstraintDiagnostics.RuleTag, "never-negative"),
-			new(ConstraintDiagnostics.SeverityTag, "error"),
-			new(ConstraintDiagnostics.MemberTag, "Balance"),
-		]);
+		recorded
+			.Tags
+			.Should()
+			.Contain([
+				new(ConstraintDiagnostics.RuleTag, "never-negative"),
+				new(ConstraintDiagnostics.SeverityTag, "error"),
+				new(ConstraintDiagnostics.MemberTag, "Balance"),
+			]);
 	}
 
 	[Test]

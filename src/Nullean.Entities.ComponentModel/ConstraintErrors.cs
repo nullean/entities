@@ -89,8 +89,7 @@ public sealed class ConstraintErrors<T> : INotifyDataErrorInfo
 	public IEnumerable GetErrors(string? propertyName) => GetViolations(propertyName).Select(v => v.Message);
 
 	/// <summary>The violations behind <see cref="GetErrors"/>, for a view that wants the severity, rule name or evidence.</summary>
-	public IReadOnlyList<Violation> GetViolations(string? propertyName) =>
-		_byProperty.TryGetValue(propertyName ?? "", out var violations) ? violations : None;
+	public IReadOnlyList<Violation> GetViolations(string? propertyName) => _byProperty.TryGetValue(propertyName ?? "", out var violations) ? violations : None;
 
 	private List<Violation> Update(IReadOnlyList<Violation> all)
 	{

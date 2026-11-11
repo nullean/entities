@@ -29,13 +29,12 @@ public static class Stats
 				s => s.TableOfContents.Descendants().Where(i => i.Value is not null).Select(i => (string)i.Item().PathRelativeToDocumentationSet)
 			).ToList();
 			var repeated = sets.Count(
-				s =>
-					s
-						.TableOfContents
-						.Descendants()
-						.Where(i => i.Value is not null)
-						.GroupBy(i => (string)i.Item().PathRelativeToDocumentationSet)
-						.Any(g => g.Count() > 1)
+				s => s
+					.TableOfContents
+					.Descendants()
+					.Where(i => i.Value is not null)
+					.GroupBy(i => (string)i.Item().PathRelativeToDocumentationSet)
+					.Any(g => g.Count() > 1)
 			);
 
 			Console.WriteLine(

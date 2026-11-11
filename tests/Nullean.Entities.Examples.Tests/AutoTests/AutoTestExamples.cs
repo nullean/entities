@@ -17,7 +17,8 @@ public class AutoTestExamples
 
 	// Order holds its lines in a list, which compares by reference, so say what makes two orders "the same state".
 	private static EntitySpec<Order> OrderSpec() =>
-		OrderConstraints.All
+		OrderConstraints
+			.All
 			.Spec(Order.New(Guid.Empty), OrderConstraints.Actions)
 			.Domain(A, B)
 			.Domain("A", "B")
@@ -74,8 +75,7 @@ public class AutoTestExamples
 	// ── Zero config: AutoBogus supplies the starting states and the argument values ──────────────────
 
 	[Test]
-	public void Order_zero_config_explores_from_generated_valid_orders() =>
-		OrderConstraints.Instance.Spec().Exhaustive().States.Should().BeGreaterThan(3);
+	public void Order_zero_config_explores_from_generated_valid_orders() => OrderConstraints.Instance.Spec().Exhaustive().States.Should().BeGreaterThan(3);
 
 	[Test]
 	public void TrafficLight_zero_config_proves_the_cycle() => TrafficLightConstraints.Instance.Spec().Exhaustive();

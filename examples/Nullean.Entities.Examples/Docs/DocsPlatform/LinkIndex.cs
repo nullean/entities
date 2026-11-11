@@ -18,8 +18,8 @@ public static class PipelineRules
 {
 	/// <summary>N38: a registry entry is replaced only by one that is strictly newer.</summary>
 	public static readonly TemporalRule<PipelineEvent> RegistryOnlyMovesForward = Temporal<PipelineEvent>.Transitions(
-		(previous, next) =>
-			previous is not PipelineEvent.LinkIndexUpdated before || next is not PipelineEvent.LinkIndexUpdated after || after.UpdatedAt > before.UpdatedAt
+		(previous, next) => previous is not PipelineEvent.LinkIndexUpdated before ||
+			next is not PipelineEvent.LinkIndexUpdated after || after.UpdatedAt > before.UpdatedAt
 	);
 
 	/// <summary>N48: a manifest is published only right after its links validated (today the redirect validation is allowed to fail).</summary>

@@ -42,12 +42,7 @@ public class AxisShapeTests
 	[Test]
 	public void MonotonicPerKey_counts_the_keys_it_compared_and_the_ones_that_moved()
 	{
-		var rule = Constraints<IReadOnlyDictionary<string, int>>.MonotonicPerKey(
-			d => d,
-			kv => kv.Key,
-			kv => kv.Value,
-			MonotonicDirection.NonDecreasing
-		);
+		var rule = Constraints<IReadOnlyDictionary<string, int>>.MonotonicPerKey(d => d, kv => kv.Key, kv => kv.Value, MonotonicDirection.NonDecreasing);
 		IReadOnlyDictionary<string, int> before = new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 };
 		IReadOnlyDictionary<string, int> after = new Dictionary<string, int> { ["a"] = 1, ["b"] = 3, ["c"] = 9 };
 
@@ -104,10 +99,7 @@ public class AxisShapeTests
 	[Test]
 	public void OrderIndependent_holds_when_the_result_ignores_the_order_of_the_items()
 	{
-		var rule = Constraints<Basket>.OrderIndependent(
-			b => b.Items,
-			(b, items) => b with { Items = items },
-			b => string.Join(",", b.Items.Order()));
+		var rule = Constraints<Basket>.OrderIndependent(b => b.Items, (b, items) => b with { Items = items }, b => string.Join(",", b.Items.Order()));
 
 		ConstraintSet.From(("order-independent", rule)).Validate(Pair).Should().BeEmpty();
 	}

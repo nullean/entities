@@ -21,24 +21,22 @@ public class StateMachineFireTests
 	private sealed record Order(Guid Id, OrderState State, string? PaymentRef = null);
 
 	private static readonly StateMachine<OrderState> Lifecycle = StateMachine<OrderState>.Define(
-		m =>
-			m
-				.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>(_ => new OrderState.Placed(0)))
-				.State<OrderState.Placed>(
-					s =>
-						s
-							.On<int>("AddLines").To<OrderState.Placed>((p, n) => p with { Lines = p.Lines + n })
-							.On("Confirm").To<OrderState.Confirmed>(_ => new OrderState.Confirmed(), when: p => p.Lines > 0)
-							.On("Cancel").To<OrderState.Cancelled>(_ => new OrderState.Cancelled())
-				)
-				.State<OrderState.Confirmed>(
-					s =>
-						s
-							.To<OrderState.Shipped>(_ => new OrderState.Shipped())
-							.On("Cancel").To<OrderState.Cancelled>(_ => new OrderState.Cancelled())
-				)
-				.Terminal<OrderState.Shipped>()
-				.Terminal<OrderState.Cancelled>()
+		m => m
+			.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>(_ => new OrderState.Placed(0)))
+			.State<OrderState.Placed>(
+				s => s
+					.On<int>("AddLines")
+					.To<OrderState.Placed>((p, n) => p with { Lines = p.Lines + n })
+					.On("Confirm")
+					.To<OrderState.Confirmed>(_ => new OrderState.Confirmed(), when: p => p.Lines > 0)
+					.On("Cancel")
+					.To<OrderState.Cancelled>(_ => new OrderState.Cancelled())
+			)
+			.State<OrderState.Confirmed>(
+				s => s.To<OrderState.Shipped>(_ => new OrderState.Shipped()).On("Cancel").To<OrderState.Cancelled>(_ => new OrderState.Cancelled())
+			)
+			.Terminal<OrderState.Shipped>()
+			.Terminal<OrderState.Cancelled>()
 	);
 
 	[Test]
@@ -108,13 +106,12 @@ public class StateMachineFireTests
 	public void An_edge_declared_without_a_factory_cannot_be_fired_but_is_still_allowed()
 	{
 		var declaredOnly = StateMachine<OrderState>.Define(
-			m =>
-				m
-					.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>())
-					.State<OrderState.Placed>(s => s.On("Confirm").To<OrderState.Confirmed>().On("Cancel").To<OrderState.Cancelled>())
-					.State<OrderState.Confirmed>(s => s.To<OrderState.Shipped>().On("Cancel").To<OrderState.Cancelled>())
-					.Terminal<OrderState.Shipped>()
-					.Terminal<OrderState.Cancelled>()
+			m => m
+				.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>())
+				.State<OrderState.Placed>(s => s.On("Confirm").To<OrderState.Confirmed>().On("Cancel").To<OrderState.Cancelled>())
+				.State<OrderState.Confirmed>(s => s.To<OrderState.Shipped>().On("Cancel").To<OrderState.Cancelled>())
+				.Terminal<OrderState.Shipped>()
+				.Terminal<OrderState.Cancelled>()
 		);
 
 		declaredOnly.Allows(new OrderState.Draft(), new OrderState.Placed(1)).Should().BeTrue();

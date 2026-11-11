@@ -65,10 +65,9 @@ internal static partial class NestedOrderSpec
 		.Entities
 		.Constraints<Order>
 		.Check(
-			o =>
-				o.Lines.SelectMany(
-					(line, i) => NestedOrderLine.Constraints.Validate(line).Select(v => v with { Message = $"Line {i}: {v.Message}", Evidence = i })
-				)
+			o => o.Lines.SelectMany(
+				(line, i) => NestedOrderLine.Constraints.Validate(line).Select(v => v with { Message = $"Line {i}: {v.Message}", Evidence = i })
+			)
 		);
 
 	// A rule that needs TimeProvider can't be a [Constraint] field — those are static and
@@ -82,10 +81,9 @@ internal static partial class NestedOrderSpec
 			.Entities
 			.Constraints<Order>
 			.Always(
-				o =>
-					o.Status != NestedOrderStatus.Confirmed || o.ConfirmedAt is not { } confirmedAt || clock.GetUtcNow() - confirmedAt < TimeSpan.FromHours(
-						48
-					),
+				o => o.Status != NestedOrderStatus.Confirmed || o.ConfirmedAt is not { } confirmedAt || clock.GetUtcNow() - confirmedAt < TimeSpan.FromHours(
+					48
+				),
 				"A confirmed order must ship within 48 hours of confirmation."
 			);
 
@@ -131,8 +129,7 @@ internal static class GenericDispatch
 {
 	public static IReadOnlyList<Violation> Validate<T>(T value, IConstraintsFor<T> spec) => spec.All.Validate(value);
 
-	public static MonitoredConstraintSet<TEvent> Attach<TEvent>(IObservable<TEvent> events, IReactiveConstraintsFor<TEvent> spec) =>
-		spec.All.Attach(events);
+	public static MonitoredConstraintSet<TEvent> Attach<TEvent>(IObservable<TEvent> events, IReactiveConstraintsFor<TEvent> spec) => spec.All.Attach(events);
 }
 
 // ── Examples ─────────────────────────────────────────────────────────────────

@@ -28,11 +28,12 @@ public static partial class ScriptExtensions
 		long iter = -1,
 		string? seed = null
 	) =>
-		SampleCall.Run(() =>
-				Gen
-					.Select(gen, gen, (a, b) => (a, b))
-					.Select(pair => (pair.a, pair.b, A: factory(), B: factory()))
-					.Sample(t => RunMetamorphic(t.A, t.B, t.a, t.b, path1, path2, equal), seed: seed, iter: iter));
+		SampleCall.Run(
+			() => Gen
+				.Select(gen, gen, (a, b) => (a, b))
+				.Select(pair => (pair.a, pair.b, A: factory(), B: factory()))
+				.Sample(t => RunMetamorphic(t.A, t.B, t.a, t.b, path1, path2, equal), seed: seed, iter: iter)
+		);
 #pragma warning restore IDE0060
 
 	private static bool RunMetamorphic<TSut, TArg>(

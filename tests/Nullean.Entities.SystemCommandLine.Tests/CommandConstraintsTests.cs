@@ -68,8 +68,7 @@ public sealed record ProxyOptions(string Upstream);
 internal static class ProxyRules
 {
 	public static readonly ConstraintSet<ProxyOptions> All = ConstraintSet.From(
-		("UpstreamIsHttps",
-		Constraints<ProxyOptions>.Check(
+		("UpstreamIsHttps", Constraints<ProxyOptions>.Check(
 			o => o.Upstream.StartsWith("https://", StringComparison.Ordinal) ? [] : [Violation.Error(nameof(ProxyOptions.Upstream), "must be an https:// URL")]
 		))
 	);
@@ -181,7 +180,8 @@ public class CommandConstraintsTests
 
 		var (_, _, err) = await app.Run("--host", "example.com", "--port", "0", "--max-retries", "50");
 
-		err.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
+		err
+			.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
 			.Should()
 			.Equal("--port: must be between 1 and 65535", "--max-retries: must be 10 or fewer", "a public host needs a port above 1023");
 	}
@@ -204,7 +204,8 @@ public class CommandConstraintsTests
 		var to = new Option<string>("--to") { Required = true };
 		var root = new RootCommand { to };
 		var bound = 0;
-		root.SetAction(_ => { });
+		root.SetAction(_ =>
+		{ });
 		root.ValidateConstraints(
 			r =>
 			{
@@ -266,7 +267,8 @@ public class CommandConstraintsTests
 	{
 		var to = new Option<string>("--to");
 		var root = new RootCommand { to };
-		root.SetAction(_ => { });
+		root.SetAction(_ =>
+		{ });
 		root.ValidateConstraints(r => new ProxyOptions(r.GetValue(to)!), ProxyRules.All);
 
 		var (_, _, err) = await Invoke(root, "--to", "http://example.com");
@@ -279,7 +281,8 @@ public class CommandConstraintsTests
 	{
 		var upstream = new Argument<string>("upstream");
 		var root = new RootCommand { upstream };
-		root.SetAction(_ => { });
+		root.SetAction(_ =>
+		{ });
 		root.ValidateConstraints(r => new ProxyOptions(r.GetValue(upstream)!), ProxyRules.All);
 
 		var (_, _, err) = await Invoke(root, "http://example.com");
@@ -293,7 +296,8 @@ public class CommandConstraintsTests
 		var upstream = new Option<string>("--upstream") { Recursive = true };
 		var proxy = new Command("proxy");
 		var root = new RootCommand { upstream, proxy };
-		proxy.SetAction(_ => { });
+		proxy.SetAction(_ =>
+		{ });
 		proxy.ValidateConstraints(r => new ProxyOptions(r.GetValue(upstream)!), ProxyRules.All);
 
 		var (code, _, err) = await Invoke(root, "proxy", "--upstream", "http://example.com");

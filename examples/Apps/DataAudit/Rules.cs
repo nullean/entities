@@ -37,13 +37,15 @@ public static partial class RowRules
 		tolerance: TimeSpan.FromMinutes(5)
 	);
 
-	public static readonly Constraint<CustomerRow> CountryIsAnIsoCode = Constraints<CustomerRow>
-		.Always(r => r.Country.Length == 2 && r.Country.All(char.IsAsciiLetterUpper), "Country is not a two-letter ISO code")
-		.WithSeverity(Severity.Warning);
+	public static readonly Constraint<CustomerRow> CountryIsAnIsoCode = Constraints<CustomerRow>.Always(
+		r => r.Country.Length == 2 && r.Country.All(char.IsAsciiLetterUpper),
+		"Country is not a two-letter ISO code"
+	).WithSeverity(Severity.Warning);
 
-	public static readonly Constraint<CustomerRow> EmailIsLowerCase = Constraints<CustomerRow>
-		.Always(r => r.Email is null || r.Email.All(c => !char.IsUpper(c)), "Email has upper-case letters")
-		.WithSeverity(Severity.Hint);
+	public static readonly Constraint<CustomerRow> EmailIsLowerCase = Constraints<CustomerRow>.Always(
+		r => r.Email is null || r.Email.All(c => !char.IsUpper(c)),
+		"Email has upper-case letters"
+	).WithSeverity(Severity.Hint);
 }
 
 /// <summary>Rules about the table as a whole: the ones a database enforces with an index or a foreign key.</summary>

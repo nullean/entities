@@ -72,8 +72,8 @@ public class DeclaredMachineTests
 	[Test]
 	public void A_trigger_leads_to_one_state_from_a_given_state()
 	{
-		var act = () =>
-			StateMachine
+		var act =
+			() => StateMachine
 				.Define<DoorState, string>(DoorState.Closed)
 				.Permit("Open", DoorState.Closed, DoorState.Open)
 				.Permit("Open", DoorState.Closed, DoorState.Locked);
@@ -110,7 +110,6 @@ public class DeclaredMachineTests
 			.Permit("Open", DoorState.Closed, DoorState.Open)
 			.Permit("Close", DoorState.Open, DoorState.Closed)
 			.State(DoorState.Locked) // declared, but no trigger reaches it
-
 			.Build();
 
 		var act = () => machine.Spec().Exhaustive();
@@ -179,8 +178,8 @@ public class DeclaredMachineTests
 	[Test]
 	public void Every_transition_of_the_machine_finds_a_divergence_with_the_fewest_steps()
 	{
-		var act = () =>
-			Machine.ConformToExhaustive(
+		var act =
+			() => Machine.ConformToExhaustive(
 				Door.New(),
 				d => d.State,
 				bindings: [
@@ -192,19 +191,23 @@ public class DeclaredMachineTests
 			);
 
 		// no trimming and no retries: the exhaustive check reaches Open by its shortest path, then locks it
-		act.Should()
+		act
+			.Should()
 			.Throw<Exception>()
-			.Which.Message.Should()
+			.Which
+			.Message
+			.Should()
 			.Contain("diverged from the specification at step 2")
-			.And.Contain("after Lock in Open the machine says Open, but the entity is in Locked");
+			.And
+			.Contain("after Lock in Open the machine says Open, but the entity is in Locked");
 	}
 
 	[Test]
 	public void An_entity_that_does_something_the_machine_forbids_is_caught()
 	{
 		// the lock "works" on an open door: the machine only allows locking a closed one
-		var act = () =>
-			Machine.ConformToMutable(
+		var act =
+			() => Machine.ConformToMutable(
 				() => new MutableDoor { LockIsBroken = true },
 				d => d.State,
 				iter: 200,
@@ -222,8 +225,8 @@ public class DeclaredMachineTests
 			.Range(0, 12)
 			.Select(_ =>
 			{
-				var act = () =>
-					Machine.ConformTo(
+				var act =
+					() => Machine.ConformTo(
 						Door.New(),
 						d => d.State,
 						bindings: [
@@ -247,8 +250,8 @@ public class DeclaredMachineTests
 			.Range(0, 12)
 			.Select(_ =>
 			{
-				var act = () =>
-					Machine.ConformToMutable(
+				var act =
+					() => Machine.ConformToMutable(
 						() => new MutableDoor { LockIsBroken = true },
 						d => d.State,
 						bindings: [("Open", d => d.Open()), ("Close", d => d.Close()), ("Lock", d => d.Lock()), ("Unlock", d => d.Unlock())]
@@ -277,8 +280,8 @@ public class DeclaredMachineTests
 	[Test]
 	public void An_entity_that_starts_in_another_state_than_the_machine_is_rejected()
 	{
-		var act = () =>
-			Machine.ConformTo(
+		var act =
+			() => Machine.ConformTo(
 				new Door(DoorState.Locked),
 				d => d.State,
 				bindings: [("Open", d => d.Open()), ("Close", d => d.Close()), ("Lock", d => d.Lock()), ("Unlock", d => d.Unlock())]
@@ -438,8 +441,7 @@ public class OtherModelTests
 	}
 
 	[Test]
-	public void Temporal_rules_over_the_emitted_events_pass_for_a_correct_decide() =>
-		Doors(buggyOpen: false).SampleEvents(NoOpenWhileLocked, iter: 200);
+	public void Temporal_rules_over_the_emitted_events_pass_for_a_correct_decide() => Doors(buggyOpen: false).SampleEvents(NoOpenWhileLocked, iter: 200);
 
 	[Test]
 	public void Temporal_rules_over_the_emitted_events_catch_a_decide_that_opens_a_locked_door()

@@ -114,37 +114,33 @@ public class TicketServiceTests
 
 	[Test]
 	public Task The_service_conforms_to_the_lifecycle_machine() =>
-		TicketLifecycle
-			.Machine
-			.ConformToServiceAsync(
-				() => Desk.WithOpenTicket(new ManualTimeProvider()),
-				d => d.Status,
-				iter: 200,
-				bindings: [
-					("Acknowledge", d => d.Do("Acknowledge")),
-					("Start", d => d.Do("Start")),
-					("Resolve", d => d.Do("Resolve")),
-					("Reopen", d => d.Do("Reopen")),
-					("Close", d => d.Do("Close")),
-				]
-			);
+		TicketLifecycle.Machine.ConformToServiceAsync(
+			() => Desk.WithOpenTicket(new ManualTimeProvider()),
+			d => d.Status,
+			iter: 200,
+			bindings: [
+				("Acknowledge", d => d.Do("Acknowledge")),
+				("Start", d => d.Do("Start")),
+				("Resolve", d => d.Do("Resolve")),
+				("Reopen", d => d.Do("Reopen")),
+				("Close", d => d.Do("Close")),
+			]
+		);
 
 	[Test]
 	public async Task A_declared_trigger_the_service_cannot_perform_is_found_before_any_run()
 	{
-		var act = async () =>
-			await TicketLifecycle
-				.Machine
-				.ConformToServiceAsync(
-					() => Desk.WithOpenTicket(new ManualTimeProvider()),
-					d => d.Status,
-					bindings: [
-						("Acknowledge", d => d.Do("Acknowledge")),
-						("Start", d => d.Do("Start")),
-						("Resolve", d => d.Do("Resolve")),
-						("Close", d => d.Do("Close"))
-					]
-				);
+		var act =
+			async () => await TicketLifecycle.Machine.ConformToServiceAsync(
+				() => Desk.WithOpenTicket(new ManualTimeProvider()),
+				d => d.Status,
+				bindings: [
+					("Acknowledge", d => d.Do("Acknowledge")),
+					("Start", d => d.Do("Start")),
+					("Resolve", d => d.Do("Resolve")),
+					("Close", d => d.Do("Close"))
+				]
+			);
 
 		(await act.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Contain("Reopen");
 	}
@@ -167,13 +163,12 @@ public class TicketServiceTests
 
 	[Test]
 	public Task However_the_desk_is_used_no_ticket_closes_twice() =>
-		DeskScript()
-			.SampleWithAsync(
-				clock => new Desk(clock),
-				d => d.Log.Events,
-				TemporalRuleSet<TicketEvent>.From(("a-ticket-closes-once", SlaRules.All.Rules[1].Rule)),
-				iter: 300
-			);
+		DeskScript().SampleWithAsync(
+			clock => new Desk(clock),
+			d => d.Log.Events,
+			TemporalRuleSet<TicketEvent>.From(("a-ticket-closes-once", SlaRules.All.Rules[1].Rule)),
+			iter: 300
+		);
 
 	[Test]
 	public async Task The_SLA_rule_is_a_wish_not_a_guarantee_and_the_search_finds_the_shortest_way_to_break_it()

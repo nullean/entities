@@ -21,12 +21,11 @@ public class StateMachineRealizedWalksTests
 	// type-only Walks() cannot evaluate, because it never has a value, only a Type.
 	private static StateMachine<OrderState> BuildMachine() =>
 		StateMachine<OrderState>.Define(
-			m =>
-				m
-					.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>(d => d.ItemCount > 0))
-					.State<OrderState.Placed>(s => s.To<OrderState.Shipped>().On("Cancel").To<OrderState.Cancelled>())
-					.Terminal<OrderState.Shipped>()
-					.Terminal<OrderState.Cancelled>()
+			m => m
+				.Initial<OrderState.Draft>(s => s.On("Place").To<OrderState.Placed>(d => d.ItemCount > 0))
+				.State<OrderState.Placed>(s => s.To<OrderState.Shipped>().On("Cancel").To<OrderState.Cancelled>())
+				.Terminal<OrderState.Shipped>()
+				.Terminal<OrderState.Cancelled>()
 		);
 
 	[Test]
@@ -61,14 +60,18 @@ public class StateMachineRealizedWalksTests
 	{
 		var machine = BuildMachine();
 		var itemCounts = new HashSet<int>();
-		machine.RealizedWalks(minLength: 1, maxLength: 1).Sample(walk =>
-		{
-			if (walk.Count == 1 && walk[0].From is OrderState.Draft draft)
+		machine.RealizedWalks(minLength: 1, maxLength: 1).Sample(
+			walk =>
 			{
-				itemCounts.Add(draft.ItemCount);
-			}
-			return true;
-		}, seed: "0N0XIzNsQ0O2", threads: 1);
+				if (walk.Count == 1 && walk[0].From is OrderState.Draft draft)
+				{
+					itemCounts.Add(draft.ItemCount);
+				}
+				return true;
+			},
+			seed: "0N0XIzNsQ0O2",
+			threads: 1
+		);
 
 		// AutoFaker fills ItemCount from real random data, not a type-level placeholder — across the
 		// default sample run this should produce more than one distinct value.

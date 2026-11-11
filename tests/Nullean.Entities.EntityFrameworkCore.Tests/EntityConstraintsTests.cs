@@ -24,8 +24,7 @@ public sealed class FleetContext(DbContextOptions<FleetContext> options) : DbCon
 public sealed class EntityConstraintsTests
 {
 	private static readonly ConstraintSet<Vehicle> VehicleRules = ConstraintSet.From(
-		("HasWheels",
-		Constraints<Vehicle>.Check(v => v.Wheels > 0 ? [] : [Violation.Error(nameof(Vehicle.Wheels), "must be positive")]))
+		("HasWheels", Constraints<Vehicle>.Check(v => v.Wheels > 0 ? [] : [Violation.Error(nameof(Vehicle.Wheels), "must be positive")]))
 	);
 
 	[Test]

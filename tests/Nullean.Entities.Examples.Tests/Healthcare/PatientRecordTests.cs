@@ -220,8 +220,9 @@ public class PatientRecordTests
 	[Test]
 	public void Mutant_zero_dose_always_fails_per_entity_check()
 	{
-		var act = () =>
-			Gen.Int[1, 10000]
+		var act =
+			() => Gen
+				.Int[1, 10000]
 				.Select(i => new Medication($"Drug{i}", 0, DosageUnit.Mg, Frequency.Daily, DateOnly.FromDateTime(DateTime.UtcNow)))
 				.ShouldSatisfy(MedicationConstraints.All);
 		act.Should().Throw<Exception>();
@@ -231,8 +232,9 @@ public class PatientRecordTests
 	public void Mutant_cross_entity_allergy_conflict_always_fails_aggregate_check()
 	{
 		// Build records where the medication and allergen match: must always produce a violation.
-		var act = () =>
-			Gen.Int[1, 10000]
+		var act =
+			() => Gen
+				.Int[1, 10000]
 				.Select(i => $"Drug{i}")
 				.Select(drug =>
 				{

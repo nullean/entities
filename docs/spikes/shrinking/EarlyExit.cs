@@ -43,13 +43,11 @@ public static class EarlyExit
 		);
 		foreach (var after in new[] { int.MaxValue, 32, 0 })
 		{
-			var gen = GenAuto
-				.Of<OrderR>(AutoMode.Plausible, o =>
-				{
-					o.MaxCollection = 400;
-					o.EarlyExitFrom = after;
-				})
-				.Select(o => new Shape(o.Lines.Count, o.Lines.Count == 0 ? 0 : o.Lines.Max(l => l.Qty)));
+			var gen = GenAuto.Of<OrderR>(AutoMode.Plausible, o =>
+			{
+				o.MaxCollection = 400;
+				o.EarlyExitFrom = after;
+			}).Select(o => new Shape(o.Lines.Count, o.Lines.Count == 0 ? 0 : o.Lines.Max(l => l.Qty)));
 			var results = Quality.Shrink(gen, runs);
 			var failing = results.Where(r => r.Failed).ToList();
 			var label = after == int.MaxValue ? "never" : after == 0 ? "everywhere" : $"from {after} items";

@@ -38,9 +38,13 @@ var optionsServices = new ServiceCollection()
 	.BuildServiceProvider();
 var rejected = false;
 try
-{ _ = optionsServices.GetRequiredService<IOptions<AccountOptions>>().Value; }
+{
+	_ = optionsServices.GetRequiredService<IOptions<AccountOptions>>().Value;
+}
 catch (OptionsValidationException)
-{ rejected = true; }
+{
+	rejected = true;
+}
 Expect(rejected, "options validation rejects a bad value");
 
 // INotifyDataErrorInfo for a view model: BCL only, so it survives NativeAOT

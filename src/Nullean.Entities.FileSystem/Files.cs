@@ -98,12 +98,12 @@ public static class Files<T>
 				.Select(p => (Path: p, Link: FilePaths.SymlinkAt(p, rootPath)))
 				.Where(x => x.Link is not null)
 				.Select(
-					x =>
-						Report(message ?? describe?.Invoke(x.Path) ?? $"'{x.Path.FullName}' is, or is below, the symbolic link '{x.Link}'.",
-							member,
-							x.Path.FullName,
-							at?.Invoke(x.Path)
-						)
+					x => Report(
+						message ?? describe?.Invoke(x.Path) ?? $"'{x.Path.FullName}' is, or is below, the symbolic link '{x.Link}'.",
+						member,
+						x.Path.FullName,
+						at?.Invoke(x.Path)
+					)
 				);
 		});
 	}
@@ -126,12 +126,12 @@ public static class Files<T>
 				.Select(p => (Path: p, Segment: FilePaths.HiddenSegment(rootPath, FilePaths.Normalize(p))))
 				.Where(x => x.Segment is not null)
 				.Select(
-					x =>
-						Report(message ?? describe?.Invoke(x.Path) ?? $"'{x.Path.FullName}' is inside the hidden directory '{x.Segment}'.",
-							member,
-							x.Path.FullName,
-							at?.Invoke(x.Path)
-						)
+					x => Report(
+						message ?? describe?.Invoke(x.Path) ?? $"'{x.Path.FullName}' is inside the hidden directory '{x.Segment}'.",
+						member,
+						x.Path.FullName,
+						at?.Invoke(x.Path)
+					)
 				);
 		});
 	}
@@ -147,14 +147,14 @@ public static class Files<T>
 	) =>
 		Each(
 			paths,
-			p =>
-				extensions.Any(e => string.Equals(p.FileSystem.Path.GetExtension(p.FullName), e, StringComparison.OrdinalIgnoreCase))
-					? null
-					: $"'{p.FullName}' does not have one of the extensions {string.Join(", ", extensions)}.",
+			p => extensions.Any(e => string.Equals(p.FileSystem.Path.GetExtension(p.FullName), e, StringComparison.OrdinalIgnoreCase))
+				? null
+				: $"'{p.FullName}' does not have one of the extensions {string.Join(", ", extensions)}.",
 			message,
 			describe,
 			at,
-			pathsExpression);
+			pathsExpression
+		);
 
 	/// <summary>Every existing file has content: an empty page or image is a file somebody forgot to write. A missing file is not this rule's concern (see <see cref="Exist"/>).</summary>
 	public static Constraint<T> NotEmpty(
@@ -189,7 +189,8 @@ public static class Files<T>
 			message,
 			describe,
 			at,
-			filesExpression);
+			filesExpression
+		);
 
 	/// <summary>
 	/// No two paths differ only in case. They are two files on Linux and one on macOS or Windows, so a tree that holds both cannot be checked out on every machine.
@@ -272,11 +273,10 @@ public static class Files<T>
 	{
 		var member = Constraints<T>.MemberOf(expression);
 		return Rule(
-			value =>
-				items(value)
-					.Select(i => (Item: i, Problem: problem(i)))
-					.Where(x => x.Problem is not null)
-					.Select(x => Report(message ?? describe?.Invoke(x.Item) ?? x.Problem!, member, x.Item.FullName, at?.Invoke(x.Item)))
+			value => items(value)
+				.Select(i => (Item: i, Problem: problem(i)))
+				.Where(x => x.Problem is not null)
+				.Select(x => Report(message ?? describe?.Invoke(x.Item) ?? x.Problem!, member, x.Item.FullName, at?.Invoke(x.Item)))
 		);
 	}
 
@@ -292,11 +292,10 @@ public static class Files<T>
 	{
 		var member = Constraints<T>.MemberOf(expression);
 		return Rule(
-			value =>
-				items(value)
-					.Select(i => (Item: i, Info: resolve(value, i)))
-					.Where(x => !holds(x.Info))
-					.Select(x => Report(describe?.Invoke(x.Item) ?? problem(x.Info), member, x.Info.FullName, at?.Invoke(x.Item)))
+			value => items(value)
+				.Select(i => (Item: i, Info: resolve(value, i)))
+				.Where(x => !holds(x.Info))
+				.Select(x => Report(describe?.Invoke(x.Item) ?? problem(x.Info), member, x.Info.FullName, at?.Invoke(x.Item)))
 		);
 	}
 

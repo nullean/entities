@@ -64,11 +64,9 @@ internal sealed class Subject<T>(Func<T> create)
 	}
 
 	private AutoAction<T> Action(SubjectOp<T> op, Func<Gen<T>, Gen<(T Start, object? Argument)>> draw, Gen<Applied[]> prefix) =>
-		new(op.Name, starts =>
-			draw(starts).SelectMany(drawn => prefix.Select(steps => (drawn.Start, (object?)new Planned(op.Name, drawn.Argument, steps)))), async (
-			start,
-			planned
-		) =>
+		new(op.Name, starts => draw(starts).SelectMany(
+			drawn => prefix.Select(steps => (drawn.Start, (object?)new Planned(op.Name, drawn.Argument, steps)))
+		), async (start, planned) =>
 		{
 			var plan = (Planned)planned!;
 			foreach (var step in plan.Prefix)
@@ -129,11 +127,9 @@ public sealed partial class AutoTest<T>
 		AddOp(new SubjectOp<T>(name, data => AutoAction.Of<T, TArg>(name, (t, _) => t, arguments, data).Draw, (t, a) => apply(t, (TArg)a!)));
 
 	/// <summary>How many operations one run applies to a subject, the last of them the one being tested. The default is 1 to 5.</summary>
-	public AutoTest<T> Steps(int min, int max) =>
-		_subject is null ? throw NeedsFactory(nameof(Steps)) : new(this, steps: (min, max));
+	public AutoTest<T> Steps(int min, int max) => _subject is null ? throw NeedsFactory(nameof(Steps)) : new(this, steps: (min, max));
 
-	private AutoTest<T> AddOp(SubjectOp<T> op) =>
-		_subject is null ? throw NeedsFactory("Mutate") : new(this, ops: [.. _ops, op]);
+	private AutoTest<T> AddOp(SubjectOp<T> op) => _subject is null ? throw NeedsFactory("Mutate") : new(this, ops: [.. _ops, op]);
 
 	// Public methods of the subject that no registered operation is named after: visible, never attacked. A name matches its method or the method without "Async".
 	private IEnumerable<string> UnusedMethods()

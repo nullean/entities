@@ -14,16 +14,14 @@ namespace Nullean.Entities;
 public sealed class Constraint<T, TEvidence> : Constraint<T>
 {
 	internal Constraint(ConstraintKind kind, Func<T, T, IEnumerable<Violation>> check, [CallerMemberName] string? factory = null) : base(kind, check, factory)
-	{
-	}
+	{ }
 
 	internal Constraint(ConstraintKind kind, Func<T, T, TimeProvider, IEnumerable<Violation>> checkAt, [CallerMemberName] string? factory = null) : base(
 			kind,
 			checkAt,
 			factory
 		)
-	{
-	}
+	{ }
 
 	/// <inheritdoc cref="Constraint{T}.Named"/>
 	public new Constraint<T, TEvidence> Named(string name)

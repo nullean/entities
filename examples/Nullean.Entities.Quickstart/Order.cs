@@ -1,6 +1,12 @@
 namespace Nullean.Entities.Quickstart;
 
-public enum OrderStatus { Pending, Confirmed, Shipped, Cancelled }
+public enum OrderStatus
+{
+	Pending,
+	Confirmed,
+	Shipped,
+	Cancelled
+}
 
 public sealed record OrderLine(string Sku, int Quantity, decimal Price);
 

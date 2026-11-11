@@ -42,8 +42,7 @@ public static class TransferRules
 		ConstraintSet.From(
 			("money-is-conserved", Constraints<Transfer>.Conserves(t => t.From.Balance + t.To.Balance, "A transfer cannot create or destroy money")),
 			("accounts-differ", Constraints<Transfer>.Always(t => t.From.Number != t.To.Number, "An account cannot transfer to itself")),
-			("currencies-match",
-			Constraints<Transfer>.Always(
+			("currencies-match", Constraints<Transfer>.Always(
 				t => t.From.Currency == t.Amount.Currency && t.To.Currency == t.Amount.Currency,
 				"Both accounts and the amount must be in the same currency"
 			))

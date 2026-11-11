@@ -15,14 +15,11 @@ internal sealed record Customer(string Name, int LoyaltyPoints, Address Address,
 public class RicherGenerationTests
 {
 	private static Gen<Customer> Customers() =>
-		GenAuto.Of<Customer>(configure: o =>
-				o
-					.Use(
-						GenFakerExtensions.Faker<Address>(
-							f => f.CustomInstantiator(x => new Address(x.Address.StreetAddress(), x.Address.City(), x.Address.ZipCode()))
-						)
-					)
-					.Use(GenAutoBogus.Of<BankDetails>()));
+		GenAuto.Of<Customer>(
+			configure: o => o.Use(
+				GenFakerExtensions.Faker<Address>(f => f.CustomInstantiator(x => new Address(x.Address.StreetAddress(), x.Address.City(), x.Address.ZipCode())))
+			).Use(GenAutoBogus.Of<BankDetails>())
+		);
 
 	private static List<Customer> Draw(Gen<Customer> gen, int count = 500) =>
 		[.. Enumerable.Range(0, count).Select(i => gen.Generate(new PCG(7, (ulong)i + 1), null, out _))];

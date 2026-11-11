@@ -96,11 +96,14 @@ public class ActionInferenceTests
 		var declined = run.Diagnostics.Where(d => d.Id == "NECG020").ToList();
 
 		declined.Should().OnlyContain(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Info);
-		declined.Select(d => d.GetMessage()).Should().SatisfyRespectively(
-			async => async.Should().Contain("Ticket.Sync").And.Contain("asynchronous"),
-			tryMethod => tryMethod.Should().Contain("Ticket.TryMerge").And.Contain("out parameter"),
-			ambiguous => ambiguous.Should().Contain("Ticket.Split").And.Contain("several members").And.Contain("Before").And.Contain("After")
-		);
+		declined
+			.Select(d => d.GetMessage())
+			.Should()
+			.SatisfyRespectively(
+				async => async.Should().Contain("Ticket.Sync").And.Contain("asynchronous"),
+				tryMethod => tryMethod.Should().Contain("Ticket.TryMerge").And.Contain("out parameter"),
+				ambiguous => ambiguous.Should().Contain("Ticket.Split").And.Contain("several members").And.Contain("Before").And.Contain("After")
+			);
 		run.SingleGeneratedSource().Should().NotContain("\"Sync\"").And.NotContain("\"TryMerge\"").And.NotContain("\"Split\"");
 	}
 

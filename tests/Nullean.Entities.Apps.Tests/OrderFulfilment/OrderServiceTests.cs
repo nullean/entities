@@ -146,8 +146,14 @@ public class OrderServiceTests
 	[Test]
 	public async Task A_service_that_ships_an_unconfirmed_order_is_caught_by_the_machine()
 	{
-		var act = async () =>
-			await OrderLifecycle.Machine.ConformsToAsync(OrderHarness.Sloppy, h => h.State, (h, trigger) => h.Drive(trigger), maxLength: 15, iter: 500);
+		var act =
+			async () => await OrderLifecycle.Machine.ConformsToAsync(
+				OrderHarness.Sloppy,
+				h => h.State,
+				(h, trigger) => h.Drive(trigger),
+				maxLength: 15,
+				iter: 500
+			);
 
 		(await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("Ship").And.Contain("the trigger is refused");
 	}

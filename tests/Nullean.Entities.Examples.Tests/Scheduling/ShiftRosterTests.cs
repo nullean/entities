@@ -19,9 +19,7 @@ public class ShiftRosterTests
 			"Alice",
 			[
 				Shift(3, 9, 17), // 8h
-
 				Shift(4, 9, 17) // 8h — same week, total 16h
-
 			]
 		);
 		EmpConstraints.Validate(emp).Should().BeEmpty();
@@ -33,7 +31,6 @@ public class ShiftRosterTests
 		var shifts = Enumerable
 			.Range(3, 6)
 			.Select(d => Shift(d, 8, 17)) // 9h * 6 = 54h
-
 			.ToList();
 		var emp = new Employee("E1", "Alice", shifts);
 		EmpConstraints.Validate(emp).Should().NotBeEmpty();
@@ -47,9 +44,7 @@ public class ShiftRosterTests
 			"Bob",
 			[
 				Shift(3, 9, 17), // ends 17:00
-
 				Shift(3, 22, 23) // starts 22:00 — only 5h rest
-
 			]
 		);
 		EmpConstraints.Validate(emp).Should().NotBeEmpty();

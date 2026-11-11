@@ -31,8 +31,7 @@ public static class CommandConstraints
 		this Command command,
 		Func<ParseResult, T> bind,
 		IReadOnlyDictionary<string, Symbol>? members = null
-	) where T : IHaveConstraints<T> =>
-		command.ValidateConstraints(bind, T.Constraints, members);
+	) where T : IHaveConstraints<T> => command.ValidateConstraints(bind, T.Constraints, members);
 
 	/// <summary>
 	/// Checks <paramref name="constraints"/> against the options <paramref name="bind"/> builds, before <paramref name="command"/>'s action runs. Call after

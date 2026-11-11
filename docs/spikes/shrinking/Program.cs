@@ -54,19 +54,19 @@ public static class Program
 			.Select(l => new Shape(l.Count, l.Count == 0 ? 0 : l.Max(x => x.Item2)));
 
 		static Gen<Shape> Auto(int maxCollection) =>
-			GenAuto
-				.Of<OrderR>(AutoMode.Plausible, o => o.MaxCollection = maxCollection)
-				.Select(o => new Shape(o.Lines.Count, o.Lines.Count == 0 ? 0 : o.Lines.Max(l => l.Qty)));
+			GenAuto.Of<OrderR>(AutoMode.Plausible, o => o.MaxCollection = maxCollection).Select(
+				o => new Shape(o.Lines.Count, o.Lines.Count == 0 ? 0 : o.Lines.Max(l => l.Qty))
+			);
 
-		var faker = GenFakerExtensions.Faker<OrderC>(f =>
-				f.RuleFor(
-					o => o.Lines,
-					g =>
-						Enumerable
-							.Range(0, g.Random.Int(0, 12))
-							.Select(_ => new LineC { Sku = g.Random.AlphaNumeric(g.Random.Int(1, 8)), Qty = g.Random.Int(0, 100) })
-							.ToList()
-				)).Select(o => new Shape(o.Lines.Count, o.Lines.Count == 0 ? 0 : o.Lines.Max(l => l.Qty)));
+		var faker = GenFakerExtensions.Faker<OrderC>(
+			f => f.RuleFor(
+				o => o.Lines,
+				g => Enumerable
+					.Range(0, g.Random.Int(0, 12))
+					.Select(_ => new LineC { Sku = g.Random.AlphaNumeric(g.Random.Int(1, 8)), Qty = g.Random.Int(0, 100) })
+					.ToList()
+			)
+		).Select(o => new Shape(o.Lines.Count, o.Lines.Count == 0 ? 0 : o.Lines.Max(l => l.Qty)));
 
 		Quality.Report("native (chained CsCheck gens)", Quality.Shrink(native, runs));
 		Quality.Report("auto   (GenAuto, MaxCollection 4: counts 0..4)", Quality.Shrink(Auto(4), runs));

@@ -172,10 +172,7 @@ public class ConstraintVocabularyTests
 	[Test]
 	public void NoPrefixes_by_segment_allows_siblings_that_share_text()
 	{
-		var rule = Constraints<(IReadOnlyList<Mount> Mounts, int X)>.NoPrefixes(
-			p => p.Mounts,
-			m => m.Path
-		);
+		var rule = Constraints<(IReadOnlyList<Mount> Mounts, int X)>.NoPrefixes(p => p.Mounts, m => m.Path);
 		var set = ConstraintSet.From(("mounts", rule));
 		IReadOnlyList<Mount> mounts = [new("reference/elasticsearch"), new("reference/elasticsearch-plugins"), new("reference/elasticsearch/query")];
 
@@ -246,10 +243,7 @@ public class ConstraintVocabularyTests
 	[Test]
 	public void Without_removes_a_rule_and_an_unknown_name_throws()
 	{
-		var set = ConstraintSet.From(
-			("a", Constraints<Release>.Always(_ => false, "a")),
-			("b", Constraints<Release>.Always(_ => false, "b"))
-		);
+		var set = ConstraintSet.From(("a", Constraints<Release>.Always(_ => false, "a")), ("b", Constraints<Release>.Always(_ => false, "b")));
 
 		set.Without("a").Validate(Make()).Single().Message.Should().Be("b");
 		var unknown = () => set.Without("zzz");
@@ -406,7 +400,12 @@ public class ConstraintVocabularyTests
 		ConstraintSet.From(("env", rule)).Validate(absent).Should().BeEmpty();
 	}
 
-	internal enum Visual { None, Groups, All }
+	internal enum Visual
+	{
+		None,
+		Groups,
+		All
+	}
 
 	[Test]
 	public void NoUnknownKeys_ParsesAsEnum_Matches_and_RatioAtMost()

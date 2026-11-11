@@ -23,8 +23,8 @@ public sealed record LivenessReport(int States, int Transitions, IReadOnlyList<s
 {
 	/// <inheritdoc />
 	public override string ToString() =>
-		$"{Rules.Count} liveness rule(s) held over {States} states and {Transitions} transitions"
-		+ (FairActions.Count > 0 ? $", assuming {string.Join(", ", FairActions)} fair" : ", with no fairness assumed");
+		$"{Rules.Count} liveness rule(s) held over {States} states and {Transitions} transitions" +
+			(FairActions.Count > 0 ? $", assuming {string.Join(", ", FairActions)} fair" : ", with no fairness assumed");
 }
 
 public sealed partial class EntitySpec<T>
@@ -191,8 +191,8 @@ public sealed partial class EntitySpec<T>
 			if (graph.States.Count >= maxStates)
 			{
 				throw new InvalidOperationException(
-					$"The state space did not close within {maxStates} states from {_print(start)}, so liveness cannot be proved: a run that never reaches the goal may lie past the cut.{Environment.NewLine}"
-					+ "Lower .Limit(...), add a .Boundary(...), pass a .Key(...) that identifies equal states, or raise maxStates."
+					$"The state space did not close within {maxStates} states from {_print(start)}, so liveness cannot be proved: a run that never reaches the goal may lie past the cut.{Environment.NewLine}" +
+						"Lower .Limit(...), add a .Boundary(...), pass a .Key(...) that identifies equal states, or raise maxStates."
 				);
 			}
 			var id = graph.States.Count;
@@ -504,11 +504,10 @@ public sealed partial class EntitySpec<T>
 		// One edge inside the component per choice, taken in label order: string hashes differ between processes, so set order would change the report.
 		var required = always
 			.Select(
-				choice =>
-					component
-						.Order()
-						.SelectMany(s => graph.Edges[s].Where(e => members.Contains(e.To) && Equals(e.FairChoice, choice)).Select(e => (From: s, Edge: e)))
-						.First()
+				choice => component
+					.Order()
+					.SelectMany(s => graph.Edges[s].Where(e => members.Contains(e.To) && Equals(e.FairChoice, choice)).Select(e => (From: s, Edge: e)))
+					.First()
 			)
 			.OrderBy(x => x.Edge.Label, StringComparer.Ordinal)
 			.ThenBy(x => x.From)

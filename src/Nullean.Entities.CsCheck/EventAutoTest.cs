@@ -118,7 +118,8 @@ public sealed class EventAutoTest<TSut, TEvent>
 	/// <summary>One case per event axis that has a rule, plus vacancy.</summary>
 	public IReadOnlyList<AxisCase> Cases =>
 		[
-			.. Axes.Concat([Axis.Vacancy])
+			.. Axes
+				.Concat([Axis.Vacancy])
 				.Where(a => a == Axis.Vacancy || _rules.Rules.Any(r => r.Rule.Axis == a))
 				.Select(a => new AxisCase(a, AxisInfo.Law(a), AxisInfo.Consequence(a), () => CaseAsync(a)))
 		];
@@ -184,10 +185,9 @@ public sealed class EventAutoTest<TSut, TEvent>
 		// rules no axis can aim at are still checked for violations by the all-rules run, they just have no trigger to judge vacuity by
 		var set = TemporalRuleSet<TEvent>.From([.. picked, .. axis is null ? Unclassified : []]);
 		var seed = _seed ?? AxisRun.DefaultSeed;
-		await SampleCall.RunAsync(() =>
-					BuildTimedGen(picked)
-						.SampleAsync(run => CheckAsync(run, set, picked, tally), seed: seed, iter: _samples, print: run => run.Print()))
-			.ConfigureAwait(false);
+		await SampleCall.RunAsync(
+			() => BuildTimedGen(picked).SampleAsync(run => CheckAsync(run, set, picked, tally), seed: seed, iter: _samples, print: run => run.Print())
+		).ConfigureAwait(false);
 		var vacuous = Vacuous(picked, tally);
 		return vacuous.Count > 0
 			? throw new AxisFailure(

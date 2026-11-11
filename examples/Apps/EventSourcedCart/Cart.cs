@@ -94,8 +94,7 @@ public static class CartRules
 		("one-line-per-sku", Constraints<Cart>.Unique(c => c.Lines, l => l.Sku)),
 		("only-catalogue-items", Constraints<Cart>.Always(c => c.Lines.All(l => Catalog.Sells(l.Sku)), "Only items from the catalogue can be in a cart")),
 		("checkout-needs-items", Constraints<Cart>.Always(c => !c.CheckedOut || c.Lines.Count > 0, "An empty cart cannot be checked out")),
-		("checked-out-is-final",
-		Constraints<Cart>.Transitions(
+		("checked-out-is-final", Constraints<Cart>.Transitions(
 			(before, after) => !before.CheckedOut || (after.CheckedOut && before.Lines.SequenceEqual(after.Lines)),
 			"A checked-out cart cannot change"
 		))

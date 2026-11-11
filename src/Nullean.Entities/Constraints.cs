@@ -77,9 +77,11 @@ public sealed class ConstraintViolationException : InvalidOperationException
 
 	public ConstraintViolationException(IReadOnlyList<Violation> violations, string message) : base(message) => Violations = violations;
 
-	public ConstraintViolationException() : this([]) { }
+	public ConstraintViolationException() : this([])
+	{ }
 
-	public ConstraintViolationException(string message) : this([], message) { }
+	public ConstraintViolationException(string message) : this([], message)
+	{ }
 
 	public ConstraintViolationException(string message, Exception innerException) : base(message, innerException) => Violations = [];
 
@@ -93,7 +95,8 @@ public abstract record Result<T>
 	// Closes the hierarchy to the two nested records below: a private protected constructor can
 	// only be called from this assembly or a type derived from Result<T>, and every such type here
 	// is sealed, so nothing outside this file can ever add a third case.
-	private protected Result() { }
+	private protected Result()
+	{ }
 
 	public sealed record Ok(T Value) : Result<T>;
 
@@ -143,8 +146,7 @@ public abstract record Result<T>
 	public Result<TOut> Select<TOut>(Func<T, TOut> map) => Map(map);
 
 	/// <summary>Query syntax: <c>from a in x from b in y(a) select f(a, b)</c>. Stops at the first failure, like <see cref="Bind{TOut}"/>.</summary>
-	public Result<TOut> SelectMany<TNext, TOut>(Func<T, Result<TNext>> next, Func<T, TNext, TOut> project) =>
-		Bind(a => next(a).Map(b => project(a, b)));
+	public Result<TOut> SelectMany<TNext, TOut>(Func<T, Result<TNext>> next, Func<T, TNext, TOut> project) => Bind(a => next(a).Map(b => project(a, b)));
 
 	/// <summary>The value, or <paramref name="fallback"/> when this is a <see cref="Fail"/>.</summary>
 	public T GetValueOrDefault(T fallback) => this is Ok o ? o.Value : fallback;
@@ -527,18 +529,11 @@ public static partial class Constraints<T>
 						.GroupBy(key, comparer)
 						.Where(g => g.Count() > 1)
 						.Select(
-							g =>
-								new Violation(
-									describeGroup?.Invoke(g.Key, [.. g]) ?? describe?.Invoke(
-										g.Key,
-										g.Count()
-									) ?? message ?? $"{self.Name ?? "Constraint"}: '{g.Key}' appears {g.Count()} times."
-								)
-
-								{
-									Member = member,
-									Evidence = g.Key
-								}.At(at?.Invoke(g.Skip(1).First()))
+							g => new Violation(
+								describeGroup?.Invoke(g.Key, [.. g]) ?? describe?.Invoke(g.Key, g.Count()) ?? message ??
+									$"{self.Name ?? "Constraint"}: '{g.Key}' appears {g.Count()} times."
+							)
+							{ Member = member, Evidence = g.Key }.At(at?.Invoke(g.Skip(1).First()))
 						),
 				]
 		);
@@ -569,15 +564,10 @@ public static partial class Constraints<T>
 				.. items(next)
 					.SelectMany(item => references(item).Where(r => !known.Contains(r)).Select(r => (Item: item, Reference: r)))
 					.Select(
-						d =>
-							new Violation(
-								describe?.Invoke(d.Item, d.Reference) ?? message ?? $"{self.Name ?? "Constraint"}: '{d.Reference}' refers to nothing."
-							)
-
-							{
-								Member = member,
-								Evidence = d.Reference
-							}.At(at?.Invoke(d.Item))
+						d => new Violation(
+							describe?.Invoke(d.Item, d.Reference) ?? message ?? $"{self.Name ?? "Constraint"}: '{d.Reference}' refers to nothing."
+						)
+						{ Member = member, Evidence = d.Reference }.At(at?.Invoke(d.Item))
 					),
 			];
 		});
@@ -680,25 +670,21 @@ public static partial class Constraints<T>
 		Constraint<T> self = null!;
 		var member = MemberOf(entriesExpression);
 		var equal = comparer ?? EqualityComparer<TKey>.Default;
-		self = new(ConstraintKind.PointInTime, (_, next) =>
+		self = new(
+			ConstraintKind.PointInTime,
+			(_, next) =>
 				[
 					.. entries(next)
 						.Where(e => !equal.Equals(e.Key, key(e.Value)))
 						.Select(
-							e =>
-								new Violation(
-									describe?.Invoke(
-										e.Key,
-										e.Value
-									) ?? message ?? $"{self.Name ?? "Constraint"}: the entry '{e.Key}' holds a value whose own key is '{key(e.Value)}'."
-								)
-
-								{
-									Member = member,
-									Evidence = (e.Key, key(e.Value))
-								}.At(at?.Invoke(e.Value))
+							e => new Violation(
+								describe?.Invoke(e.Key, e.Value) ?? message ??
+									$"{self.Name ?? "Constraint"}: the entry '{e.Key}' holds a value whose own key is '{key(e.Value)}'."
+							)
+							{ Member = member, Evidence = (e.Key, key(e.Value)) }.At(at?.Invoke(e.Value))
 						),
-				]);
+				]
+		);
 		return self;
 	}
 
@@ -725,16 +711,13 @@ public static partial class Constraints<T>
 			var all = items(next).ToList();
 			var sources = new HashSet<TKey>(all.Where(i => !equal.Equals(from(i), to(i))).Select(from), comparer);
 			return [
-				.. all
-					.Where(i => !equal.Equals(from(i), to(i)) && sources.Contains(to(i)))
-					.Select(
-						i =>
-							new Violation(describe?.Invoke(i) ?? message ?? $"{self.Name ?? "Constraint"}: '{from(i)}' maps to '{to(i)}', which maps onwards.")
-							{
-								Member = member,
-								Evidence = (from(i), to(i))
-							}.At(at?.Invoke(i))
-					),
+				.. all.Where(i => !equal.Equals(from(i), to(i)) && sources.Contains(to(i))).Select(
+					i => new Violation(describe?.Invoke(i) ?? message ?? $"{self.Name ?? "Constraint"}: '{from(i)}' maps to '{to(i)}', which maps onwards.")
+					{
+						Member = member,
+						Evidence = (from(i), to(i))
+					}.At(at?.Invoke(i))
+				),
 			];
 		});
 		return self;
@@ -819,15 +802,14 @@ public static partial class Constraints<T>
 		Constraint<T> self = null!;
 		self = new(
 			ConstraintKind.Sequential,
-			(prev, next) =>
-				isValid(prev, next)
-					? []
-					: [
-						Violation.Error(message ?? $"{self.Name ?? "Constraint"} does not allow the transition from {prev} to {next}.") with
-						{
-							Evidence = (prev, next)
-						}
-					]
+			(prev, next) => isValid(prev, next)
+				? []
+				: [
+					Violation.Error(message ?? $"{self.Name ?? "Constraint"} does not allow the transition from {prev} to {next}.") with
+					{
+						Evidence = (prev, next)
+					}
+				]
 		);
 		return self;
 	}
@@ -899,10 +881,7 @@ public static partial class Constraints<T>
 			direction,
 			(prev, next) => new ShapeProbe(1, Comparer<TValue>.Default.Compare(selector(next), selector(prev)) == 0 ? 0 : 1)
 		)
-
-		{
-			Factory = nameof(Monotonic)
-		});
+		{ Factory = nameof(Monotonic) });
 
 	/// <summary>
 	/// Violated whenever <paramref name="selector"/>'s value changes across a mutation — a
@@ -948,8 +927,9 @@ public sealed class WhenBuilder<T>
 		Constraint<T> self = null!;
 		self = new(
 			ConstraintKind.PointInTime,
-			(_, next) =>
-				!_guard(next) || requirement(next) ? [] : [Violation.Error(message ?? $"{self.Name ?? "Constraint"} was violated.") with { Evidence = next }]
+			(_, next) => !_guard(next) || requirement(next)
+				? []
+				: [Violation.Error(message ?? $"{self.Name ?? "Constraint"} was violated.") with { Evidence = next }]
 		);
 		return self.WithGuard(_guard);
 	}
@@ -1274,10 +1254,8 @@ public sealed partial class ConstraintSet<T>
 	// Equal values are a no-op, except a reference to a type without value equality that is the very same object: that is a class mutated in
 	// place (an EF entity, a classic aggregate), where "equal" only says the reference did not change. Those run the point-in-time constraints.
 	internal static bool IsNoop(T current, T next) =>
-		EqualityComparer<T>.Default.Equals(current, next) && !(current is not null && !typeof(T).IsValueType && ReferenceEquals(
-			current,
-			next
-		) && current is not IEquatable<T>);
+		EqualityComparer<T>.Default.Equals(current, next) &&
+			!(current is not null && !typeof(T).IsValueType && ReferenceEquals(current, next) && current is not IEquatable<T>);
 
 	/// <summary>
 	/// Checks a change you made yourself, with the "before" you kept: for an entity that is mutated in place, where <see cref="Apply"/> cannot see the

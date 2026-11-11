@@ -127,10 +127,10 @@ public static class StateMachine
 		foreach (var raw in diagram.Split('\n'))
 		{
 			var line = raw.Trim();
-			if (line.Length == 0 || line.StartsWith("stateDiagram", StringComparison.Ordinal) || line.StartsWith(
-					"%%",
-					StringComparison.Ordinal
-				) || line == "}" || line.StartsWith("state ", StringComparison.Ordinal))
+			if (
+				line.Length == 0 || line.StartsWith("stateDiagram", StringComparison.Ordinal) || line.StartsWith("%%", StringComparison.Ordinal) || line ==
+					"}" || line.StartsWith("state ", StringComparison.Ordinal)
+			)
 			{
 				continue;
 			}
@@ -168,8 +168,8 @@ public static class StateMachine
 			}
 		}
 
-		var first = initial ?? transitions.Select(t => t.From).Concat(timeouts.Select(t => t.From)).FirstOrDefault() ?? builderStates.FirstOrDefault()
-		?? throw new FormatException("The diagram declares no states.");
+		var first = initial ?? transitions.Select(t => t.From).Concat(timeouts.Select(t => t.From)).FirstOrDefault() ?? builderStates.FirstOrDefault() ??
+			throw new FormatException("The diagram declares no states.");
 		var builder = Define<string, string>(first);
 		foreach (var s in builderStates)
 		{

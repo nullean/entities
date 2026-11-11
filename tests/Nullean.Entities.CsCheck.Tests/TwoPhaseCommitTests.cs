@@ -46,42 +46,41 @@ internal sealed class TwoPhaseCommit
 	/// <param name="commitOnFirstYes">The classic bug: the coordinator commits as soon as one participant says yes.</param>
 	public TwoPhaseCommit(bool commitOnFirstYes = false)
 	{
-		Coordinator
-			.Client("Begin", (c, send) =>
+		Coordinator.Client("Begin", (c, send) =>
+		{
+			if (c.Phase != Phase.Idle)
 			{
-				if (c.Phase != Phase.Idle)
-				{
-					return c;
-				}
-				foreach (var p in Participants)
-				{
-					send(p, new Prepare());
-				}
-				return c with { Phase = Phase.Waiting };
-			})
-			.Handles<Vote>((c, vote, send) =>
+				return c;
+			}
+			foreach (var p in Participants)
 			{
-				if (c.Phase != Phase.Waiting)
-				{
-					return c;
-				}
-				var yes = vote.Yes ? c.Yes.Add(vote.Participant) : c.Yes;
-				var outcome = !vote.Yes ? Outcome.Abort : yes.Count == Participants.Length || commitOnFirstYes ? Outcome.Commit : Outcome.None;
-				if (outcome == Outcome.None)
-				{
-					return c with { Yes = yes };
-				}
-				foreach (var p in Participants)
-				{
-					send(p, new Decide(outcome));
-				}
-				return c with { Yes = yes, Phase = outcome == Outcome.Commit ? Phase.Committed : Phase.Aborted };
-			});
+				send(p, new Prepare());
+			}
+			return c with { Phase = Phase.Waiting };
+		}).Handles<Vote>((c, vote, send) =>
+		{
+			if (c.Phase != Phase.Waiting)
+			{
+				return c;
+			}
+			var yes = vote.Yes ? c.Yes.Add(vote.Participant) : c.Yes;
+			var outcome = !vote.Yes ? Outcome.Abort : yes.Count == Participants.Length || commitOnFirstYes ? Outcome.Commit : Outcome.None;
+			if (outcome == Outcome.None)
+			{
+				return c with { Yes = yes };
+			}
+			foreach (var p in Participants)
+			{
+				send(p, new Decide(outcome));
+			}
+			return c with { Yes = yes, Phase = outcome == Outcome.Commit ? Phase.Committed : Phase.Aborted };
+		});
 
 		foreach (var participant in Participants)
 		{
 			var me = participant;
-			me.Handles<Prepare>((p, _, _) => p with { Prepared = true })
+			me
+				.Handles<Prepare>((p, _, _) => p with { Prepared = true })
 				.Handles<Decide>((p, d, _) => p with { Outcome = d.Outcome })
 				.Client("Vote", [true, false], (p, yes, send) =>
 				{
@@ -142,11 +141,7 @@ public class TwoPhaseCommitTests
 	{
 		var tpc = new TwoPhaseCommit();
 
-		var report = tpc
-			.System()
-			.Spec(tpc.Rules)
-			.LeadsTo("everyone-learns-the-outcome", tpc.Begun, tpc.EveryoneKnows)
-			.Liveness();
+		var report = tpc.System().Spec(tpc.Rules).LeadsTo("everyone-learns-the-outcome", tpc.Begun, tpc.EveryoneKnows).Liveness();
 
 		// Voting needs no fairness: a run only stops where nothing can change the state, so a participant that can still vote will.
 		// Fairness is for loops, and voting has none.
@@ -160,8 +155,8 @@ public class TwoPhaseCommitTests
 		// nobody sends them again, and the participants wait for an outcome for ever. That is 2PC's blocking problem, and the reason its log matters.
 		var tpc = new TwoPhaseCommit();
 
-		var act = () =>
-			tpc
+		var act =
+			() => tpc
 				.System()
 				.Crashes(tpc.Coordinator, durable: c => c with { Yes = [] })
 				.Spec(tpc.Rules)

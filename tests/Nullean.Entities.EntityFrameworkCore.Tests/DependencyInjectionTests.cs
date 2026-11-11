@@ -15,11 +15,11 @@ public sealed class DependencyInjectionTests
 		using var connection = new SqliteConnection("DataSource=:memory:");
 		connection.Open();
 		var services = new ServiceCollection();
-		services.AddDbContext<ShopContext>(options =>
-				options
-					.UseSqlite(connection)
-					.UseConstraints(c => c.Add<Order>())
-					.ConfigureWarnings(w => w.Throw(CoreEventId.ManyServiceProvidersCreatedWarning))
+		services.AddDbContext<ShopContext>(
+			options => options
+				.UseSqlite(connection)
+				.UseConstraints(c => c.Add<Order>())
+				.ConfigureWarnings(w => w.Throw(CoreEventId.ManyServiceProvidersCreatedWarning))
 		);
 		await using var provider = services.BuildServiceProvider();
 		await using (var scope = provider.CreateAsyncScope())

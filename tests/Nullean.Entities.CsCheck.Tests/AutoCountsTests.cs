@@ -15,9 +15,9 @@ public class AutoCountsTests
 {
 	private static List<int> Counts(AutoMode mode, int maxCollection, int draws = 4000) =>
 		[
-			.. Enumerable
-				.Range(0, draws)
-				.Select(i => GenAuto.Of<CountBag>(mode, o => o.MaxCollection = maxCollection).Generate(new PCG(7u, (ulong)i + 1), null, out _).Items.Count)
+			.. Enumerable.Range(0, draws).Select(
+				i => GenAuto.Of<CountBag>(mode, o => o.MaxCollection = maxCollection).Generate(new PCG(7u, (ulong)i + 1), null, out _).Items.Count
+			)
 		];
 
 	[Test]

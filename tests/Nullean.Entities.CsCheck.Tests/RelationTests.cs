@@ -127,8 +127,7 @@ public class RelationTests
 	{
 		var byHand = ConstraintSet.From(
 			("names-a-product", NamesAProduct),
-			("docset-products-exist",
-			Constraints<Rel.CatalogFirst>.References(
+			("docset-products-exist", Constraints<Rel.CatalogFirst>.References(
 				pair => new[] { pair.Docset },
 				d => d.Products,
 				pair => pair.Catalog.Products.Select(p => p.Id)

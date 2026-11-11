@@ -105,8 +105,7 @@ public static class Program
 	{
 		Console.WriteLine("D. N14/G67  one mount's prefix must not swallow another's (repo://reference-foo vs repo://reference)");
 		var rules = ConstraintSet.From(
-			("mount-prefixes-do-not-overlap",
-			Constraints<Mounts>.Check(m =>
+			("mount-prefixes-do-not-overlap", Constraints<Mounts>.Check(m =>
 			{
 				var found = new List<Violation>();
 				foreach (var a in m.Items)

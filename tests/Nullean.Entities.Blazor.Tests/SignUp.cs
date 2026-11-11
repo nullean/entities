@@ -22,10 +22,9 @@ public sealed partial class SignUp
 	// A warning: not shown unless MinimumSeverity is Warning or Hint.
 	[Constraint]
 	public static readonly Constraint<SignUp> EmailNotExample = Constraints<SignUp>.Check(
-		s =>
-			s.Email.EndsWith("@example.com", StringComparison.Ordinal)
-				? [new Violation("example.com does not receive mail", Severity.Warning) { Member = nameof(Email) }]
-				: []
+		s => s.Email.EndsWith("@example.com", StringComparison.Ordinal)
+			? [new Violation("example.com does not receive mail", Severity.Warning) { Member = nameof(Email) }]
+			: []
 	);
 
 	// A rule over two fields, reported on Confirm.

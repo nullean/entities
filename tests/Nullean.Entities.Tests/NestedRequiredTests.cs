@@ -71,15 +71,20 @@ public class NestedRequiredTests
 	public void TheNestedRules_ArePrerequisites_SoOtherRulesNeverReadTheHole()
 	{
 		NestedSiteRules.All.AsConstraints().Where(c => c.Name!.EndsWith("-required", StringComparison.Ordinal)).Should().OnlyContain(c => c.IsPrerequisite);
-		NestedSiteRules.All.AsConstraints().Select(c => c.Name).Should().BeEquivalentTo([
-			"name-required",
-			"pages-required",
-			"environments-required",
-			"owner-login-required",
-			"owner-address-city-required",
-			"pages-title-required",
-			"environments-uri-required"
-		]);
+		NestedSiteRules
+			.All
+			.AsConstraints()
+			.Select(c => c.Name)
+			.Should()
+			.BeEquivalentTo([
+				"name-required",
+				"pages-required",
+				"environments-required",
+				"owner-login-required",
+				"owner-address-city-required",
+				"pages-title-required",
+				"environments-uri-required"
+			]);
 	}
 
 	[Test]
@@ -166,8 +171,7 @@ public sealed class Shelf
 {
 	public required IReadOnlyDictionary<string, ShelfEntry> Entries { get; init; }
 
-	public IReadOnlyDictionary<string, ShelfEntry> Labelled =>
-		field ??= Entries.Where(e => e.Value.Label.Length > 0).ToDictionary();
+	public IReadOnlyDictionary<string, ShelfEntry> Labelled => field ??= Entries.Where(e => e.Value.Label.Length > 0).ToDictionary();
 }
 
 public sealed record Pair(Party Left, Party Right);

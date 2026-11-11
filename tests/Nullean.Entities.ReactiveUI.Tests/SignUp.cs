@@ -13,9 +13,7 @@ public sealed partial record SignUp(string Email, int Age, string Password, stri
 	);
 
 	[Constraint]
-	public static readonly Constraint<SignUp> Adult = Constraints<SignUp>.Check(
-		s => s.Age >= 18 ? [] : [Violation.Error(nameof(Age), "must be 18 or older")]
-	);
+	public static readonly Constraint<SignUp> Adult = Constraints<SignUp>.Check(s => s.Age >= 18 ? [] : [Violation.Error(nameof(Age), "must be 18 or older")]);
 
 	[Constraint]
 	public static readonly Constraint<SignUp> PasswordsMatch = Constraints<SignUp>.Check(

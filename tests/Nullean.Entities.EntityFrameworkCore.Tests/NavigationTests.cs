@@ -27,9 +27,8 @@ public sealed class BasketContext(DbContextOptions<BasketContext> options) : DbC
 public sealed class NavigationTests
 {
 	private static readonly ConstraintSet<Basket> BasketRules = ConstraintSet.From(
-		("UniqueSkus",
-		Constraints<Basket>.Check(b =>
-				b.Lines.GroupBy(l => l.Sku).Any(g => g.Count() > 1) ? [Violation.Error(nameof(Basket.Lines), "skus must be unique")] : []
+		("UniqueSkus", Constraints<Basket>.Check(
+			b => b.Lines.GroupBy(l => l.Sku).Any(g => g.Count() > 1) ? [Violation.Error(nameof(Basket.Lines), "skus must be unique")] : []
 		))
 	);
 

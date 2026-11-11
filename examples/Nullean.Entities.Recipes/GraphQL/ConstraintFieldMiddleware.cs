@@ -23,7 +23,8 @@ public static class ConstraintFieldMiddleware
 				{
 					failed = true;
 					context.ReportError(
-						ErrorBuilder.New()
+						ErrorBuilder
+							.New()
 							.SetMessage(v.Message)
 							.SetPath(context.Path)
 							.SetExtension("member", v.Member)

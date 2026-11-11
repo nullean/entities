@@ -29,14 +29,12 @@ public static partial class Port
 		("ReferenceKeysMatchNames", Constraints<AssemblyConfiguration>.KeysMatch(a => a.ReferenceRepositories, r => r.Name)),
 		("AvailableKeysMatchNames", Constraints<AssemblyConfiguration>.KeysMatch(a => a.AvailableRepositories, r => r.Name)),
 		("PrivateKeysMatchNames", Constraints<AssemblyConfiguration>.KeysMatch(a => a.PrivateRepositories, r => r.Name)),
-		("PrivateIsAvailable",
-		Constraints<AssemblyConfiguration>.References<KeyValuePair<string, Repository>, string>(
+		("PrivateIsAvailable", Constraints<AssemblyConfiguration>.References<KeyValuePair<string, Repository>, string>(
 			a => a.PrivateRepositories,
 			kv => [kv.Key],
 			a => a.AvailableRepositories.Keys
 		)),
-		("AvailableRepositoriesPublish",
-		Constraints<AssemblyConfiguration>.Always(
+		("AvailableRepositoriesPublish", Constraints<AssemblyConfiguration>.Always(
 			a => a.AvailableRepositories.Values,
 			repos => repos.All(r => !r.Skip),
 			"An available repository does not skip publishing."
@@ -44,22 +42,19 @@ public static partial class Port
 	);
 
 	public static readonly ConstraintSet<NavigationInAssembly> MountRules = ConstraintSet.From(
-		("MountSchemeIsARepository",
-		Constraints<NavigationInAssembly>.References<SiteTableOfContentsRef, string>(
+		("MountSchemeIsARepository", Constraints<NavigationInAssembly>.References<SiteTableOfContentsRef, string>(
 			p => SiteNavigationConstraints.AllMounts(p.Navigation),
 			m => [m.Source.Scheme],
 			p => p.Assembly.AvailableRepositories.Keys.Select(Scheme)
 		)),
-		("PathPrefixesAreUnique",
-		Constraints<NavigationInAssembly>.Unique(
+		("PathPrefixesAreUnique", Constraints<NavigationInAssembly>.Unique(
 			p => SiteNavigationConstraints.AllMounts(p.Navigation).Where(m => !string.IsNullOrEmpty(m.PathPrefix)),
 			m => m.PathPrefix.Trim('/')
 		))
 	);
 
 	public static readonly ConstraintSet<DocumentationSetInCatalog> DocsetRules = ConstraintSet.From(
-		("ProductsExist",
-		Constraints<DocumentationSetInCatalog>.References<string, string>(p => p.Docset.Products, id => [id], p => p.Products.Products.Keys))
+		("ProductsExist", Constraints<DocumentationSetInCatalog>.References<string, string>(p => p.Docset.Products, id => [id], p => p.Products.Products.Keys))
 	);
 
 	// The derivation the loader performs, written once and used to make generated data valid: available = the references that publish, private = the available private ones.
@@ -89,14 +84,18 @@ public static partial class Port
 		SiteTableOfContentsRef Fix(SiteTableOfContentsRef t) =>
 			t with { Source = new Uri($"{names[n++ % names.Count]}://x"), Children = [.. t.Children.Select(Fix)] };
 
-		var entries = pair.Navigation.TableOfContents
-			.Select(e =>
+		var entries = pair
+			.Navigation
+			.TableOfContents
+			.Select(
+				e =>
 					e.Value switch
 					{
 						SiteTableOfContentsRef toc => new SiteNavigationEntry(Fix(toc)),
 						SiteSectionRef section => new SiteNavigationEntry(section with { Children = [.. section.Children.Select(Fix)] }),
 						_ => e,
-					})
+					}
+			)
 			.ToList();
 		return pair with { Navigation = pair.Navigation with { TableOfContents = entries } };
 	}
@@ -156,29 +155,24 @@ public static partial class Port
 			);
 			var both = SafeCount(
 				pairs,
-				p =>
-					MountRules.Validate(p).Any(v => v.ConstraintId == "PathPrefixesAreUnique") && SiteNavigationConstraints
-						.All
-						.CheckAll(p.Navigation)
-						.Any(v => TheirPrefixRules.Contains(v.ConstraintId)),
+				p => MountRules.Validate(p).Any(v => v.ConstraintId == "PathPrefixesAreUnique") && SiteNavigationConstraints
+					.All
+					.CheckAll(p.Navigation)
+					.Any(v => TheirPrefixRules.Contains(v.ConstraintId)),
 				out _
 			);
 			var oursOnly = SafeCount(
 				pairs,
-				p =>
-					MountRules.Validate(p).Any(v => v.ConstraintId == "PathPrefixesAreUnique") && !SiteNavigationConstraints
-						.All
-						.CheckAll(p.Navigation)
-						.Any(v => TheirPrefixRules.Contains(v.ConstraintId)),
+				p => MountRules.Validate(p).Any(v => v.ConstraintId == "PathPrefixesAreUnique") &&
+					!SiteNavigationConstraints.All.CheckAll(p.Navigation).Any(v => TheirPrefixRules.Contains(v.ConstraintId)),
 				out _
 			);
 			var theirsOnly = SafeCount(
 				pairs,
-				p =>
-					!MountRules.Validate(p).Any(v => v.ConstraintId == "PathPrefixesAreUnique") && SiteNavigationConstraints
-						.All
-						.CheckAll(p.Navigation)
-						.Any(v => TheirPrefixRules.Contains(v.ConstraintId)),
+				p => !MountRules.Validate(p).Any(v => v.ConstraintId == "PathPrefixesAreUnique") && SiteNavigationConstraints
+					.All
+					.CheckAll(p.Navigation)
+					.Any(v => TheirPrefixRules.Contains(v.ConstraintId)),
 				out _
 			);
 			var mountRepo = SafeCount(pairs, p => MountRules.Validate(p).Any(v => v.ConstraintId == "MountSchemeIsARepository"), out _);
@@ -201,11 +195,10 @@ public static partial class Port
 			var unknownProducts = SafeCount(docs, d => DocsetRules.Validate(d).Count > 0, out _);
 			var theirProductRule = SafeCount(
 				docs,
-				d =>
-					DocumentationSetConstraints
-						.All
-						.CheckAll(d)
-						.Any(v => v.Message.Contains("product", StringComparison.OrdinalIgnoreCase) && v.ConstraintId != "release-notes-product-known"),
+				d => DocumentationSetConstraints
+					.All
+					.CheckAll(d)
+					.Any(v => v.Message.Contains("product", StringComparison.OrdinalIgnoreCase) && v.ConstraintId != "release-notes-product-known"),
 				out var docThrew
 			);
 			Console.WriteLine(

@@ -27,9 +27,9 @@ public static class MountUri
 public static partial class AssemblyConstraints
 {
 	/// <summary>The dictionary key duplicates <c>Repository.Name</c>; nothing keeps the two equal.</summary>
-	public static readonly Constraint<Assembly> RepositoryKeysMatchNames = Constraints<Assembly>
-		.KeysMatch(a => a.Repositories, r => r.Name)
-		.Describe("A repository is stored under its own name.");
+	public static readonly Constraint<Assembly> RepositoryKeysMatchNames = Constraints<Assembly>.KeysMatch(a => a.Repositories, r => r.Name).Describe(
+		"A repository is stored under its own name."
+	);
 }
 
 [Constraints]
@@ -43,7 +43,9 @@ public static partial class NavigationConstraints
 public static partial class NavigationInAssemblyConstraints
 {
 	/// <summary>A mount refers to a repository the assembly knows. Nothing checks it in the domain today; the navigation build throws "Could not find navigation node".</summary>
-	public static readonly Constraint<NavigationInAssembly> MountIsARepository = Constraints<NavigationInAssembly>
-		.References<Mount, string>(p => p.Navigation.Mounts, m => [MountUri.Repository(m)], p => p.Assembly.Repositories.Keys)
-		.Describe("G62/I6: every mount names a repository that exists.");
+	public static readonly Constraint<NavigationInAssembly> MountIsARepository = Constraints<NavigationInAssembly>.References<Mount, string>(
+		p => p.Navigation.Mounts,
+		m => [MountUri.Repository(m)],
+		p => p.Assembly.Repositories.Keys
+	).Describe("G62/I6: every mount names a repository that exists.");
 }

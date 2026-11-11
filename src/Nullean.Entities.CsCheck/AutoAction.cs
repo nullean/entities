@@ -67,8 +67,9 @@ public static class AutoAction
 	public static AutoAction<T> Of<T, TArg>(string name, Func<T, TArg, T> apply, Func<T, Gen<TArg>>? arguments = null, AutoMode data = AutoMode.Mixed)
 	{
 		var draw = arguments is null
-			? (Func<Gen<T>, Gen<(T Start, object? Argument)>>)(starts =>
-				starts.SelectMany(start => Argument(start, typeof(TArg), data).Select(argument => (start, argument))))
+			? (Func<Gen<T>, Gen<(T Start, object? Argument)>>)(starts => starts.SelectMany(
+				start => Argument(start, typeof(TArg), data).Select(argument => (start, argument))
+			))
 			: starts => starts.SelectMany(start => arguments(start).Select(argument => (start, (object?)argument)));
 		return new AutoAction<T>(name, draw, (value, argument) => ValueTask.FromResult(apply(value, (TArg)argument!)));
 	}
@@ -82,8 +83,9 @@ public static class AutoAction
 	)
 	{
 		var draw = arguments is null
-			? (Func<Gen<T>, Gen<(T Start, object? Argument)>>)(starts =>
-				starts.SelectMany(start => Argument(start, typeof(TArg), data).Select(argument => (start, argument))))
+			? (Func<Gen<T>, Gen<(T Start, object? Argument)>>)(starts => starts.SelectMany(
+				start => Argument(start, typeof(TArg), data).Select(argument => (start, argument))
+			))
 			: starts => starts.SelectMany(start => arguments(start).Select(argument => (start, (object?)argument)));
 		return new AutoAction<T>(name, draw, async (value, argument) => await apply(value, (TArg)argument!).ConfigureAwait(false));
 	}

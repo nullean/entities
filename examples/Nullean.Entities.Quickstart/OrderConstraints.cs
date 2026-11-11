@@ -7,9 +7,10 @@ public static partial class OrderConstraints
 	// one state: true in every state
 	public static readonly Constraint<Order> TotalNeverNegative = Constraints<Order>.Always(o => o.Total >= 0, "An order total is never negative.");
 
-	public static readonly Constraint<Order> ConfirmedOrdersHaveLines = Constraints<Order>
-		.When(o => o.Status == OrderStatus.Confirmed)
-		.Requires(o => o.Lines.Count > 0, "A confirmed order has at least one line.");
+	public static readonly Constraint<Order> ConfirmedOrdersHaveLines = Constraints<Order>.When(o => o.Status == OrderStatus.Confirmed).Requires(
+		o => o.Lines.Count > 0,
+		"A confirmed order has at least one line."
+	);
 
 	// two states: the legal moves between them
 	public static readonly Constraint<Order> LegalMoves = Constraints<Order>

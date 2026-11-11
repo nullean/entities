@@ -61,7 +61,8 @@ public class OrgChartTests
 
 	[Test]
 	public void ShouldSatisfy_linear_management_chains_are_valid() =>
-		Gen.Int[2, 10]
+		Gen
+			.Int[2, 10]
 			.Select(n => new OrgChart([.. Enumerable.Range(0, n).Select(i => ActivePerson($"P{i}", i > 0 ? $"P{i - 1}" : null))]))
 			.ShouldSatisfy(OrgSet);
 

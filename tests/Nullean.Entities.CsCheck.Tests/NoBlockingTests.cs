@@ -18,10 +18,9 @@ public partial class NoBlockingTests
 		var offenders = new[] { "src", "tests", "examples" }
 			.SelectMany(dir => Directory.EnumerateFiles(Path.Combine(root, dir), "*.cs", SearchOption.AllDirectories))
 			.Where(
-				f =>
-					!f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal) && Path.GetFileName(f) != nameof(
-						NoBlockingTests
-					) + ".cs"
+				f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal) && Path.GetFileName(f) != nameof(
+					NoBlockingTests
+				) + ".cs"
 			)
 			.SelectMany(f => File.ReadLines(f).Select((line, i) => (File: f, Line: i + 1, Text: line)))
 			.Where(l => !l.Text.TrimStart().StartsWith("//", StringComparison.Ordinal) && Blocking().IsMatch(l.Text) && !NotATask.Any(l.Text.Contains))

@@ -49,11 +49,7 @@ internal static class ConformTrace
 	/// CsCheck shrinks a state-dependent walk by its choices, so it can keep a step that changes nothing (a refused trigger). This removes
 	/// steps one at a time, replaying each candidate, until none can go, and rewrites the report with the smaller trace. Null when nothing was removed.
 	/// </summary>
-	public static CsCheckException? Trimmed<TState>(
-		string message,
-		ConformFailure<TState> failure,
-		Func<IReadOnlyList<string>, ConformFailure<TState>?> replay
-	)
+	public static CsCheckException? Trimmed<TState>(string message, ConformFailure<TState> failure, Func<IReadOnlyList<string>, ConformFailure<TState>?> replay)
 	{
 		var best = failure;
 		bool removed;
@@ -117,12 +113,11 @@ public static class StateMachineSpecExtensions
 		var actions = machine
 			.Triggers
 			.Select(
-				trigger =>
-					new EntityAction<TState>(
-						Convert.ToString(trigger, System.Globalization.CultureInfo.InvariantCulture) ?? "trigger",
-						null,
-						(state, _) => machine.TryFire(state, trigger, out var next) ? next : state
-					)
+				trigger => new EntityAction<TState>(
+					Convert.ToString(trigger, System.Globalization.CultureInfo.InvariantCulture) ?? "trigger",
+					null,
+					(state, _) => machine.TryFire(state, trigger, out var next) ? next : state
+				)
 			)
 			.ToList();
 		if (includeTimeouts)
@@ -168,41 +163,32 @@ public static class StateMachineSpecExtensions
 		var recorder = new ConformRecorder<TState>();
 		try
 		{
-			return BuildSpec(machine, includeTimeouts: false)
-				.Conform(
-					() =>
-					{
-						recorder.Reset();
-						return new EntityHolder<TEntity>(initial);
-					},
-					(holder, step) =>
-					{
-						holder.Entity = byName[step.Action](holder.Entity);
-						var actual = stateOf(holder.Entity);
-						var divergence = EqualityComparer<TState>.Default.Equals(actual, step.After)
-							? null
-							: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
-						recorder.Step(step.Action, step.Before, step.After, divergence);
-						return divergence;
-					},
-					writeLine,
-					iter: iter
-				);
+			return BuildSpec(machine, includeTimeouts: false).Conform(
+				() =>
+				{
+					recorder.Reset();
+					return new EntityHolder<TEntity>(initial);
+				},
+				(holder, step) =>
+				{
+					holder.Entity = byName[step.Action](holder.Entity);
+					var actual = stateOf(holder.Entity);
+					var divergence = EqualityComparer<TState>.Default.Equals(actual, step.After)
+						? null
+						: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
+					recorder.Step(step.Action, step.Before, step.After, divergence);
+					return divergence;
+				},
+				writeLine,
+				iter: iter
+			);
 		}
 		catch (CsCheckException e) when (recorder.Failure is not null)
 		{
 			var trimmed = ConformTrace.Trimmed(
 				e.Message,
 				recorder.Failure,
-				names =>
-					Replay(
-						machine,
-						names,
-						initial,
-						stateOf,
-						(entity, name) =>
-							byName[name](entity)
-					)
+				names => Replay(machine, names, initial, stateOf, (entity, name) => byName[name](entity))
 			);
 			if (trimmed is null)
 			{
@@ -260,16 +246,15 @@ public static class StateMachineSpecExtensions
 	{
 		RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(initial));
 		var byName = bindings.ToDictionary(b => Convert.ToString(b.Trigger, System.Globalization.CultureInfo.InvariantCulture)!, b => b.Apply);
-		return BuildSpec(machine, includeTimeouts: false)
-			.ConformExhaustive(
-				() => new EntityHolder<TEntity>(initial),
-				(holder, step) =>
-				{
-					holder.Entity = byName[step.Action](holder.Entity);
-					return Diverged(stateOf(holder.Entity), step.Action, step.Before, step.After);
-				},
-				writeLine
-			);
+		return BuildSpec(machine, includeTimeouts: false).ConformExhaustive(
+			() => new EntityHolder<TEntity>(initial),
+			(holder, step) =>
+			{
+				holder.Entity = byName[step.Action](holder.Entity);
+				return Diverged(stateOf(holder.Entity), step.Action, step.Before, step.After);
+			},
+			writeLine
+		);
 	}
 
 	/// <summary><see cref="ConformToExhaustive{TState, TTrigger, TEntity}"/> for a class that mutates in place: a fresh entity from <paramref name="create"/> per transition.</summary>
@@ -283,16 +268,15 @@ public static class StateMachineSpecExtensions
 	{
 		RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(create()));
 		var byName = bindings.ToDictionary(b => Convert.ToString(b.Trigger, System.Globalization.CultureInfo.InvariantCulture)!, b => b.Apply);
-		return BuildSpec(machine, includeTimeouts: false)
-			.ConformExhaustive(
-				() => new EntityHolder<TEntity>(create()),
-				(holder, step) =>
-				{
-					byName[step.Action](holder.Entity);
-					return Diverged(stateOf(holder.Entity), step.Action, step.Before, step.After);
-				},
-				writeLine
-			);
+		return BuildSpec(machine, includeTimeouts: false).ConformExhaustive(
+			() => new EntityHolder<TEntity>(create()),
+			(holder, step) =>
+			{
+				byName[step.Action](holder.Entity);
+				return Diverged(stateOf(holder.Entity), step.Action, step.Before, step.After);
+			},
+			writeLine
+		);
 	}
 
 	private static string? Diverged<TState>(TState actual, string action, TState before, TState after) =>
@@ -313,26 +297,25 @@ public static class StateMachineSpecExtensions
 		var recorder = new ConformRecorder<TState>();
 		try
 		{
-			return BuildSpec(machine, includeTimeouts: false)
-				.Conform(
-					() =>
-					{
-						recorder.Reset();
-						return new EntityHolder<TEntity>(create());
-					},
-					(holder, step) =>
-					{
-						byName[step.Action](holder.Entity);
-						var actual = stateOf(holder.Entity);
-						var divergence = EqualityComparer<TState>.Default.Equals(actual, step.After)
-							? null
-							: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
-						recorder.Step(step.Action, step.Before, step.After, divergence);
-						return divergence;
-					},
-					writeLine,
-					iter: iter
-				);
+			return BuildSpec(machine, includeTimeouts: false).Conform(
+				() =>
+				{
+					recorder.Reset();
+					return new EntityHolder<TEntity>(create());
+				},
+				(holder, step) =>
+				{
+					byName[step.Action](holder.Entity);
+					var actual = stateOf(holder.Entity);
+					var divergence = EqualityComparer<TState>.Default.Equals(actual, step.After)
+						? null
+						: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
+					recorder.Step(step.Action, step.Before, step.After, divergence);
+					return divergence;
+				},
+				writeLine,
+				iter: iter
+			);
 		}
 		catch (CsCheckException e) when (recorder.Failure is not null)
 		{
@@ -430,12 +413,11 @@ public static partial class EntitySpec
 	)
 	{
 		var actions = commands.Select(
-			c =>
-				new EntityAction<TState>(
-					Convert.ToString(c, System.Globalization.CultureInfo.InvariantCulture) ?? typeof(TCommand).Name,
-					null,
-					(state, _) => reduce(state, c)
-				)
+			c => new EntityAction<TState>(
+				Convert.ToString(c, System.Globalization.CultureInfo.InvariantCulture) ?? typeof(TCommand).Name,
+				null,
+				(state, _) => reduce(state, c)
+			)
 		);
 		return For(constraints ?? ConstraintSet.From<TState>(), new EntityActions<TState>([.. actions]), initial);
 	}
@@ -455,21 +437,15 @@ public static partial class EntitySpec
 	{
 		var list = commands.ToList();
 		var byName = list.ToDictionary(c => Convert.ToString(c, System.Globalization.CultureInfo.InvariantCulture) ?? typeof(TCommand).Name);
-		var actions = list.Select(c =>
-				new EntityAction<TState>(
-					Convert.ToString(c, System.Globalization.CultureInfo.InvariantCulture) ?? typeof(TCommand).Name,
-					null,
-					(state, _) => decide(state, c).Aggregate(state, evolve)
-				));
-		var set = constraints ?? ConstraintSet.From<TState>();
-		return new EventSourcedSpec<TState, TCommand, TEvent>(
-			For(set, new EntityActions<TState>([.. actions]), initial),
-			initial,
-			set,
-			decide,
-			evolve,
-			byName
+		var actions = list.Select(
+			c => new EntityAction<TState>(
+				Convert.ToString(c, System.Globalization.CultureInfo.InvariantCulture) ?? typeof(TCommand).Name,
+				null,
+				(state, _) => decide(state, c).Aggregate(state, evolve)
+			)
 		);
+		var set = constraints ?? ConstraintSet.From<TState>();
+		return new EventSourcedSpec<TState, TCommand, TEvent>(For(set, new EntityActions<TState>([.. actions]), initial), initial, set, decide, evolve, byName);
 	}
 
 	/// <summary>
@@ -603,35 +579,36 @@ public sealed class EventSourcedSpec<TState, TCommand, TEvent>
 		for (var index = 0; index < names.Count; index++)
 		{
 			var (i, name) = (index, names[index]);
-			temporal.Add(($"temporal: {name}",
-				Constraints<Observed<TState, TEvent>>.Check(o =>
-						o.Monitors[i].Current.IsViolated
-							? [
-								new Violation($"{name} violated at {o.Monitors[i].Current.ViolationAt:HH:mm:ss}: {o.Monitors[i].Current.ViolationEvidence}")
-								{
-									Evidence = o.Monitors[i].Current.ViolationEvidence
-								}
-							]
-							: [])));
+			temporal.Add(
+				($"temporal: {name}", Constraints<Observed<TState, TEvent>>.Check(
+					o => o.Monitors[i].Current.IsViolated
+						? [
+							new Violation($"{name} violated at {o.Monitors[i].Current.ViolationAt:HH:mm:ss}: {o.Monitors[i].Current.ViolationEvidence}")
+							{
+								Evidence = o.Monitors[i].Current.ViolationEvidence
+							}
+						]
+						: []
+				))
+			);
 		}
 		var set = ConstraintSet.From([.. lifted.AsConstraints().Select(c => (c.Name ?? "constraint", c)), .. temporal]);
 
-		var actions = _commands.Select(c =>
-			new EntityAction<Observed<TState, TEvent>>(c.Key, null, (o, _) =>
+		var actions = _commands.Select(c => new EntityAction<Observed<TState, TEvent>>(c.Key, null, (o, _) =>
+		{
+			var at = o.At + interval;
+			List<IMonitor<TEvent>> next = [.. o.Monitors.Select(m => m.Clone())];
+			var events = _decide(o.State, c.Value).ToList();
+			foreach (var monitor in next)
 			{
-				var at = o.At + interval;
-				List<IMonitor<TEvent>> next = [.. o.Monitors.Select(m => m.Clone())];
-				var events = _decide(o.State, c.Value).ToList();
-				foreach (var monitor in next)
+				foreach (var e in events)
 				{
-					foreach (var e in events)
-					{
-						monitor.Observe(e, at);
-					}
-					monitor.Tick(at);
+					monitor.Observe(e, at);
 				}
-				return new Observed<TState, TEvent>(events.Aggregate(o.State, _evolve), next, at);
-			}));
+				monitor.Tick(at);
+			}
+			return new Observed<TState, TEvent>(events.Aggregate(o.State, _evolve), next, at);
+		}));
 
 		return EntitySpec
 			.For(set, new EntityActions<Observed<TState, TEvent>>([.. actions]), new Observed<TState, TEvent>(_initial, monitors, Origin))

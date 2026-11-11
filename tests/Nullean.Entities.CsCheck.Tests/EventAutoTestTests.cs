@@ -153,7 +153,11 @@ public class EventAutoTestTests
 	public async Task A_rule_that_watches_every_event_is_vacuous_when_the_service_records_none()
 	{
 		var rules = TemporalRuleSet<DeskEvent>.From(("legal-order", Temporal<DeskEvent>.Transitions((_, _) => true)));
-		var script = Script.For<OrderDesk>().Step("Nothing", _ => { }).Length(1, 2);
+		var script = Script
+			.For<OrderDesk>()
+			.Step("Nothing", _ =>
+			{ })
+			.Length(1, 2);
 
 		var act = async () => await EventAutoTest.For(rules, script, time => new OrderDesk(time, true), desk => desk.Log).AbsenceAsync();
 

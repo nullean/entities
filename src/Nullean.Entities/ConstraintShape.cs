@@ -66,8 +66,7 @@ public abstract record ConstraintShape
 	public virtual RelationInfo? Relation => null;
 
 	internal ConstraintShape()
-	{
-	}
+	{ }
 }
 
 /// <summary>A <see cref="ConstraintShape"/> over <typeparamref name="T"/>, with the payload typed.</summary>

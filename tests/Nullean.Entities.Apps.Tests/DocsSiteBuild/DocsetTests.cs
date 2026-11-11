@@ -127,10 +127,7 @@ public class DocsetTests
 	[Test]
 	public void Generated_worlds_break_every_file_rule_so_none_is_a_tautology()
 	{
-		var gen = Gen.OneOf(
-			GenAuto.Of<Docset>(AutoMode.Mixed, o => o.UseFileSystem()),
-			GenAuto.Of<Docset>(AutoMode.Adversarial, o => o.UseFileSystem())
-		);
+		var gen = Gen.OneOf(GenAuto.Of<Docset>(AutoMode.Mixed, o => o.UseFileSystem()), GenAuto.Of<Docset>(AutoMode.Adversarial, o => o.UseFileSystem()));
 
 		DocsetRules.All.Probe(gen, samples: 2000).NeverViolated.Should().BeEmpty();
 	}
@@ -141,18 +138,16 @@ public class DocsetTests
 		var gen = GenAuto.Of<Docset>(AutoMode.Plausible, o => o.UseFileSystem());
 
 		gen.Sample(
-			docset =>
-				DocsetRules
-					.All
-					.Validate(docset)
-					.Where(
-						v =>
-							v.ConstraintId != ConstraintName.Of(nameof(DocsetRules.TitleIsRequired)) && v.ConstraintId != ConstraintName.Of(
-								nameof(DocsetRules.PagesAreMarkdown)
-							) && v.ConstraintId != ConstraintName.Of(nameof(DocsetRules.ImagesArePictures))
-					)
-					.Should()
-					.BeEmpty(),
+			docset => DocsetRules
+				.All
+				.Validate(docset)
+				.Where(
+					v => v.ConstraintId != ConstraintName.Of(nameof(DocsetRules.TitleIsRequired)) && v.ConstraintId != ConstraintName.Of(
+						nameof(DocsetRules.PagesAreMarkdown)
+					) && v.ConstraintId != ConstraintName.Of(nameof(DocsetRules.ImagesArePictures))
+				)
+				.Should()
+				.BeEmpty(),
 			iter: 100
 		);
 	}

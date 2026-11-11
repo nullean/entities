@@ -119,8 +119,8 @@ public class SubjectAutoTestTests
 		var onState = ConstraintSet.From(("money-is-conserved", Constraints<(int Checking, int Savings)>.Conserves(p => p.Checking + p.Savings)));
 		var lifted = onState.Map<Wallet>(w => (w.Checking, w.Savings));
 
-		var act = async () =>
-			await AutoTest
+		var act =
+			async () => await AutoTest
 				.For(lifted, () => new Wallet(leaks: true))
 				.MutateAsync<int>("Move", (w, n) => w.MoveAsync(n), _ => Gen.Int[1, 12])
 				.ConservationAsync();
@@ -140,10 +140,12 @@ public class SubjectAutoTestTests
 	[Test]
 	public void Mutate_on_a_record_style_test_says_it_needs_a_factory()
 	{
-		var act = () => AutoTest.For(
-			ConstraintSet.From(("a", Constraints<AutoAccountLike>.Always(_ => true, "x"))),
-			Gen.Const(new AutoAccountLike())
-		).Mutate("Op", _ => { });
+		var act =
+			() => AutoTest.For(
+				ConstraintSet.From(("a", Constraints<AutoAccountLike>.Always(_ => true, "x"))),
+				Gen.Const(new AutoAccountLike())
+			).Mutate("Op", _ =>
+			{ });
 
 		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("factory");
 	}

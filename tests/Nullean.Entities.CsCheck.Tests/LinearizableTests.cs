@@ -114,8 +114,8 @@ public class LinearizableTests
 	[Test]
 	public void An_account_that_reads_then_writes_loses_updates_under_concurrent_calls()
 	{
-		var act = () =>
-			Accounts().Linearizable<ISharedAccount>(
+		var act =
+			() => Accounts().Linearizable<ISharedAccount>(
 				() => new RacyAccount(),
 				Apply,
 				(account, model) => account.Balance == model.Balance,
@@ -131,8 +131,8 @@ public class LinearizableTests
 	[Test]
 	public void A_spec_with_no_actions_has_nothing_to_run()
 	{
-		var act = () =>
-			ConstraintSet.From<LedgerAccount>().Spec(new LedgerAccount(0)).Linearizable<ISharedAccount>(() => new LockedAccount(), Apply, (_, _) => true);
+		var act =
+			() => ConstraintSet.From<LedgerAccount>().Spec(new LedgerAccount(0)).Linearizable<ISharedAccount>(() => new LockedAccount(), Apply, (_, _) => true);
 
 		act.Should().Throw<InvalidOperationException>().Which.Message.Should().Contain("No actions");
 	}

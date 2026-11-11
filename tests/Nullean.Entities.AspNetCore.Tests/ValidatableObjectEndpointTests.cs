@@ -94,7 +94,9 @@ public class ValidatableObjectEndpointTests
 		second.Should().ContainSingle();
 		second["To"].Should().Equal("To must be after From");
 
-		(await client.PostAsJsonAsync("/bookings", new { guest = "Ada", nights = 2, from = "2026-01-01", to = "2026-01-02" })).StatusCode.Should()
+		(await client.PostAsJsonAsync("/bookings", new { guest = "Ada", nights = 2, from = "2026-01-01", to = "2026-01-02" }))
+			.StatusCode
+			.Should()
 			.Be(HttpStatusCode.OK);
 	}
 

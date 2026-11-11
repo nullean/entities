@@ -289,8 +289,8 @@ public sealed partial class EntitySpec<T>
 			if (requireClosed && !report.Closed)
 			{
 				throw new InvalidOperationException(
-					$"The state space did not close ({report.States} states) from {_print(start)}.{Environment.NewLine}"
-					+ $"Lower .Limit(...), add a .Boundary(...) (numbers that only grow need one), pass a .Key(...) that identifies equal states, or use .Sample().{Environment.NewLine}{report}"
+					$"The state space did not close ({report.States} states) from {_print(start)}.{Environment.NewLine}" +
+						$"Lower .Limit(...), add a .Boundary(...) (numbers that only grow need one), pass a .Key(...) that identifies equal states, or use .Sample().{Environment.NewLine}{report}"
 				);
 			}
 			// A rule counts as exercised if any starting state exercised it: a start that is already
@@ -312,8 +312,8 @@ public sealed partial class EntitySpec<T>
 		if (requireCoverage && _actions.Count > 0 && largest!.States + largest.Pruned <= 1)
 		{
 			throw new VacuousPropertyException(
-				$"No action changed the entity from any starting state, so nothing was explored.{Environment.NewLine}"
-				+ $"Check the argument domains (.Domain / .DomainFrom) and, with .Enforced(), that the actions can succeed from the start.{Environment.NewLine}{largest}"
+				$"No action changed the entity from any starting state, so nothing was explored.{Environment.NewLine}" +
+					$"Check the argument domains (.Domain / .DomainFrom) and, with .Enforced(), that the actions can succeed from the start.{Environment.NewLine}{largest}"
 			);
 		}
 		if (requireCoverage && unexercised is { Count: > 0 })
@@ -394,8 +394,9 @@ public sealed partial class EntitySpec<T>
 		{
 			CheckStart(start);
 			last = SampleCall.Run(
-				() =>
-					Build(start, autoFaults: true).Spec.SampleFaults(writeLine, seed: seed, iter: iter, throwOnUncaught: throwOnUncaught ?? (_faults.Count > 0))
+				() => Build(start, autoFaults: true)
+					.Spec
+					.SampleFaults(writeLine, seed: seed, iter: iter, throwOnUncaught: throwOnUncaught ?? (_faults.Count > 0))
 			);
 		}
 		return last!;
@@ -474,9 +475,7 @@ public sealed partial class EntitySpec<T>
 			CheckStart(start);
 			var (spec, domains) = Build(start, autoFaults: false);
 			last = EntitySpecReport.From(
-				SampleCall.Run(() =>
-						spec.ConformExhaustive(create, (sut, t) => apply(sut, ToStep(t, domains)), writeLine, maxStates, maxDepth, clone: clone)
-				)
+				SampleCall.Run(() => spec.ConformExhaustive(create, (sut, t) => apply(sut, ToStep(t, domains)), writeLine, maxStates, maxDepth, clone: clone))
 			);
 		}
 		return last!;
@@ -513,13 +512,14 @@ public sealed partial class EntitySpec<T>
 		var (b, ib) = Find(second);
 		var (states, domains) = StatesAndDomains();
 		var gen = Gen.Select(states, ArgGen(domains[ia]), ArgGen(domains[ib]), (s, x, y) => (s, x, y));
-		SampleCall.Run(() =>
-				gen.Sample(
-					t => Same(Run(Run(t.s, a, t.x), b, t.y), Run(Run(t.s, b, t.y), a, t.x)),
-					seed: seed,
-					iter: iter,
-					print: t => $"from {_print(t.s)}: {first}({t.x}) then {second}({t.y}) differs from the reverse order"
-				));
+		SampleCall.Run(
+			() => gen.Sample(
+				t => Same(Run(Run(t.s, a, t.x), b, t.y), Run(Run(t.s, b, t.y), a, t.x)),
+				seed: seed,
+				iter: iter,
+				print: t => $"from {_print(t.s)}: {first}({t.x}) then {second}({t.y}) differs from the reverse order"
+			)
+		);
 	}
 
 	/// <summary>Applying the action twice (same argument) gives the same entity as once, from every reachable state.</summary>
@@ -528,13 +528,14 @@ public sealed partial class EntitySpec<T>
 		var (a, ia) = Find(action);
 		var (states, domains) = StatesAndDomains();
 		var gen = Gen.Select(states, ArgGen(domains[ia]), (s, x) => (s, x));
-		SampleCall.Run(() =>
-				gen.Sample(
-					t => Same(Run(Run(t.s, a, t.x), a, t.x), Run(t.s, a, t.x)),
-					seed: seed,
-					iter: iter,
-					print: t => $"from {_print(t.s)}: {action}({t.x}) is not idempotent"
-				));
+		SampleCall.Run(
+			() => gen.Sample(
+				t => Same(Run(Run(t.s, a, t.x), a, t.x), Run(t.s, a, t.x)),
+				seed: seed,
+				iter: iter,
+				print: t => $"from {_print(t.s)}: {action}({t.x}) is not idempotent"
+			)
+		);
 	}
 
 	/// <summary>
@@ -555,23 +556,23 @@ public sealed partial class EntitySpec<T>
 		{
 			CheckStart(start);
 			var (spec, domains) = Build(start, autoFaults: false);
-			SampleCall.Run(() =>
-					spec.GenTrace(minSteps, maxSteps)
-						.Sample(
-							trace =>
-							{
-								var problem = check([.. trace.Steps.Select(t => ToStep(t, domains))]);
-								if (problem is not null)
-								{
-									throw new InvalidOperationException(problem);
-								}
-							},
-							seed: seed,
-							iter: iter,
-							time: time,
-							threads: threads,
-							print: trace => trace.ToString(v => _print(v.Value))
-						));
+			SampleCall.Run(
+				() => spec.GenTrace(minSteps, maxSteps).Sample(
+					trace =>
+					{
+						var problem = check([.. trace.Steps.Select(t => ToStep(t, domains))]);
+						if (problem is not null)
+						{
+							throw new InvalidOperationException(problem);
+						}
+					},
+					seed: seed,
+					iter: iter,
+					time: time,
+					threads: threads,
+					print: trace => trace.ToString(v => _print(v.Value))
+				)
+			);
 		}
 	}
 

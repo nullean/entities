@@ -48,10 +48,13 @@ public class ValidatorConstraintsTests
 
 	[Test]
 	public void RuleForEach_failures_name_the_item() =>
-		FromValidator.Validate(CustomerRules.Valid with { Lines = [new OrderLine("A-1", 1), new OrderLine("B-2", -3)] })
+		FromValidator
+			.Validate(CustomerRules.Valid with { Lines = [new OrderLine("A-1", 1), new OrderLine("B-2", -3)] })
 			.Should()
 			.ContainSingle()
-			.Which.Member.Should()
+			.Which
+			.Member
+			.Should()
 			.Be("Lines[1].Quantity");
 
 	[Test]
@@ -83,10 +86,12 @@ public class ValidatorConstraintsTests
 	public void A_round_trip_keeps_member_message_and_severity()
 	{
 		var original = CustomerRules.All.Validate(CustomerRules.Valid with { Name = "Al", Age = 12, Email = "x" });
-		var roundTripped = ConstraintSet.From(("round-trip", Constraints<Customer>.FromValidator(CustomerRules.All.ToValidator())))
-			.Validate(CustomerRules.Valid with { Name = "Al", Age = 12, Email = "x" });
+		var roundTripped = ConstraintSet.From(
+			("round-trip", Constraints<Customer>.FromValidator(CustomerRules.All.ToValidator()))
+		).Validate(CustomerRules.Valid with { Name = "Al", Age = 12, Email = "x" });
 
-		roundTripped.Select(v => (v.Member, v.Message, v.Severity))
+		roundTripped
+			.Select(v => (v.Member, v.Message, v.Severity))
 			.Should()
 			.BeEquivalentTo(original.Select(v => (v.Member ?? v.ConstraintId, v.Message, v.Severity)));
 	}
