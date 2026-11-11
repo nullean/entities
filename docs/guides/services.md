@@ -41,12 +41,10 @@ internal sealed class Wallet(bool leaksAUnit = false)
 // The rules are written over the state, then lifted onto the service with Map.
 public class ServicesTests
 {
-	private static readonly ConstraintSet<Wallet> Rules = ConstraintSet
-		.From(
-			("money-is-conserved", Constraints<WalletState>.Conserves(s => s.Checking + s.Savings, "Money was created or destroyed.")),
-			("checking-never-negative", Constraints<WalletState>.Always(s => s.Checking >= 0, "Checking cannot go below zero."))
-		)
-		.Map<Wallet>(wallet => wallet.State);
+	private static readonly ConstraintSet<Wallet> Rules = ConstraintSet.From(
+		("money-is-conserved", Constraints<WalletState>.Conserves(s => s.Checking + s.Savings, "Money was created or destroyed.")),
+		("checking-never-negative", Constraints<WalletState>.Always(s => s.Checking >= 0, "Checking cannot go below zero."))
+	).Map<Wallet>(wallet => wallet.State);
 
 	private static AutoTest<Wallet> Auto(bool leaksAUnit = false) =>
 		AutoTest

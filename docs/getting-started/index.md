@@ -22,7 +22,13 @@ An order is an immutable record. Every method returns the next order. Nothing he
 ```csharp
 namespace Nullean.Entities.Quickstart;
 
-public enum OrderStatus { Pending, Confirmed, Shipped, Cancelled }
+public enum OrderStatus
+{
+	Pending,
+	Confirmed,
+	Shipped,
+	Cancelled
+}
 
 public sealed record OrderLine(string Sku, int Quantity, decimal Price);
 
@@ -62,9 +68,10 @@ public static partial class OrderConstraints
 	// one state: true in every state
 	public static readonly Constraint<Order> TotalNeverNegative = Constraints<Order>.Always(o => o.Total >= 0, "An order total is never negative.");
 
-	public static readonly Constraint<Order> ConfirmedOrdersHaveLines = Constraints<Order>
-		.When(o => o.Status == OrderStatus.Confirmed)
-		.Requires(o => o.Lines.Count > 0, "A confirmed order has at least one line.");
+	public static readonly Constraint<Order> ConfirmedOrdersHaveLines = Constraints<Order>.When(o => o.Status == OrderStatus.Confirmed).Requires(
+		o => o.Lines.Count > 0,
+		"A confirmed order has at least one line."
+	);
 
 	// two states: the legal moves between them
 	public static readonly Constraint<Order> LegalMoves = Constraints<Order>
@@ -117,14 +124,18 @@ public class QuickstartTests
 	private static readonly Gen<Order> Pending = Lines.Array[0, 3].Select(lines => lines.Aggregate(Order.New(), (order, line) => order.AddLine(line)));
 
 	// orders in every state, so every rule has something to attack
-	private static readonly Gen<Order> Orders = Gen.Select(Pending, Gen.Int[0, 3], (order, step) =>
+	private static readonly Gen<Order> Orders = Gen.Select(
+		Pending,
+		Gen.Int[0, 3],
+		(order, step) =>
 			step switch
 			{
 				1 => order.Confirm(),
 				2 => order.Confirm().Ship(),
 				3 => order.Cancel(),
 				_ => order
-			});
+			}
+	);
 
 	public static AutoTest<Order> Auto() => AutoTest.For(OrderConstraints.Instance, Orders);
 
