@@ -14,7 +14,9 @@ zizmor = "1"
 
 [tasks.setup]
 description = "Restore the local .NET tools"
-run = "dotnet tool restore"
+# On a cold NuGet cache `dotnet tool restore` can report husky as "not contained in the package" (it reads curb's
+# commands instead) while restoring every other tool; the second run, with the packages cached, restores all of them.
+run = "dotnet tool restore || dotnet tool restore"
 
 [tasks.build]
 description = "Build the solution"
