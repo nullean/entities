@@ -17,9 +17,11 @@ mise run ci        # what CI's build job runs: test, then pack and validate ever
 mise run docs      # build the docs-builder site, apply the landing page, serve it
 mise run check     # workflow security checks (zizmor)
 mise run clean     # delete build output
+mise run release   # show the release draft; `mise run release publish` releases
 ```
 
-`./build.sh` runs the same targets, and the ones without a task (`aot`, `apps`, `release`):
+`./build.sh` runs the same targets, and the ones without a task (`aot`, `apps`, and `release`, the rehearsal, which is
+not what `mise run release` does):
 
 ```sh
 ./build.sh build   # clean + compile
@@ -28,11 +30,21 @@ mise run clean     # delete build output
 ./build.sh apps    # run every console app under examples/Apps (`Paths.Apps`); one that exits non-zero fails the build. `test` depends on it
 ./build.sh pack    # build + test + pack NuGet packages
 ./build.sh docs    # build the docs-builder site, apply the landing page, serve it (--noserve to only build, --port <n>)
-./build.sh release # pristine checkout check + pack + public API changes (see RELEASING.md; release notes come from release-drafter)
+./build.sh release # pristine checkout check + pack + public API changes: a rehearsal, it publishes nothing (see RELEASING.md)
 ```
 
 The build script is `build/scripts/Program.fs` → `Targets.fs`. It wraps `dotnet build` / `dotnet run`.
 Test projects are TUnit and are run with `dotnet run`, one project at a time (`Paths.TestProjects`).
+
+## Releasing
+
+release-drafter keeps a draft release current from the labels of merged pull requests; every pull request carries
+exactly one release label (`pr-labels.yml` enforces it). **Publishing the draft** releases: it creates the tag and runs
+`ci.yml` on it, and once the build and AOT jobs pass, the `release` job (in the `nuget` environment) pushes the
+packages to nuget.org and appends the public API changes to the notes. Pushing a tag on its own does nothing. In 0.x a
+`breaking` label bumps the minor version; 1.0 is the maintainer's call. See [RELEASING.md](RELEASING.md), the
+[releasing](.claude/skills/releasing/SKILL.md) and [breaking-changes](.claude/skills/breaking-changes/SKILL.md) skills,
+and `mise run release` for the current draft.
 
 ## Layout
 

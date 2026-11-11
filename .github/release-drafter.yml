@@ -1,5 +1,9 @@
 # https://github.com/release-drafter/release-drafter?tab=readme-ov-file#configuration-options
-# The release notes are drafted from pull request labels as they merge to main; a tag publishes the draft (see .github/workflows/ci.yml and RELEASING.md).
+# The release notes are drafted from pull request labels as they merge to main; publishing the draft releases (the
+# release job in .github/workflows/ci.yml, see RELEASING.md).
+#
+# 0.x rule: `breaking` bumps the minor version, never the major. Going to 1.0 is a manual decision: edit the draft's
+# tag to 1.0.0 when publishing, then move `breaking` from minor to a `major:` resolver (the breaking-changes skill).
 template: |
   $CHANGES
 
@@ -28,16 +32,13 @@ categories:
       - 'dependencies' # When dependencies are updated
   - title: '⚙️ Automation'
     labels:
-      - 'automation' # When automation is updated
-      - 'ci' # When automation is updated
+      - 'ci' # When build or automation is updated
 exclude-labels:
   - 'changelog:skip' # When a PR should be excluded from the changelog
 version-resolver:
-  major:
-    labels:
-      - 'breaking'
   minor:
     labels:
+      - 'breaking'
       - 'feature'
       - 'enhancement'
   default: patch

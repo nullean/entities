@@ -1,6 +1,7 @@
 name: release-drafter
 
-# Keeps a draft release up to date with the pull requests merged to main. A tag publishes it (the release job in ci.yml).
+# Keeps a draft release up to date with the pull requests merged to main. Publishing the draft releases: it creates the
+# tag and fires `release: published`, which runs the release job in ci.yml.
 on:
   workflow_dispatch: ~
   push:
