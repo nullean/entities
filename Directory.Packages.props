@@ -4,9 +4,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <GlobalPackageReference Include="MinVer" Version="7.0.0" PrivateAssets="All" />
+    <GlobalPackageReference Include="MinVer" Version="8.0.0" PrivateAssets="All" />
     <!-- Formats every C# project on `dotnet build` (Debug: rewrite, Release: check-and-fail). -->
-    <GlobalPackageReference Include="curb" Version="0.7.3" PrivateAssets="All" />
+    <GlobalPackageReference Include="curb" Version="0.13.0" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
@@ -16,20 +16,20 @@
     <!-- Pinned to match the Roslyn compiler version bundled with the SDK pinned in global.json
          — a generator built against a newer compiler than the host is running fails
          with CS9057 at consumption time, so this has to track the SDK, not "latest". -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     <!-- CsCheck 5 targets net10.0 and net11.0 and has no dependencies. -->
     <PackageVersion Include="CsCheck" Version="5.0.1" />
     <!-- System.Reactive 7.0.0 and Microsoft.Reactive.Testing 7.0.0. -->
     <PackageVersion Include="System.Reactive" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Reactive.Testing" Version="7.0.0" />
     <!-- System.IO.Abstractions 22.2.0: the file-system types docs-builder's domain holds (IFileSystem, IFileInfo, IDirectoryInfo); the TestingHelpers package is the MockFileSystem the generator builds. -->
-    <PackageVersion Include="System.IO.Abstractions" Version="22.2.0" />
-    <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="22.2.0" />
+    <PackageVersion Include="System.IO.Abstractions" Version="22.3.0" />
+    <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="22.3.0" />
     <!-- The example apps (examples/Apps) wire their services through dependency injection, as a real application does. The library does not depend on it. -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
     <!-- Microsoft.Extensions.* 10.0.0: the DI and Options abstractions the integration packages build on. -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.14" />
     <!-- Nullean.Argh 0.21.0: ArghValidation, which Nullean.Entities.Argh builds on. -->
     <PackageVersion Include="Nullean.Argh.Interfaces" Version="0.21.0" />
     <PackageVersion Include="Nullean.Argh" Version="0.21.0" />
@@ -40,10 +40,10 @@
     <PackageVersion Include="Microsoft.Extensions.Diagnostics" Version="10.0.14" />
     <!-- System.CommandLine 2.0.14: latest stable 2.0.x (3.0 is still a release candidate). Command.Validators and SymbolResult.AddError, which Nullean.Entities.SystemCommandLine builds on. -->
     <PackageVersion Include="System.CommandLine" Version="2.0.14" />
-    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.14" />
     <!-- Microsoft.AspNetCore.Components.Forms 10.0.0: EditContext and ValidationMessageStore, which Nullean.Entities.Blazor builds on. The lowest 10.0 patch, like the
          Microsoft.Extensions.* packages above, so an app on any 10.0.x is not forced up; NuGet resolves the app's newer patch. -->
-    <PackageVersion Include="Microsoft.AspNetCore.Components.Forms" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Forms" Version="10.0.14" />
     <!-- ReactiveUI.Validation 8.1.0 (on ReactiveUI 26.0.1): ValidationContext and IValidationComponent, which Nullean.Entities.ReactiveUI builds on. -->
     <PackageVersion Include="ReactiveUI.Validation" Version="8.1.0" />
     <!-- FluentValidation 12.2.0 (Apache-2.0, targets net8.0, no dependencies): what Nullean.Entities.FluentValidation bridges to. -->
@@ -64,14 +64,14 @@
     <!-- Bogus 35.6.5: realistic fake data generation. -->
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <!-- Soenneker.Utils.AutoBogus: maintained AutoBogus fork for net9/10, Bogus >= 35.6.5. -->
-    <PackageVersion Include="Soenneker.Utils.AutoBogus" Version="4.0.966" />
+    <PackageVersion Include="Soenneker.Utils.AutoBogus" Version="11.0.1002" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Test dependencies -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
-    <PackageVersion Include="TUnit" Version="1.65.0" />
-    <PackageVersion Include="AwesomeAssertions" Version="9.5.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="TUnit" Version="1.79.0" />
+    <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
     <!-- bUnit 2.x is test-framework agnostic (BunitContext), so it runs under TUnit. -->
     <PackageVersion Include="bunit" Version="2.13.3" />
     <PackageVersion Include="GitHubActionsTestLogger" Version="3.0.5" />
@@ -91,10 +91,10 @@
 
   <ItemGroup>
     <!-- Build script dependencies. FSharp.Core is explicit: under Central Package Management the F# SDK adds no implicit reference, and the scripts otherwise picked up 8.0.400 transitively. -->
-    <PackageVersion Include="FSharp.Core" Version="10.0.100" />
+    <PackageVersion Include="FSharp.Core" Version="10.1.403" />
     <PackageVersion Include="Argu" Version="6.2.5" />
-    <PackageVersion Include="Bullseye" Version="6.1.0" />
+    <PackageVersion Include="Bullseye" Version="6.3.0" />
     <PackageVersion Include="Proc" Version="0.14.0" />
-    <PackageVersion Include="Fake.Tools.Git" Version="6.1.4" />
+    <PackageVersion Include="Fake.Tools.Git" Version="6.2.0" />
   </ItemGroup>
 </Project>
