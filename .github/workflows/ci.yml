@@ -1,19 +1,20 @@
 name: CI
 
-# Pull requests and pushes to main build, test, pack and validate. A tag (X.Y.Z or X.Y.Z-pre.N) also publishes every package to nuget.org
-# and creates the GitHub release. See RELEASING.md.
+# Pull requests and pushes to main build, test, pack and validate. Publishing the release-drafter draft (web UI, phone
+# or `mise run release publish`) creates the tag and fires `release: published`: every job runs again on the released
+# commit, then the release job publishes every package to nuget.org. nuget.org's trusted publishing policy names this
+# file, so the release has to run from it. Pushing a tag on its own publishes nothing. See RELEASING.md.
 on:
   pull_request:
   push:
     branches:
       - main
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
-      - "[0-9]+.[0-9]+.[0-9]+-*"
+  release:
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
 
 permissions:
   contents: read
@@ -67,20 +68,21 @@ jobs:
         run: dotnet run --project build/scripts -- aot
 
   release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'release'
     needs: [build, aot]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # An environment named "nuget" can require a reviewer before this job runs. Without one configured, the job just runs.
+    # The trusted publishing policy names this environment, so it stays.
     environment: nuget
     permissions:
-      contents: write
-      pull-requests: read
+      contents: write   # append the public API changes to the release notes
       id-token: write   # NuGet trusted publishing: exchange the workflow's OIDC token for a short-lived key
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.release.tag_name }}
           persist-credentials: false
           fetch-depth: 0
 
@@ -117,37 +119,29 @@ jobs:
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: dotnet nuget push '.artifacts/build-output/*.nupkg' -k "$NUGET_API_KEY" -s https://api.nuget.org/v3/index.json --skip-duplicate
 
-      # last, so a release is announced only once its packages are out; a failed run can be re-run (--skip-duplicate). The notes are the draft release-drafter
-      # kept from the merged pull requests; publishing it for this tag makes it the release.
-      - name: Publish the GitHub release
-        uses: release-drafter/release-drafter@34d80673e067bdc0c24568d3af899c216adcfaa9 # v7.7.0
-        with:
-          tag: ${{ github.ref_name }}
-          version: ${{ github.ref_name }}
-          publish: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
-      # the public API changes go on the release itself, after the notes
-      - name: Add the public API changes to the release
+      # After the push, so the notes gain the API changes only once the packages are out. The notes themselves are the
+      # draft release-drafter kept from the merged pull requests; publishing it is what started this run. A re-run
+      # (--skip-duplicate above) appends nothing twice.
+      - name: Append the public API changes to the release notes
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           shopt -s nullglob
-          changes=(.artifacts/build-output/breaking-changes-*.md)
-          if [ ${#changes[@]} -eq 0 ]; then
+          files=(.artifacts/build-output/breaking-changes-*.md)
+          if [ ${#files[@]} -eq 0 ]; then
             echo "no public API changes to add"
             exit 0
           fi
-          gh release view "$TAG" --json body --jq .body > release-body.md
-          for f in "${changes[@]}"; do
-            printf '\n\n' >> release-body.md
-            cat "$f" >> release-body.md
-          done
-          gh release edit "$TAG" --notes-file release-body.md
+          notes=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
+          marker="<!-- public-api-changes -->"
+          case "$notes" in *"$marker"*) echo "already appended"; exit 0 ;; esac
+          {
+            printf '%s\n\n%s\n' "$notes" "$marker"
+            for f in "${files[@]}"; do printf '\n'; cat "$f"; printf '\n'; done
+          } > "$RUNNER_TEMP/notes.md"
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
 
   # Static analysis of these workflows (nullean/.github).
   zizmor:
