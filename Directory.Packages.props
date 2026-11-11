@@ -90,7 +90,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Build script dependencies -->
+    <!-- Build script dependencies. FSharp.Core is explicit: under Central Package Management the F# SDK adds no implicit reference, and the scripts otherwise picked up 8.0.400 transitively. -->
+    <PackageVersion Include="FSharp.Core" Version="10.0.100" />
     <PackageVersion Include="Argu" Version="6.2.5" />
     <PackageVersion Include="Bullseye" Version="6.1.0" />
     <PackageVersion Include="Proc" Version="0.14.0" />
