@@ -6,9 +6,9 @@ Packages are versioned from git tags by [MinVer](https://github.com/adamralph/mi
 
 | Event | What happens |
 |---|---|
-| Pull request | Build, test, pack and validate. Nothing is published. |
-| Push to `main` | The same. Nothing is published: there is no canary feed (GitHub Packages was refused by the organisation's billing limit, and a published release is the only way a package reaches nuget.org). release-drafter updates the draft release. |
-| Publishing the draft release | GitHub creates its tag, which fires `release: published` on `.github/workflows/ci.yml`. Every job runs again on the tagged commit; then the `release` job (in the `nuget` environment) writes the public API changes, pushes every package to nuget.org and appends the API changes to the release notes. |
+| Pull request | Build, test, pack and validate; the AOT smoke app on Linux and Windows. Nothing is published. |
+| Push to `main` | The same, plus the AOT smoke app on macOS (macOS runners are scarce, so pull requests skip it). Nothing is published: there is no canary feed (GitHub Packages was refused by the organisation's billing limit, and a published release is the only way a package reaches nuget.org). release-drafter updates the draft release. |
+| Publishing the draft release | GitHub creates its tag, which fires `release: published` on `.github/workflows/ci.yml`. No tests run again: the `main-green` job waits (up to an hour) for main's `ci.yml` push run on the tagged commit and fails unless it passed; then the `release` job (in the `nuget` environment) writes the public API changes, pushes every package to nuget.org and appends the API changes to the release notes. |
 | Push of a tag on its own | Nothing. |
 
 The release notes are drafted by release-drafter (`.github/release-drafter.yml`, `.github/workflows/release-drafter.yml`): every merge to `main` updates a draft release from the pull requests merged since the last release, grouped by label. The release runs from `ci.yml` because the trusted publishing policy on nuget.org names that file and the `nuget` environment.

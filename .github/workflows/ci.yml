@@ -1,9 +1,9 @@
 name: CI
 
 # Pull requests and pushes to main build, test, pack and validate. Publishing the release-drafter draft (web UI, phone
-# or `mise run release publish`) creates the tag and fires `release: published`: every job runs again on the released
-# commit, then the release job publishes every package to nuget.org. nuget.org's trusted publishing policy names this
-# file, so the release has to run from it. Pushing a tag on its own publishes nothing. See RELEASING.md.
+# or `mise run release publish`) creates the tag and fires `release: published`: the release runs no tests of its own,
+# it waits for main's run on the released commit to have passed (main-green), then publishes every package to
+# nuget.org. nuget.org's trusted publishing policy names this file, so the release has to run from it. Pushing a tag on its own publishes nothing. See RELEASING.md.
 on:
   pull_request:
   push:
@@ -20,7 +20,9 @@ permissions:
   contents: read
 
 jobs:
+  # The release does not rebuild or retest: main-green requires main's full run on the released commit to have passed.
   build:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -44,13 +46,18 @@ jobs:
         run: mise run ci
 
   # The core and Reactive packages claim to be trim and AOT clean: publish the smoke app NativeAOT on each OS and run it.
+  # macOS runners are scarce: pull requests run Linux and Windows, main adds macOS, and a release relies on main's run.
   aot:
+    if: github.event_name != 'release'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: >-
+          ${{ fromJSON(github.event_name == 'push'
+            && '["ubuntu-latest", "macos-latest", "windows-latest"]'
+            || '["ubuntu-latest", "windows-latest"]') }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -67,9 +74,21 @@ jobs:
       - name: Publish and run the AOT smoke app
         run: dotnet run --project build/scripts -- aot
 
+  # A release publishes only a commit main proved: it waits (up to an hour) for main's ci.yml push run on the released
+  # commit, and fails unless that run, macOS included, succeeded.
+  main-green:
+    if: github.event_name == 'release'
+    name: main is green
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    permissions:
+      actions: read # read main's ci.yml runs
+    steps:
+      - uses: nullean/.github/actions/require-green-main@f9eb30d28e48b3f6b8ff1f4e7dae1d2b7b2d544b # v1.6.0
+
   release:
     if: github.event_name == 'release'
-    needs: [build, aot]
+    needs: main-green
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # An environment named "nuget" can require a reviewer before this job runs. Without one configured, the job just runs.
@@ -95,7 +114,7 @@ jobs:
         env:
           MISE_JOBS: "1" # dotnet versions share one DOTNET_ROOT; installing them in parallel races
 
-      # the build job tested this commit; pack it again here (MinVer gives the same version) and check the packages before anything is pushed
+      # main's build job tested this commit; pack it again here (MinVer gives the same version) and check the packages before anything is pushed
       - name: Build, pack and validate
         run: |
           ./build.sh build -s
@@ -145,13 +164,14 @@ jobs:
 
   # Static analysis of these workflows (nullean/.github).
   zizmor:
-    uses: nullean/.github/.github/workflows/zizmor.yml@d850ce6eee9efa9f81b410d15fcd480409518d19 # v1.5.0
+    uses: nullean/.github/.github/workflows/zizmor.yml@e21d5f59405aa7078e51825cd4c407191e28562f # v1.6.1
     permissions:
       contents: read
 
   # Builds the documentation as the docs workflow deploys it (design-system layout, theme, landing page), so a pull
   # request that breaks the docs build or scripts/docs-finish.sh fails here rather than on main.
   docs:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: read
