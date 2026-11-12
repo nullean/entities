@@ -4,7 +4,7 @@
        behaving as narrated). tests/Nullean.Entities.Apps.Tests tests the same service. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks>net11.0</TargetFrameworks>
     <RootNamespace>OrderFulfilment</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

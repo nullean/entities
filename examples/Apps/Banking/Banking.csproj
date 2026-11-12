@@ -3,7 +3,7 @@
        conserves money, every input error reported at once, and concurrent transfers that still add up. `dotnet run`, or `./build.sh apps`. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks>net11.0</TargetFrameworks>
     <RootNamespace>Banking</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
