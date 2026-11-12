@@ -40,6 +40,6 @@ ArghConstraints.Register(ServeRules.All);   // or a companion's ConstraintSet<T>
 - Only `Severity.Error` stops the command (exit code 2, handler not run). Warnings and hints are written to stderr as `Warning: message` and the handler still runs.
 - The flag in the message comes from `Violation.Member`. Use `Violation.Error(nameof(Port), "...")`, not `Violation.Error("...")`, or the error names no flag.
 - Constraints are synchronous and pure. Use Argh's `[Existing]` and similar attributes for file system checks.
-- Built against Nullean.Argh 0.21 (`ArghValidation`).
+- Built against Nullean.Argh 0.28 (`ArghValidation`).
 
 Docs: https://entities.nullean.net

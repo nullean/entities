@@ -8,7 +8,7 @@
 
 Without this package, a command-line tool either checks its option object by hand at the top of every handler or lets a bad value reach the code that uses it. This package validates the option objects a [Nullean.Argh](https://github.com/nullean/argh) command receives against `Nullean.Entities` constraints, and reports a violation like any other bad value Argh finds.
 
-It builds on [Nullean.Entities](https://www.nuget.org/packages/Nullean.Entities) and `Nullean.Argh.Interfaces`; it does not need the other integration packages. It is optional, it uses no reflection, and it is trim and NativeAOT clean. Requires Nullean.Argh 0.21.
+It builds on [Nullean.Entities](https://www.nuget.org/packages/Nullean.Entities) and `Nullean.Argh.Interfaces`; it does not need the other integration packages. It is optional, it uses no reflection, and it is trim and NativeAOT clean. Requires Nullean.Argh 0.28.
 
 ## Install
 
@@ -85,7 +85,7 @@ The registration applies to every command that binds that type: `[AsParameters]`
 - Only errors stop the command. Warnings and hints are written to stderr as `Warning: message` or `Hint: message` and do not fail it.
 - The flag in the message comes from `Violation.Member`; give each violation a member (`Violation.Error(nameof(Port), "...")`).
 - Constraints are synchronous and pure: do not check that a file exists or a host answers here. Use Argh's `[Existing]` and similar checks for the file system.
-- Needs Nullean.Argh 0.21 (`ArghValidation`); other versions are untested.
+- Needs Nullean.Argh 0.28 (`ArghValidation`); other versions are untested.
 
 ## Learn more
 

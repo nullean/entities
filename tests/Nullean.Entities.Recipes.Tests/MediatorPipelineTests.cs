@@ -1,7 +1,6 @@
 using AwesomeAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Nullean.Entities.Recipes.Mediator;
-using Nullean.Entities.Recipes.MediatR;
 using Nullean.Entities.Recipes.Wolverine;
 using Wolverine;
 using Host = Microsoft.Extensions.Hosting.Host;
@@ -11,26 +10,6 @@ namespace Nullean.Entities.Recipes.Tests;
 /// <summary>Backs docs/integration/mediators.md: each pipeline rejects an invalid request before its handler and passes a valid one through.</summary>
 public class MediatorPipelineTests
 {
-	private static ServiceProvider MediatR() => new ServiceCollection().AddLogging().AddMediatRWithConstraints().BuildServiceProvider();
-
-	[Test]
-	public async Task MediatR_rejects_an_invalid_request_before_the_handler()
-	{
-		await using var sp = MediatR();
-		var send = () => sp.GetRequiredService<global::MediatR.ISender>().Send(new RegisterUser("not-an-email", 30));
-
-		var thrown = await send.Should().ThrowAsync<ConstraintViolationException>();
-		thrown.Which.Violations.Should().ContainSingle().Which.Member.Should().Be("Email");
-	}
-
-	[Test]
-	public async Task MediatR_handles_a_valid_request()
-	{
-		await using var sp = MediatR();
-		var reply = await sp.GetRequiredService<global::MediatR.ISender>().Send(new RegisterUser("ada@example.com", 30));
-		reply.Should().Be("registered ada@example.com");
-	}
-
 	private static ServiceProvider Mediator() => new ServiceCollection().AddMediatorWithConstraints().BuildServiceProvider();
 
 	[Test]

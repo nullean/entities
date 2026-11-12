@@ -91,7 +91,7 @@ Which option an error names comes from `Violation.Member`: the member in kebab-c
 - Only errors stop the command. Warnings and hints are written to the invocation's error writer as `Warning: message` or `Hint: message` and the action runs.
 - Each command is guarded separately: call `ValidateConstraints` on the subcommand whose action binds the options.
 - Constraints are synchronous and pure: do not check that a file exists or a host answers here. Use System.CommandLine's `AcceptExistingOnly()` and similar argument validators for that.
-- Tested with System.CommandLine 2.0.14. 3.0 is a release candidate at the time of writing and is untested.
+- Tested with System.CommandLine 3.0.0.
 
 ## Learn more
 

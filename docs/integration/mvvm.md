@@ -116,7 +116,7 @@ Nothing to configure in the view: bind as usual and the framework reads the erro
 - **MAUI**: the stock controls (`Entry` and the rest) do not read `INotifyDataErrorInfo`. Call `GetErrors` from your own label or behaviour; third-party control suites
   (Syncfusion's and Telerik's data forms and grids) read the interface.
 
-Only the Avalonia binding is tested here, with `Avalonia.Headless` 12.1.5: a `TextBox` bound to a view model property, its text changed, and
+Only the Avalonia binding is tested here, with `Avalonia.Headless` 12.1.6: a `TextBox` bound to a view model property, its text changed, and
 `DataValidationErrors.GetErrors(textBox)` holding the constraint's message. The binding is made in code (`new Binding("Email")`), not compiled XAML. WPF, WinUI and MAUI need
 their own platforms to run and are not tested in this repository; they read the same interface.
 

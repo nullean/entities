@@ -131,7 +131,7 @@ public class ConstraintValidatorTests
 	}
 
 	[Test]
-	public async Task A_MediatR_style_pipeline_that_calls_ValidateAsync_sees_the_violations()
+	public async Task A_mediator_style_pipeline_that_calls_ValidateAsync_sees_the_violations()
 	{
 		var services = new ServiceCollection()
 			.AddSingleton<IValidator<Customer>>(CustomerRules.All.ToValidator())
@@ -160,7 +160,7 @@ public sealed class CustomerConstraintValidator : ConstraintValidator<Customer>
 	public CustomerConstraintValidator() : base(CustomerRules.All) => _ = RuleFor(c => c.Lines).NotEmpty();
 }
 
-// The shape of a MediatR pipeline behaviour (or any pipeline that resolves IEnumerable<IValidator<T>>): every validator, asynchronously.
+// The shape of a mediator pipeline behaviour (or any pipeline that resolves IEnumerable<IValidator<T>>): every validator, asynchronously.
 internal static class ValidationBehavior
 {
 	public static async Task<IReadOnlyList<ValidationFailure>> Failures<TRequest>(

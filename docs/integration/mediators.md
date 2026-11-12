@@ -1,11 +1,11 @@
 ---
 navigation_title: Mediator pipelines
-description: Validate every request in a MediatR, Mediator or Wolverine pipeline against its constraints, and stop it before the handler runs.
+description: Validate every request in a Mediator or Wolverine pipeline against its constraints, and stop it before the handler runs.
 ---
 
-# Mediator pipelines (MediatR, Mediator, Wolverine)
+# Mediator pipelines (Mediator, Wolverine)
 
-No package: each of these is a recipe of a dozen lines. All three are compiled in
+No package: each of these is a recipe of a dozen lines. Both are compiled in
 [`examples/Nullean.Entities.Recipes`](https://github.com/nullean/entities/tree/main/examples/Nullean.Entities.Recipes) and run against the real library in
 `tests/Nullean.Entities.Recipes.Tests/MediatorPipelineTests.cs`: an invalid request throws `ConstraintViolationException` before its handler, a valid one is handled.
 
@@ -18,42 +18,6 @@ Two ways to find the rules for a request:
 
 Only `Severity.Error` violations reject; warnings and hints are left to you. Turn the exception into a response at the edge, for example with
 `AddConstraintProblemDetails()` from [ASP.NET Core](aspnetcore.md).
-
-## MediatR
-
-```csharp
-public sealed class ConstraintBehavior<TRequest, TResponse>(IConstraintRegistry registry) : IPipelineBehavior<TRequest, TResponse> where TRequest : notnull
-{
-    public Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
-    {
-        if (registry.TryValidate(request, out var violations) && violations.Any(v => v.Severity == Severity.Error))
-        {
-            throw new ConstraintViolationException(violations);
-        }
-        return next(cancellationToken);
-    }
-}
-
-services
-    .AddConstraints<RegisterUser>()
-    .AddMediatR(cfg =>
-    {
-        cfg.LicenseKey = licenseKey; // required in production only; read it from configuration
-        cfg.RegisterServicesFromAssemblyContaining<RegisterUserHandler>();
-        cfg.AddOpenBehavior(typeof(ConstraintBehavior<,>));
-    });
-```
-
-Tested with MediatR 14.2.0. The source has `typeof(ConstraintBehavior<, >)` inside a `#pragma warning disable IDE0055`: this repository's formatter (curb) writes an
-open generic that way and the IDE0055 analyzer then rejects it. That is a quirk of this repository's tooling, not of MediatR.
-
-:::{note}
-MediatR is commercially licensed from version 13.0.0 by Lucky Penny Software. Their [licensing FAQ](https://luckypennysoftware.com/faq) says only production
-deployments need a license key ("No license is required for development, CI/CD, staging, QA, integration testing, or any other non-production environment"), that a
-missing key is reported through warning or error log messages rather than by limiting the library, and that a free Community license is available to organisations under
-USD 5 million in annual revenue. See [pricing](https://luckypennysoftware.com/community) and the [license agreement](https://luckypennysoftware.com/license). Earlier
-versions keep their original open-source license. The tests here run without a key.
-:::
 
 ## Mediator (source-generated)
 
@@ -91,7 +55,7 @@ services.AddMediator(options =>
 
 **Write `IHaveConstraints<PlaceOrder>` on the message yourself**, although the `[Constraint]` generator adds it too. Source generators do not see each other's output, so
 without it Mediator's generator finds no message that satisfies the behaviour's constraint and leaves the behaviour out without a warning: the test for the invalid
-command fails that way. To avoid the question, use the registry form from the MediatR recipe instead.
+command fails that way. To avoid the question, use the registry form from the Wolverine recipe instead.
 
 Tested with Mediator.SourceGenerator and Mediator.Abstractions 3.0.2. Register the behaviour through `MediatorOptions.PipelineBehaviors`, as above, rather than as an open
 generic in the container; that is also the form Mediator's README recommends for NativeAOT.
@@ -122,5 +86,5 @@ builder.UseWolverine(opts =>
 });
 ```
 
-Tested with WolverineFx 6.61.0. Wolverine 6 compiles handler and middleware code at runtime only with the `WolverineFx.RuntimeCompilation` package referenced (or with
+Tested with WolverineFx 6.64.0. Wolverine 6 compiles handler and middleware code at runtime only with the `WolverineFx.RuntimeCompilation` package referenced (or with
 pre-generated code and `TypeLoadMode.Static`); without it the host fails to start and says so.

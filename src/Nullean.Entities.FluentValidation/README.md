@@ -6,7 +6,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Nullean.Entities.FluentValidation?style=flat-square)](https://www.nuget.org/packages/Nullean.Entities.FluentValidation)
 
-Without this package, a team with FluentValidation validators and `Nullean.Entities` constraints keeps two sets of rules apart: the HTTP or MediatR pipeline only sees the validators, and the
+Without this package, a team with FluentValidation validators and `Nullean.Entities` constraints keeps two sets of rules apart: the HTTP or mediator pipeline only sees the validators, and the
 property tests only see the constraints. This package bridges [FluentValidation](https://fluentvalidation.net/) both ways.
 
 It builds on [Nullean.Entities](https://www.nuget.org/packages/Nullean.Entities) and FluentValidation (Apache-2.0); it does not need the other integration packages. It uses no reflection

@@ -85,7 +85,7 @@ With [ASP.NET Core](aspnetcore.md)'s `AddConstraintProblemDetails()` (and `app.U
 ## Trim and AOT
 
 The package uses no reflection beyond walking an entity type's base types, and builds without trim or AOT analyzer warnings, but it is not marked AOT compatible: EF Core's
-NativeAOT support is experimental (it needs a compiled model and precompiled queries). It is built on EF Core 10 for both `net10.0` and `net11.0`.
+NativeAOT support is experimental (it needs a compiled model and precompiled queries). It is built on EF Core 11 for `net11.0` and EF Core 10 for `net10.0` (EF Core 11 targets `net11.0` only).
 
 ## Without the package
 

@@ -28,7 +28,7 @@ The release notes are drafted by release-drafter (`.github/release-drafter.yml`,
 | `pack` | test, then pack and validate every package into `.artifacts/build-output` |
 | `release` | clean-checkout check, `pack`, public API changes |
 
-Add `-s true` to run one target without its dependencies (CI runs each step on its own), and `-c false` to skip the clean-checkout check.
+Add `-s` to run one target without its dependencies (CI runs each step on its own), and `-c false` to skip the clean-checkout check.
 
 ## Things that are not obvious
 
