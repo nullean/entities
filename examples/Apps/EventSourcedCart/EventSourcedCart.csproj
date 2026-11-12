@@ -4,7 +4,7 @@
        The tests explore every reachable cart exhaustively (EntitySpec.EventSourced). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks>net11.0</TargetFrameworks>
     <RootNamespace>EventSourcedCart</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

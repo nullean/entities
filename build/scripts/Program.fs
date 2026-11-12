@@ -59,17 +59,20 @@ let main argv =
         | Build -> target [Clean] { sh $"dotnet build -c Release" }
         | Apps -> target [Build] {
               for project in Paths.Apps do
-                  let! code = exitCode $"dotnet run --project {project} -c Release --framework net10.0"
+                  let! code = exitCode $"dotnet run --project {project} -c Release --framework net11.0"
                   if code <> 0 then failwithf "%s exited with %d" project code }
         | Test -> target [Build; Apps] {
               for project in Paths.TestProjects do
-                  for framework in Paths.Frameworks do
+                  // a project that does not build every framework (Apps.Tests: the apps it references are net11.0 only) runs on the ones it does
+                  let! declared = text $"dotnet msbuild {project} -getProperty:TargetFrameworks"
+                  let targets = declared.Split(';', StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
+                  for framework in Paths.Frameworks |> List.filter (fun f -> Array.contains f targets) do
                       sh $"dotnet run --project {project} -c Release --framework {framework}" }
         | Aot -> target [Build] {
-              sh $"dotnet publish examples/Nullean.Entities.AotSmoke -c Release -f net10.0"
+              sh $"dotnet publish examples/Nullean.Entities.AotSmoke -c Release -f net11.0"
               let binary =
                   Path.Combine(
-                      Paths.Root.FullName, ".artifacts", "publish", "Nullean.Entities.AotSmoke", "release_net10.0",
+                      Paths.Root.FullName, ".artifacts", "publish", "Nullean.Entities.AotSmoke", "release_net11.0",
                       if OperatingSystem.IsWindows() then "Nullean.Entities.AotSmoke.exe" else "Nullean.Entities.AotSmoke")
               // a non-zero exit fails the target
               sh $"{binary}" }
@@ -119,8 +122,8 @@ let main argv =
               for package in packages do
                   sh $"dotnet nupkg-validator validate {package} -v {version} -k {Paths.SignKey}" }
         | Pack -> command {
-              requires [Test; Generatepackages; Validatepackages]
-              executes (shell { printfn "Pack complete" }) }
+              requires [Test; Generatepackages; Validatepackages] }
+                  |> executes { printfn "Pack complete" }
         | Generateapichanges -> target [] {
               Versions.restoreTools.Value
               let version = Versions.current.Value
@@ -134,7 +137,7 @@ let main argv =
                       // quoted: an unquoted | would pipe. UseArtifactsOutput puts a multi-targeted project's build in release_<tfm>
                       sh $"dotnet assembly-differ diff 'previous-nuget|{package}|{version}|{Paths.MainTFM}' 'directory|.artifacts/bin/{package}/release_{Paths.MainTFM}' -a --target {package} -f markdown --output {report}" }
         | Release -> command {
-              requires [Pristinecheck; Pack; Generateapichanges]
-              executes (shell { printfn "Release complete" }) }
+              requires [Pristinecheck; Pack; Generateapichanges] }
+                     |> executes { printfn "Release complete" }
 
     app.RunAsync(argv).GetAwaiter().GetResult()

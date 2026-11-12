@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Tests the services of the example apps (examples/Apps) the way a user would test their own: unit tests on the always-valid
        values, the service checked against its declared machine, and the same checks catching a service that is subtly wrong. -->
+  <PropertyGroup>
+    <!-- The apps are net11.0 only, so a net10.0 build of these tests could not reference them. -->
+    <TargetFrameworks>net11.0</TargetFrameworks>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="TUnit" />
     <PackageReference Include="AwesomeAssertions" />

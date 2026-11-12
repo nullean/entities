@@ -23,5 +23,5 @@ cp "$root/reels/code/Order.cancel-bug.cs" "$live/.artifacts/planted/Order.cs"
 
 cd "$live"
 dotnet build tests/Nullean.Entities.Quickstart.Tests -f net10.0 -v quiet -nologo
-dotnet build examples/Apps/OrderFulfilment -f net10.0 -v quiet -nologo
+dotnet build examples/Apps/OrderFulfilment -f net11.0 -v quiet -nologo
 echo "ready: $live"
