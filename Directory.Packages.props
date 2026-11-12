@@ -32,8 +32,8 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="11.0.0" />
     <!-- Nullean.Argh: ArghValidation, which Nullean.Entities.Argh builds on. -->
-    <PackageVersion Include="Nullean.Argh.Interfaces" Version="0.28.0" />
-    <PackageVersion Include="Nullean.Argh" Version="0.28.0" />
+    <PackageVersion Include="Nullean.Argh.Interfaces" Version="0.30.0" />
+    <PackageVersion Include="Nullean.Argh" Version="0.30.0" />
     <!-- Microsoft.Extensions.Logging.Abstractions: ILogger and the LoggerMessage source generator, all Nullean.Entities.Diagnostics needs (metrics are System.Diagnostics.Metrics, in the shared framework). -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0" />
     <!-- Test only: FakeLogger (Microsoft.Extensions.Diagnostics.Testing) and AddMetrics (Microsoft.Extensions.Diagnostics) for the Diagnostics tests. -->
@@ -95,6 +95,6 @@
     <!-- Build script dependencies. FSharp.Core is explicit: under Central Package Management the F# SDK adds no implicit reference, and the scripts otherwise picked up 8.0.400 transitively. Nullean.Make.Fs needs 11.0.100 or later. -->
     <PackageVersion Include="FSharp.Core" Version="11.0.101" />
     <!-- brings Proc and Proc.Fs -->
-    <PackageVersion Include="Nullean.Make.Fs" Version="0.28.0" />
+    <PackageVersion Include="Nullean.Make.Fs" Version="0.30.0" />
   </ItemGroup>
 </Project>

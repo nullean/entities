@@ -119,8 +119,8 @@ let main argv =
               for package in packages do
                   sh $"dotnet nupkg-validator validate {package} -v {version} -k {Paths.SignKey}" }
         | Pack -> command {
-              requires [Test; Generatepackages; Validatepackages]
-              executes (shell { printfn "Pack complete" }) }
+              requires [Test; Generatepackages; Validatepackages] }
+                  |> executes { printfn "Pack complete" }
         | Generateapichanges -> target [] {
               Versions.restoreTools.Value
               let version = Versions.current.Value
@@ -134,7 +134,7 @@ let main argv =
                       // quoted: an unquoted | would pipe. UseArtifactsOutput puts a multi-targeted project's build in release_<tfm>
                       sh $"dotnet assembly-differ diff 'previous-nuget|{package}|{version}|{Paths.MainTFM}' 'directory|.artifacts/bin/{package}/release_{Paths.MainTFM}' -a --target {package} -f markdown --output {report}" }
         | Release -> command {
-              requires [Pristinecheck; Pack; Generateapichanges]
-              executes (shell { printfn "Release complete" }) }
+              requires [Pristinecheck; Pack; Generateapichanges] }
+                     |> executes { printfn "Release complete" }
 
     app.RunAsync(argv).GetAwaiter().GetResult()
