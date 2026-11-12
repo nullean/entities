@@ -14,9 +14,9 @@ zizmor = "1"
 
 [tasks.setup]
 description = "Restore the local .NET tools"
-# On a cold NuGet cache `dotnet tool restore` can report husky as "not contained in the package" (it reads curb's
-# commands instead) while restoring every other tool; the second run, with the packages cached, restores all of them.
-run = "dotnet tool restore || dotnet tool restore"
+# classic tools (husky, minver-cli) come first in the manifest: one listed after a RID-specific tool fails to restore on a
+# cold NuGet cache
+run = "dotnet tool restore"
 
 [tasks.build]
 description = "Build the solution"
