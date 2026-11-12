@@ -12,7 +12,7 @@ It builds on [Nullean.Entities](https://www.nuget.org/packages/Nullean.Entities)
 
 ## Install
 
-Targets `net10.0` and `net11.0`, both on EF Core 10 (EF Core 11 is not released yet).
+Targets `net11.0` on EF Core 11 and `net10.0` on EF Core 10 (EF Core 11 targets `net11.0` only).
 
 ```bash
 dotnet add package Nullean.Entities

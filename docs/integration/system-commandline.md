@@ -50,6 +50,6 @@ omitted `--port` whose default is `8080`, and an error it adds also hides a miss
 parse result is complete. That is why it must be called after `SetAction` (it throws if the command has no action yet), and why the errors are not in `ParseResult.Errors`:
 a test calls `InvokeAsync` with an `InvocationConfiguration` whose `Output` and `Error` are `StringWriter`s and reads the text and the exit code.
 
-The package builds on `Nullean.Entities` and `System.CommandLine` 2.0 (tested with 2.0.14), uses no reflection, and is trim and NativeAOT clean; the AOT smoke app in this
+The package builds on `Nullean.Entities` and `System.CommandLine` 3.0 (tested with 3.0.0), uses no reflection, and is trim and NativeAOT clean; the AOT smoke app in this
 repository publishes it. Every snippet on this page is backed by `tests/Nullean.Entities.SystemCommandLine.Tests/CommandConstraintsTests.cs`, and the
 [package README](https://www.nuget.org/packages/Nullean.Entities.SystemCommandLine) has a complete program.

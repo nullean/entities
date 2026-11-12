@@ -15,7 +15,7 @@ FluentValidation validators run as constraints. Every snippet on this page is ta
 
 ## Constraints inside FluentValidation
 
-A constraint set becomes an `IValidator<T>`. Register it where the pipeline (ASP.NET Core, a MediatR behaviour, your own) resolves validators, and it is called through `ValidateAsync` like any
+A constraint set becomes an `IValidator<T>`. Register it where the pipeline (ASP.NET Core, a mediator pipeline behaviour, your own) resolves validators, and it is called through `ValidateAsync` like any
 other:
 
 ```csharp

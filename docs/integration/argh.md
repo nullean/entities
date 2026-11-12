@@ -22,5 +22,5 @@ app.Map("serve", ([AsParameters("serve")] ServeOptions options) => ...);
 It works through Argh's `ArghValidation` hook, so it covers `[AsParameters]` objects, global and namespace options, and `TryParseArgh` in tests. Constraints run right after Argh's own
 checks (`[Range]`, `[Existing]` and so on), and the error names the flag from `Violation.Member`.
 
-The package builds on `Nullean.Entities` and `Nullean.Argh.Interfaces`, needs Nullean.Argh 0.21, uses no reflection, and is trim and NativeAOT clean. The
+The package builds on `Nullean.Entities` and `Nullean.Argh.Interfaces`, needs Nullean.Argh 0.28, uses no reflection, and is trim and NativeAOT clean. The
 [package README](https://www.nuget.org/packages/Nullean.Entities.Argh) has a complete program, with the registration in a module initializer.

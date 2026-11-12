@@ -117,7 +117,7 @@ let main argv =
               Environment.SetEnvironmentVariable("DOTNET_ROLL_FORWARD", "LatestMajor")
               Environment.SetEnvironmentVariable("DOTNET_ROLL_FORWARD_TO_PRERELEASE", "1")
               for package in packages do
-                  sh $"dotnet nupkg-validator {package} -v {version} -k {Paths.SignKey}" }
+                  sh $"dotnet nupkg-validator validate {package} -v {version} -k {Paths.SignKey}" }
         | Pack -> command {
               requires [Test; Generatepackages; Validatepackages]
               executes (shell { printfn "Pack complete" }) }
@@ -132,7 +132,7 @@ let main argv =
                       printfn "%s: public API changes since the previous release" package
                       let report = Path.Combine(output, $"breaking-changes-{package}.md")
                       // quoted: an unquoted | would pipe. UseArtifactsOutput puts a multi-targeted project's build in release_<tfm>
-                      sh $"dotnet assembly-differ 'previous-nuget|{package}|{version}|{Paths.MainTFM}' 'directory|.artifacts/bin/{package}/release_{Paths.MainTFM}' -a true --target {package} -f github-comment --output {report}" }
+                      sh $"dotnet assembly-differ diff 'previous-nuget|{package}|{version}|{Paths.MainTFM}' 'directory|.artifacts/bin/{package}/release_{Paths.MainTFM}' -a --target {package} -f markdown --output {report}" }
         | Release -> command {
               requires [Pristinecheck; Pack; Generateapichanges]
               executes (shell { printfn "Release complete" }) }

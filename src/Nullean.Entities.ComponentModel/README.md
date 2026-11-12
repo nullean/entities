@@ -88,7 +88,7 @@ complete view model.
 - The projection must not throw: a half-typed form must still build a value.
 - A violation on a nested member (`Address.City`) is reported under that name; map it to the bound property name with `Members`.
 - `INotifyDataErrorInfo` has no severity: a warning you opt into shows like an error.
-- Tested against Avalonia 12.1.5 (headless, a real `TextBox` binding) and CommunityToolkit.Mvvm 8.4.2. WPF is not tested here. WinUI 3 and MAUI's stock controls do not draw
+- Tested against Avalonia 12.1.6 (headless, a real `TextBox` binding) and CommunityToolkit.Mvvm 8.4.2. WPF is not tested here. WinUI 3 and MAUI's stock controls do not draw
   `INotifyDataErrorInfo` errors themselves; call `GetErrors` from your own view.
 
 ## Learn more

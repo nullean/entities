@@ -78,4 +78,4 @@ runs for every field; fields without arguments cost one empty loop. A field with
 Why a field middleware and not an error filter: an error filter maps one error to one error, so it cannot turn one `ConstraintViolationException` into an error per
 violation.
 
-Tested with HotChocolate.AspNetCore 16.7.3.
+Tested with HotChocolate.AspNetCore 16.7.5.

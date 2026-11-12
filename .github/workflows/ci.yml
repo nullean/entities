@@ -98,12 +98,12 @@ jobs:
       # the build job tested this commit; pack it again here (MinVer gives the same version) and check the packages before anything is pushed
       - name: Build, pack and validate
         run: |
-          ./build.sh build -s true
-          ./build.sh generatepackages -s true
-          ./build.sh validatepackages -s true
+          ./build.sh build -s
+          ./build.sh generatepackages -s
+          ./build.sh validatepackages -s
 
       - name: Public API changes since the previous release
-        run: ./build.sh generateapichanges -s true
+        run: ./build.sh generateapichanges -s
 
       # Trusted publishing: nuget.org trusts this repository's ci.yml in the nuget environment (a policy
       # owned by the nullean organization), so there is no long-lived API key to expire. The key it returns lasts an hour, so the
@@ -145,7 +145,7 @@ jobs:
 
   # Static analysis of these workflows (nullean/.github).
   zizmor:
-    uses: nullean/.github/.github/workflows/zizmor.yml@09af1fa16762b8ae42d899d45430a4267df5300c # v1.2.0
+    uses: nullean/.github/.github/workflows/zizmor.yml@d850ce6eee9efa9f81b410d15fcd480409518d19 # v1.5.0
     permissions:
       contents: read
 

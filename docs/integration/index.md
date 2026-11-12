@@ -28,7 +28,7 @@ The library has no opinion about your framework: a constraint set is a value you
 | Marten and event sourcing | Recipe, compiled in `examples/` | [Marten](marten.md) |
 | EF Core: check entities on `SaveChanges` | Package `Nullean.Entities.EntityFrameworkCore` | [EF Core](ef-core.md) |
 | MassTransit sagas and consumers | Recipe, not compiled here | [MassTransit](masstransit.md) |
-| MediatR, Mediator (source-generated) and Wolverine pipelines | Recipe, compiled in `examples/` | [Mediator pipelines](mediators.md) |
+| Mediator (source-generated) and Wolverine pipelines | Recipe, compiled in `examples/` | [Mediator pipelines](mediators.md) |
 | gRPC services (`Grpc.AspNetCore`) | Recipe, compiled in `examples/` | [gRPC](grpc.md) |
 | HotChocolate GraphQL input objects | Recipe, compiled in `examples/` | [GraphQL](graphql.md) |
 
