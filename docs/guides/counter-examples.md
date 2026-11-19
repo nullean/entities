@@ -32,6 +32,8 @@ var report = AutoTest.For(MyConstraints.Instance, gen).CounterExampleReport();
 
 For each rule, the report says whether you gave a counter-example, the search found one (with a few words on what it changed, for example `Owner.Label = ""`), or nothing was found. Run it once on a new type to see what you still have to write. `report.Missing` lists the rules.
 
+A rule about an operation, not a value (`Idempotent`, an order-independence rule), reads `not applicable`, and is not in `Missing`. While the operation is correct no value breaks it, so there is nothing to write. What shows the rule can fail is a broken operation: declare a fault for that operation and run `Faults()`, or `NoOps()` for "the action does nothing".
+
 With `CounterExampleReport(alsoSearchGiven: true)`, a rule you wrote one for also says whether the search would have found it. Those are the ones you can delete.
 
 ## Give one
@@ -44,6 +46,26 @@ AutoTest.For(MyConstraints.Instance, gen)
 The overload that takes the rule object means a rename cannot orphan the counter-example and a typo does not compile. A string-keyed dictionary also works: `.CounterExamples(new Dictionary<string, Func<T, T>> { ["rule-name"] = ... })`.
 
 A counter-example you give is held to a stricter standard than one the library finds: it must break its rule, and only its rule, so a failure of that rule points at one cause.
+
+A counter-example does not have to apply to every generated value. Vacancy skips a value the counter-example leaves unchanged, so for a rule that can only be broken from some values (a rule guarded by a state needs a value in that state, and from another the only way there also breaks the lifecycle) return the value as it is, or say so in the declaration:
+
+```csharp
+.CounterExample(MyConstraints.ApprovedNeedsAReviewer,
+    c => c with { Status = Approved, Reviewer = null },
+    appliesTo: c => c.Status != Rejected)
+```
+
+It must still break the rule for at least one generated value, so a condition that accepts none fails instead of skipping everything.
+
+### Hold found counter-examples to one cause
+
+The search keeps a change that breaks one rule and no other when it finds one, and otherwise accepts the one that breaks the fewest. The second kind shows in the report as `(also breaks ...)`, and Vacancy passes with it. To hold what the search finds to the same standard as what you give, ask:
+
+```csharp
+AutoTest.For(MyConstraints.Instance, gen).RequireSingleCause()
+```
+
+A rule whose only counter-example also breaks another rule then fails Vacancy, naming both, and you write one that breaks it alone.
 
 ## Configure the values
 

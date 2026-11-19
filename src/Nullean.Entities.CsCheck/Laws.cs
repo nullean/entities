@@ -205,7 +205,8 @@ public static class ConstraintLaws
 		bool requireCounterExamples = true,
 		TimeProvider? time = null,
 		Action<string>? writeLine = null,
-		Action<AutoOptions>? options = null
+		Action<AutoOptions>? options = null,
+		bool singleCause = false
 	)
 	{
 		var all = constraints.AsConstraints();
@@ -357,10 +358,11 @@ public static class ConstraintLaws
 				{
 					continue;
 				}
-				if (ids.Count > 1 && !searched)
+				// a counter-example the search chose may overlap other rules; a given one may not, and with RequireSingleCause neither may
+				if (ids.Count > 1 && (!searched || singleCause))
 				{
 					firstIssue ??=
-						$"{name}: its counter-example ({how}), derived from {ValuePrinter.Print(baseValue)}, also breaks {string.Join(", ", ids.Where(i => i != name))}, so a failure would not point at one cause.";
+						$"{name}: its counter-example ({how}), derived from {ValuePrinter.Print(baseValue)}, also breaks {string.Join(", ", ids.Where(i => i != name))}, so a failure would not point at one cause.{(searched ? " Give it one with CounterExample(rule, ...) that breaks only this rule (RequireSingleCause holds found counter-examples to one cause)." : "")}";
 					continue;
 				}
 				reached++;

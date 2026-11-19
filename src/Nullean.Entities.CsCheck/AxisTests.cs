@@ -152,11 +152,18 @@ public static class AxisTests
 				);
 			}
 		}
+		var thin = CheckExercise(
+			settings,
+			[.. rules.Select(Name)],
+			changed,
+			"its action changed a generated value",
+			"give the auto-test starts the action changes (a generator that sometimes draws values that are not already settled)."
+		);
 		return new AxisResult.Passed(
 			Axis.Idempotency,
 			[.. rules.Select(Name)],
 			settings.Samples,
-			$"(changed a value in {string.Join(", ", rules.Select((r, i) => $"{changed[i]}/{settings.Samples}"))})"
+			Join($"(changed a value in {string.Join(", ", rules.Select((r, i) => $"{changed[i]}/{settings.Samples}"))})", thin)
 		);
 	}
 
@@ -301,7 +308,8 @@ public static class AxisTests
 				requireCounterExamples: settings.CounterExamplesRequired,
 				time: settings.Time,
 				writeLine: settings.WriteLine,
-				options: settings.Options
+				options: settings.Options,
+				singleCause: settings.SingleCause
 			);
 		}
 
@@ -336,16 +344,28 @@ public static class AxisTests
 				);
 			}
 		}
+		var thinGuards = guarded.Count == 0
+			? null
+			: CheckExercise(
+				settings,
+				[.. guarded.Select(Name)],
+				reached,
+				"its guard was true",
+				"mix in values where the guard is true (a generator that sometimes draws the case the guard names)."
+			);
 		var searched = lawsReport?.Results.Count(r => r.CounterExample.StartsWith("found:", StringComparison.Ordinal)) ?? 0;
 		return new AxisResult.Passed(
 			Axis.Vacancy,
 			[.. all.Select(Name)],
 			settings.Samples,
-			searched > 0
-				? $"({searched} counter-example{(searched == 1 ? "" : "s")} found by search; AutoTest.CounterExampleReport() lists them)"
-				: settings.CounterExamplesRequired
-					? null
-					: "(a subject changed in place has no value to break, so a rule is not required to have a counter-example; CounterExample(rule, ...) shows one can fire)"
+			Join(
+				searched > 0
+					? $"({searched} counter-example{(searched == 1 ? "" : "s")} found by search; AutoTest.CounterExampleReport() lists them)"
+					: settings.CounterExamplesRequired
+						? null
+						: "(a subject changed in place has no value to break, so a rule is not required to have a counter-example; CounterExample(rule, ...) shows one can fire)",
+				thinGuards
+			)
 		);
 	}
 
@@ -432,13 +452,23 @@ public static class AxisTests
 				);
 			}
 		}
+		var thin = CheckExercise(
+			settings,
+			[.. rules.Select(Name)],
+			moved,
+			axis == Axis.Conservation ? "an action changed the value" : "an action moved the value",
+			"a richer generator (realistic histories next to random walks) or an argument drawn from the start value reaches the states where an action changes it."
+		);
 		return new AxisResult.Passed(
 			axis,
 			[.. rules.Select(Name)],
 			settings.Samples,
-			axis == Axis.Conservation
-				? $"(an action changed the value in {string.Join(", ", moved.Select(m => $"{m}"))} of {settings.Samples} runs; whether it touched what the rule sums cannot be told)"
-				: $"(moved a value in {string.Join(", ", moved.Select(m => $"{m}"))} of {settings.Samples} runs)"
+			Join(
+				axis == Axis.Conservation
+					? $"(an action changed the value in {string.Join(", ", moved.Select(m => $"{m}"))} of {settings.Samples} runs; whether it touched what the rule sums cannot be told)"
+					: $"(moved a value in {string.Join(", ", moved.Select(m => $"{m}"))} of {settings.Samples} runs)",
+				thin
+			)
 		);
 	}
 
@@ -469,6 +499,33 @@ public static class AxisTests
 			("Started from", Print(start)),
 			("Produced", Print(next))
 		]);
+
+	// How thinly a rule was exercised, once none was ruled out: below MinimumExercise the axis fails, below ThinShare it passes with a warning for the note.
+	private static string? CheckExercise(AxisRun settings, IReadOnlyList<string> names, long[] counts, string happened, string next)
+	{
+		var thin = new List<string>();
+		for (var i = 0; i < names.Count; i++)
+		{
+			var share = settings.Samples == 0 ? 1.0 : (double)counts[i] / settings.Samples;
+			if (settings.MinimumExercise > 0 && share < settings.MinimumExercise)
+			{
+				throw NotExercised(
+					names[i],
+					$"{happened} in only {counts[i]} of {settings.Samples} runs ({share:P1}), under the {settings.MinimumExercise:P0} that MinimumExercise asks for, so the rule was barely exercised.",
+					next
+				);
+			}
+			if (share < AxisRun.ThinShare)
+			{
+				thin.Add($"{names[i]} ({counts[i]} of {settings.Samples})");
+			}
+		}
+		return thin.Count == 0
+			? null
+			: $"(barely exercised: {string.Join(", ", thin)}, under {AxisRun.ThinShare:P0} of the runs; {next} Hold it with MinimumExercise)";
+	}
+
+	private static string? Join(string? first, string? second) => first is null ? second : second is null ? first : $"{first} {second}";
 
 	private static AxisFailure NotExercised(string rule, string because, string next) =>
 		new([("Rule", rule), ("Not exercised because", because), ("Next", next)], vacuous: true);
