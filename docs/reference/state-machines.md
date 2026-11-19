@@ -187,6 +187,14 @@ state the machine says. It fails in two distinct ways, both useful:
 - **A divergence** ("after Resolve in Open the machine says Open, but the entity is in Resolved"): the entity does something the machine forbids.
   `SupportTicket.Resolve()` is unguarded, and only `Apply` stops it; conformance sees the method, not `Apply`.
 
+A trigger that is only permitted while something holds takes a guard on the entity, and names the entity type:
+
+```csharp
+.Permit<Job>("Retry", JobState.Failed, JobState.Pending, when: j => j.Attempts < 3)
+```
+
+`ConformTo` evaluates the guard on the entity before each step. True, the entity must take the edge; false, it must stay where it is (an entity that moves anyway, or refuses while the guard is true, diverges). The edge stays in the diagram, and without an entity (`Spec()`, `TryFire`, `AsConstraint`, `ToMermaid()`) it is permitted. When a guard holds the entity back while the machine moves on, the rest of that walk has no state to compare, so the walk stops being checked there; `ConformToExhaustive` evaluates guards on the entity each shortest path reaches, which seldom exhausts a budget, so use `ConformTo` for a bound like this one.
+
 `ConformToMutable(create, stateOf, bindings: [(trigger, d => d.Open())])` is the same for a class that changes in place. `ConformToExhaustive` and
 `ConformToMutableExhaustive` check every transition of the machine instead of sampled walks, each down a shortest path, so a divergence comes out
 with the fewest steps that reach it on the first run. Timeouts (`After`) are

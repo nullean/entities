@@ -18,6 +18,9 @@ namespace Nullean.Entities.CsCheck;
 internal sealed class EntityHolder<TEntity>(TEntity entity)
 {
 	public TEntity Entity { get; set; } = entity;
+
+	/// <summary>A guarded edge held the entity back while the machine moved on, so the machine's later states no longer say where the entity is.</summary>
+	public bool Desynced { get; set; }
 }
 
 internal sealed record ConformStep<TState>(string Action, TState Before, TState After);
@@ -159,6 +162,7 @@ public static class StateMachineSpecExtensions
 	) where TState : notnull where TTrigger : notnull
 	{
 		RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(initial));
+		RequireGuardsFit<TState, TTrigger, TEntity>(machine);
 		var byName = bindings.ToDictionary(b => Convert.ToString(b.Trigger, System.Globalization.CultureInfo.InvariantCulture)!, b => b.Apply);
 		var recorder = new ConformRecorder<TState>();
 		try
@@ -171,12 +175,20 @@ public static class StateMachineSpecExtensions
 				},
 				(holder, step) =>
 				{
-					holder.Entity = byName[step.Action](holder.Entity);
-					var actual = stateOf(holder.Entity);
-					var divergence = EqualityComparer<TState>.Default.Equals(actual, step.After)
-						? null
-						: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
-					recorder.Step(step.Action, step.Before, step.After, divergence);
+					if (holder.Desynced)
+					{
+						return null;
+					}
+					var expected = ConformStepAgainst(
+						machine,
+						holder,
+						step,
+						h => h.Entity = byName[step.Action](h.Entity),
+						h => h.Entity,
+						stateOf,
+						out var divergence
+					);
+					recorder.Step(step.Action, step.Before, expected, divergence);
 					return divergence;
 				},
 				writeLine,
@@ -203,7 +215,8 @@ public static class StateMachineSpecExtensions
 		IReadOnlyList<string> names,
 		TEntity initial,
 		Func<TEntity, TState> stateOf,
-		Func<TEntity, string, TEntity> apply
+		Func<TEntity, string, TEntity> apply,
+		Func<TEntity, object>? guarded = null
 	) where TState : notnull where TTrigger : notnull
 	{
 		var triggers = machine.Triggers.ToDictionary(t => Convert.ToString(t, System.Globalization.CultureInfo.InvariantCulture)!);
@@ -213,6 +226,8 @@ public static class StateMachineSpecExtensions
 		foreach (var name in names)
 		{
 			var after = machine.TryFire(model, triggers[name], out var next) ? next : model;
+			var blocked = IsBlocked(machine, model, name, guarded is null ? entity : guarded(entity));
+			var expected = blocked ? model : after;
 			try
 			{
 				entity = apply(entity, name);
@@ -221,11 +236,20 @@ public static class StateMachineSpecExtensions
 			{
 				return null;
 			}
-			steps.Add(new(name, model, after));
+			steps.Add(new(name, model, expected));
 			var actual = stateOf(entity);
-			if (!EqualityComparer<TState>.Default.Equals(actual, after))
+			if (!EqualityComparer<TState>.Default.Equals(actual, expected))
 			{
-				return new(steps, $"after {name} in {model} the machine says {after}, but the entity is in {actual}");
+				return new(
+					steps,
+					blocked
+						? $"after {name} in {model} the edge's guard is false for the entity, so the machine does not permit it, but the entity is in {actual}"
+						: $"after {name} in {model} the machine says {after}, but the entity is in {actual}"
+				);
+			}
+			if (blocked && !EqualityComparer<TState>.Default.Equals(after, model))
+			{
+				return null; // the machine moved on and the entity did not: nothing further to compare
 			}
 			model = after;
 		}
@@ -245,13 +269,18 @@ public static class StateMachineSpecExtensions
 	) where TState : notnull where TTrigger : notnull
 	{
 		RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(initial));
+		RequireGuardsFit<TState, TTrigger, TEntity>(machine);
 		var byName = bindings.ToDictionary(b => Convert.ToString(b.Trigger, System.Globalization.CultureInfo.InvariantCulture)!, b => b.Apply);
 		return BuildSpec(machine, includeTimeouts: false).ConformExhaustive(
 			() => new EntityHolder<TEntity>(initial),
 			(holder, step) =>
 			{
-				holder.Entity = byName[step.Action](holder.Entity);
-				return Diverged(stateOf(holder.Entity), step.Action, step.Before, step.After);
+				if (holder.Desynced)
+				{
+					return null;
+				}
+				_ = ConformStepAgainst(machine, holder, step, h => h.Entity = byName[step.Action](h.Entity), h => h.Entity, stateOf, out var divergence);
+				return divergence;
 			},
 			writeLine
 		);
@@ -267,20 +296,75 @@ public static class StateMachineSpecExtensions
 	) where TState : notnull where TTrigger : notnull
 	{
 		RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(create()));
+		RequireGuardsFit<TState, TTrigger, TEntity>(machine);
 		var byName = bindings.ToDictionary(b => Convert.ToString(b.Trigger, System.Globalization.CultureInfo.InvariantCulture)!, b => b.Apply);
 		return BuildSpec(machine, includeTimeouts: false).ConformExhaustive(
 			() => new EntityHolder<TEntity>(create()),
 			(holder, step) =>
 			{
-				byName[step.Action](holder.Entity);
-				return Diverged(stateOf(holder.Entity), step.Action, step.Before, step.After);
+				if (holder.Desynced)
+				{
+					return null;
+				}
+				_ = ConformStepAgainst(machine, holder, step, h => byName[step.Action](h.Entity), h => h.Entity, stateOf, out var divergence);
+				return divergence;
 			},
 			writeLine
 		);
 	}
 
-	private static string? Diverged<TState>(TState actual, string action, TState before, TState after) =>
-		EqualityComparer<TState>.Default.Equals(actual, after) ? null : $"after {action} in {before} the machine says {after}, but the entity is in {actual}";
+	// The guard on the edge `action` takes in `before`, evaluated on the entity: true when the edge is guarded and the entity may not take it.
+	private static bool IsBlocked<TState, TTrigger, TEntity>(
+		StateMachine<TState, TTrigger> machine,
+		TState before,
+		string action,
+		TEntity entity
+	) where TState : notnull where TTrigger : notnull
+	{
+		foreach (var t in machine.Transitions)
+		{
+			if (
+				t.Guard is not null && EqualityComparer<TState>.Default.Equals(t.From, before) && Convert.ToString(
+					t.Trigger,
+					System.Globalization.CultureInfo.InvariantCulture
+				) == action
+			)
+			{
+				return !t.Guard(entity!);
+			}
+		}
+		return false;
+	}
+
+	// Runs one step on the entity and says whether it ended where the machine expects: the edge's target, or, when the edge's guard is false for this entity, where it was.
+	// A guarded edge that held the entity back while the machine moved on leaves the holder desynced: the rest of that walk has no model to compare against.
+	private static TState ConformStepAgainst<TState, TTrigger, TEntity>(
+		StateMachine<TState, TTrigger> machine,
+		EntityHolder<TEntity> holder,
+		EntityStep<TState> step,
+		Action<EntityHolder<TEntity>> run,
+		Func<EntityHolder<TEntity>, TEntity> entityOf,
+		Func<TEntity, TState> stateOf,
+		out string? divergence
+	) where TState : notnull where TTrigger : notnull
+	{
+		var blocked = IsBlocked(machine, step.Before, step.Action, entityOf(holder));
+		var expected = blocked ? step.Before : step.After;
+		run(holder);
+		var actual = stateOf(entityOf(holder));
+		if (EqualityComparer<TState>.Default.Equals(actual, expected))
+		{
+			divergence = null;
+			holder.Desynced = blocked && !EqualityComparer<TState>.Default.Equals(step.After, step.Before);
+		}
+		else
+		{
+			divergence = blocked
+				? $"after {step.Action} in {step.Before} the edge's guard is false for the entity, so the machine does not permit it, but the entity is in {actual}"
+				: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
+		}
+		return expected;
+	}
 
 	/// <summary><see cref="ConformTo{TState, TTrigger, TEntity}"/> for a class that mutates in place: a fresh entity per walk from <paramref name="create"/>.</summary>
 	public static EntitySpecReport ConformToMutable<TState, TTrigger, TEntity>(
@@ -293,6 +377,7 @@ public static class StateMachineSpecExtensions
 	) where TState : notnull where TTrigger : notnull
 	{
 		RequireBound(machine, bindings.Select(b => b.Trigger), stateOf(create()));
+		RequireGuardsFit<TState, TTrigger, TEntity>(machine);
 		var byName = bindings.ToDictionary(b => Convert.ToString(b.Trigger, System.Globalization.CultureInfo.InvariantCulture)!, b => b.Apply);
 		var recorder = new ConformRecorder<TState>();
 		try
@@ -305,12 +390,12 @@ public static class StateMachineSpecExtensions
 				},
 				(holder, step) =>
 				{
-					byName[step.Action](holder.Entity);
-					var actual = stateOf(holder.Entity);
-					var divergence = EqualityComparer<TState>.Default.Equals(actual, step.After)
-						? null
-						: $"after {step.Action} in {step.Before} the machine says {step.After}, but the entity is in {actual}";
-					recorder.Step(step.Action, step.Before, step.After, divergence);
+					if (holder.Desynced)
+					{
+						return null;
+					}
+					var expected = ConformStepAgainst(machine, holder, step, h => byName[step.Action](h.Entity), h => h.Entity, stateOf, out var divergence);
+					recorder.Step(step.Action, step.Before, expected, divergence);
 					return divergence;
 				},
 				writeLine,
@@ -323,17 +408,36 @@ public static class StateMachineSpecExtensions
 			var trimmed = ConformTrace.Trimmed(e.Message, recorder.Failure, names =>
 			{
 				var holder = new EntityHolder<TEntity>(create());
-				return Replay(machine, names, holder, h => stateOf(h.Entity), (h, name) =>
-				{
-					byName[name](h.Entity);
-					return h;
-				});
+				return Replay(
+					machine,
+					names,
+					holder,
+					h => stateOf(h.Entity),
+					(h, name) =>
+					{
+						byName[name](h.Entity);
+						return h;
+					},
+					h => h.Entity!
+				);
 			});
 			if (trimmed is null)
 			{
 				throw;
 			}
 			throw trimmed;
+		}
+	}
+
+	// A guard was declared for one entity type: running it against another would throw an InvalidCastException from inside the walk.
+	internal static void RequireGuardsFit<TState, TTrigger, TEntity>(StateMachine<TState, TTrigger> machine) where TState : notnull where TTrigger : notnull
+	{
+		var wrong = machine.Transitions.Where(t => t.GuardEntity is { } type && !type.IsAssignableFrom(typeof(TEntity))).ToList();
+		if (wrong.Count > 0)
+		{
+			throw new InvalidOperationException(
+				$"The machine has guard(s) written for another entity type than {typeof(TEntity).Name}: {string.Join(", ", wrong.Select(t => $"{t.Trigger} from {t.From} takes a {t.GuardEntity!.Name}"))}."
+			);
 		}
 	}
 
