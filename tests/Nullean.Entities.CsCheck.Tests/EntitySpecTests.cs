@@ -130,6 +130,23 @@ public class EntitySpecTests
 	}
 
 	[Test]
+	public void Faults_with_several_starts_counts_a_fault_caught_from_any_start()
+	{
+		// With no Lock/Unlock the Closed start never reaches Locked, so only the Locked start can trigger this fault.
+		var spec = DoorConstraints
+			.All
+			.Spec(Door.New())
+			.Action("Open", d => d.Open())
+			.Action("Close", d => d.Close())
+			.Fault("Close from Locked opens", "Close", (before, after) => before.State == DoorState.Locked ? new Door(DoorState.Open) : after)
+			.From(new Door(DoorState.Closed), new Door(DoorState.Locked));
+
+		var act = () => spec.Faults();
+
+		act.Should().NotThrow();
+	}
+
+	[Test]
 	public void Commutes_fails_for_actions_whose_order_matters_and_passes_for_ones_that_do_not()
 	{
 		var bad = () => DoorSpec().Commutes("Open", "Lock");
