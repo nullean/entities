@@ -499,7 +499,8 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		foreach (var method in typeArgument.GetMembers().OfType<IMethodSymbol>())
 		{
 			if (
-				method.MethodKind != MethodKind.Ordinary || method.IsStatic || method.IsImplicitlyDeclared || method.IsGenericMethod || method.DeclaredAccessibility != Accessibility.Public || method.Parameters.Length >
+				method.MethodKind != MethodKind.Ordinary || method.IsStatic || method.IsImplicitlyDeclared ||
+				!method.CanBeReferencedByName || method.IsGenericMethod || method.DeclaredAccessibility != Accessibility.Public || method.Parameters.Length >
 					1 || method.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ConstraintIgnoreAttributeMetadataName)
 			)
 			{
