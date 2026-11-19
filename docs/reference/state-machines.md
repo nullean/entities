@@ -36,7 +36,8 @@ var spec = OrderConstraints.Instance
 | `spec.Sample()` | Random walks, shrunk to the shortest failing walk. For spaces that will not close. |
 | `spec.Mermaid()` | The reachable state graph as a Mermaid flowchart, for docs and review. |
 | `spec.Snapshot(expected)` | Hashes the state graph. Pass `0` once and copy the hash from the failure; it changes only when behaviour does. |
-| `spec.Faults()` | Mutation testing: breaks each action in turn (or the faults you `Fault(...)`), reports any no rule catches. |
+| `spec.Faults()` | Mutation testing: breaks each action in turn (or the faults you `Fault(...)`), reports any no rule catches. With several starts a fault counts as caught when any start catches it, and the run fails only for a fault none does; one that changed no step from any start is reported as never triggered. |
+| `spec.NoOps()` | For each action: replaces it with one that returns its input and asks whether anything notices, a rule that fails or (as `Exhaustive()` does) an `Allow` edge, `When` guard or action that is no longer exercised. Throws for an action whose do-nothing goes unnoticed. `Faults()` cannot count coverage, so use this for "X has no effect". |
 | `spec.Conform(() => new Repo(), (r, step) => r.Apply(step), (r, expected) => r.Get() == expected)` | Same walks drive a real implementation and the entity; compared after every step. |
 | `spec.ConformExhaustive(() => new Repo(), (r, step) => r.Apply(step), (r, expected) => r.Get() == expected)` | The same comparison on every transition of the reachable space, each reached by a shortest path, so a divergence is reported with the fewest steps. Needs a space that closes, as `Exhaustive()` does; `clone:` steps a copy instead of replaying the path. |
 | `spec.Commutes("A", "B")` / `spec.Idempotent("A")` | Laws, from every reachable state and for every argument. |
