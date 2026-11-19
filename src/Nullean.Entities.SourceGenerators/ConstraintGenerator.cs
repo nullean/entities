@@ -108,7 +108,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		}
 
 		var found = ImmutableArray.CreateBuilder<MemberInfo>();
-		found.AddRange(AutoMembers(type));
+		found.AddRange(AutoMembers(type, ctx.SemanticModel, _));
 		// A [Constraints] type that declares no Constraint<T> field but carries DataAnnotations still gets a set: the annotations are the rules.
 		var implicitRequired = ImplicitRequiredOf(ctx);
 		var validatableObject = ValidatableObjectOf(ctx);
@@ -132,7 +132,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		}
 		var implicitRequired = ImplicitRequiredOf(ctx);
 		return [
-			.. AutoMembers(type).Select(m => m with { ImplicitRequired = implicitRequired }),
+			.. AutoMembers(type, ctx.SemanticModel, _).Select(m => m with { ImplicitRequired = implicitRequired }),
 			new MemberInfo(
 				type,
 				about,
@@ -154,7 +154,7 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 	private static bool ValidatableObjectOf(GeneratorAttributeSyntaxContext ctx) =>
 		ctx.Attributes[0].NamedArguments.Any(n => n.Key == "ValidatableObject" && n.Value.Value is true);
 
-	private static IEnumerable<MemberInfo> AutoMembers(INamedTypeSymbol type) =>
+	private static IEnumerable<MemberInfo> AutoMembers(INamedTypeSymbol type, SemanticModel model, CancellationToken ct) =>
 		type
 			.GetMembers()
 			// An auto-property's compiler-made backing field is not a member the author wrote: the property is the member.
@@ -170,7 +170,54 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 					})
 			)
 			.Where(t => TryClassify(t.MemberType, out var unusedKind, out var unusedTypeArgument))
-			.Select(t => new MemberInfo(type, t.MemberType, t.Member.Name, true, t.Member.Locations.FirstOrDefault() ?? Location.None));
+			.Select(
+				t => new MemberInfo(type, t.MemberType, t.Member.Name, true, t.Member.Locations.FirstOrDefault() ?? Location.None)
+				{
+					LaterReads = LaterStaticReads(t.Member, type, model, ct)
+				}
+			);
+
+	/// <summary>
+	/// Static fields of the same type that the member's initializer reads while it runs and that are declared after it in the same file: C# initialises static
+	/// fields in declaration order, so the read sees <c>default</c>. A read inside a lambda or local function is skipped, it happens when the delegate is called.
+	/// </summary>
+	private static ImmutableArray<LaterRead> LaterStaticReads(ISymbol member, INamedTypeSymbol type, SemanticModel model, CancellationToken ct)
+	{
+		var reads = ImmutableArray.CreateBuilder<LaterRead>();
+		foreach (var reference in member.DeclaringSyntaxReferences)
+		{
+			if (reference.SyntaxTree != model.SyntaxTree)
+			{
+				continue;
+			}
+			var initializer = reference.GetSyntax(ct) switch
+			{
+				VariableDeclaratorSyntax v => v.Initializer?.Value,
+				PropertyDeclarationSyntax p => p.Initializer?.Value,
+				_ => null
+			};
+			if (initializer is null)
+			{
+				continue;
+			}
+			foreach (var name in initializer.DescendantNodesAndSelf(
+				n => n is not AnonymousFunctionExpressionSyntax and not LocalFunctionStatementSyntax
+			).OfType<IdentifierNameSyntax>())
+			{
+				if (
+					model.GetSymbolInfo(name, ct).Symbol is IFieldSymbol { IsStatic: true, IsConst: false } field && SymbolEqualityComparer.Default.Equals(
+						field.ContainingType,
+						type
+					) &&
+					field.DeclaringSyntaxReferences.FirstOrDefault(r => r.SyntaxTree == reference.SyntaxTree) is { } declared && declared.Span.Start > reference.Span.Start
+				)
+				{
+					reads.Add(new LaterRead(field.Name, name.GetLocation()));
+				}
+			}
+		}
+		return reads.ToImmutable();
+	}
 
 	/// <summary>
 	/// A type read via [Constraints] takes over entirely for that type: its explicit [Constraint]
@@ -239,6 +286,14 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 			{
 				spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.TypeMustBePartial, anchor, containingType.Name));
 				continue;
+			}
+
+			foreach (var member in groupMembers.Where(m => !m.LaterReads.IsDefault))
+			{
+				foreach (var read in member.LaterReads)
+				{
+					spc.ReportDiagnostic(Diagnostic.Create(Diagnostics.ReadsLaterStaticField, read.Location, member.MemberName, read.FieldName));
+				}
 			}
 
 			var valid = new List<(MemberInfo Member, ConstraintKind Kind, ITypeSymbol TypeArgument)>();
@@ -815,5 +870,10 @@ public sealed class ConstraintGenerator : IIncrementalGenerator
 		ITypeSymbol? AnnotationType = null,
 		bool ImplicitRequired = true,
 		bool ValidatableObject = false
-	);
+	)
+	{
+		public ImmutableArray<LaterRead> LaterReads { get; init; }
+	}
+
+	private sealed record LaterRead(string FieldName, Location Location);
 }
