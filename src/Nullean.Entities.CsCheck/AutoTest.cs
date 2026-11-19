@@ -7,6 +7,7 @@
 // exposes each axis as a named method. Report() runs every axis and records what each did; Run() does the same and throws when any failed; Cases lists the
 // axes the type actually declares, one per test, for a test framework's data source. An axis the type declares no rule for is reported, never passed in silence.
 
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using CsCheck;
 
@@ -198,7 +199,43 @@ public sealed partial class AutoTest<T>
 	/// edge value where a single property breaks it alone; the others (sequential rules, <c>Idempotent</c>, cross-property rules) need one here, and axis 09 fails without it.
 	/// </summary>
 	public AutoTest<T> CounterExamples(IReadOnlyDictionary<string, Func<T, T>> counterExamples) =>
-		new(this, counterExamples: _counterExamples.Concat(counterExamples).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Last().Value));
+		new(
+			this,
+			counterExamples: _counterExamples
+				.Concat(counterExamples.Select(kv => new KeyValuePair<string, Func<T, T>>(kv.Key, AppliedOncePerBase(kv.Value))))
+				.GroupBy(kv => kv.Key)
+				.ToDictionary(g => g.Key, g => g.Last().Value)
+		);
+
+	/// <summary>
+	/// A constant generator (<c>Gen.Const</c>) hands every axis the same base object, and the axes run at the same time. A counter-example that changes the world its base holds
+	/// (adds a file to a <c>MockFileSystem</c>) would collide with itself, so it runs once per base, under a lock on that base; later applications get the value the first one made.
+	/// </summary>
+	private static Func<T, T> AppliedOncePerBase(Func<T, T> breakIt)
+	{
+		if (typeof(T).IsValueType)
+		{
+			return breakIt;
+		}
+		var made = new ConditionalWeakTable<object, StrongBox<T>>();
+		return value =>
+		{
+			if (value is null)
+			{
+				return breakIt(value);
+			}
+			lock (value)
+			{
+				if (made.TryGetValue(value, out var box))
+				{
+					return box.Value!;
+				}
+				var result = breakIt(value);
+				made.Add(value, new StrongBox<T>(result));
+				return result;
+			}
+		};
+	}
 
 	/// <summary>
 	/// The counter-example for one rule, named by the rule itself rather than by a string: a rename cannot orphan it and a typo does not compile.
