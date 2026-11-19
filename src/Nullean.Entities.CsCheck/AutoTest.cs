@@ -88,7 +88,7 @@ public sealed record AutoTestReport(IReadOnlyList<AxisResult> Results, IReadOnly
 		if (Unclassified.Count > 0)
 		{
 			lines.Add(
-				$"Unclassified: {string.Join(", ", Unclassified)} (sequential rules written by hand: checked, but no axis can choose a technique from their shape)"
+				$"Unclassified: {string.Join(", ", Unclassified)} (sequential rules written by hand: checked against every operation the invariant axis runs, but no axis can choose a technique from their shape)"
 			);
 		}
 		if (NotOperations is { Count: > 0 })
@@ -364,7 +364,12 @@ public sealed partial class AutoTest<T>
 	/// <summary>The case named <paramref name="name"/> (one of <see cref="CaseNames"/>). Throws <see cref="ArgumentException"/> listing the names when there is none.</summary>
 	public AxisCase Case(string name) => AxisCases.Named(Cases, name);
 
-	private bool IsDeclared(Axis axis) => axis == Axis.Vacancy ? _constraints.AsConstraints().Count > 0 : _constraints.AsConstraints().Any(c => c.Axis == axis);
+	private bool IsDeclared(Axis axis) =>
+		axis == Axis.Vacancy
+			? _constraints.AsConstraints().Count > 0
+			: axis == Axis.Invariant && CurrentActions.Count > 0
+				? _constraints.AsConstraints().Any(c => c.Axis is Axis.Invariant or Axis.Unclassified)
+				: _constraints.AsConstraints().Any(c => c.Axis == axis);
 
 	private Task<AxisResult> ExecuteAsync(Axis axis) => axis switch
 	{
