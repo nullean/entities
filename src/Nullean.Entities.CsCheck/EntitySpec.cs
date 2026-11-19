@@ -377,29 +377,47 @@ public sealed partial class EntitySpec<T>
 	/// </summary>
 	public SpecFaultsReport Faults(Action<string>? writeLine = null, int maxStates = 100_000, bool? throwOnUncaught = null)
 	{
-		SpecFaultsReport? last = null;
+		var reports = new List<SpecFaultsReport>();
 		foreach (var start in Starts())
 		{
 			CheckStart(start);
-			last = Build(start, autoFaults: true).Spec.Faults(writeLine, maxStates, throwOnUncaught: throwOnUncaught ?? (_faults.Count > 0));
+			reports.Add(Build(start, autoFaults: true).Spec.Faults(writeLine, maxStates, throwOnUncaught: false));
 		}
-		return last!;
+		ThrowIfUncaughtFromEveryStart(reports, throwOnUncaught);
+		return reports[^1];
+	}
+
+	// A fault only some starts can trigger (a Shipped start never takes Confirm) is uncaught from the others
+	// by construction; it is a gap only when no start catches it.
+	private void ThrowIfUncaughtFromEveryStart(List<SpecFaultsReport> reports, bool? throwOnUncaught)
+	{
+		if (!(throwOnUncaught ?? (_faults.Count > 0)) || reports.Count == 0)
+		{
+			return;
+		}
+		var uncaught = reports[0].Uncaught.ToList();
+		foreach (var report in reports.Skip(1))
+		{
+			var here = report.Uncaught.ToHashSet();
+			uncaught.RemoveAll(f => !here.Contains(f));
+		}
+		if (uncaught.Count > 0)
+		{
+			throw new CsCheckException($"No requirement detects these faults: {string.Join(", ", uncaught)}");
+		}
 	}
 
 	/// <summary>Like <see cref="Faults"/>, sampled — for a state space <see cref="Exhaustive"/> cannot close.</summary>
 	public SpecFaultsReport SampleFaults(Action<string>? writeLine = null, string? seed = null, long iter = -1, bool? throwOnUncaught = null)
 	{
-		SpecFaultsReport? last = null;
+		var reports = new List<SpecFaultsReport>();
 		foreach (var start in Starts())
 		{
 			CheckStart(start);
-			last = SampleCall.Run(
-				() => Build(start, autoFaults: true)
-					.Spec
-					.SampleFaults(writeLine, seed: seed, iter: iter, throwOnUncaught: throwOnUncaught ?? (_faults.Count > 0))
-			);
+			reports.Add(SampleCall.Run(() => Build(start, autoFaults: true).Spec.SampleFaults(writeLine, seed: seed, iter: iter, throwOnUncaught: false)));
 		}
-		return last!;
+		ThrowIfUncaughtFromEveryStart(reports, throwOnUncaught);
+		return reports[^1];
 	}
 
 	/// <summary>
