@@ -162,4 +162,37 @@ public class ActionInferenceTests
 		run.SingleGeneratedSource().Should().NotContain("Actions");
 		run.HasDiagnostic("NECG020").Should().BeTrue();
 	}
+
+	[Test]
+	public void A_record_from_another_assembly_gets_no_action_for_its_compiler_generated_members()
+	{
+		var run = GeneratorTestHost.RunWithLibrary(
+			"""
+			namespace Lib;
+
+			public sealed record Order(string Status, int Version)
+			{
+			    public Order Touch() => this with { Version = Version + 1 };
+			}
+			""",
+			"""
+			using Nullean.Entities;
+			using Lib;
+
+			namespace App;
+
+			[Constraints<Order>]
+			public static partial class OrderConstraints
+			{
+			    [Constraint]
+			    public static readonly Constraint<Order> Positive = Constraints<Order>.Always(o => o.Version > 0, "no");
+			}
+			"""
+		);
+
+		var source = run.SingleGeneratedSource();
+		source.Should().NotContain("<Clone>");
+		source.Should().Contain("\"Touch\"");
+		run.OutputCompilation.GetDiagnostics().Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).Should().BeEmpty();
+	}
 }

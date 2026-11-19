@@ -21,13 +21,31 @@ internal static class GeneratorTestHost
 			.Select(path => (MetadataReference)MetadataReference.CreateFromFile(path)),
 	];
 
-	public static GeneratorRun Run(string source)
+	// Compiles `librarySource` to an in-memory assembly and runs the generator over `source` with it referenced as metadata,
+	// so members carry what a compiler emits into an assembly (IsImplicitlyDeclared is false for those).
+	public static GeneratorRun RunWithLibrary(string librarySource, string source)
+	{
+		var lib = CSharpCompilation.Create(
+			"GeneratorTestsLib",
+			[CSharpSyntaxTree.ParseText(librarySource)],
+			[.. PlatformReferences, MetadataReference.CreateFromFile(typeof(Constraint<object>).Assembly.Location)],
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+		);
+		using var stream = new MemoryStream();
+		var emit = lib.Emit(stream);
+		if (!emit.Success)
+			throw new InvalidOperationException(string.Join(Environment.NewLine, emit.Diagnostics));
+		return Run(source, MetadataReference.CreateFromImage(stream.ToArray()));
+	}
+
+	public static GeneratorRun Run(string source, params MetadataReference[] extra)
 	{
 		ImmutableArray<MetadataReference> references =
 		[
 			.. PlatformReferences,
 			MetadataReference.CreateFromFile(typeof(Constraint<object>).Assembly.Location),
 			MetadataReference.CreateFromFile(typeof(Reactive.ReactiveConstraint<object>).Assembly.Location),
+			.. extra,
 		];
 
 		var compilation = CSharpCompilation.Create(
