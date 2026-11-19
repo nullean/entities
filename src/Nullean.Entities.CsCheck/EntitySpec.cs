@@ -373,33 +373,86 @@ public sealed partial class EntitySpec<T>
 	/// Mutation-tests the constraints. Each declared <see cref="Fault"/> (or, when none are declared, "this
 	/// action has no effect" for every action) is injected in turn; a fault no constraint catches means a
 	/// constraint is missing. Throws on uncaught faults when you declared faults; with the automatic ones
-	/// it only reports, since an action that legitimately changes nothing is not a gap.
+	/// it only reports, since an action that legitimately changes nothing is not a gap. With several starts, a fault is caught
+	/// when any start catches it (a fault of one kind of entity cannot fire from a start of another), and the run fails only for a fault no
+	/// start catches, saying so when the fault changed no step from any start. The report returned is the one from the start that caught the most,
+	/// so a row in it that says NOTHING may have been caught from another start: <paramref name="writeLine"/> also gets one line per fault across all of them.
 	/// </summary>
 	public SpecFaultsReport Faults(Action<string>? writeLine = null, int maxStates = 100_000, bool? throwOnUncaught = null)
 	{
-		SpecFaultsReport? last = null;
-		foreach (var start in Starts())
-		{
-			CheckStart(start);
-			last = Build(start, autoFaults: true).Spec.Faults(writeLine, maxStates, throwOnUncaught: throwOnUncaught ?? (_faults.Count > 0));
-		}
-		return last!;
+		var effects = new System.Collections.Concurrent.ConcurrentDictionary<string, byte>();
+		return FaultsAcrossStarts(
+			start => Build(start, autoFaults: true, effects: effects).Spec.Faults(writeLine, maxStates, throwOnUncaught: false),
+			throwOnUncaught ?? (_faults.Count > 0),
+			writeLine,
+			effects
+		);
 	}
 
 	/// <summary>Like <see cref="Faults"/>, sampled — for a state space <see cref="Exhaustive"/> cannot close.</summary>
 	public SpecFaultsReport SampleFaults(Action<string>? writeLine = null, string? seed = null, long iter = -1, bool? throwOnUncaught = null)
 	{
-		SpecFaultsReport? last = null;
+		var effects = new System.Collections.Concurrent.ConcurrentDictionary<string, byte>();
+		return FaultsAcrossStarts(
+			start => SampleCall.Run(
+				() => Build(start, autoFaults: true, effects: effects).Spec.SampleFaults(writeLine, seed: seed, iter: iter, throwOnUncaught: false)
+			),
+			throwOnUncaught ?? (_faults.Count > 0),
+			writeLine,
+			effects
+		);
+	}
+
+	// Every start is run without throwing, then a fault counts as caught if any start caught it. Per start CsCheck would throw on the first start
+	// that does not catch every fault, including the faults only another start can trigger.
+	private SpecFaultsReport FaultsAcrossStarts(
+		Func<T, SpecFaultsReport> run,
+		bool throwOnUncaught,
+		Action<string>? writeLine,
+		System.Collections.Concurrent.ConcurrentDictionary<string, byte> effects
+	)
+	{
+		var reports = new List<SpecFaultsReport>();
 		foreach (var start in Starts())
 		{
 			CheckStart(start);
-			last = SampleCall.Run(
-				() => Build(start, autoFaults: true)
-					.Spec
-					.SampleFaults(writeLine, seed: seed, iter: iter, throwOnUncaught: throwOnUncaught ?? (_faults.Count > 0))
+			reports.Add(run(start));
+		}
+		var best = reports.OrderBy(r => r.Uncaught.Count).First();
+
+		static bool Missed(SpecFaultResult r) => r.Outcome is FaultOutcome.NotDetected or FaultOutcome.NotFound;
+
+		var uncaught = best
+			.Results
+			.Select(r => r.Fault)
+			.Where(fault => reports.All(report => report.Results.Where(r => r.Fault == fault).All(Missed)))
+			.ToList();
+		if (reports.Count > 1 && writeLine is not null)
+		{
+			writeLine(
+				$"Across {reports.Count} starts:{Environment.NewLine}" + string.Join(
+					Environment.NewLine,
+					best.Results.Select(
+						r => reports.Select(report => report.Results.FirstOrDefault(x => x.Fault == r.Fault)).FirstOrDefault(
+							x => x is { CaughtBy: not null }
+						) is { } caught
+							? $"  {r.Fault}: caught by {caught.CaughtBy}"
+							: $"  {r.Fault}: {(uncaught.Contains(r.Fault) ? "NOT CAUGHT" : "not caught by a requirement")}"
+					)
+				)
 			);
 		}
-		return last!;
+		if (throwOnUncaught && uncaught.Count > 0)
+		{
+			var never = uncaught.Where(fault => !effects.ContainsKey(fault)).ToList();
+			throw new CsCheckException(
+				$"No requirement detects these faults: {string.Join(", ", uncaught)}{(reports.Count > 1 ? $" (from none of the {reports.Count} starts)" : "")}." +
+					(never.Count > 0
+						? $"{Environment.NewLine}Never triggered: {string.Join(", ", never)} changed no step from any start, so nothing could catch it (the action never ran, or the fault leaves its result as it was)."
+						: "") + $"{Environment.NewLine}{best}"
+			);
+		}
+		return best;
 	}
 
 	/// <summary>
@@ -655,7 +708,12 @@ public sealed partial class EntitySpec<T>
 			: throw new InvalidOperationException($"No values to try for {type.Name}; declare them with .Domain<{type.Name}>(...).");
 	}
 
-	private (Spec<Keyed<T>> Spec, object[]?[] Domains) Build(T start, bool autoFaults)
+	private (Spec<Keyed<T>> Spec, object[]?[] Domains) Build(
+		T start,
+		bool autoFaults,
+		string? noOp = null,
+		System.Collections.Concurrent.ConcurrentDictionary<string, byte>? effects = null
+	)
 	{
 		var spec = global::CsCheck.Spec.From(Wrap(start));
 		spec.Print(s => _print(s.Value));
@@ -672,14 +730,15 @@ public sealed partial class EntitySpec<T>
 		for (var i = 0; i < _actions.Count; i++)
 		{
 			var def = _actions[i];
+			var inert = noOp is not null && def.Name == noOp; // NoOps(): this action returns its input, whatever it is given
 			if (def.ArgumentType is null)
 			{
-				spec.Action(def.Name, s => Wrap(Run(s.Value, def, null)));
+				spec.Action(def.Name, s => Wrap(inert ? s.Value : Run(s.Value, def, null)));
 				continue;
 			}
 			var domain = def.OwnDomain ?? DomainOf(def.ArgumentType);
 			domains[i] = domain;
-			spec.Action(def.Name, domain, (s, a) => Wrap(Run(s.Value, def, a)));
+			spec.Action(def.Name, domain, (s, a) => Wrap(inert ? s.Value : Run(s.Value, def, a)));
 		}
 
 		var index = 0;
@@ -706,22 +765,34 @@ public sealed partial class EntitySpec<T>
 			spec.Reachable(id, id, s => holds(s.Value));
 		}
 
+		// effects: which faults ever changed a step, so an uncaught one can be told apart from one that never fired
+		Keyed<T> Perturbed(string fault, T before, T after, T perturbed)
+		{
+			if (effects is not null && !EqualityComparer<T>.Default.Equals(perturbed, after))
+			{
+				_ = effects.TryAdd(fault, 0);
+			}
+			return Wrap(perturbed);
+		}
+
 		foreach (var (name, on, perturb) in _faults)
 		{
+			var fault = name;
 			if (on is null)
 			{
-				spec.Fault(name, (_, _) => true, (before, after) => Wrap(perturb(before.Value, after.Value)));
+				spec.Fault(name, (_, _) => true, (before, after) => Perturbed(fault, before.Value, after.Value, perturb(before.Value, after.Value)));
 			}
 			else
 			{
-				spec.Fault(name, on, (before, after) => Wrap(perturb(before.Value, after.Value)));
+				spec.Fault(name, on, (before, after) => Perturbed(fault, before.Value, after.Value, perturb(before.Value, after.Value)));
 			}
 		}
 		if (autoFaults && _faults.Count == 0)
 		{
 			foreach (var def in _actions)
 			{
-				spec.Fault($"{def.Name} has no effect", def.Name, (before, _) => before);
+				var fault = $"{def.Name} has no effect";
+				spec.Fault(fault, def.Name, (before, after) => Perturbed(fault, before.Value, after.Value, before.Value));
 			}
 		}
 		return (spec, domains);

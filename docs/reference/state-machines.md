@@ -36,7 +36,8 @@ var spec = OrderConstraints.Instance
 | `spec.Sample()` | Random walks, shrunk to the shortest failing walk. For spaces that will not close. |
 | `spec.Mermaid()` | The reachable state graph as a Mermaid flowchart, for docs and review. |
 | `spec.Snapshot(expected)` | Hashes the state graph. Pass `0` once and copy the hash from the failure; it changes only when behaviour does. |
-| `spec.Faults()` | Mutation testing: breaks each action in turn (or the faults you `Fault(...)`), reports any no rule catches. |
+| `spec.Faults()` | Mutation testing: breaks each action in turn (or the faults you `Fault(...)`), reports any no rule catches. With several starts a fault counts as caught when any start catches it, and the run fails only for a fault none does; one that changed no step from any start is reported as never triggered. |
+| `spec.NoOps()` | For each action: replaces it with one that returns its input and asks whether anything notices, a rule that fails or (as `Exhaustive()` does) an `Allow` edge, `When` guard or action that is no longer exercised. Throws for an action whose do-nothing goes unnoticed. `Faults()` cannot count coverage, so use this for "X has no effect". |
 | `spec.Conform(() => new Repo(), (r, step) => r.Apply(step), (r, expected) => r.Get() == expected)` | Same walks drive a real implementation and the entity; compared after every step. |
 | `spec.ConformExhaustive(() => new Repo(), (r, step) => r.Apply(step), (r, expected) => r.Get() == expected)` | The same comparison on every transition of the reachable space, each reached by a shortest path, so a divergence is reported with the fewest steps. Needs a space that closes, as `Exhaustive()` does; `clone:` steps a copy instead of replaying the path. |
 | `spec.Commutes("A", "B")` / `spec.Idempotent("A")` | Laws, from every reachable state and for every argument. |
@@ -185,6 +186,14 @@ state the machine says. It fails in two distinct ways, both useful:
   unreachable `AwaitingCustomer` and `Person`'s unreachable `OnLeave` show up at declaration time instead of by a missed coverage edge.
 - **A divergence** ("after Resolve in Open the machine says Open, but the entity is in Resolved"): the entity does something the machine forbids.
   `SupportTicket.Resolve()` is unguarded, and only `Apply` stops it; conformance sees the method, not `Apply`.
+
+A trigger that is only permitted while something holds takes a guard on the entity, and names the entity type:
+
+```csharp
+.Permit<Job>("Retry", JobState.Failed, JobState.Pending, when: j => j.Attempts < 3)
+```
+
+`ConformTo` evaluates the guard on the entity before each step. True, the entity must take the edge; false, it must stay where it is (an entity that moves anyway, or refuses while the guard is true, diverges). The edge stays in the diagram, and without an entity (`Spec()`, `TryFire`, `AsConstraint`, `ToMermaid()`) it is permitted. When a guard holds the entity back while the machine moves on, the rest of that walk has no state to compare, so the walk stops being checked there; `ConformToExhaustive` evaluates guards on the entity each shortest path reaches, which seldom exhausts a budget, so use `ConformTo` for a bound like this one.
 
 `ConformToMutable(create, stateOf, bindings: [(trigger, d => d.Open())])` is the same for a class that changes in place. `ConformToExhaustive` and
 `ConformToMutableExhaustive` check every transition of the machine instead of sampled walks, each down a shortest path, so a divergence comes out

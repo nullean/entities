@@ -54,11 +54,19 @@ public sealed record AxisRun(
 	TimeProvider? Time = null,
 	Action<string>? WriteLine = null,
 	Action<AutoOptions>? Options = null,
-	bool CounterExamplesRequired = true
+	bool CounterExamplesRequired = true,
+	bool SingleCause = false,
+	double MinimumExercise = 0
 )
 {
 	/// <summary>The seed used when none is given: fixed, so a green or vacuous result does not depend on luck.</summary>
 	public const string DefaultSeed = "0N0XIzNsQ0O2";
+
+	/// <summary>
+	/// A rule exercised in a smaller share of the runs than this passes with a warning in its note (a rule that was never exercised fails). Not a setting:
+	/// <c>MinimumExercise</c> is the share below which an axis fails instead.
+	/// </summary>
+	public const double ThinShare = 0.1;
 
 	internal string EffectiveSeed => Seed ?? DefaultSeed;
 }

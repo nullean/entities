@@ -12,7 +12,18 @@ using System.Text.RegularExpressions;
 
 namespace Nullean.Entities;
 
-public sealed record MachineTransition<TState, TTrigger>(TState From, TTrigger Trigger, TState To);
+public sealed record MachineTransition<TState, TTrigger>(TState From, TTrigger Trigger, TState To)
+{
+	/// <summary>
+	/// A condition on the entity that takes the edge, declared with <c>Permit&lt;TEntity&gt;(..., when: ...)</c>; null for an unconditional edge. Only
+	/// conformance testing against an entity (<c>ConformTo</c>) evaluates it: <see cref="StateMachine{TState, TTrigger}.TryFire"/>, <c>AsConstraint</c>,
+	/// <c>ToMermaid</c> and <c>Spec()</c> have no entity, so they treat the edge as permitted.
+	/// </summary>
+	public Func<object, bool>? Guard { get; init; }
+
+	/// <summary>The entity type <see cref="Guard"/> was declared for; null when there is no guard.</summary>
+	public Type? GuardEntity { get; init; }
+}
 
 /// <summary>A move that happens by itself once <see cref="After"/> has passed in <see cref="From"/>.</summary>
 public sealed record MachineTimeout<TState>(TState From, TimeSpan After, TState To);
@@ -245,6 +256,31 @@ public sealed class StateMachineBuilder<TState, TTrigger> where TState : notnull
 		foreach (var f in from)
 		{
 			Permit(trigger, f, to);
+		}
+		return this;
+	}
+
+	/// <summary>
+	/// <paramref name="trigger"/> takes <paramref name="from"/> to <paramref name="to"/> only while <paramref name="when"/> holds for the entity, so a diagram can say
+	/// "retry, while attempts are left" and an entity that refuses the edge past its budget still conforms. <c>ConformTo</c> evaluates <paramref name="when"/> on the
+	/// entity before each step: true, the entity must take the edge; false, it must stay where it is. The edge is still drawn and still counts as declared; without an entity
+	/// (<c>Spec()</c>, <c>TryFire</c>) it is permitted. Name the entity type: <c>Permit&lt;Job&gt;("Retry", Failed, Pending, when: j =&gt; j.Attempts &lt; 3)</c>.
+	/// </summary>
+	public StateMachineBuilder<TState, TTrigger> Permit<TEntity>(TTrigger trigger, TState from, TState to, Func<TEntity, bool> when)
+	{
+		ArgumentNullException.ThrowIfNull(when);
+		Permit(trigger, from, to);
+		var index = _transitions.Count - 1;
+		_transitions[index] = _transitions[index] with { Guard = entity => when((TEntity)entity), GuardEntity = typeof(TEntity) };
+		return this;
+	}
+
+	/// <summary><see cref="Permit{TEntity}(TTrigger, TState, TState, Func{TEntity, bool})"/> for each of <paramref name="from"/>.</summary>
+	public StateMachineBuilder<TState, TTrigger> Permit<TEntity>(TTrigger trigger, IEnumerable<TState> from, TState to, Func<TEntity, bool> when)
+	{
+		foreach (var f in from)
+		{
+			Permit(trigger, f, to, when);
 		}
 		return this;
 	}

@@ -215,6 +215,36 @@ public sealed partial class AutoTest<T>
 			);
 	}
 
+	/// <summary>
+	/// The counter-example for one rule, named by the rule itself, that applies only to the generated values <paramref name="appliesTo"/> accepts: for any other value it is
+	/// not tried. Use it when a rule can only be broken from some values (a rule guarded by a state needs a value in that state, and from another the only way there also breaks
+	/// the lifecycle). Vacancy skips a value the counter-example leaves unbroken, so the same effect is returning it unchanged; this says so in the declaration, and
+	/// still fails when <paramref name="appliesTo"/> accepts none of the generated values, so a wrong condition cannot silently skip every one.
+	/// </summary>
+	public AutoTest<T> CounterExample(Constraint<T> rule, Func<T, T> breakIt, Func<T, bool> appliesTo)
+	{
+		ArgumentNullException.ThrowIfNull(breakIt);
+		ArgumentNullException.ThrowIfNull(appliesTo);
+		return CounterExample(rule, value => appliesTo(value) ? breakIt(value) : value);
+	}
+
+	/// <summary>
+	/// Holds a counter-example the search finds to the same standard as one you give: it must break its rule and no other, or Vacancy fails ("so a failure would not point at one cause").
+	/// Without this, a found counter-example that also breaks other rules is accepted and only listed by <see cref="CounterExampleReport"/>, so a rule can look reachable
+	/// only through a value that breaks several. The search already prefers one that breaks a single rule; this refuses the fallback. Give that rule a <see cref="CounterExample(Constraint{T}, Func{T, T})"/>.
+	/// </summary>
+	public AutoTest<T> RequireSingleCause() => new(this, settings: _settings with { SingleCause = true });
+
+	/// <summary>
+	/// The smallest share of the runs (0 to 1) in which an axis must exercise each rule: a rule exercised in fewer fails the axis as thinly exercised. A rule
+	/// exercised in none always fails; a rule exercised in under 10% passes with a warning in the axis's note naming it. Use it to hold a generator to
+	/// reaching the states a rule is about, for example <c>MinimumExercise(0.1)</c>.
+	/// </summary>
+	public AutoTest<T> MinimumExercise(double share) =>
+		share is >= 0 and <= 1
+			? new(this, settings: _settings with { MinimumExercise = share })
+			: throw new ArgumentOutOfRangeException(nameof(share), share, "A share of the runs, between 0 and 1.");
+
 	/// <summary>Configures the generated values (<c>UseFileSystem()</c>, <c>Normalize&lt;T&gt;(...)</c>) for the starts and for the search for counter-examples.</summary>
 	public AutoTest<T> Options(Action<AutoOptions> configure) =>
 		new(this, settings: _settings with { Options = _settings.Options is { } existing ? existing + configure : configure });
@@ -282,10 +312,12 @@ public sealed partial class AutoTest<T>
 	public CounterExampleReport CounterExampleReport(bool alsoSearchGiven = false)
 	{
 		var rules = _constraints.AsConstraints().Where(c => c.Name is not null).ToList();
+		// the same rules Vacancy leaves out: a correct Idempotent or order-independence rule cannot be broken by any value
+		var aboutOperations = rules.Where(c => c.Axis is Axis.Idempotency or Axis.Confluence).Select(c => c.Name!).ToHashSet();
 		List<string> given = [.. rules.Where(c => _counterExamples.ContainsKey(c.Name!)).Select(c => c.Name!)];
 		List<string> wanted = alsoSearchGiven
-			? [.. rules.Select(c => c.Name!)]
-			: [.. rules.Where(c => !_counterExamples.ContainsKey(c.Name!)).Select(c => c.Name!)];
+			? [.. rules.Select(c => c.Name!).Where(n => !aboutOperations.Contains(n))]
+			: [.. rules.Where(c => !_counterExamples.ContainsKey(c.Name!)).Select(c => c.Name!).Where(n => !aboutOperations.Contains(n))];
 		var bases = new List<T>();
 		var valid = CurrentValid;
 		for (var i = 0; i < 25; i++)
@@ -306,7 +338,10 @@ public sealed partial class AutoTest<T>
 				.Except(given)
 				.Where(found.ContainsKey)
 				.Select(n => new CounterExampleLine(n, CounterExampleKind.Found, found[n].Description, found[n].Overlaps)),
-			.. wanted.Except(given).Where(n => !found.ContainsKey(n)).Select(n => new CounterExampleLine(n, CounterExampleKind.None, null, []))
+			.. wanted.Except(given).Where(n => !found.ContainsKey(n)).Select(n => new CounterExampleLine(n, CounterExampleKind.None, null, [])),
+			.. rules.Where(c => aboutOperations.Contains(c.Name!) && !_counterExamples.ContainsKey(c.Name!)).Select(
+				c => new CounterExampleLine(c.Name!, CounterExampleKind.NotApplicable, null, [])
+			)
 		]);
 	}
 
@@ -431,7 +466,13 @@ public enum CounterExampleKind
 	Found,
 
 	/// <summary>Nothing the search tried breaks this rule alone: only you know how to.</summary>
-	None
+	None,
+
+	/// <summary>
+	/// The rule is about an operation (<c>Idempotent</c>, an order-independence rule), not a value, so no value breaks it while the operation is correct. A counter-example does not apply:
+	/// what shows the rule can fail is a broken operation, which <c>EntitySpec.Faults()</c> (a declared fault) or mutation testing injects.
+	/// </summary>
+	NotApplicable
 }
 
 /// <summary>One rule, and where its counter-example comes from. <paramref name="Description"/> says in a few words what the search changed, when it found one; <paramref name="Overlaps"/> are the other rules it breaks too.</summary>
@@ -453,6 +494,8 @@ public sealed record CounterExampleReport(IReadOnlyList<CounterExampleLine> Line
 					{
 						CounterExampleKind.Given => $"{l.Rule}: given",
 						CounterExampleKind.Found => $"{l.Rule}: found ({l.Description}){OverlapNote(l)}",
+						CounterExampleKind.NotApplicable =>
+							$"{l.Rule}: not applicable (the rule is about an operation, not a value, so no value breaks it; break the operation to show it has teeth, with a declared fault in Faults())",
 						_ => $"{l.Rule}: NONE FOUND, write one"
 					}
 			)

@@ -43,3 +43,13 @@ In docs-builder, this axis found that the changelog entry generator never produc
 ---
 
 Previous: [08 Confluence](08-confluence.md) · [All nine axes](index.md)
+
+## Barely exercised is not never exercised
+
+An axis fails a rule it never exercised. One it exercised in a handful of runs passes, and its note names it: `(barely exercised: attempts-never-go-back (4 of 200), under 10% of the runs; ...)`. The generator rarely reached a state where the operation changes the value, and a richer one (realistic histories next to random walks) raises it. To make that a failure, ask for a share:
+
+```csharp
+AutoTest.For(MyConstraints.Instance, gen).MinimumExercise(0.1)   // each rule in at least 10% of the runs
+```
+
+It applies to the idempotency, monotonicity and conservation axes (the action changed the value) and to the guard of a `When` rule (the guard was true).
