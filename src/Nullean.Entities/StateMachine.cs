@@ -72,12 +72,14 @@ public sealed class StateMachine<TState, TTrigger> where TState : notnull where 
 	public Constraint<T> AsConstraint<T>(Func<T, TState> selector)
 	{
 		var builder = Constraints<T>.Transitions(selector);
-		foreach (var (from, to) in Transitions.Select(t => (t.From, t.To)).Concat(Timeouts.Select(t => (t.From, t.To))).Distinct())
+		foreach (var (from, to) in Edges())
 		{
 			builder.Allow(from, to);
 		}
 		return builder;
 	}
+
+	internal IEnumerable<(TState From, TState To)> Edges() => Transitions.Select(t => (t.From, t.To)).Concat(Timeouts.Select(t => (t.From, t.To))).Distinct();
 
 	/// <summary>The machine as a Mermaid <c>stateDiagram-v2</c>.</summary>
 	public string ToMermaid()
