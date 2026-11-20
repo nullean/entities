@@ -121,6 +121,32 @@ public class FileWorldTests
 	}
 
 	[Test]
+	public async Task A_counter_example_that_adds_a_file_survives_axes_running_at_once_on_one_constant_base()
+	{
+		// a Gen.Const base is one MockFileSystem; TUnit runs the Invariant and Vacancy cases at the same time, and both apply the counter-example to it
+		for (var attempt = 0; attempt < 30; attempt++)
+		{
+			var valid = Draw(AutoMode.Plausible, 40).First(d => d.Images.Count > 0);
+			var test = AutoTest
+				.For(Rules, Gen.Const(valid))
+				.Options(o => o.UseFileSystem())
+				.CounterExamples(new Dictionary<string, Func<Docset, Docset>>
+				{
+					["ImagesAreNotSymlinks"] = d =>
+					{
+						((MockFileSystem)d.FileSystem).AddFile("/docs/real.png", "x");
+						d.FileSystem.File.CreateSymbolicLink("/docs/link.png", "/docs/real.png");
+						return d with { Images = [d.FileSystem.FileInfo.New("/docs/link.png")] };
+					}
+				});
+
+			var results = await Task.WhenAll(Task.Run(test.InvariantAsync), Task.Run(test.VacancyAsync));
+
+			results.OfType<AxisResult.Failed>().Select(f => f.ToString()).Should().BeEmpty();
+		}
+	}
+
+	[Test]
 	public void Without_UseFileSystem_the_error_says_which_package_and_call_to_use()
 	{
 		var act = () => GenAuto.Of<Docset>(AutoMode.Plausible).Generate(new PCG(1u, 1UL), null, out _);
