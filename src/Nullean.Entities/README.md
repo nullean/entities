@@ -624,6 +624,9 @@ machine.ToMermaid();                                      // stateDiagram-v2
 StateMachine.FromMermaid(text);                           // and back: a diagram in the docs can be the specification
 ```
 
+When the machine depends on the value (a card payment and an invoice follow different diagrams), pick it per value and list the candidates so every edge of each is required:
+`Constraints<Payment>.Transitions(p => p.Kind == Kind.Card ? card : invoice, p => p.Phase, card, invoice)`. A value that moves to the other machine is a violation.
+
 `Nullean.Entities.CsCheck` explores a machine (`machine.Spec().Exhaustive()`) and checks a real entity follows it (`machine.ConformTo(...)`).
 `Constraint<T>.Map` / `ConstraintSet<T>.Map` lift constraints through a projection while keeping kind, name, guards and edges.
 
