@@ -87,7 +87,7 @@ error NECG001: 'ThingRules' has [Constraint] members but is not declared partial
 | `[Constraints(ValidatableObject = true)]` | `IValidatableObject`, so DataAnnotations validation (`Validator`, `AddValidation()`, MVC, Blazor, Options) runs the set's errors, minus the attribute rules it already checks. |
 | `[ConstraintIgnore]` | Leaves a member, property or method out. |
 
-Diagnostics: `NECG001` to `NECG007` are errors (not partial, not static, wrong type, a non-partial container, mixed kinds, inconsistent type argument, a member about another type), and so are `NECG011` (`ValidatableObject = true` on a type that already has an `IValidatableObject.Validate`) and `NECG012` (`ValidatableObject = true` on a set about another type). `NECG010` (an unsupported validation attribute) and `NECG020` (a method not used as an action) are Info.
+Diagnostics: `NECG001` to `NECG007` are errors (not partial, not static, wrong type, a non-partial container, mixed kinds, inconsistent type argument, a member about another type), and so are `NECG011` (`ValidatableObject = true` on a type that already has an `IValidatableObject.Validate`) and `NECG012` (`ValidatableObject = true` on a set about another type). `NECG010` (an unsupported validation attribute) and `NECG020` (a method not used as an action) are Info. `NECG030` is a warning: a constraint's initializer reads a static field declared below it, which is still `default` while the rule is built (static fields initialise in declaration order); a read inside a lambda is fine, it happens when the lambda runs.
 
 ## Pitfalls and limits
 
