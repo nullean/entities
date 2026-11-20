@@ -39,23 +39,36 @@ public static class AxisTests
 	{
 		var settings = run ?? new AxisRun();
 		var rules = constraints.OfAxis(Axis.Invariant);
-		if (!constraints.AsConstraints().Any(c => c.Axis == Axis.Invariant))
+		var hasInvariants = constraints.AsConstraints().Any(c => c.Axis == Axis.Invariant);
+		// A hand-written sequential rule has no shape any axis can choose a technique from, but every operation the invariant axis runs is checked against it.
+		var unclassified = constraints.AsConstraints().Any(c => c.Axis == Axis.Unclassified);
+		if (!hasInvariants && !(unclassified && actions is { Count: > 0 }))
 		{
 			return new AxisResult.NotApplicable(Axis.Invariant);
 		}
-		_ = rules.CheckLaws(
-			valid,
-			Only(counterExamples, rules),
-			settings.Samples,
-			derivedFrom: Math.Min(25, settings.Samples),
-			settings.GeneratorSeed,
-			requireCounterExamples: false,
-			time: settings.Time,
-			writeLine: settings.WriteLine,
-			options: settings.Options
-		);
-		var kept = actions is { Count: > 0 } ? await OperationsKeepInvariants(rules, actions, valid, settings).ConfigureAwait(false) : null;
-		return new AxisResult.Passed(Axis.Invariant, Names(constraints, Axis.Invariant), settings.Samples, kept);
+		if (hasInvariants)
+		{
+			_ = rules.CheckLaws(
+				valid,
+				Only(counterExamples, rules),
+				settings.Samples,
+				derivedFrom: Math.Min(25, settings.Samples),
+				settings.GeneratorSeed,
+				requireCounterExamples: false,
+				time: settings.Time,
+				writeLine: settings.WriteLine,
+				options: settings.Options
+			);
+		}
+		var kept = actions is { Count: > 0 }
+			? await OperationsKeepInvariants(
+				ConstraintSet.Merge(rules, constraints.OfAxis(Axis.Unclassified, includePrerequisites: false)),
+				actions,
+				valid,
+				settings
+			).ConfigureAwait(false)
+			: null;
+		return new AxisResult.Passed(Axis.Invariant, [.. Names(constraints, Axis.Invariant), .. Names(constraints, Axis.Unclassified)], settings.Samples, kept);
 	}
 
 	// A rule that holds for every generated value is only half of "holds in every state": no operation may take a valid value to an invalid one. The same actions the sequential

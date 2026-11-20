@@ -205,6 +205,26 @@ public class AutoTestTests
 	}
 
 	[Test]
+	public async Task A_hand_written_transition_rule_is_attacked_by_the_operations_and_fails_when_one_breaks_it()
+	{
+		var set = ConstraintSet.From(
+			("value-not-negative", Constraints<AutoAccount>.Always(a => a.Value >= 0, "A value is never negative.")),
+			("version-steps-by-one", Constraints<AutoAccount>.CheckTransition(
+				(before, after) => after.Version - before.Version > 1 ? [Violation.Error("Version jumped by more than one.")] : []
+			))
+		);
+
+		var report = await AutoTest
+			.For(set, Accounts)
+			.Action("jump", a => a with { Version = a.Version + 2 })
+			.CounterExamples(new Dictionary<string, Func<AutoAccount, AutoAccount>> { ["value-not-negative"] = a => a with { Value = -1 } })
+			.ReportAsync();
+
+		report.Failures.Should().ContainSingle(f => f.Axis == Axis.Invariant);
+		report.Failures.Single().Report.Should().Contain("version-steps-by-one");
+	}
+
+	[Test]
 	public async Task A_generated_companion_supplies_its_rules_and_the_operations_it_found()
 	{
 		var report = await AutoTest
