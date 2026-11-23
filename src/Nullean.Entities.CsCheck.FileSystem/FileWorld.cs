@@ -70,15 +70,18 @@ internal sealed class FileWorld
 
 	private readonly StrongBox<int> _counter;
 
-	public FileWorld() : this(new MockFileSystem(), 0)
+	public FileWorld() : this(new MockFileSystem(), null, 0)
 	{ }
 
-	/// <summary>A world over a file system a baseline value already has; names start high so they cannot replace the baseline's own files.</summary>
-	public FileWorld(MockFileSystem fileSystem, int firstName = 10_000)
+	/// <summary>
+	/// A world over a file system a baseline value already has; names start high so they cannot replace the baseline's own files. A file of each kind is built below
+	/// <paramref name="root"/>, the baseline's own root when it has one, so it breaks only the rule about its kind and not also the rule that files stay inside the root.
+	/// </summary>
+	public FileWorld(MockFileSystem fileSystem, string? root = null, int firstName = 10_000)
 	{
 		_counter = Counters.GetValue(fileSystem, _ => new StrongBox<int>(firstName - 1));
 		FileSystem = fileSystem;
-		Root = OperatingSystem.IsWindows() ? @"C:\docs" : "/docs";
+		Root = root ?? (OperatingSystem.IsWindows() ? @"C:\docs" : "/docs");
 		Outside = OperatingSystem.IsWindows() ? @"C:\elsewhere" : "/elsewhere";
 		FileSystem.AddDirectory(Root);
 		FileSystem.AddDirectory(Outside);

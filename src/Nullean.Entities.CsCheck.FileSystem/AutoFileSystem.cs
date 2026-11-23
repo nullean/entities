@@ -50,15 +50,30 @@ public static class AutoFileSystemExtensions
 		return null;
 	}
 
+	// the folder the baseline holds as a directory member: the files swapped in are built below it, so they do not also leave it
+	private static string? RootOf(object baseline, MockFileSystem mock) =>
+		baseline
+			.GetType()
+			.GetProperties()
+			.Where(p => p.GetIndexParameters().Length == 0 && typeof(IDirectoryInfo).IsAssignableFrom(p.PropertyType))
+			.Select(p => p.GetValue(baseline) as IDirectoryInfo)
+			.FirstOrDefault(d => d is not null && ReferenceEquals(d.FileSystem, mock) && d.Exists)?.FullName;
+
 	// one file of every kind but the plain one, in the file system the baseline already has
 	private static IEnumerable<IFileInfo> EdgeFiles(object baseline) =>
 		WorldOf(baseline) is { } mock
-			? Enum.GetValues<FileKind>().Where(k => k != FileKind.Existing).Select(k => new FileWorld(mock).File(new PCG(1u, (ulong)k + 1), k))
+			? Enum
+				.GetValues<FileKind>()
+				.Where(k => k != FileKind.Existing)
+				.Select(k => new FileWorld(mock, RootOf(baseline, mock)).File(new PCG(1u, (ulong)k + 1), k))
 			: [];
 
 	private static IEnumerable<IDirectoryInfo> EdgeDirectories(object baseline) =>
 		WorldOf(baseline) is { } mock
-			? Enum.GetValues<DirectoryKind>().Where(k => k != DirectoryKind.Existing).Select(k => new FileWorld(mock).Directory(new PCG(1u, (ulong)k + 1), k))
+			? Enum
+				.GetValues<DirectoryKind>()
+				.Where(k => k != DirectoryKind.Existing)
+				.Select(k => new FileWorld(mock, RootOf(baseline, mock)).Directory(new PCG(1u, (ulong)k + 1), k))
 			: [];
 
 	private static FileKind PickFile(PCG pcg, AutoMode mode)
