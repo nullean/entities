@@ -32,3 +32,8 @@ A rule that was an error must stay an error, and a rule weakened by accident sho
 ## Operations and warnings
 
 An operation is allowed to produce a value that only breaks a warning, because the type lets it through and reports it. The Invariant axis checks that operations never produce a value that breaks an error. A rule you want enforced on operations is a rule you make an error.
+
+## A green rerun is not a fix
+
+A test run fixes its seed for the first iteration only; later iterations draw fresh values. A new rule that a rare value breaks can fail one run in seven, so a red build that goes green on rerun may be hiding a real failure. Take the seed and the shrunk case from the failing run and pin them (`.Seed("...")` on an `AutoTest`) to replay it exactly.
+
