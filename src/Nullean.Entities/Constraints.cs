@@ -837,6 +837,48 @@ public static partial class Constraints<T>
 	public static TransitionBuilder<T, TState> Transitions<TState>(Func<T, TState> selector) => new(selector);
 
 	/// <summary>
+	/// A lifecycle rule whose declared machine depends on the value: <paramref name="machineFor"/> picks the machine, and a change of
+	/// <paramref name="selector"/>'s state must be an edge (a trigger or a timeout) of it. A value that moves to a different machine is a violation.
+	/// <paramref name="machines"/> lists every machine <paramref name="machineFor"/> can return: the rule is classified like
+	/// <c>Transitions(selector).Allow(...)</c> (an invariant over the pair) and its <see cref="Constraint{T}.Edges"/> are the edges of all of them, so a
+	/// test requires each one to be taken. A <paramref name="machineFor"/> that returns a machine not listed is an <see cref="InvalidOperationException"/>.
+	/// </summary>
+	public static Constraint<T> Transitions<TState, TTrigger>(
+		Func<T, StateMachine<TState, TTrigger>> machineFor,
+		Func<T, TState> selector,
+		params StateMachine<TState, TTrigger>[] machines
+	) where TState : notnull where TTrigger : notnull
+	{
+		ArgumentNullException.ThrowIfNull(machineFor);
+		ArgumentNullException.ThrowIfNull(selector);
+		ArgumentNullException.ThrowIfNull(machines);
+		var known = machines.Distinct().ToArray();
+		var edges = known.ToDictionary(m => m, m => m.Edges().ToHashSet());
+		Constraint<T> self = null!;
+		self = new(ConstraintKind.Sequential, (prev, next) =>
+		{
+			var before = machineFor(prev);
+			var after = machineFor(next);
+			if (!edges.TryGetValue(before, out var allowed) || !edges.ContainsKey(after))
+			{
+				throw new InvalidOperationException("The machine picked for a value is not one of the machines the rule was declared with.");
+			}
+			var from = selector(prev);
+			var to = selector(next);
+			if (!ReferenceEquals(before, after))
+			{
+				return [Violation.Error($"{self.Name ?? "Constraint"} does not allow a value to move to another lifecycle.") with { Evidence = (from, to) }];
+			}
+			if (EqualityComparer<TState>.Default.Equals(from, to) || allowed.Contains((from, to)))
+			{
+				return [];
+			}
+			return [Violation.Error($"{self.Name ?? "Constraint"} does not allow the transition from {from} to {to}.") with { Evidence = (from, to) }];
+		});
+		return self.WithEdges(v => $"{selector(v)}", [.. known.SelectMany(m => m.Edges()).Distinct().Select(e => ($"{e.From}", $"{e.To}"))]);
+	}
+
+	/// <summary>
 	/// Violated whenever applying <paramref name="action"/> twice from the value being checked
 	/// gives a different result than applying it once — the standard <c>f(f(x)) == f(x)</c> law.
 	/// Point-in-time: it only needs the value being checked, never a previous one, since
