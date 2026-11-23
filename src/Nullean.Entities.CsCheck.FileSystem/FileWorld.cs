@@ -76,7 +76,7 @@ internal sealed class FileWorld
 	/// <summary>A world over a file system a baseline value already has; names start high so they cannot replace the baseline's own files.</summary>
 	public FileWorld(MockFileSystem fileSystem, int firstName = 10_000)
 	{
-		_counter = Counters.GetValue(fileSystem, _ => new StrongBox<int>(firstName));
+		_counter = Counters.GetValue(fileSystem, _ => new StrongBox<int>(firstName - 1));
 		FileSystem = fileSystem;
 		Root = OperatingSystem.IsWindows() ? @"C:\docs" : "/docs";
 		Outside = OperatingSystem.IsWindows() ? @"C:\elsewhere" : "/elsewhere";
@@ -92,7 +92,7 @@ internal sealed class FileWorld
 
 	private string Combine(params string[] parts) => FileSystem.Path.Combine(parts);
 
-	private string NextName(PCG pcg) => $"{Words[(int)pcg.Next((uint)Words.Length)]}-{_counter.Value++}";
+	private string NextName(PCG pcg) => $"{Words[(int)pcg.Next((uint)Words.Length)]}-{Interlocked.Increment(ref _counter.Value)}";
 
 	private string Folder(PCG pcg)
 	{
@@ -100,7 +100,16 @@ internal sealed class FileWorld
 		return folder.Length == 0 ? Root : Combine(Root, folder.Replace('/', FileSystem.Path.DirectorySeparatorChar));
 	}
 
+	// Axes of one test run at the same time over a constant base, so its file system is shared: each draw changes it under a lock on it.
 	public IFileInfo File(PCG pcg, FileKind kind)
+	{
+		lock (FileSystem)
+		{
+			return FileCore(pcg, kind);
+		}
+	}
+
+	private IFileInfo FileCore(PCG pcg, FileKind kind)
 	{
 		var name = NextName(pcg);
 		switch (kind)
@@ -172,6 +181,14 @@ internal sealed class FileWorld
 	}
 
 	public IDirectoryInfo Directory(PCG pcg, DirectoryKind kind)
+	{
+		lock (FileSystem)
+		{
+			return DirectoryCore(pcg, kind);
+		}
+	}
+
+	private IDirectoryInfo DirectoryCore(PCG pcg, DirectoryKind kind)
 	{
 		switch (kind)
 		{

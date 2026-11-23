@@ -86,6 +86,7 @@ where `valid` is one `Docset` whose files all satisfy the rules (for example, a 
 - The root is `/docs` (`C:\docs` on Windows) and the outside folder is `/elsewhere` (`C:\elsewhere`). A rule that depends on other paths needs a hand-built baseline.
 - `MockFileSystem` is in-memory, so rules about permissions, locks or real disk behaviour are not exercised.
 - Rules whose counter-examples need a structure the generator cannot draw (for example a specific folder name your rule looks for) still need one written by hand.
+- A `Gen.Const` base is one `MockFileSystem` shared by every axis, and axes run at the same time. A counter-example given to `AutoTest` runs once per base, under a lock on it, and later axes reuse the result; the file system is not cloned, so a counter-example should add files rather than edit the base's own.
 - It reaches the file-system members through AutoGen's reflection; do not reference it from an AOT-published app.
 
 ## Learn more
