@@ -133,6 +133,8 @@ await script.SampleWithAsync(
 );
 ```
 
+A seed fixes the **first** iteration only. CsCheck draws the seed of every later iteration from fresh randomness, so a run with the default seed is repeatable up to its first iteration and no further. A rule broken by a rare value can fail one run in seven and pass the next six. The seed and the shrunk case a failure prints are exact, so paste that seed to replay the failure; a green rerun of a red build does not show the bug is gone.
+
 ## Metamorphic: two paths, shrinkable pair
 
 ```csharp
@@ -224,7 +226,7 @@ OrderConstraints.All.RejectsInvalid();                                   // inva
 |---|---|---|
 | `ForAll(property)` | `property` holds for every generated value that satisfies the constraints | You have a rule of your own (`Total == sum of lines`) and want valid inputs for free. |
 | `Preserves(actions)` | From a valid start, any action with any generated argument gives a result that satisfies the constraints. The action runs **raw**, not through `Apply`, which would reject a bad result and so could never show one | You want the random cousin of `Exhaustive` that also starts from states `New()` never produces. |
-| `Probe()` | Per point-in-time constraint, how often it held and was violated over 1,000 generated values | A constraint that **never fails** may be a tautology or a derived value; one that **never holds** is a contradiction (or something the generator cannot build) and throws. |
+| `Probe()` | Per point-in-time constraint, how often it held and was violated over 1,000 generated values | A constraint that **never fails** may be a tautology or a derived value; one that **never holds** is a contradiction (or something the generator cannot build) and throws. Run it on a raw generator (`GenAuto.Of<T>()` without `Valid`), which can break rules. Over a valid generator every rule reads "never violated", which is correct and says nothing. |
 | `RejectsInvalid()` | Values violating a constraint appear in `Validate` under its name, and `Apply` to them is refused naming it | You want proof every rule is named and enforced. Constraints the generator never violates are listed as unfalsifiable. |
 | `Commands.Over(make, values...)`, `Commands.FromDomain(make)` | A list of commands for `EventSourced`/`FromReducer`: one per value of an argument, or one per value of its default domain (the same plausible values and edges an action argument gets) | A command carries a value (`Pay(50m)`) and you want the amounts explored, not just the ones you thought of. |
 | `Laws(gen, counterExamples)` (obsolete: use `AutoTest.For(set, gen).CounterExamples(...)`) | The same laws over **generated** data: a few hundred values from a fixed seed (`samples`, `seed`) break no rule (a failure prints the value and the rules, the model and its rules disagreeing); every rule is **reachable** (its counter-example, applied to the first `derivedFrom` generated values, breaks it for at least one); and a counter-example derived from any generated value breaks only its own rule. A counter-example that changes nothing for some value is skipped for it. | The constraint set is checked against what the model can generate rather than one value you wrote. Use `GenAuto.Of<T>(AutoMode.Plausible, o => ...)` with `Reference`, `Identity` and `Normalize` declarations for what a loaded value promises. |

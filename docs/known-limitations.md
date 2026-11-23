@@ -39,4 +39,4 @@ A quantity is conserved across all the operations under test, so an operation th
 
 ## Packages
 
-The packages are not published to NuGet yet. Until they are, reference them from a checkout.
+The packages are published to NuGet ([`Nullean.Entities`](https://www.nuget.org/packages/Nullean.Entities) and the others), so reference them as packages, not from a checkout.
