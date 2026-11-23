@@ -86,6 +86,16 @@ internal static class Diagnostics
 		isEnabledByDefault: true
 	);
 
+	// A warning: the code compiles and runs, it just hands the rule a default value. Not an error, since a read that only wants the field's type or is guarded is legal.
+	public static readonly DiagnosticDescriptor ReadsLaterStaticField = new(
+		"NECG030",
+		"Constraint reads a static field declared after it",
+		"'{0}' reads '{1}' while it is initialised, but '{1}' is declared below it so it is still default (null) at that point; static fields initialise in declaration order, move '{1}' above '{0}'",
+		Category,
+		DiagnosticSeverity.Warning,
+		isEnabledByDefault: true
+	);
+
 	// Info, not a warning: a consumer that treats warnings as errors must not fail to build because a model carries [Phone] or a custom validation attribute.
 	public static readonly DiagnosticDescriptor UnsupportedAnnotation = new(
 		"NECG010",
