@@ -13,6 +13,9 @@ namespace Nullean.Entities.CsCheck.FileSystem.Tests;
 // What docs-builder's DocumentationSetDefinition holds: the file system itself, the folder, the docset file and the files it points at.
 internal sealed record Docset(IFileSystem FileSystem, IDirectoryInfo Root, IFileInfo SourceFile, IReadOnlyList<IFileInfo> Images);
 
+// A model with its own root, not the generator's: the files the search swaps in must be built below this one.
+internal sealed record SiteModel(IDirectoryInfo Root, IReadOnlyList<IFileInfo> Files);
+
 public class FileWorldTests
 {
 	private static readonly ConstraintSet<Docset> Rules = ConstraintSet.From(
@@ -196,5 +199,28 @@ public class FileWorldTests
 
 		violations.Should().NotBeEmpty();
 		violations.Should().OnlyContain(v => v.Message.Contains(".bin", StringComparison.Ordinal));
+	}
+
+	[Test]
+	public void Counter_examples_for_a_value_with_its_own_root_are_built_below_that_root_so_each_breaks_only_its_rule()
+	{
+		var fs = new MockFileSystem();
+		fs.AddFile("/config/site/intro.md", "# intro");
+		var valid = new SiteModel(fs.DirectoryInfo.New("/config/site"), [fs.FileInfo.New("/config/site/intro.md")]);
+		var rules = ConstraintSet.From(
+			("stay-inside", Files<SiteModel>.StayInside(m => m.Root, m => m.Files)),
+			("no-links", Files<SiteModel>.NotSymlink(m => m.Files, m => m.Root)),
+			("no-hidden-folders", Files<SiteModel>.NoHiddenSegments(m => m.Root, m => m.Files)),
+			("known-kinds", Files<SiteModel>.HaveExtension(m => m.Files, [".md"]))
+		);
+
+		var report = AutoTest.For(rules, Gen.Const(valid)).Options(o => o.UseFileSystem()).CounterExampleReport();
+
+		foreach (var rule in new[] { "no-links", "no-hidden-folders", "known-kinds" })
+		{
+			var line = report.Lines.Single(l => l.Rule == rule);
+			line.Kind.Should().Be(CounterExampleKind.Found, rule);
+			line.Overlaps.Should().BeEmpty($"{rule}'s file is built inside the value's own root, so it does not also leave it");
+		}
 	}
 }
