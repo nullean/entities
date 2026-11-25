@@ -17,7 +17,7 @@
          — a generator built against a newer compiler than the host is running fails
          with CS9057 at consumption time, so this has to track the SDK, not "latest". 5.9.0 is the latest
          stable and needs a host compiler of 5.9 or later: the 10.0.400 SDK (VS 18.9) or 11.0.100 (which ships 5.12). -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
     <!-- CsCheck 5 targets net10.0 and net11.0 and has no dependencies. -->
     <PackageVersion Include="CsCheck" Version="5.0.1" />
     <!-- System.Reactive 7.0.0 and Microsoft.Reactive.Testing 7.0.0. -->
