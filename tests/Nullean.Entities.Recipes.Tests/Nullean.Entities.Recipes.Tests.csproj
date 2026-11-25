@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="TUnit" />
     <PackageReference Include="AwesomeAssertions" />
