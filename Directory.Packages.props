@@ -6,7 +6,7 @@
   <ItemGroup>
     <GlobalPackageReference Include="MinVer" Version="8.0.0" PrivateAssets="All" />
     <!-- Formats every C# project on `dotnet build` (Debug: rewrite, Release: check-and-fail). -->
-    <GlobalPackageReference Include="curb" Version="0.14.2" PrivateAssets="All" />
+    <GlobalPackageReference Include="curb" Version="0.15.1" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,23 +17,23 @@
          — a generator built against a newer compiler than the host is running fails
          with CS9057 at consumption time, so this has to track the SDK, not "latest". 5.9.0 is the latest
          stable and needs a host compiler of 5.9 or later: the 10.0.400 SDK (VS 18.9) or 11.0.100 (which ships 5.12). -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
     <!-- CsCheck 5 targets net10.0 and net11.0 and has no dependencies. -->
     <PackageVersion Include="CsCheck" Version="5.0.1" />
     <!-- System.Reactive 7.0.0 and Microsoft.Reactive.Testing 7.0.0. -->
     <PackageVersion Include="System.Reactive" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Reactive.Testing" Version="7.0.0" />
     <!-- System.IO.Abstractions: the file-system types docs-builder's domain holds (IFileSystem, IFileInfo, IDirectoryInfo); the TestingHelpers package is the MockFileSystem the generator builds. -->
-    <PackageVersion Include="System.IO.Abstractions" Version="23.0.0" />
-    <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="23.0.0" />
+    <PackageVersion Include="System.IO.Abstractions" Version="23.0.1" />
+    <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="23.0.1" />
     <!-- The example apps (examples/Apps) wire their services through dependency injection, as a real application does. The library does not depend on it. -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
     <!-- Microsoft.Extensions.*: the DI and Options abstractions the integration packages build on. -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="11.0.0" />
     <!-- Nullean.Argh: ArghValidation, which Nullean.Entities.Argh builds on. -->
-    <PackageVersion Include="Nullean.Argh.Interfaces" Version="0.30.0" />
-    <PackageVersion Include="Nullean.Argh" Version="0.30.0" />
+    <PackageVersion Include="Nullean.Argh.Interfaces" Version="0.30.1" />
+    <PackageVersion Include="Nullean.Argh" Version="0.30.1" />
     <!-- Microsoft.Extensions.Logging.Abstractions: ILogger and the LoggerMessage source generator, all Nullean.Entities.Diagnostics needs (metrics are System.Diagnostics.Metrics, in the shared framework). -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0" />
     <!-- Test only: FakeLogger (Microsoft.Extensions.Diagnostics.Testing) and AddMetrics (Microsoft.Extensions.Diagnostics) for the Diagnostics tests. -->
@@ -48,7 +48,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Components.Forms" Version="11.0.0" Condition="'$(TargetFramework)' != 'net10.0'" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.Forms" Version="10.0.15" Condition="'$(TargetFramework)' == 'net10.0'" />
     <!-- ReactiveUI.Validation 8.1.0 (on ReactiveUI 26.0.1): ValidationContext and IValidationComponent, which Nullean.Entities.ReactiveUI builds on. -->
-    <PackageVersion Include="ReactiveUI.Validation" Version="8.1.0" />
+    <PackageVersion Include="ReactiveUI.Validation" Version="9.0.0" />
     <!-- FluentValidation 12.2.0 (Apache-2.0, targets net8.0, no dependencies): what Nullean.Entities.FluentValidation bridges to. -->
     <PackageVersion Include="FluentValidation" Version="12.2.0" />
     <!-- EF Core: EF Core 11 targets net11.0 only, so net10.0 stays on the latest 10.0.x. The Sqlite provider is for the tests. -->
@@ -59,12 +59,12 @@
     <!-- examples/Nullean.Entities.Recipes: mediator, gRPC and GraphQL recipes, compiled and tested; nothing packed depends on these. -->
     <PackageVersion Include="Mediator.Abstractions" Version="3.0.2" />
     <PackageVersion Include="Mediator.SourceGenerator" Version="3.0.2" />
-    <PackageVersion Include="WolverineFx" Version="6.64.0" />
-    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.64.0" />
+    <PackageVersion Include="WolverineFx" Version="6.64.2" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.64.2" />
     <PackageVersion Include="Grpc.AspNetCore" Version="2.85.0" />
     <PackageVersion Include="Grpc.StatusProto" Version="2.85.0" />
     <PackageVersion Include="Grpc.Net.Client" Version="2.85.0" />
-    <PackageVersion Include="HotChocolate.AspNetCore" Version="16.7.5" />
+    <PackageVersion Include="HotChocolate.AspNetCore" Version="16.7.6" />
     <!-- Bogus: realistic fake data generation. -->
     <PackageVersion Include="Bogus" Version="35.6.5" />
     <!-- Soenneker.Utils.AutoBogus: maintained AutoBogus fork for net9/10, Bogus >= 35.6.5. -->
@@ -73,7 +73,7 @@
 
   <ItemGroup>
     <!-- Test dependencies -->
-    <PackageVersion Include="TUnit" Version="1.83.8" />
+    <PackageVersion Include="TUnit" Version="1.86.6" />
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
     <!-- bUnit 2.x is test-framework agnostic (BunitContext), so it runs under TUnit. -->
     <PackageVersion Include="bunit" Version="2.15.2" />
