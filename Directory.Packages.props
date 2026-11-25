@@ -17,15 +17,15 @@
          — a generator built against a newer compiler than the host is running fails
          with CS9057 at consumption time, so this has to track the SDK, not "latest". 5.9.0 is the latest
          stable and needs a host compiler of 5.9 or later: the 10.0.400 SDK (VS 18.9) or 11.0.100 (which ships 5.12). -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
     <!-- CsCheck 5 targets net10.0 and net11.0 and has no dependencies. -->
     <PackageVersion Include="CsCheck" Version="5.0.1" />
     <!-- System.Reactive 7.0.0 and Microsoft.Reactive.Testing 7.0.0. -->
     <PackageVersion Include="System.Reactive" Version="7.0.0" />
     <PackageVersion Include="Microsoft.Reactive.Testing" Version="7.0.0" />
     <!-- System.IO.Abstractions: the file-system types docs-builder's domain holds (IFileSystem, IFileInfo, IDirectoryInfo); the TestingHelpers package is the MockFileSystem the generator builds. -->
-    <PackageVersion Include="System.IO.Abstractions" Version="23.0.0" />
-    <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="23.0.0" />
+    <PackageVersion Include="System.IO.Abstractions" Version="23.0.1" />
+    <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="23.0.1" />
     <!-- The example apps (examples/Apps) wire their services through dependency injection, as a real application does. The library does not depend on it. -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
     <!-- Microsoft.Extensions.*: the DI and Options abstractions the integration packages build on. -->
@@ -73,7 +73,7 @@
 
   <ItemGroup>
     <!-- Test dependencies -->
-    <PackageVersion Include="TUnit" Version="1.83.8" />
+    <PackageVersion Include="TUnit" Version="1.86.6" />
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
     <!-- bUnit 2.x is test-framework agnostic (BunitContext), so it runs under TUnit. -->
     <PackageVersion Include="bunit" Version="2.15.2" />
