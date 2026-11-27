@@ -117,10 +117,12 @@ let main argv =
                       failwithf "%s does not contain analyzers/dotnet/cs/Nullean.Entities.SourceGenerators.dll, so [Constraints] would do nothing for a consumer" (Path.GetFileName path)
               // The validator is a net8 tool that loads each package's assembly and its references, and a net11.0 assembly references System.Runtime 11, which an older runtime cannot
               // supply ("Could not load file or assembly 'System.Runtime, Version=11.0.0.0'"). Letting it roll forward to the newest runtime installed, previews included, is what lets it read them.
-              Environment.SetEnvironmentVariable("DOTNET_ROLL_FORWARD", "LatestMajor")
-              Environment.SetEnvironmentVariable("DOTNET_ROLL_FORWARD_TO_PRERELEASE", "1")
-              for package in packages do
-                  sh $"dotnet nupkg-validator validate {package} -v {version} -k {Paths.SignKey}" }
+              // withEnv scopes the two variables to these commands; they no longer stay set for the rest of the build.
+              shell {
+                  use! _ = withEnv [ "DOTNET_ROLL_FORWARD", "LatestMajor"; "DOTNET_ROLL_FORWARD_TO_PRERELEASE", "1" ]
+                  for package in packages do
+                      sh $"dotnet nupkg-validator validate {package} -v {version} -k {Paths.SignKey}"
+              } }
         | Pack -> command {
               requires [Test; Generatepackages; Validatepackages] }
                   |> executes { printfn "Pack complete" }
