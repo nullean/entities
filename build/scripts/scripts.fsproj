@@ -6,7 +6,7 @@
          SDK treats the inherited multi-targeting list as authoritative over this TargetFramework). -->
     <TargetFrameworks></TargetFrameworks>
     <TargetFramework>net11.0</TargetFramework>
-    <!-- Nullean.Make.Fs reads the target descriptions from the /// comments in Program.fs -->
+    <!-- Runna.Fs reads the target descriptions from the /// comments in Program.fs -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Nullable>enable</Nullable>
     <RollForward>LatestMinor</RollForward>
@@ -19,6 +19,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Core" />
-    <PackageReference Include="Nullean.Make.Fs" />
+    <PackageReference Include="Runna.Fs" />
   </ItemGroup>
 </Project>
