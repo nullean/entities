@@ -4,27 +4,37 @@
   "tools": {
     "husky": {
       "version": "0.9.1",
-      "commands": ["husky"],
+      "commands": [
+        "husky"
+      ],
       "rollForward": true
     },
     "minver-cli": {
       "version": "8.0.0",
-      "commands": ["minver"],
+      "commands": [
+        "minver"
+      ],
       "rollForward": false
     },
     "assembly-differ": {
-      "version": "0.18.2",
-      "commands": ["assembly-differ"],
+      "version": "1.2.0",
+      "commands": [
+        "assembly-differ"
+      ],
       "rollForward": false
     },
     "nupkg-validator": {
       "version": "0.11.6",
-      "commands": ["nupkg-validator"],
+      "commands": [
+        "nupkg-validator"
+      ],
       "rollForward": false
     },
     "curb-cli": {
-      "version": "0.14.2",
-      "commands": ["curb"],
+      "version": "0.15.1",
+      "commands": [
+        "curb"
+      ],
       "rollForward": false
     }
   }
