@@ -92,9 +92,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Build script dependencies. FSharp.Core is explicit: under Central Package Management the F# SDK adds no implicit reference, and the scripts otherwise picked up 8.0.400 transitively. Nullean.Make.Fs needs 11.0.100 or later. -->
+    <!-- Build script dependencies. FSharp.Core is explicit: under Central Package Management the F# SDK adds no implicit reference, and the scripts otherwise picked up 8.0.400 transitively. Runna.Fs needs 11.0.100 or later. -->
     <PackageVersion Include="FSharp.Core" Version="11.0.101" />
     <!-- brings Proc and Proc.Fs -->
-    <PackageVersion Include="Nullean.Make.Fs" Version="0.30.0" />
+    <PackageVersion Include="Runna.Fs" Version="0.2.1" />
   </ItemGroup>
 </Project>

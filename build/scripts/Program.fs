@@ -2,7 +2,7 @@ module Program
 
 open System
 open System.IO
-open Nullean.Make.Fs
+open Nullean.Runna.Fs
 open Proc.Fs
 
 /// The build's targets; `./build.sh --help` lists them with these descriptions
@@ -45,7 +45,7 @@ let private isOnNuget (package: string) =
 
 [<EntryPoint>]
 let main argv =
-    let app = MakeApp<Target>("./build.sh", None)
+    let app = RunnaApp<Target>("./build.sh", None)
     let cleanCheckout =
         app.Option<bool>("--cleancheckout", short = "-c", desc = "skip the clean checkout check that guards the release target", defaultValue = true)
     let port = app.Option<int>("--port", desc = "port to serve the documentation on (default 8080)", defaultValue = 8080)
